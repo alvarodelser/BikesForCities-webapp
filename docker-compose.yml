@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgis/postgis:14-3.3
+    container_name: postgis_container
+    networks:
+      default:
+        aliases:
+          - postgis-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: bikes_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      # Database connection (connects to the db service)
+      - POSTGRES_HOST=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      # API configuration
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DEBUG=true
+    volumes:
+      - ./Data:/app/Data
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bikes_frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      # Frontend configuration (connects to backend service)
+      - REACT_APP_API_URL=http://localhost:8000
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  pgdata:

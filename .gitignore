@@ -1,0 +1,48 @@
+.venv
+.env
+deprecated_code/
+anteproyecto.md
+reporte.md
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# Pyre type checker
+.pyre/
+
+# Data, cache, and logs
+Data/
+cache/
+logs/
+
+# Environment variables
+.env
+
+# VSCode
+.vscode/
+
+# MacOS
+.DS_Store
+
+# Plots and images
+plots/
+
+# Ignore CSVs
+*.csv 

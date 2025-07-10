@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+osmnx
+networkx
+geopy
+pandas
+numpy
+matplotlib
+contextily
+psycopg2-binary
+python-dotenv
+scikit-learn
+questionary
+tqdm
+shapely
+geopandas
+geojson-pydantic
