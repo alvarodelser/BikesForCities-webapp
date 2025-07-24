@@ -28,7 +28,7 @@ ipython_config.py
 .pyre/
 
 # Data, cache, and logs
-Data/
+data/
 cache/
 logs/
 

@@ -8,7 +8,7 @@ from .route_strategy import shortest_path
 import json
 import pandas as pd
 from tqdm import tqdm
-from app.database.network_io import put_routes, count_routes
+from backend.database.network_io import put_routes, count_routes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "logs" / "ingestion_log.json"
@@ -36,7 +36,7 @@ def _load_city_data() -> dict[str, dict]:
 def load_graph(city_name: str, dist: int = 10_000) -> nx.MultiDiGraph:
     """Download the bike network around *city_name*.
 
-    Latitude/longitude are pulled from ``Data/spain_data.json``.  If the city
+    Latitude/longitude are pulled from ``data/spain_data.json``.  If the city
     isn't found, a ``ValueError`` is raised.
     """
 

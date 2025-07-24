@@ -20,7 +20,7 @@ from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
     validate_network_exists, build_bbox_condition, check_database_health
 )
-from app.database.network_io import (
+from backend.database.network_io import (
     get_all_networks, get_network_center, count_nodes, count_edges,
     count_routes, count_features, get_nodes, get_edges, get_features
 )

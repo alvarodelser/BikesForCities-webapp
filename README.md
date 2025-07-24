@@ -5,9 +5,9 @@ A web application for analyzing and visualizing bike traffic data in cities. Thi
 ## Project Structure
 
 ```
-BikesForCities-webapp/
-├── app/                # Backend application (FastAPI)
-├── Data/               # Data files (excluded from git)
+BikesForCities-webbackend/
+├── backend/                # Backend application (FastAPI)
+├── data/               # Data files (excluded from git)
 ├── cache/              # Cache files (excluded from git)
 ├── logs/               # Log files (excluded from git)
 ├── frontend/           # Frontend application
@@ -69,7 +69,7 @@ This will start:
 - The database schema is initialized from `schema.sql` on first run.
 - For development, you can modify the backend and frontend code and restart the respective containers.
 - Run populate_db to start loading networks into the database.
-- Add trip csv from Madrid Datos Abiertos into Data/{city}/ folder and run trip_ingestion.py to start adding routes to an existing network 
+- Add trip csv from Madrid Datos Abiertos into data/{city}/ folder and run trip_ingestion.py to start adding routes to an existing network 
 
 ---
 

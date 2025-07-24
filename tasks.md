@@ -9,7 +9,7 @@ This document outlines the **clear, actionable steps** to set up the React front
 
 ### Part 1: Comprehensive Directory Structure Refactoring Plan
 
-This section provides a **meticulous, step-by-step refactoring plan** to rename `app/` to `backend/` and `Data/` to `data/` without breaking any import statements or dependencies.
+This section provides a **meticulous, step-by-step refactoring plan** to rename `backend/` to `backend/` and `data/` to `data/` without breaking any import statements or dependencies.
 
 #### 1.1 Critical Dependencies Analysis
 
@@ -19,16 +19,16 @@ This section provides a **meticulous, step-by-step refactoring plan** to rename 
 - `scripts/trip_ingestion.py` (2 imports)
 - `scripts/database_summary.py` (1 import)
 - `notebooks/test_reconstruction.ipynb` (2 imports)
-- `app/api/routes.py` (1 import)
-- `app/api/dependencies.py` (1 import)
-- `app/processing/network_ops.py` (1 import)
-- `app/processing/trip_loader.py` (1 import)
-- `app/processing/visualization.py` (1 import)
+- `backend/api/routes.py` (1 import)
+- `backend/api/dependencies.py` (1 import)
+- `backend/processing/network_ops.py` (1 import)
+- `backend/processing/trip_loader.py` (1 import)
+- `backend/processing/visualization.py` (1 import)
 - `notebooks/plot_db.ipynb` (3 imports)
 
-**Files with `Data/` path references (8 files):**
+**Files with `data/` path references (8 files):**
 - `notebooks/data_exploration.ipynb` (1 reference)
-- `app/processing/trip_loader.py` (2 references)
+- `backend/processing/trip_loader.py` (2 references)
 - `docker-compose.yml` (1 reference)
 - `Dockerfile` (1 reference)
 - Documentation files (4 references)
@@ -59,8 +59,8 @@ git checkout -b refactor-directory-structure
 find . -name "*.py" -exec sed -i '' 's/from app\./from backend./g' {} \;
 
 # Update relative imports within the app directory
-find app/ -name "*.py" -exec sed -i '' 's/from \.\./from ..\/..\/backend/g' {} \;
-find app/ -name "*.py" -exec sed -i '' 's/from \./from ..\/backend/g' {} \;
+find backend/ -name "*.py" -exec sed -i '' 's/from \.\./from ..\/..\/backend/g' {} \;
+find backend/ -name "*.py" -exec sed -i '' 's/from \./from ..\/backend/g' {} \;
 ```
 
 **Step 3: Update Jupyter Notebooks**
@@ -72,17 +72,17 @@ find notebooks/ -name "*.ipynb" -exec sed -i '' 's/from app\./from backend./g' {
 **Step 4: Update Docker and Configuration Files**
 ```bash
 # Update docker-compose.yml
-sed -i '' 's/uvicorn app\.api\.main:app/uvicorn backend.api.main:app/g' docker-compose.yml
+sed -i '' 's/uvicorn app\.api\.main:backend/uvicorn backend.api.main:backend/g' docker-compose.yml
 sed -i '' 's/\.\/Data:/\.\/data:/g' docker-compose.yml
 
 # Update Dockerfile
-sed -i '' 's/uvicorn app\.api\.main:app/uvicorn backend.api.main:app/g' Dockerfile
-sed -i '' 's/\/app\/Data/\/app\/data/g' Dockerfile
+sed -i '' 's/uvicorn app\.api\.main:backend/uvicorn backend.api.main:backend/g' Dockerfile
+sed -i '' 's/\/app\/data/\/app\/data/g' Dockerfile
 ```
 
 **Step 5: Update Path References in Code**
 ```bash
-# Update Data/ to data/ in Python files
+# Update data/ to data/ in Python files
 find . -name "*.py" -exec sed -i '' 's/Data\//data\//g' {} \;
 find . -name "*.py" -exec sed -i '' 's/"Data\//"data\//g' {} \;
 find . -name "*.py" -exec sed -i '' 's/Data\//data\//g' {} \;
@@ -93,10 +93,10 @@ find notebooks/ -name "*.ipynb" -exec sed -i '' 's/Data\//data\//g' {} \;
 
 **Step 6: Rename Directories**
 ```bash
-# Rename app/ to backend/
+# Rename backend/ to backend/
 mv app backend
 
-# Rename Data/ to data/
+# Rename data/ to data/
 mv Data data
 ```
 
@@ -128,8 +128,8 @@ python -c "from backend.processing.visualization import *; print('Import success
 ```bash
 # If there are any setup.py or pyproject.toml files, update them
 # Check if any scripts reference the old paths
-grep -r "app/" . --exclude-dir=.git
-grep -r "Data/" . --exclude-dir=.git
+grep -r "backend/" . --exclude-dir=.git
+grep -r "data/" . --exclude-dir=.git
 ```
 
 #### 1.3 Verification Steps

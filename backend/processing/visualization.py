@@ -20,7 +20,7 @@ from matplotlib.patches import FancyArrowPatch, Circle
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 
-from app.database.network_io import (
+from backend.database.network_io import (
     get_all_networks, count_nodes, count_edges, count_routes,
     get_features, get_network_center
 )

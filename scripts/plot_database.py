@@ -17,8 +17,8 @@ import matplotlib
 print(f"🎨 Matplotlib backend: {matplotlib.get_backend()}")
 
 from dotenv import load_dotenv
-from app.database.network_io import connect_db, get_or_create_network
-from app.processing.visualization import (
+from backend.database.network_io import connect_db, get_or_create_network
+from backend.processing.visualization import (
     plot_network_overview,
     plot_network_graph,
     plot_cycleway_network,

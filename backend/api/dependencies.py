@@ -8,7 +8,7 @@ from typing import Generator, Optional, Tuple
 import logging
 from math import ceil
 
-from app.database.network_io import connect_db
+from backend.database.network_io import connect_db
 
 logger = logging.getLogger(__name__)
 

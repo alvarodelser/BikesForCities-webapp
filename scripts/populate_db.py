@@ -12,13 +12,13 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 
-from app.processing import extract_edges, extract_nodes, load_graph
-from app.processing.feature_ops import (
+from backend.processing import extract_edges, extract_nodes, load_graph
+from backend.processing.feature_ops import (
     extract_features_for_network,
     FEATURE_TYPES,
     CALCULATED_FEATURES
 )
-from app.database.network_io import (
+from backend.database.network_io import (
     connect_db,
     get_or_create_network,
     get_edges,

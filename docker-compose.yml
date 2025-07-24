@@ -40,10 +40,10 @@ services:
       - API_PORT=8000
       - DEBUG=true
     volumes:
-      - ./Data:/app/Data
+      - ./data:/app/Data
       - ./cache:/app/cache
       - ./logs:/app/logs
-    command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
