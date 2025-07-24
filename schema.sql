@@ -78,7 +78,7 @@ CREATE TABLE features (
     geometry GEOMETRY(GEOMETRY, 4326) NOT NULL,
     tags JSONB,
     extracted_at TIMESTAMP DEFAULT NOW()
-)
+);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_network_id ON nodes(network_id);
