@@ -1,4 +1,5 @@
 .venv
+b4c_venv/
 .env
 deprecated_code/
 anteproyecto.md

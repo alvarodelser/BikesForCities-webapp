@@ -1,4 +1,4 @@
-from typing import List, Tuple, Any
+from typing import List, Tuple, Any, Union
 import networkx as nx
 from shapely import wkt
 from shapely.geometry import Point, LineString
@@ -32,14 +32,14 @@ def extract_nodes(graph: nx.MultiDiGraph, network_id: int) -> List[Tuple[int, in
     return nodes
 
 
-def parse_width(data: dict) -> float | None:
+def parse_width(data: dict) -> Union[float, None]:
     width = data.get("width") or data.get("est_width")
     try:
         return float(width)
     except (ValueError, TypeError):
         return None
 
-def parse_maxspeed(data: dict) -> List[int] | None:
+def parse_maxspeed(data: dict) -> Union[List[int], None]:
     maxspeed = data.get("maxspeed")
     if maxspeed is None:
         return None
@@ -54,7 +54,7 @@ def parse_maxspeed(data: dict) -> List[int] | None:
             return None
     return None
 
-def parse_lanes(data: dict) -> List[int] | None:
+def parse_lanes(data: dict) -> Union[List[int], None]:
     lanes = data.get("lanes")
     if lanes is None:
         return None

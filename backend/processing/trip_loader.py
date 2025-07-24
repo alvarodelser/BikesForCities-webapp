@@ -1,6 +1,6 @@
 import ast
 from pathlib import Path
-from typing import List
+from typing import List, Union
 import re
 import osmnx as ox
 import networkx as nx
@@ -12,7 +12,7 @@ from backend.database.network_io import put_routes, count_routes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "logs" / "ingestion_log.json"
-DATA_DIR = PROJECT_ROOT / "Data"
+DATA_DIR = PROJECT_ROOT / "data"
 
 # Third-party
 import osmnx as ox
@@ -21,7 +21,7 @@ import osmnx as ox
 # Local data helpers
 # ---------------------------------------------------------------------------
 
-_CITY_CACHE: dict[str, dict] | None = None
+_CITY_CACHE: Union[dict[str, dict], None] = None
 
 def _load_city_data() -> dict[str, dict]:
     """Lazy-load and cache the Spain city coordinate JSON."""
@@ -109,7 +109,7 @@ def get_csv_progress(city: str) -> tuple[int, int, list[str]]:
     return len(processed_files), len(csv_files), unprocessed_files
 
 
-def load_next_csv(city: str) -> tuple[pd.DataFrame, str, int] | None:
+def load_next_csv(city: str) -> Union[tuple[pd.DataFrame, str, int], None]:
     """
     Finds the next CSV to process, loads it, and returns:
     (DataFrame, filename, start_row_index)

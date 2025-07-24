@@ -22,7 +22,7 @@ services:
   backend:
     build: 
       context: .
-      dockerfile: Dockerfile
+      dockerfile: backend/Dockerfile
     container_name: bikes_backend
     ports:
       - "8000:8000"
@@ -45,19 +45,19 @@ services:
       - ./logs:/app/logs
     command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: bikes_frontend
-    ports:
-      - "3000:3000"
-    depends_on:
-      - backend
-    environment:
-      # Frontend configuration (connects to backend service)
-      - REACT_APP_API_URL=http://localhost:8000
-    command: npm run dev -- --host 0.0.0.0
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: bikes_frontend
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - backend
+  #   environment:
+  #     # Frontend configuration (connects to backend service)
+  #     - REACT_APP_API_URL=http://localhost:8000
+  #   command: npm run dev -- --host 0.0.0.0
 
 volumes:
   pgdata:

@@ -32,7 +32,7 @@ from backend.database.network_io import (
 
 from pathlib import Path
 
-_SPAIN_DATA_PATH = Path(__file__).resolve().parents[1] / "Data" / "spain_data.json"
+_SPAIN_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "spain_data.json"
 
 
 def _load_cities() -> list[str]:
@@ -79,6 +79,9 @@ def prompt_city() -> str:
 
 
 def main() -> None:  # noqa: D401 – simple script entry-point
+    # Load environment variables from .env file
+    load_dotenv()
+    
     start_total = time.perf_counter()
 
     city = prompt_city()
