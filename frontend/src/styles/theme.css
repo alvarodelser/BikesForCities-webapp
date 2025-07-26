@@ -1,0 +1,51 @@
+@theme {
+    /* ========== FONT FAMILIES ========== */
+    --font-heading: "Playfair Display", serif;
+    --font-body: "Archivo Narrow", sans-serif;
+    --font-ui: "Staatliches", sans-serif;
+  
+    /* ========== COLORS ========== */
+    /* Greens */
+    --color-green-light: #BFDDCE;
+    --color-green: #7BA492;
+    --color-green-dark: #027A76;
+  
+    /* Blues */
+    --color-blue-light: #92BEC9;
+    --color-blue: #3A6C7F;
+    --color-blue-dark: #003849;
+  
+    /* Accents */
+    --color-accent-yellow: #F4A24C;
+    --color-accent-orange: #FF7F50;
+    --color-accent-red: #AF4749;
+  
+    /* Backgrounds & surfaces */
+    --color-bg-light: #FBF6EF;
+    --color-bg-cream: #F9E9DC;
+    --color-background: #FBF6EF;
+    --color-surface: #FFFFFF;
+  
+    /* Semantic */
+    --color-primary: var(--color-green-dark);
+    --color-secondary: var(--color-accent-orange);
+    --color-text: #1E1E1E;
+  
+    /* ========== BORDER RADIUS ========== */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 10px;
+  
+    /* ========== SHADOWS ========== */
+    --shadow-sm: 0 1px 1px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.08);
+    --shadow-glass: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 2px 12px rgba(0, 0, 0, 0.08);
+  
+    /* ========== TRANSITIONS ========== */
+    --duration-fast: 150ms;
+    --duration-default: 200ms;
+    --duration-slow: 300ms;
+  
+    --ease-snappy: cubic-bezier(0.4, 0, 0.2, 1);
+    --ease-fluid: cubic-bezier(0.3, 0, 0, 1);
+  }  
