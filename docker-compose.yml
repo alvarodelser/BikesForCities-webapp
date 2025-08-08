@@ -51,13 +51,15 @@ services:
   #     dockerfile: Dockerfile
   #   container_name: bikes_frontend
   #   ports:
-  #     - "3000:3000"
+  #     - "5173:5173"
+  #   volumes:
+  #       - ./frontend:/app
   #   depends_on:
   #     - backend
   #   environment:
-  #     # Frontend configuration (connects to backend service)
   #     - REACT_APP_API_URL=http://localhost:8000
-  #   command: npm run dev -- --host 0.0.0.0
+  #   command: npm run dev
+  #   working_dir: /app
 
 volumes:
   pgdata:
