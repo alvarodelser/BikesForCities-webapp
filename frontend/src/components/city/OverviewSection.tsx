@@ -3,6 +3,7 @@ import type { CityData } from '../../constants/cities';
 import landingHeroImage from '../../assets/outline.png';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
+import GlassCard from '../ui/GlassCard';
 
 interface OverviewSectionProps {
   city: CityData;
@@ -52,10 +53,13 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 mb-12 mx-[100px]">
-          <div className="bg-white/80 backdrop-blur-md border border-[var(--green)]/30 rounded-2xl p-6 shadow-lg hover:shadow-xl hover:border-[var(--green)]/50 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group">
-            {/* Glass reflection effect */}
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-            
+          <GlassCard
+            variant="default"
+            layout="block"
+            hover
+            hoverBorderColor="rgba(123, 164, 146, 0.5)"
+            className="p-6 group"
+          >
             <div className="flex items-center gap-3 mb-4 relative z-10">
               <div className="w-12 h-12 bg-gradient-to-r from-[var(--green)] to-[var(--green-dark)] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <Users className="w-6 h-6 text-white" />
@@ -69,14 +73,15 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               }
             </p>
             
-            {/* Bottom glass highlight */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/30 to-transparent" />
-          </div>
+                      </GlassCard>
 
-          <div className="bg-white/80 backdrop-blur-md border border-[var(--yellow)]/30 rounded-2xl p-6 shadow-lg hover:shadow-xl hover:border-[var(--yellow)]/50 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group">
-            {/* Glass reflection effect */}
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-            
+          <GlassCard
+            variant="default"
+            layout="block"
+            hover
+            hoverBorderColor="rgba(244, 162, 76, 0.5)"
+            className="p-6 group"
+          >
             <div className="flex items-center gap-3 mb-4 relative z-10">
               <div className="w-12 h-12 bg-gradient-to-r from-[var(--yellow)] to-[var(--orange)] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <Euro className="w-6 h-6 text-white" />
@@ -90,14 +95,15 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               }
             </p>
             
-            {/* Bottom glass highlight */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--yellow)]/30 to-transparent" />
-          </div>
+                     </GlassCard>
 
-          <div className="bg-white/80 backdrop-blur-md border border-[var(--green)]/30 rounded-2xl p-6 shadow-lg hover:shadow-xl hover:border-[var(--green)]/50 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group">
-            {/* Glass reflection effect */}
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-            
+          <GlassCard
+            variant="default"
+            layout="block"
+            hover
+            hoverBorderColor="rgba(123, 164, 146, 0.5)"
+            className="p-6 group"
+          >
             <div className="flex items-center gap-3 mb-4 relative z-10">
               <div className="w-12 h-12 bg-gradient-to-r from-[var(--green)] to-[var(--green-dark)] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <Bike className="w-6 h-6 text-white" />
@@ -106,14 +112,15 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
             </div>
             <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{city.cyclingNetwork}km</p>
             
-            {/* Bottom glass highlight */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/30 to-transparent" />
-          </div>
+                      </GlassCard>
 
-          <div className="bg-white/80 backdrop-blur-md border border-[var(--yellow)]/30 rounded-2xl p-6 shadow-lg hover:shadow-xl hover:border-[var(--yellow)]/50 hover:scale-[1.02] transition-all duration-300 relative overflow-hidden group">
-            {/* Glass reflection effect */}
-            <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-            
+          <GlassCard
+            variant="default"
+            layout="block"
+            hover
+            hoverBorderColor="rgba(244, 162, 76, 0.5)"
+            className="p-6 group"
+          >
             <div className="flex items-center gap-3 mb-4 relative z-10">
               <div className="w-12 h-12 bg-gradient-to-r from-[var(--yellow)] to-[var(--orange)] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
                 <Percent className="w-6 h-6 text-white" />
@@ -122,9 +129,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
             </div>
             <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{city.coverage}%</p>
             
-            {/* Bottom glass highlight */}
-            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--yellow)]/30 to-transparent" />
-          </div>
+          </GlassCard>
         </div>
       </div>
     </section>

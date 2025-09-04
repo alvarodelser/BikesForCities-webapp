@@ -18,6 +18,10 @@ ENV/
 env.bak/
 venv.bak/
 
+# Storybook
+.storybook/
+storybook-static/
+
 # =============================================================================
 # PYTHON BACKEND
 # =============================================================================
@@ -290,3 +294,5 @@ deprecated_code/
 # Documentation files (if not in docs/)
 anteproyecto.md
 reporte.md 
+*storybook.log
+storybook-static

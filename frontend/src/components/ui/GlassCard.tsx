@@ -1,108 +1,140 @@
-import React from 'react';
+// GlassCard.tsx
+import * as React from "react";
 
-interface GlassCardProps {
-  children: React.ReactNode;
-  variant?: 'default' | 'button' | 'compact';
+/**
+ * GlassCard (glass + inset)
+ * - glass: translucent with tint/blur/shadow, optional interactive motion; includes "chrome" effects
+ * - inset: pressed/inner-shadow; non-interactive; no chrome
+ * Layout (flex/grid/etc.) is consumer's responsibility via className.
+ */
+
+type Size = "sm" | "md" | "lg";
+type Shadow = "none" | "sm" | "lg";
+type Depth = "sm" | "md" | "lg";
+type BlurStrength = "sm" | "md" | "lg";
+
+type BaseProps = Omit<React.HTMLAttributes<HTMLDivElement>, "color"> & {
+  size?: Size;
   className?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-  selected?: boolean;
-  hover?: boolean;
-  textColor?: 'dark' | 'light';
-}
-
-const GlassCard: React.FC<GlassCardProps> = ({
-  children,
-  variant = 'default',
-  className = '',
-  onClick,
-  disabled = false,
-  selected = false,
-  hover = false,
-  textColor = 'dark'
-}) => {
-  // Base classes for all variants
-  const baseClasses = "relative overflow-hidden transition-all duration-300";
-  
-  // Variant-specific classes
-  const variantClasses = {
-    default: "bg-white/80 backdrop-blur-md border border-[var(--green)]/30 rounded-2xl p-6 shadow-lg",
-    button: "border-2 rounded-2xl p-4 cursor-pointer",
-    compact: "border border-white/20 rounded-2xl p-4 transition-all duration-300"
-  };
-
-  // State-based classes
-  const stateClasses = {
-    // Hover effects
-    hover: variant === 'default' 
-      ? "hover:shadow-xl hover:border-[var(--green)]/50 hover:scale-[1.02]"
-      : variant === 'button'
-      ? "hover:scale-102"
-      : "",
-    
-    // Selected state (mainly for buttons)
-    selected: variant === 'button' && selected
-      ? "border-[var(--green)] bg-white/90 shadow-lg scale-105"
-      : "",
-    
-    // Default button state
-    buttonDefault: variant === 'button' && !selected
-      ? "border-[var(--green)]/20 bg-white/60 hover:border-[var(--green)]/40 hover:bg-white/80"
-      : "",
-    
-    // Disabled state
-    disabled: disabled ? "opacity-50 cursor-not-allowed" : "",
-    
-    // Compact variant specific styling
-    compactStyle: variant === 'compact' ? "" : "",
-    
-    // Group hover for nested elements
-    group: "group"
-  };
-
-  // Combine all classes
-  const combinedClasses = [
-    baseClasses,
-    variantClasses[variant],
-    hover ? stateClasses.hover : "",
-    stateClasses.selected,
-    stateClasses.buttonDefault,
-    stateClasses.disabled,
-    stateClasses.group,
-    className
-  ].filter(Boolean).join(' ');
-
-  // Apply inline styles for complex effects
-  const inlineStyles = variant === 'compact' ? {
-    boxShadow: 'inset 1px 1px 4px rgba(0,0,0,0.2), inset -1px -1px 4px rgba(255,255,255,0.05)'
-  } : variant === 'default' ? {
-    boxShadow: 'inset 1px 1px 4px rgba(0,0,0,0.05), inset -1px -1px 4px rgba(255,255,255,0.15), 0 4px 20px rgba(0,0,0,0.1)'
-  } : {};
-
-  return (
-    <div 
-      className={combinedClasses}
-      style={inlineStyles}
-      onClick={!disabled ? onClick : undefined}
-    >
-      {/* Glass reflection effect - only for default and button variants */}
-      {(variant === 'default' || variant === 'button') && (
-        <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-      )}
-      
-      {/* Content with proper z-index */}
-      <div className="relative z-10">
-        {children}
-      </div>
-      
-      {/* Bottom glass highlight - only for default and selected button variants */}
-      {(variant === 'default' || (variant === 'button' && selected)) && (
-        <div className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/30 to-transparent ${
-          variant === 'button' && selected ? 'opacity-100' : ''
-        }`} />
-      )}
-    </div>
-  );
+  children?: React.ReactNode;
 };
 
+type GlassVariantProps = BaseProps & {
+  surface: "glass";
+  interactive?: boolean;         // enables hover/active scale
+  tint?: string;                 // CSS color (ideally translucent)
+  blurStrength?: BlurStrength;   // backdrop blur level
+  shadow?: Shadow;               // outer shadow  p+
+};
+
+type InsetVariantProps = BaseProps & {
+  surface: "inset";
+  interactive?: false;           // intentionally not interactive
+  depth?: Depth;                 // inner shadow intensity
+};
+
+export type GlassCardProps = GlassVariantProps | InsetVariantProps;
+
+const cx = (...parts: Array<string | false | null | undefined>) =>
+  parts.filter(Boolean).join(" ");
+
+const sizePad: Record<Size, string> = {
+  sm: "p-3",
+  md: "p-4",
+  lg: "p-6",
+};
+
+const blurCls: Record<BlurStrength, string> = {
+  sm: "backdrop-blur-sm",
+  md: "backdrop-blur",
+  lg: "backdrop-blur-lg",
+};
+
+const shadowCls: Record<Shadow, string> = {
+  none: "shadow-none",
+  sm: "shadow-lg",
+  lg: "shadow-xl",
+};
+
+const insetDepthCls: Record<Depth, string> = {
+  sm: "shadow-inner shadow-[inset_3px_3px_8px_rgba(0,0,0,0.4)]",
+  md: "shadow-inner shadow-[inset_4px_4px_12px_rgba(0,0,0,0.45),inset_-4px_-4px_12px_rgba(255,255,255,0.12)]",
+  lg: "shadow-inner shadow-[inset_6px_6px_16px_rgba(0,0,0,0.4),inset_-6px_-6px_16px_rgba(255,255,255,0.15)]",
+};
+
+const motionInteractiveBase =
+  "cursor-pointer transition-transform duration-200 will-change-transform";
+const motionScale = "hover:scale-[1.03] active:scale-[0.98]";
+
+// Anti-aliasing classes to prevent blurriness during transforms
+const antiAlias = "transform-gpu backface-hidden perspective-1000";
+
+// "Chrome" (glass only): reflection (::before) + bottom highlight (::after)
+const chromeBase =
+  'before:content-[""] before:absolute before:inset-x-0 before:top-0 before:h-1/2 before:bg-gradient-to-b before:from-white/20 before:to-transparent ' +
+  'after:content-[""] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[linear-gradient(to_right,transparent,rgba(255,255,255,0.35),transparent)]';
+
+export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
+  (props, ref) => {
+    const { size = "md", className, children, style, ...rest } =
+      props as GlassCardProps;
+
+    const base = cx(
+      "relative overflow-hidden rounded-2xl transition-all duration-300",
+      sizePad[size],
+      antiAlias
+    );
+
+    if (props.surface === "glass") {
+      const {
+        interactive = false,
+        tint,
+        blurStrength = "md",
+        shadow = "sm",
+        ...divProps
+      } = rest as Omit<GlassVariantProps, keyof BaseProps>;
+
+      const classes = cx(
+        base,
+        cx("bg-white/10 border border-white/20", blurCls[blurStrength], shadowCls[shadow]),
+        interactive && cx(motionInteractiveBase, motionScale, "hover:border-white/30"),
+        chromeBase, // always on for glass
+        className
+      );
+
+      const inlineStyles: React.CSSProperties = {
+        ...(style || {}),
+        ...(tint ? { backgroundColor: tint } : null),
+      };
+
+      return (
+        <div ref={ref} className={classes} style={inlineStyles} {...divProps}>
+          {children}
+        </div>
+      );
+    }
+
+    // INSET (no chrome, no interactive motion)
+    {
+      const { depth = "md", ...divProps } = rest as Omit<
+        InsetVariantProps,
+        keyof BaseProps
+      >;
+
+      const classes = cx(
+        base,
+        cx("bg-white/5 border border-white/20", insetDepthCls[depth]),
+        className
+      );
+
+      return (
+        <div ref={ref} className={classes} style={style} {...divProps}>
+          {children}
+        </div>
+      );
+    }
+  }
+);
+
+GlassCard.displayName = "GlassCard";
 export default GlassCard;

@@ -1,8 +1,9 @@
 import React from 'react';
 import { FileText, Map, CircuitBoard, CircleChevronDown } from 'lucide-react';
-import landingHeroImage from '../../assets/landing_hero5.jpg';
+import landingHeroImage from '../../assets/landing_hero.jpg';
 import backgroundTexture from '../../assets/background2.svg';
-import FeatureCard from '../ui/FeatureCard';
+import GlassCard from '../ui/GlassCard';
+import IconContainer from '../ui/IconContainer';
 
 const HeroSection: React.FC = () => {
   const scrollToNextSection = () => {
@@ -45,7 +46,7 @@ const HeroSection: React.FC = () => {
 
         {/* Image */}
         <div 
-          className="h-[600px] bg-cover bg-center rounded-sm mx-[100px] -mt-[20px]"
+          className="h-[400px] bg-cover bg-center rounded-sm mx-[100px] -mt-[20px]"
           style={{
             backgroundImage: `url(${landingHeroImage})`,
             backgroundPosition: 'center center'
@@ -75,18 +76,103 @@ const HeroSection: React.FC = () => {
           {/* Right side - Description and Feature cards */}
           <div className="flex-1">
             <div className="space-y-4">
-              <FeatureCard 
-                icon={CircuitBoard} 
-                text="Compara nuestras ciudades" 
-              />
-              <FeatureCard 
-                icon={Map} 
-                text="Explora mapas de tráfico ciclista" 
-              />
-              <FeatureCard 
-                icon={FileText} 
-                text="Planifica con visión de futuro" 
-              />
+              <GlassCard 
+                surface="glass"
+                interactive 
+                tint="rgba(255, 255, 255, 0.15)" 
+                blurStrength="md"
+                shadow="lg"
+                size="md"
+                className="group cursor-pointer"
+                onClick={scrollToNextSection}
+              >
+                <div className="flex items-center gap-4">
+                  <IconContainer
+                    icon={CircuitBoard}
+                    variant="glass"
+                    size="lg"
+                    tint="rgba(59, 130, 246, 0.2)"
+                    hoverTint="rgba(59, 130, 246, 0.3)"
+                    iconColor="white"
+                    hoverIconColor="#ffffff"
+                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1 group-hover:text-gray-700 transition-colors duration-300">
+                      Compara nuestras ciudades
+                    </h3>
+                    <p className="text-sm text-gray-600 group-hover:text-gray-500 transition-colors duration-300">
+                      Analiza datos de movilidad urbana
+                    </p>
+                  </div>
+                </div>
+              </GlassCard>
+              
+              <GlassCard 
+                surface="glass"
+                interactive 
+                tint="rgba(255, 255, 255, 0.15)" 
+                blurStrength="md"
+                shadow="lg"
+                size="md"
+                className="group cursor-pointer"
+                onClick={() => console.log('Explora mapas clicked')}
+              >
+                <div className="flex items-center gap-4">
+                  <IconContainer
+                    icon={Map}
+                    variant="glass"
+                    size="lg"
+                    tint="#027a76"
+                    hoverTint="rgba(33, 150, 243, 0.3)"
+                    iconColor="white"
+                    hoverIconColor="#e3f2fd"
+                    onClick={() => console.log('Explora mapas clicked')}
+                    className="flex-shrink-0"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1 group-hover:text-gray-700 transition-colors duration-300">
+                      Explora mapas de tráfico
+                    </h3>
+                    <p className="text-sm text-gray-600 group-hover:text-gray-500 transition-colors duration-300">
+                      Visualiza patrones de ciclismo urbano
+                    </p>
+                  </div>
+                </div>
+              </GlassCard>
+              
+              <GlassCard 
+                surface="glass"
+                interactive 
+                tint="rgba(255, 255, 255, 0.15)" 
+                blurStrength="md"
+                shadow="lg"
+                size="md"
+                className="group cursor-pointer"
+                onClick={scrollToNextSection}
+              >
+                <div className="flex items-center gap-4">
+                  <IconContainer
+                    icon={FileText}
+                    variant="glass"
+                    size="lg"
+                    tint="rgba(156, 39, 176, 0.2)"
+                    hoverTint="rgba(156, 39, 176, 0.3)"
+                    iconColor="white"
+                    hoverIconColor="#f3e5f5"
+                    onClick={scrollToNextSection}
+                    className="flex-shrink-0"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1 group-hover:text-gray-700 transition-colors duration-300">
+                      Planifica con visión de futuro
+                    </h3>
+                    <p className="text-sm text-gray-600 group-hover:text-gray-500 transition-colors duration-300">
+                      Diseña infraestructura sostenible
+                    </p>
+                  </div>
+                </div>
+              </GlassCard>
             </div>
           </div>
         </div>

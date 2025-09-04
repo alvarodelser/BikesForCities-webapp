@@ -133,24 +133,33 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
               className={`
                 relative p-4 rounded-2xl border-2 transition-all duration-300 group
                 ${selectedMode === mode.id 
-                  ? 'border-[var(--green)] bg-white/90 shadow-lg scale-105' 
-                  : 'border-[var(--green)]/20 bg-white/60 hover:border-[var(--green)]/40 hover:bg-white/80 hover:scale-102'
+                  ? `bg-white/90 shadow-lg scale-105` 
+                  : 'border-gray-300/40 bg-white/60 hover:bg-white/80 hover:scale-102'
                 }
                 ${!mode.available ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
+              style={{
+                borderColor: selectedMode === mode.id ? mode.color : undefined,
+                boxShadow: selectedMode === mode.id ? `0 0 20px ${mode.color}40` : undefined
+              }}
             >
               {/* Glass reflection effect */}
               <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
               
               <div className="relative z-10 text-center">
-                <div className={`
-                  w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center
-                  ${selectedMode === mode.id 
-                    ? 'bg-gradient-to-r from-[var(--green)] to-[var(--green-dark)] shadow-lg' 
-                    : 'bg-white/80 border border-[var(--green)]/30'
-                  }
-                  group-hover:scale-110 transition-transform duration-300
-                `}>
+                <div 
+                  className={`
+                    w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center
+                    ${selectedMode === mode.id 
+                      ? 'shadow-lg' 
+                      : 'bg-white/80 border border-gray-300/50'
+                    }
+                    group-hover:scale-110 transition-transform duration-300
+                  `}
+                  style={{
+                    background: selectedMode === mode.id ? mode.color : undefined
+                  }}
+                >
                   <mode.icon 
                     className={`w-6 h-6 ${
                       selectedMode === mode.id ? 'text-white' : 'text-[var(--blue-dark)]'
@@ -168,9 +177,16 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
               </div>
               
               {/* Bottom highlight */}
-              <div className={`absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/30 to-transparent ${
-                selectedMode === mode.id ? 'opacity-100' : 'opacity-0'
-              }`} />
+              <div 
+                className={`absolute bottom-0 left-0 right-0 h-px ${
+                  selectedMode === mode.id ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{
+                  background: selectedMode === mode.id 
+                    ? `linear-gradient(to right, transparent, ${mode.color}60, transparent)`
+                    : undefined
+                }}
+              />
             </button>
           ))}
         </div>

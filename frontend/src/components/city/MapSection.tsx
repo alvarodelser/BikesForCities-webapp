@@ -12,10 +12,21 @@ interface MapSectionProps {
 const MapSection: React.FC<MapSectionProps> = ({ city }) => {
   const [selectedMode, setSelectedMode] = useState<string>('traffic');
 
+  // Define the mode colors (matching MapFilters)
+  const modeColors: Record<string, string> = {
+    'traffic': 'var(--red)',
+    'stations': 'var(--green)', 
+    'network': 'var(--blue)',
+    'topography': 'var(--orange)',
+    'usage': 'var(--yellow)',
+    'demographics': 'var(--blue-dark)'
+  };
+
   // Get the stats data for the selected mode
   const modeStats = getModeStats(selectedMode, city);
   const title = `${selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1).replace('-', ' ')} Statistics`;
   const subtitle = `Detailed analytics for ${city.name}'s ${selectedMode.replace('-', ' ')} data`;
+  const selectedColor = modeColors[selectedMode] || 'var(--blue)';
 
   return (
     <div className="w-full">
@@ -29,7 +40,8 @@ const MapSection: React.FC<MapSectionProps> = ({ city }) => {
       {/* Map */}
       <CityMap 
         city={city} 
-        selectedMode={selectedMode} 
+        selectedMode={selectedMode}
+        selectedColor={selectedColor}
       />
       
       {/* Statistics */}

@@ -2,6 +2,7 @@ import React from 'react';
 import type { ModeStats } from '../../constants/cityStats';
 import { getTrendColor, getTrendIcon } from '../../constants/cityStats';
 import { BarChart3 } from 'lucide-react';
+import GlassCard from '../ui/GlassCard';
 
 interface CityStatsProps {
   title: string;
@@ -23,14 +24,22 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
           </div>
           
           {/* Summary Card */}
-          <div className="bg-gradient-to-r from-[var(--green)] to-[var(--green-dark)] rounded-2xl p-6 text-white shadow-lg">
+          <GlassCard
+            layout="block"
+            backgroundGradient={{
+              from: 'var(--green)',
+              to: 'var(--green-dark)',
+              direction: 'r'
+            }}
+            className="p-6 text-white shadow-lg"
+          >
             <div className="flex items-center gap-3 mb-2">
               <BarChart3 className="w-6 h-6" />
               <h3 className="font-semibold">Overall Score</h3>
             </div>
             <p className="text-3xl font-bold">{overallScore.score}/100</p>
             <p className="text-sm opacity-90">{overallScore.label}</p>
-          </div>
+          </GlassCard>
         </div>
 
         {/* Statistics Grid */}
@@ -38,34 +47,41 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
           {stats.map((stat, index) => {
             const TrendIcon = getTrendIcon(stat.trend);
             return (
-              <div key={index} className="bg-white/80 backdrop-blur-md border border-[var(--green)]/20 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
-                {/* Glass reflection effect */}
-                <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-                
-                <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-[var(--green)]/20 rounded-full flex items-center justify-center">
-                      <stat.icon className="w-6 h-6 text-[var(--green)]" />
-                    </div>
-                    <div className={`flex items-center gap-1 ${getTrendColor(stat.trend)}`}>
-                      <TrendIcon className="w-4 h-4" />
-                    </div>
+              <GlassCard 
+                key={index}
+                variant="default"
+                layout="block"
+                hover
+                backgroundColor="rgba(255, 255, 255, 0.8)"
+                hoverBorderColor="rgba(123, 164, 146, 0.3)"
+                className="p-6 group"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 bg-[var(--green)]/20 rounded-full flex items-center justify-center">
+                    <stat.icon className="w-6 h-6 text-[var(--green)]" />
                   </div>
-                  
-                  <h3 className="text-lg font-semibold text-[var(--blue-dark)] mb-2">{stat.label}</h3>
-                  <p className="text-3xl font-bold text-[var(--blue-dark)]">{stat.value}</p>
+                  <div className={`flex items-center gap-1 ${getTrendColor(stat.trend)}`}>
+                    <TrendIcon className="w-4 h-4" />
+                  </div>
                 </div>
                 
-                {/* Bottom highlight */}
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[var(--green)]/30 to-transparent" />
-              </div>
+                <h3 className="text-lg font-semibold text-[var(--blue-dark)] mb-2">{stat.label}</h3>
+                <p className="text-3xl font-bold text-[var(--blue-dark)]">{stat.value}</p>
+                
+              </GlassCard>
             );
           })}
         </div>
 
         {/* Additional Insights */}
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white/80 backdrop-blur-md border border-[var(--green)]/20 rounded-2xl p-6 shadow-lg">
+          <GlassCard
+            variant="default"
+            layout="block"
+            backgroundColor="rgba(255, 255, 255, 0.8)"
+            hoverBorderColor="rgba(123, 164, 146, 0.3)"
+            className="p-6"
+          >
             <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Key Insights</h3>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
@@ -77,9 +93,15 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
                 <p className="text-[var(--blue)]">{insights.secondary}</p>
               </div>
             </div>
-          </div>
+          </GlassCard>
 
-          <div className="bg-white/80 backdrop-blur-md border border-[var(--green)]/20 rounded-2xl p-6 shadow-lg">
+          <GlassCard
+            variant="default"
+            layout="block"
+            backgroundColor="rgba(255, 255, 255, 0.8)"
+            hoverBorderColor="rgba(123, 164, 146, 0.3)"
+            className="p-6"
+          >
             <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Recommendations</h3>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
@@ -91,7 +113,7 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
                 <p className="text-[var(--blue)]">{recommendations.secondary}</p>
               </div>
             </div>
-          </div>
+          </GlassCard>
         </div>
       </div>
     </div>

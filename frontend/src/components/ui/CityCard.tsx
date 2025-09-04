@@ -1,6 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router';
 import type { CityData } from '../../constants/cities';
+import { GlassCard } from './GlassCard';
+import { FlatCard } from './FlatCard';
 
 interface CityCardProps {
   city: CityData;
@@ -52,27 +54,28 @@ const CityCard: React.FC<CityCardProps> = ({
   return (
     <div 
       onClick={onClick}
-      className="absolute top-0 flex-shrink-0 cursor-pointer select-none transition-all duration-500 ease-out"
+      className="absolute top-0 flex-shrink-0 cursor-pointer select-none transition-all duration-500 ease-out transform-gpu perspective-1000"
       style={{ 
         transform: `translateX(${position * 320}px) translateY(10vh) scale(${scale})`,
         opacity: opacity,
-        zIndex: distance === 0 ? 10 : 10 - distance
+        zIndex: distance === 0 ? 10 : 10 - distance,
+        willChange: 'transform, opacity',
+        backfaceVisibility: 'hidden',
+        transformStyle: 'preserve-3d'
       }}
     >
-      <div className={`
-        w-[300px] h-[40vh] 
-        bg-white/10 backdrop-blur-md
-        border border-white/20
-        rounded-2xl shadow-2xl 
-        p-6 
-        flex flex-col 
-        hover:bg-white/15
-        hover:border-white/30
-        relative overflow-hidden
-        ${distance === 0 ? 'border-[var(--green)]/40 shadow-[0_0_30px_rgba(63,122,186,0.3)] bg-white/20' : ''}
-      `}>
-        {/* Glass reflection effect */}
-        <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
+      <GlassCard 
+        surface="glass"
+        interactive
+        size="lg"
+        tint={distance === 0 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)'}
+        blurStrength="md"
+        shadow="lg"
+        className={`
+          w-[300px] h-[400px] flex flex-col
+          ${distance === 0 ? 'border-[var(--green)]/40 shadow-[0_0_30px_rgba(63,122,186,0.3)]' : ''}
+        `}
+      >
         
         <h2 className={`font-bold text-white text-center relative z-10 drop-shadow-lg mb-4 ${
           distance === 0 ? 'text-2xl' : distance === 1 ? 'text-xl' : 'text-lg'
@@ -81,93 +84,79 @@ const CityCard: React.FC<CityCardProps> = ({
         </h2>
         
         <div className="grid grid-rows-2 grid-cols-2 gap-4 relative z-10 flex-1 mb-4">
-          <div className="border border-white/20 p-4 rounded-2xl transition-all duration-300"
-               style={{
-                 boxShadow: 'inset 1px 1px 4px rgba(0,0,0,0.2), inset -1px -1px 4px rgba(255,255,255,0.05)'
-               }}>
-            <h3 className={`font-semibold text-white/95 mb-2 drop-shadow-lg ${
-              distance === 0 ? 'text-sm' : 'text-xs'
-            }`}>
+          <GlassCard surface="inset" size="sm" depth="lg" className="text-center h-[80px]">
+            <h3 className="font-semibold text-white/95 mb-2 drop-shadow-lg text-xs">
               Población
             </h3>
-            <p className={`font-bold text-white drop-shadow-lg ${
-              distance === 0 ? 'text-lg' : 'text-base'
-            }`}>
+            <p className="font-bold text-white drop-shadow-lg text-base">
               {formatPopulation(city.population)}
             </p>
-          </div>
+          </GlassCard>
 
-          <div className="border border-white/20 p-4 rounded-2xl transition-all duration-300"
-               style={{
-                 boxShadow: 'inset 1px 1px 4px rgba(0,0,0,0.2), inset -1px -1px 4px rgba(255,255,255,0.05)'
-               }}>
-            <h3 className={`font-semibold text-white/95 mb-2 drop-shadow-lg ${
-              distance === 0 ? 'text-sm' : 'text-xs'
-            }`}>
+          <GlassCard surface="inset" size="sm" depth="lg" className="text-center h-[80px]">
+            <h3 className="font-semibold text-white/95 mb-2 drop-shadow-lg text-xs">
               Presupuesto
             </h3>
-            <p className={`font-bold text-white drop-shadow-lg ${
-              distance === 0 ? 'text-lg' : 'text-base'
-            }`}>
+            <p className="font-bold text-white drop-shadow-lg text-base">
               {formatBudget(city.budget)}
             </p>
-          </div>
+          </GlassCard>
           
-          <div className="border border-white/20 p-4 rounded-2xl transition-all duration-300"
-               style={{
-                 boxShadow: 'inset 1px 1px 4px rgba(0,0,0,0.2), inset -1px -1px 4px rgba(255,255,255,0.05)'
-               }}>
-            <h3 className={`font-semibold text-white/95 mb-2 drop-shadow-lg ${
-              distance === 0 ? 'text-sm' : 'text-xs'
-            }`}>
+          <GlassCard surface="inset" size="sm" depth="lg" className="text-center h-[80px]">
+            <h3 className="font-semibold text-white/95 mb-2 drop-shadow-lg text-xs">
               Red Ciclista
             </h3>
-            <p className={`font-bold text-white drop-shadow-lg ${
-              distance === 0 ? 'text-lg' : 'text-base'
-            }`}>
+            <p className="font-bold text-white drop-shadow-lg text-base">
               {city.cyclingNetwork}km
             </p>
-          </div>
+          </GlassCard>
 
-          <div className="border border-white/20 p-4 rounded-2xl transition-all duration-300"
-               style={{
-                 boxShadow: 'inset 1px 1px 4px rgba(0,0,0,0.2), inset -1px -1px 4px rgba(255,255,255,0.05)'
-               }}>
-            <h3 className={`font-semibold text-white/95 mb-2 drop-shadow-lg ${
-              distance === 0 ? 'text-sm' : 'text-xs'
-            }`}>
+          <GlassCard surface="inset" size="sm" depth="lg" className="text-center h-[80px]">
+            <h3 className="font-semibold text-white/95 mb-2 drop-shadow-lg text-xs">
               Cobertura
             </h3>
-            <p className={`font-bold text-white drop-shadow-lg ${
-              distance === 0 ? 'text-lg' : 'text-base'
-            }`}>
+            <p className="font-bold text-white drop-shadow-lg text-base">
               {city.coverage}%
             </p>
-          </div>
+          </GlassCard>
         </div>
 
         {/* Buttons */}
         <div className="flex gap-4 relative z-10">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
+          <FlatCard 
+            onClick={() => {
               navigate(city.path);
             }}
-            className="flex-1 bg-[var(--green)]/60 hover:bg-[var(--green)]/70 border border-[var(--green)]/80 hover:border-[var(--green)]/90 text-white font-bold py-3 px-6 rounded-2xl transition-all duration-300 backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105 relative overflow-hidden group"
+            interactive
+            gradient={{
+              from: 'var(--green)',
+              to: 'var(--green-dark)',
+              direction: 'b'
+            }}
+            size="sm"
+            shadow="sm"
+            className="flex-1 cursor-pointer flex items-center justify-center"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-white/15 to-transparent opacity-50 group-hover:opacity-70 transition-opacity duration-300 rounded-2xl"></div>
-            <span className="relative z-10 drop-shadow-lg">Entrar</span>
-          </button>
-          <button className="flex-1 bg-[var(--yellow)]/60 hover:bg-[var(--yellow)]/70 border border-[var(--yellow)]/80 hover:border-[var(--yellow)]/90 text-white font-bold py-3 px-6 rounded-2xl transition-all duration-300 backdrop-blur-lg shadow-lg hover:shadow-xl hover:scale-105 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-r from-white/15 to-transparent opacity-50 group-hover:opacity-70 transition-opacity duration-300 rounded-2xl"></div>
-            <span className="relative z-10 drop-shadow-lg">Comparar</span>
-          </button>
+            <span className="text-white font-bold">Entrar</span>
+          </FlatCard>
+          <FlatCard 
+            onClick={() => {
+              // Compare functionality to be implemented
+            }}
+            interactive
+            gradient={{
+              from: 'var(--blue)',
+              to: 'var(--blue-dark)',
+              direction: 'b'
+            }}
+            size="sm"
+            shadow="sm"
+            className="flex-1 cursor-pointer flex items-center justify-center"
+          >
+            <span className="text-white font-bold">Comparar</span>
+          </FlatCard>
         </div>
-
-
-        {/* Bottom glass highlight */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-      </div>
+      </GlassCard>
     </div>
   );
 };
