@@ -88,10 +88,10 @@ Database → CLI Tools → Data Analysis/Visualization
 ## 4. Module Architecture
 
 ### 4.1 Backend Modules
-- [x] **`app/database/`**: Database operations and connection management
-- [x] **`app/processing/`**: Core data processing and analysis logic
+- [x] **`backend/database/`**: Database operations and connection management
+- [x] **`backend/processing/`**: Core data processing and analysis logic
 - [x] **`scripts/`**: Command-line tools for data management
-- [x] **`app/api/`**: Basic REST API endpoints
+- [x] **`backend/api/`**: Basic REST API endpoints
 
 ### 4.2 Frontend Modules
 - [ ] **`src/components/`**: Basic UI components
@@ -100,7 +100,7 @@ Database → CLI Tools → Data Analysis/Visualization
 - [ ] **`src/utils/`**: Utility functions
 
 ### 4.3 Shared Resources ✅
-- [x] **`Data/`**: Raw CSV files and configuration data
+- [x] **`data/`**: Raw CSV files and configuration data
 - [x] **`logs/`**: Processing logs and checkpoints
 - [x] **`cache/`**: Cached OSM data and temporary files
 - [x] **`schema.sql`**: Database schema definition

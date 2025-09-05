@@ -7,12 +7,12 @@ import argparse
 from dotenv import load_dotenv
 import networkx as nx
 
-from app.database.network_io import (
+from backend.database.network_io import (
     connect_db,
     get_or_create_network,
 )
-from app.processing.network_ops import build_graph
-from app.processing.trip_loader import process_all_csvs, process_next_csv
+from backend.processing.network_ops import build_graph
+from backend.processing.trip_loader import process_all_csvs, process_next_csv
 
 
 def parse_args() -> argparse.Namespace:

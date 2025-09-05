@@ -66,7 +66,7 @@
 
 ## 2. Core Backend Modules
 
-### 2.1 Database Operations (`app/database/network_io.py`)
+### 2.1 Database Operations (`backend/database/network_io.py`)
 
 #### Connection Management
 - [x] `connect_db()` - PostgreSQL connection with environment variables
@@ -98,7 +98,7 @@
 - [x] `count_features(network_id, feature_type=None)` - Feature count by type
 - [x] `get_network_bounds(network_id)` - Geographic bounding box
 
-### 2.2 Network Processing (`app/processing/network_ops.py`)
+### 2.2 Network Processing (`backend/processing/network_ops.py`)
 
 #### Graph Operations
 - [x] `load_graph(place_name, network_type='bike')` - OSMnx graph download with caching
@@ -115,7 +115,7 @@
 - [x] Cache invalidation and management
 - [x] Configurable cache directory
 
-### 2.3 OSM Feature Processing (`app/processing/feature_ops.py`)
+### 2.3 OSM Feature Processing (`backend/processing/feature_ops.py`)
 
 #### Feature Type Definitions
 - [x] **Base Features**: Buildings, waterways, forest, bike_paths, coastline, land
@@ -133,7 +133,7 @@
 - [x] Proper CRS handling for spatial operations
 - [x] Buffer analysis with coordinate system transformations
 
-### 2.4 Trip Processing (`app/processing/trip_loader.py`) ✅
+### 2.4 Trip Processing (`backend/processing/trip_loader.py`) ✅
 
 #### Batch Processing
 - [x] `process_all_csvs(data_dir, network_id)` - Process multiple CSV files
@@ -153,7 +153,7 @@
 - [x] Graceful handling of unreachable destinations
 - [x] Detailed error logging and statistics
 
-### 2.5 Routing Engine (`app/processing/route_strategy.py`)
+### 2.5 Routing Engine (`backend/processing/route_strategy.py`)
 
 #### Routing Algorithms
 - [x] `shortest_path(graph, origin, destination)` - Dijkstra shortest path
@@ -165,7 +165,7 @@
 - [x] Strategy selection and configuration
 - [ ] Custom routing algorithms
 
-### 2.6 Visualization Engine (`app/processing/visualization.py`)
+### 2.6 Visualization Engine (`backend/processing/visualization.py`)
 
 #### Network Visualization
 - [x] `plot_network_overview(networks)` - Multi-network comparison charts
@@ -205,7 +205,7 @@
 - [x] **Error Handling**: Graceful handling of download and insertion failures
 
 ### 3.2 Trip Processing (`scripts/trip_ingestion.py`) ✅
-- [x] **Batch Processing Mode**: Process all CSV files in Data/ directory
+- [x] **Batch Processing Mode**: Process all CSV files in data/ directory
 - [x] **Single File Mode**: Process specific CSV file
 - [x] **Resume Capability**: Continue from previous checkpoint
 - [x] **Configuration Options**:
@@ -347,9 +347,9 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
-      - ./Data:/app/Data
-      - ./cache:/app/cache
-      - ./logs:/app/logs
+      - ./Data:/backend/Data
+      - ./cache:/backend/cache
+      - ./logs:/backend/logs
     command: uvicorn app.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -393,7 +393,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p /app/cache /app/logs /app/Data
+RUN mkdir -p /backend/cache /backend/logs /backend/Data
 
 # Expose port
 EXPOSE 8000

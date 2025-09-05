@@ -12,13 +12,13 @@ from datetime import timedelta
 
 from dotenv import load_dotenv
 
-from app.processing import extract_edges, extract_nodes, load_graph
-from app.processing.feature_ops import (
+from backend.processing import extract_edges, extract_nodes, load_graph
+from backend.processing.feature_ops import (
     extract_features_for_network,
     FEATURE_TYPES,
     CALCULATED_FEATURES
 )
-from app.database.network_io import (
+from backend.database.network_io import (
     connect_db,
     get_or_create_network,
     get_edges,
@@ -32,7 +32,7 @@ from app.database.network_io import (
 
 from pathlib import Path
 
-_SPAIN_DATA_PATH = Path(__file__).resolve().parents[1] / "Data" / "spain_data.json"
+_SPAIN_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "spain_data.json"
 
 
 def _load_cities() -> list[str]:
@@ -79,6 +79,9 @@ def prompt_city() -> str:
 
 
 def main() -> None:  # noqa: D401 – simple script entry-point
+    # Load environment variables from .env file
+    load_dotenv()
+    
     start_total = time.perf_counter()
 
     city = prompt_city()

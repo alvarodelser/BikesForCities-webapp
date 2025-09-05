@@ -2,8 +2,8 @@
 ## Root Directory Structure
 
 ```
-BikesForCities-webapp/
-├── 📁 app/                          # Main application package
+BikesForCities-webbackend/
+├── 📁 backend/                          # Main application package
 |   ├── 📁 api/                          # API layer
 |   |   ├── 📄 __init__.py                   # API package initialization
 |   |   ├── 📄 main.py                       # FastAPI application entry point
@@ -23,7 +23,7 @@ BikesForCities-webapp/
 |   |   └── 📄 visualization.py              # Data visualization
 |   └── 📄 __init__.py                   # Package initialization
 ├── 📁 cache/                        # Application cache directory
-├── 📁 Data/                         # Data storage directory
+├── 📁 data/                         # Data storage directory
 ├── 📁 deprecated_code/              # Legacy/obsolete code
 ├── 📁 logs/                         # Application logs
 ├── 📁 notebooks/                    # Jupyter notebooks for analysis

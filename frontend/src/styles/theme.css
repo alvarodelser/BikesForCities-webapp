@@ -1,0 +1,38 @@
+@theme {
+    /* ========== FONT FAMILIES ========== */
+    --heading: "EB Garamond", serif;
+    --body: "EB Garamond", serif;
+    --ui: "EB Garamond", serif;
+  
+    /* ========== TEXT SIZES ========== */
+    --text-xs: 0.75rem;      /* 12px */
+    --text-sm: 0.875rem;     /* 14px */
+    --text-base: 1rem;       /* 16px */
+    --text-lg: 1.125rem;     /* 18px */
+    --text-xl: 1.25rem;      /* 20px */
+    
+    /* ========== BORDER RADIUS ========== */
+    --rounded-sm: 0.125rem;  /* 2px */
+    
+    /* ========== COLORS ========== */
+    /* Greens */
+    --green-light: #BFDDCE;
+    --green: #7BA492;
+    --green-dark: #027A76;
+  
+    /* Blues */
+    --blue-light: #92BEC9;
+    --blue: #3A6C7F;
+    --blue-dark: #003849;
+  
+    /* Accents */
+    --yellow: #F4A24C;
+    --orange: #FF7F50;
+    --red: #AF4749;
+  
+    /* Backgrounds & surfaces */
+    --cream: #FBF6EF;
+    --cream-dark: #F9E9DC;
+    --white: #FFFFFF;
+    --black: #1E1E1E;
+  }  

@@ -1,0 +1,11 @@
+@import './tailwind.css';
+@import "./theme.css";
+@import "./base.css";
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Archivo Narrow", sans-serif;
+}

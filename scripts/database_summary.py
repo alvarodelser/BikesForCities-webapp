@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from dotenv import load_dotenv
-from app.database.network_io import (
+from backend.database.network_io import (
     connect_db, 
     get_all_networks, 
     count_nodes, 
