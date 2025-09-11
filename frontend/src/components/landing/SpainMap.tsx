@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { CITIES } from '../../constants/cities';
 import CityPin from '../ui/CityPin';
-import spainGeoJSON from '../../data/spain-provinces.geojson?url';
+import GlassCard from '../ui/GlassCard';
+import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
 
 interface SpainMapProps {
   width: number;
@@ -29,31 +30,17 @@ const getCityCoordinates = (): CityCoordinates[] => {
 
 // Load Spain provinces GeoJSON data
 const loadSpainGeoJSON = async () => {
-  const possiblePaths = [
-    spainGeoJSON, // Bundled asset URL (most reliable)
-    '/data/spain-provinces.geojson',
-    './data/spain-provinces.geojson',
-    `${import.meta.env.BASE_URL}data/spain-provinces.geojson`
-  ];
-
-  for (const path of possiblePaths) {
-    try {
-      console.log(`Trying to fetch GeoJSON from: ${path}`);
-      const response = await fetch(path);
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`Successfully loaded GeoJSON from: ${path}`);
-        return data;
-      } else {
-        console.warn(`Failed to fetch from ${path}: ${response.status} ${response.statusText}`);
-      }
-    } catch (error) {
-      console.warn(`Error fetching from ${path}:`, error);
+  try {
+    const response = await fetch(spainGeoJSON);
+    if (response.ok) {
+      return await response.json();
+    } else {
+      throw new Error(`Failed to load GeoJSON: ${response.status}`);
     }
+  } catch (error) {
+    console.error('Error loading Spain GeoJSON:', error);
+    throw error;
   }
-  
-  console.error('Failed to load Spain GeoJSON from all possible paths');
-  return null;
 };
 
 const SpainMap: React.FC<SpainMapProps> = ({
@@ -67,28 +54,18 @@ const SpainMap: React.FC<SpainMapProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [geoData, setGeoData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Load GeoJSON data
   useEffect(() => {
-    console.log('SpainMap: Loading GeoJSON data...');
-    setLoading(true);
-    loadSpainGeoJSON().then(data => {
-      if (data) {
-        console.log('SpainMap: GeoJSON data loaded successfully', data);
+    loadSpainGeoJSON()
+      .then(data => {
         setGeoData(data);
         setError(null);
-      } else {
-        console.error('SpainMap: Failed to load GeoJSON data');
-        setError('Failed to load map data');
-      }
-      setLoading(false);
-    }).catch(err => {
-      console.error('SpainMap: Error loading GeoJSON:', err);
-      setError(`Error loading map: ${err.message}`);
-      setLoading(false);
-    });
+      })
+      .catch(err => {
+        setError(err.message || 'Failed to load map data');
+      });
   }, []);
 
   useEffect(() => {
@@ -127,48 +104,23 @@ const SpainMap: React.FC<SpainMapProps> = ({
   // Get projection from SVG for positioning pins
   const projection = svgRef.current ? (svgRef.current as any).__projection : null;
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className={`relative ${className} flex items-center justify-center bg-gray-100 rounded-lg`} style={{ width, height }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading Spain map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show error state with fallback
+  // Show error state with simple GlassCard
   if (error || !geoData) {
     return (
-      <div className={`relative ${className}`} style={{ width, height }}>
-        {/* Fallback: Show cities without map background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-green-50 rounded-lg flex items-center justify-center">
-          <div className="text-center mb-8">
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">Spain Cities</h3>
-            {error && <p className="text-sm text-red-600 mb-4">{error}</p>}
-          </div>
-        </div>
-        
-        {/* Show cities in a grid layout as fallback */}
-        <div className="absolute inset-0 p-8">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 h-full items-center justify-items-center">
-            {getCityCoordinates().map((city) => (
-              <div key={city.name} className="transform hover:scale-105 transition-transform">
-                <CityPin
-                  cityName={city.name}
-                  isSelected={selectedCity === city.name}
-                  isExpanded={expandedCity === city.name}
-                  variant="glassmorphic"
-                  size="md"
-                  onClick={() => onCityClick?.(city.name)}
-                  onNavigate={() => onCityNavigate?.(city.name)}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+      <div className={`relative ${className} flex items-center justify-center`} style={{ width, height }}>
+        <GlassCard
+          surface="glass"
+          tint="rgba(255, 255, 255, 0.15)"
+          className="p-8 text-center max-w-md"
+        >
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Map Unavailable</h3>
+          <p className="text-gray-600 mb-6">
+            {error || 'Unable to load the Spain map at this time.'}
+          </p>
+          <p className="text-sm text-gray-500">
+            Please try refreshing the page or explore our cities using the cards below.
+          </p>
+        </GlassCard>
       </div>
     );
   }
