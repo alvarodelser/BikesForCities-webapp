@@ -76,7 +76,7 @@ const SpainMap: React.FC<SpainMapProps> = ({
       .enter()
       .append("path")
       .attr("class", "country")
-      .attr("d", path)
+      .attr("d", d => path(d as any) || "")
       .style("fill", "rgba(255, 255, 255, 0.1)")
       .style("stroke", "rgba(255, 255, 255, 0.3)")
       .style("stroke-width", 2);
@@ -102,7 +102,7 @@ const SpainMap: React.FC<SpainMapProps> = ({
       .style("stroke-width", d => selectedCity === d.name ? 4 : 2)
       .style("cursor", "pointer")
       .style("transition", "all 0.3s ease")
-      .on("mouseover", function(event, d) {
+      .on("mouseover", function(_, d) {
         d3.select(this)
           .transition()
           .duration(200)
@@ -116,7 +116,7 @@ const SpainMap: React.FC<SpainMapProps> = ({
             return projected ? `translate(${projected[0]}, ${projected[1] - 20})` : "translate(0,0)";
           });
 
-        const rect = tooltip.append("rect")
+        tooltip.append("rect")
           .attr("x", -30)
           .attr("y", -15)
           .attr("width", 60)
@@ -140,7 +140,7 @@ const SpainMap: React.FC<SpainMapProps> = ({
         
         g.select(".tooltip").remove();
       })
-      .on("click", function(event, d) {
+      .on("click", function(_, d) {
         if (onCityClick) {
           onCityClick(d.name);
         }

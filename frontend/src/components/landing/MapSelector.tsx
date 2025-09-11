@@ -72,7 +72,6 @@ const MapSelector: React.FC = () => {
           cities={CITIES}
           selectedCity={selectedCity} 
           onCitySelect={handleCitySelect}
-          onCityNavigate={handleCityNavigate}
         />
       </div>
     </div>

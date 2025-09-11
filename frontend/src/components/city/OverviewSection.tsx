@@ -54,10 +54,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 mb-12 mx-[100px]">
           <GlassCard
-            variant="default"
-            layout="block"
-            hover
-            hoverBorderColor="rgba(123, 164, 146, 0.5)"
+            surface="glass"
+            interactive
             className="p-6 group"
           >
             <div className="flex items-center gap-3 mb-4 relative z-10">
@@ -76,10 +74,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
                       </GlassCard>
 
           <GlassCard
-            variant="default"
-            layout="block"
-            hover
-            hoverBorderColor="rgba(244, 162, 76, 0.5)"
+            surface="glass"
+            interactive
             className="p-6 group"
           >
             <div className="flex items-center gap-3 mb-4 relative z-10">
@@ -98,10 +94,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
                      </GlassCard>
 
           <GlassCard
-            variant="default"
-            layout="block"
-            hover
-            hoverBorderColor="rgba(123, 164, 146, 0.5)"
+            surface="glass"
+            interactive
             className="p-6 group"
           >
             <div className="flex items-center gap-3 mb-4 relative z-10">
@@ -115,10 +109,8 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
                       </GlassCard>
 
           <GlassCard
-            variant="default"
-            layout="block"
-            hover
-            hoverBorderColor="rgba(244, 162, 76, 0.5)"
+            surface="glass"
+            interactive
             className="p-6 group"
           >
             <div className="flex items-center gap-3 mb-4 relative z-10">

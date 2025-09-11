@@ -8,6 +8,7 @@ const sampleCity: CityData = {
   name: 'Madrid',
   path: '/map/madrid',
   mapCoords: { x: 639.4, y: 241.6 },
+  geoCoords: { longitude: -3.7038, latitude: 40.4168 },
   population: 3223000,
   budget: 2500000,
   cyclingNetwork: 45,
