@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { CITIES } from '../../constants/cities';
 import CityPin from '../ui/CityPin';
+import spainGeoJSON from '../../data/spain-provinces.geojson?url';
 
 interface SpainMapProps {
   width: number;
@@ -29,6 +30,7 @@ const getCityCoordinates = (): CityCoordinates[] => {
 // Load Spain provinces GeoJSON data
 const loadSpainGeoJSON = async () => {
   const possiblePaths = [
+    spainGeoJSON, // Bundled asset URL (most reliable)
     '/data/spain-provinces.geojson',
     './data/spain-provinces.geojson',
     `${import.meta.env.BASE_URL}data/spain-provinces.geojson`
