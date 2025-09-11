@@ -81,8 +81,8 @@ const SpainMap: React.FC<SpainMapProps> = ({
       .enter()
       .append("path")
       .attr("class", "province")
-      .attr("d", path)
-      .style("fill", "rgba(191, 221, 206, 1)") // Opacity 21 as requested
+      .attr("d", d => path(d as any) || "")
+      .style("fill", "rgba(191, 221, 206, 1)")
       .style("stroke", "rgba(191, 221, 206, 0.4)")
       .style("stroke-width", 1);
 

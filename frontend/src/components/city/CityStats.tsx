@@ -25,12 +25,8 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
           
           {/* Summary Card */}
           <GlassCard
-            layout="block"
-            backgroundGradient={{
-              from: 'var(--green)',
-              to: 'var(--green-dark)',
-              direction: 'r'
-            }}
+            surface="glass"
+            tint="rgba(123, 164, 146, 0.9)"
             className="p-6 text-white shadow-lg"
           >
             <div className="flex items-center gap-3 mb-2">
@@ -49,11 +45,9 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
             return (
               <GlassCard 
                 key={index}
-                variant="default"
-                layout="block"
-                hover
-                backgroundColor="rgba(255, 255, 255, 0.8)"
-                hoverBorderColor="rgba(123, 164, 146, 0.3)"
+                surface="glass"
+                interactive
+                tint="rgba(255, 255, 255, 0.8)"
                 className="p-6 group"
               >
                 <div className="flex items-center justify-between mb-4">
@@ -76,10 +70,8 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
         {/* Additional Insights */}
         <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <GlassCard
-            variant="default"
-            layout="block"
-            backgroundColor="rgba(255, 255, 255, 0.8)"
-            hoverBorderColor="rgba(123, 164, 146, 0.3)"
+            surface="glass"
+            tint="rgba(255, 255, 255, 0.8)"
             className="p-6"
           >
             <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Key Insights</h3>
@@ -96,10 +88,8 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
           </GlassCard>
 
           <GlassCard
-            variant="default"
-            layout="block"
-            backgroundColor="rgba(255, 255, 255, 0.8)"
-            hoverBorderColor="rgba(123, 164, 146, 0.3)"
+            surface="glass"
+            tint="rgba(255, 255, 255, 0.8)"
             className="p-6"
           >
             <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Recommendations</h3>

@@ -7,8 +7,7 @@ const ScrollableCityCards: React.FC<{
   cities: CityData[];
   selectedCity: string | null;
   onCitySelect?: (cityName: string) => void;
-  onCityNavigate?: (cityName: string) => void;
-}> = ({ cities, selectedCity, onCitySelect, onCityNavigate }) => {
+}> = ({ cities, selectedCity, onCitySelect }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const isAnimating = useRef(false);

@@ -39,14 +39,15 @@ const HeroSection: React.FC = () => {
       <div className="relative w-full z-10">
         {/* Title */}
         <h1
-          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent my-[0px] mx-[120px]"
+          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent 
+         my-[-10px] mx-[50px] lg:mx-[100px]"
         >
           Bikes for Cities
         </h1>
 
         {/* Image */}
         <div 
-          className="h-[400px] bg-cover bg-center rounded-sm mx-[100px] -mt-[20px]"
+          className="h-[400px] bg-cover bg-center rounded-sm mx-[50px] lg:mx-[100px] py-[30px] gap-[20px] lg:gap-[120px]"
           style={{
             backgroundImage: `url(${landingHeroImage})`,
             backgroundPosition: 'center center'
@@ -54,12 +55,12 @@ const HeroSection: React.FC = () => {
         ></div>
 
         {/* Introduction */}
-        <div className="flex items-start justify-between mx-[100px] py-[30px] gap-[120px]">
+        <div className="flex items-start justify-between mx-[50px] lg:mx-[100px] py-[30px] gap-[20px] lg:gap-[120px]">
           {/* Left side - Motivational phrase */}
           <div className="flex-1">
-            <h1 className="text-5xl font-heading font-bold bg-gradient-to-r from-[var(--blue-dark)] via-[var(--green-dark)] via-[var(--green)] to-[var(--blue)] bg-clip-text text-transparent leading-tight mb-6 tracking-tighter">
-              <span className="block text-8xl tracking-tight">Movilidad sostenible</span>
-              <span className="block text-5xl tracking-tight flex items-center gap-3 leading-[1.2]">
+            <h1 className="text-3xl md:text-5xl font-heading font-bold bg-gradient-to-r from-[var(--blue-dark)] via-[var(--green-dark)] via-[var(--green)] to-[var(--blue)] bg-clip-text text-transparent leading-tight mb-6 tracking-tighter">
+              <span className="block text-6xl lg:text-8xl tracking-tight">Movilidad sostenible</span>
+              <span className="block text-4xl lg:text-5xl tracking-tight flex items-center gap-3 leading-[1.2]">
                 en la era digital
                 <CircleChevronDown 
                   onClick={scrollToNextSection}
@@ -86,7 +87,7 @@ const HeroSection: React.FC = () => {
                 className="group cursor-pointer"
                 onClick={scrollToNextSection}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 lg:gap-4">
                   <IconContainer
                     icon={Building2}
                     variant="glass"
@@ -97,7 +98,7 @@ const HeroSection: React.FC = () => {
                     className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
+                    <h3 className="text-md lg:text-xl font-semibold text-gray-800 mb-1">
                       Compara nuestras ciudades
                     </h3>
 
@@ -116,7 +117,7 @@ const HeroSection: React.FC = () => {
                 className="group cursor-pointer"
                 onClick={() => console.log('Explora mapas clicked')}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 lg:gap-4">
                   <IconContainer
                     icon={Map}
                     variant="glass"
@@ -127,7 +128,7 @@ const HeroSection: React.FC = () => {
                     className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
+                    <h3 className="text-lg lg:text-xl font-semibold text-gray-800 mb-1">
                       Explora mapas de movilidad
                     </h3>
                     <p>
@@ -146,7 +147,7 @@ const HeroSection: React.FC = () => {
                 className="group cursor-pointer"
                 onClick={scrollToNextSection}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 lg:gap-4">
                   <IconContainer
                     icon={FileText}
                     variant="glass"

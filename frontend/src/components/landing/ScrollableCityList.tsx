@@ -1,5 +1,4 @@
 import { useRef, useState, useEffect } from "react";
-import Link from "../ui/Link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 type Props = {

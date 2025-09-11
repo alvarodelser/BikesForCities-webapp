@@ -112,7 +112,6 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
     }
   ];
 
-  const selectedModeData = filterModes.find(mode => mode.id === selectedMode);
 
   return (
     <section className="w-full px-6 relative">

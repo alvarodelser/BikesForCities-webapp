@@ -62,6 +62,11 @@ export const Interactive: Story = {
 
 // Showcase Story - Different variants and sizes
 export const Showcase: Story = {
+  args: {
+    cityName: "Madrid",
+    variant: "glassmorphic",
+    size: "md"
+  },
   render: () => (
     <div className="p-8 bg-gradient-to-br from-blue-500 to-teal-600 rounded-lg">
       <div className="space-y-8">
@@ -142,6 +147,11 @@ export const Showcase: Story = {
 
 // Examples Story - Real usage scenarios
 export const Examples: Story = {
+  args: {
+    cityName: "Madrid",
+    variant: "glassmorphic",
+    size: "md"
+  },
   render: () => (
     <div className="space-y-8">
       {/* Map-like scenario */}
@@ -158,36 +168,31 @@ export const Examples: Story = {
             cityName="Madrid" 
             variant="glassmorphic" 
             size="md"
-            className="absolute"
-            style={{ top: '45%', left: '50%', transform: 'translate(-50%, -50%)' }}
+            className="absolute top-[45%] left-[50%] transform -translate-x-1/2 -translate-y-1/2"
           />
           <CityPin 
             cityName="Barcelona" 
             variant="glassmorphic" 
             size="md"
-            className="absolute"
-            style={{ top: '25%', left: '75%', transform: 'translate(-50%, -50%)' }}
+            className="absolute top-[25%] left-[75%] transform -translate-x-1/2 -translate-y-1/2"
           />
           <CityPin 
             cityName="Valencia" 
             variant="glassmorphic" 
             size="sm"
-            className="absolute"
-            style={{ top: '65%', left: '65%', transform: 'translate(-50%, -50%)' }}
+            className="absolute top-[65%] left-[65%] transform -translate-x-1/2 -translate-y-1/2"
           />
           <CityPin 
             cityName="Sevilla" 
             variant="glassmorphic" 
             size="sm"
-            className="absolute"
-            style={{ top: '75%', left: '35%', transform: 'translate(-50%, -50%)' }}
+            className="absolute top-[75%] left-[35%] transform -translate-x-1/2 -translate-y-1/2"
           />
           <CityPin 
             cityName="Bilbao" 
             variant="glassmorphic" 
             size="sm"
-            className="absolute"
-            style={{ top: '15%', left: '25%', transform: 'translate(-50%, -50%)' }}
+            className="absolute top-[15%] left-[25%] transform -translate-x-1/2 -translate-y-1/2"
           />
         </div>
         <p className="text-gray-600 text-sm mt-2">

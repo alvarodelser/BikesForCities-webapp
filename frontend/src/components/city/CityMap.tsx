@@ -167,9 +167,8 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = '
       {/* Map Legend */}
       <div className="absolute bottom-4 left-4 z-20">
         <GlassCard
-          variant="default"
-          layout="block"
-          backgroundColor="rgba(255, 255, 255, 0.1)"
+          surface="glass"
+          tint="rgba(255, 255, 255, 0.1)"
           className="p-4"
         >
           <h3 className="text-white font-semibold mb-3">Legend</h3>

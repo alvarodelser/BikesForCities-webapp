@@ -1,24 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { 
-  Users, 
-  Euro, 
-  Bike, 
-  Percent, 
-  FileText, 
-  Map, 
   CircuitBoard,
   Home,
   MapPin,
   Clock,
   BarChart3,
-  Route,
-  Navigation,
-  Car,
-  Zap,
-  Settings,
+  Map,
+  FileText,
+  Users,
+  Euro,
+  Bike,
+  Percent,
   User,
-  Bell
+  Bell,
+  Settings
 } from 'lucide-react';
 
 const meta: Meta<typeof GlassCard> = {

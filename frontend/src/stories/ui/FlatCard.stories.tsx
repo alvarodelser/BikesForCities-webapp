@@ -1,30 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { FlatCard } from '../../components/ui/FlatCard';
 import { 
-  Users, 
-  Euro, 
-  Bike, 
-  Percent, 
-  FileText, 
   Map, 
   CircuitBoard,
   Home,
-  MapPin,
   Clock,
   BarChart3,
-  Route,
-  Navigation,
-  Car,
-  Zap,
   Settings,
-  User,
-  Bell,
   Search,
-  Heart,
-  Star,
   TrendingUp,
   Shield,
-  Globe
+  Globe,
+  Route,
+  Navigation,
+  Zap,
+  Car
 } from 'lucide-react';
 
 const meta: Meta<typeof FlatCard> = {
