@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router';
 import { Github, Linkedin, Instagram, Bookmark, Heart } from 'lucide-react';
+import IconContainer from '../ui/IconContainer';
 
 const Footer: React.FC = () => {
   const socialLinks = [
@@ -66,24 +67,28 @@ const Footer: React.FC = () => {
                 Síguenos
               </h4>
               <div className="flex gap-3">
-                {socialLinks.map((social, index) => {
-                  const IconComponent = social.icon;
-                  return (
-                    <a
-                      key={index}
-                      href={social.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                {socialLinks.map((social, index) => (
+                  <a
+                    key={index}
+                    href={social.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={social.label}
+                  >
+                    <IconContainer
+                      icon={social.icon}
+                      variant="glass"
+                      size="md"
+                      tint="rgba(0, 56, 73, 0.95)"
+                      hoverTint="rgba(2, 122, 118, 0.8)"
+                      iconColor="white"
+                      hoverIconColor="#ffffff"
+                      onClick={() => window.open(social.href, '_blank')}
                       aria-label={social.label}
-                      className="w-10 h-10 bg-[#003849] backdrop-blur-md border border-white/20 rounded-full flex items-center justify-center hover:bg-[var(--green-dark)] hover:border-white/30 hover:scale-110 transition-all duration-300 group/social"
-                      style={{
-                        boxShadow: 'inset 1px 1px 2px rgba(0,0,0,0.1), inset -1px -1px 2px rgba(255,255,255,0.05)'
-                      }}
-                    >
-                      <IconComponent className="w-5 h-5 text-white group-hover/social:text-white transition-colors duration-300 drop-shadow-sm" />
-                    </a>
-                  );
-                })}
+                      className="transition-all duration-300"
+                    />
+                  </a>
+                ))}
               </div>
             </div>
           </div>

@@ -20,9 +20,9 @@ const CityCard: React.FC<CityCardProps> = ({
   
   // Calculate scale based on distance from center
   const getScale = () => {
-    if (distance === 0) return 1.1; // center card
-    if (distance === 1) return 0.95; // adjacent cards
-    if (distance === 2) return 0.8; // second tier
+    if (distance === 0) return 1; // center card
+    if (distance === 1) return 0.8; // adjacent cards
+    if (distance === 2) return 0.7; // second tier
     return 0.6; // distant cards
   };
 

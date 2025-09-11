@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, Map, CircuitBoard, CircleChevronDown } from 'lucide-react';
+import { FileText, Map, Building2, CircleChevronDown } from 'lucide-react';
 import landingHeroImage from '../../assets/landing_hero.jpg';
 import backgroundTexture from '../../assets/background2.svg';
 import GlassCard from '../ui/GlassCard';
@@ -88,22 +88,20 @@ const HeroSection: React.FC = () => {
               >
                 <div className="flex items-center gap-4">
                   <IconContainer
-                    icon={CircuitBoard}
+                    icon={Building2}
                     variant="glass"
                     size="lg"
-                    tint="rgba(59, 130, 246, 0.2)"
-                    hoverTint="rgba(59, 130, 246, 0.3)"
+                    tint="rgba(2, 122, 118, 0.6)"
                     iconColor="white"
                     hoverIconColor="#ffffff"
                     className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1 group-hover:text-gray-700 transition-colors duration-300">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
                       Compara nuestras ciudades
                     </h3>
-                    <p className="text-sm text-gray-600 group-hover:text-gray-500 transition-colors duration-300">
-                      Analiza datos de movilidad urbana
-                    </p>
+
+                    <p> Datos de más de X ciudades de todo el territorio</p>
                   </div>
                 </div>
               </GlassCard>
@@ -123,24 +121,21 @@ const HeroSection: React.FC = () => {
                     icon={Map}
                     variant="glass"
                     size="lg"
-                    tint="#027a76"
-                    hoverTint="rgba(33, 150, 243, 0.3)"
+                    tint="rgba(244, 162, 76, 0.6)"
                     iconColor="white"
-                    hoverIconColor="#e3f2fd"
-                    onClick={() => console.log('Explora mapas clicked')}
-                    className="flex-shrink-0"
+                    hoverIconColor="#ffffff"
+                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1 group-hover:text-gray-700 transition-colors duration-300">
-                      Explora mapas de tráfico
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
+                      Explora mapas de movilidad
                     </h3>
-                    <p className="text-sm text-gray-600 group-hover:text-gray-500 transition-colors duration-300">
-                      Visualiza patrones de ciclismo urbano
+                    <p>
+                      Diversos modos de ver sobre el papel.
                     </p>
                   </div>
                 </div>
               </GlassCard>
-              
               <GlassCard 
                 surface="glass"
                 interactive 
@@ -156,19 +151,17 @@ const HeroSection: React.FC = () => {
                     icon={FileText}
                     variant="glass"
                     size="lg"
-                    tint="rgba(156, 39, 176, 0.2)"
-                    hoverTint="rgba(156, 39, 176, 0.3)"
+                    tint="rgba(175, 71, 73, 0.6)"
                     iconColor="white"
-                    hoverIconColor="#f3e5f5"
-                    onClick={scrollToNextSection}
-                    className="flex-shrink-0"
+                    hoverIconColor="#ffffff"
+                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1 group-hover:text-gray-700 transition-colors duration-300">
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1"> 
                       Planifica con visión de futuro
                     </h3>
-                    <p className="text-sm text-gray-600 group-hover:text-gray-500 transition-colors duration-300">
-                      Diseña infraestructura sostenible
+                    <p>
+                      Datos y estudios contrastados para informar una estrategia municipal basada en datos.
                     </p>
                   </div>
                 </div>

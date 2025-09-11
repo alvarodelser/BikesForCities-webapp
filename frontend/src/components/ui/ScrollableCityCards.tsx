@@ -6,8 +6,9 @@ import type { CityData } from '../../constants/cities';
 const ScrollableCityCards: React.FC<{ 
   cities: CityData[];
   selectedCity: string | null;
-  onCitySelect?: (cityName: string) => void 
-}> = ({ cities, selectedCity, onCitySelect }) => {
+  onCitySelect?: (cityName: string) => void;
+  onCityNavigate?: (cityName: string) => void;
+}> = ({ cities, selectedCity, onCitySelect, onCityNavigate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const isAnimating = useRef(false);

@@ -1,79 +1,78 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router';
 import { CITIES } from '../../constants/cities';
-import SpainMap from '../../assets/es.svg';
+import SpainMap from './SpainMap';
 import ScrollableCityCards from '../ui/ScrollableCityCards';
+import WaveBackground from '../ui/WaveBackground';
 
 const MapSelector: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
+  const [expandedCity, setExpandedCity] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleCitySelect = (cityName: string) => {
     setSelectedCity(cityName);
-    
-    // Find and highlight the corresponding map pin
-    const mapPin = document.querySelector(`[data-city="${cityName}"]`);
-    if (mapPin) {
-      // Remove any existing active pins
-      document.querySelectorAll('.map-pin').forEach(pin => 
-        pin.classList.remove('active-pin')
-      );
-      
-      // Add active class to selected pin
-      mapPin.classList.add('active-pin');
+    setExpandedCity(cityName); // Expand the pin when city is selected
+  };
+
+  const handleCityNavigate = (cityName: string) => {
+    // Find the city data to get the path
+    const city = CITIES.find(c => c.name === cityName);
+    if (city) {
+      navigate(city.path);
     }
   };
 
   return (
     <div 
       id="map-selector" 
-      className="relative w-full h-screen bg-[var(--blue)] flex flex-col items-center"
+      className="relative w-full min-h-screen flex flex-col items-center overflow-hidden"
+      style={{ height: '120vh' }} // More height for the container
     >
-      {/* Spain Map SVG */}
-      <div className="absolute inset-0 opacity-20">
-        <img 
-          src={SpainMap} 
-          alt="Spain Map" 
-          className="w-full h-full object-contain"
-        />
-      </div>
+      {/* Wave Background - Full coverage behind all elements */}
+      <WaveBackground 
+        color={0x3A6C7F} // Deep blue-teal base color
+        specularColor={0x7BA492} // Green-teal specular highlights
+        shininess={8}
+        waveHeight={20}
+        waveSpeed={0.5}
+        zoom={5}
+        // Camera positioning for full coverage
+        cameraFov={90}
+        cameraY={300}
+        cameraZ={100}
+        targetY={-50}
+        className="absolute inset-0 w-full h-full -z-10 pointer-events-auto"
+      />
 
-      {/* City Pins */}
-      <div className="absolute inset-0">
-        {CITIES.map((city) => (
-          <div 
-            key={city.name}
-            data-city={city.name}
-            className={`map-pin absolute cursor-pointer group`}
-            style={{ 
-              left: `${city.mapCoords.x}px`, 
-              top: `${city.mapCoords.y}px` 
-            }}
-            onClick={() => handleCitySelect(city.name)}
-          >
-            <div className="w-4 h-4 bg-[var(--green)] rounded-full 
-              group-hover:scale-125 transition-transform duration-300
-              relative z-10
-              ${selectedCity === city.name ? 'ring-4 ring-[var(--yellow)]' : ''}"
-            >
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 
-                bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md 
-                opacity-0 group-hover:opacity-100 transition-opacity duration-300
-                text-xs text-gray-800"
-              >
-                {city.name}
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* D3.js Spain Map with Coordinate System - Positioned 1/3 up */}
+      <div 
+        className="absolute z-10 flex items-center justify-center w-full"
+        style={{ 
+          top: '-8%', // Position 1/3 from top
+          height: '70%'   // Give it good height for the map
+        }}
+      >
+        <SpainMap
+          width={900}
+          height={700}
+          onCityClick={handleCitySelect}
+          onCityNavigate={handleCityNavigate}
+          selectedCity={selectedCity}
+          expandedCity={expandedCity}
+          className=""
+        />
       </div>
 
       
 
       {/* Scrollable City Cards */}
-      <div className="absolute bottom-8 left-0 right-0 z-20 w-full  mx-0 px-4">
+      <div className="absolute left-0 right-0 z-20 w-full mx-0 px-4" style={{ bottom: '1vh' }}>
         <ScrollableCityCards 
           cities={CITIES}
           selectedCity={selectedCity} 
-          onCitySelect={handleCitySelect} 
+          onCitySelect={handleCitySelect}
+          onCityNavigate={handleCityNavigate}
         />
       </div>
     </div>
