@@ -125,8 +125,6 @@ const CityCard: React.FC<CityCardProps> = ({
         <div className="flex gap-4 relative z-10">
           <FlatCard 
             onClick={() => {
-              console.log('CityCard: Entrar button clicked for city:', city.name);
-              console.log('CityCard: onCityNavigate function:', onCityNavigate);
               onCityNavigate?.(city.name);
             }}
             interactive
@@ -137,6 +135,8 @@ const CityCard: React.FC<CityCardProps> = ({
             }}
             size="sm"
             shadow="sm"
+            border="none"
+            hoverBorderColor='var(--red)'
             className="flex-1 cursor-pointer flex items-center justify-center"
           >
             <span className="text-white font-bold">Mapa</span>
@@ -153,6 +153,7 @@ const CityCard: React.FC<CityCardProps> = ({
             }}
             size="sm"
             shadow="sm"
+            border="none"
             className="flex-1 cursor-pointer flex items-center justify-center"
           >
             <span className="text-white font-bold">Compara</span>
