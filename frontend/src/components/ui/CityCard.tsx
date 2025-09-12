@@ -1,5 +1,4 @@
 import React from 'react';
-import { useNavigate } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { GlassCard } from './GlassCard';
 import { FlatCard } from './FlatCard';
@@ -8,14 +7,15 @@ interface CityCardProps {
   city: CityData;
   position: number;
   onClick?: () => void;
+  onCityNavigate?: (cityName: string) => void;
 }
 
 const CityCard: React.FC<CityCardProps> = ({ 
   city, 
   position,
-  onClick 
+  onClick,
+  onCityNavigate
 }) => {
-  const navigate = useNavigate();
   const distance = Math.abs(position);
   
   // Calculate scale based on distance from center
@@ -125,7 +125,9 @@ const CityCard: React.FC<CityCardProps> = ({
         <div className="flex gap-4 relative z-10">
           <FlatCard 
             onClick={() => {
-              navigate(city.path);
+              console.log('CityCard: Entrar button clicked for city:', city.name);
+              console.log('CityCard: onCityNavigate function:', onCityNavigate);
+              onCityNavigate?.(city.name);
             }}
             interactive
             gradient={{
@@ -137,7 +139,7 @@ const CityCard: React.FC<CityCardProps> = ({
             shadow="sm"
             className="flex-1 cursor-pointer flex items-center justify-center"
           >
-            <span className="text-white font-bold">Entrar</span>
+            <span className="text-white font-bold">Mapa</span>
           </FlatCard>
           <FlatCard 
             onClick={() => {
@@ -153,7 +155,7 @@ const CityCard: React.FC<CityCardProps> = ({
             shadow="sm"
             className="flex-1 cursor-pointer flex items-center justify-center"
           >
-            <span className="text-white font-bold">Comparar</span>
+            <span className="text-white font-bold">Compara</span>
           </FlatCard>
         </div>
       </GlassCard>

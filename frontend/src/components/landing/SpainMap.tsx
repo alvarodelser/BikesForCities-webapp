@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { CITIES } from '../../constants/cities';
 import CityPin from '../ui/CityPin';
@@ -55,6 +55,13 @@ const SpainMap: React.FC<SpainMapProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const projection = useMemo(() => {
+    if (!width || !height) return null;
+    return d3.geoMercator()
+      .center([-3.5, 40])
+      .scale(2800)
+      .translate([width / 2, height / 2]);
+  }, [width, height]);
 
   // Load GeoJSON data
   useEffect(() => {
@@ -69,55 +76,39 @@ const SpainMap: React.FC<SpainMapProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!svgRef.current || !geoData) return;
+  if (!svgRef.current || !geoData) return;
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll("*").remove(); // Clear previous render
+  const svg = d3.select(svgRef.current);
+  svg.selectAll("*").remove();
+  const path = d3.geoPath().projection(projection);
 
-    // Set up projection for Spain
-    const projection = d3.geoMercator()
-      .center([-3.5, 40]) // Center on Spain
-      .scale(2800) // Adjust scale for Spain
-      .translate([width / 2, height / 2]);
-
-    const path = d3.geoPath().projection(projection);
-
-    // Create main group
-    const g = svg.append("g");
-
-    // Draw Spain provinces
-    g.selectAll(".province")
-      .data(geoData.features)
-      .enter()
-      .append("path")
-      .attr("class", "province")
-      .attr("d", d => path(d as any) || "")
-      .style("fill", "rgba(191, 221, 206, 1)")
-      .style("stroke", "rgba(191, 221, 206, 0.4)")
-      .style("stroke-width", 1);
-
-    // Store projection for React components to use
-    (svg.node() as any).__projection = projection;
-
-  }, [width, height, selectedCity, onCityClick, geoData]);
-
-  // Get projection from SVG for positioning pins
-  const projection = svgRef.current ? (svgRef.current as any).__projection : null;
+  // draw provinces
+  const g = svg.append("g");
+  g.selectAll(".province")
+    .data(geoData.features)
+    .enter()
+    .append("path")
+    .attr("class", "province")
+    .attr("d", (d: any) => path(d) || "")
+    .style("fill", "rgba(191, 221, 206, 1)")
+    .style("stroke", "rgba(191, 221, 206, 0.4)")
+    .style("stroke-width", 1);
+}, [geoData, projection]);  // projection already depends on width & height
 
   // Show error state with simple GlassCard
-  if (error || !geoData) {
+  if (error || !geoData || !projection) {
     return (
       <div className={`relative ${className} flex items-center justify-center`} style={{ width, height }}>
         <GlassCard
           surface="glass"
-          tint="rgba(255, 255, 255, 0.15)"
+          tint="rgba(225, 111, 111, 0.48)"
           className="p-8 text-center max-w-md"
         >
-          <h3 className="text-xl font-semibold text-gray-800 mb-4">Map Unavailable</h3>
-          <p className="text-gray-600 mb-6">
+          <h3 className="text-xl font-semibold text-white mb-4">Map Unavailable</h3>
+          <p className="text-white mb-6">
             {error || 'Unable to load the Spain map at this time.'}
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-white">
             Please try refreshing the page or explore our cities using the cards below.
           </p>
         </GlassCard>
@@ -137,16 +128,15 @@ const SpainMap: React.FC<SpainMapProps> = ({
       
       {/* City Pins Overlay */}
       {projection && getCityCoordinates().map((city) => {
-        const projected = projection(city.coordinates);
-        if (!projected) return null;
-
+        const p = projection(city.coordinates);
+        if (!p) return null;
         return (
           <div
             key={city.name}
             className="absolute"
             style={{
-              left: projected[0] - 25, // Center the pin
-              top: projected[1] - 25,
+              left: p[0] - 25, // Center the pin
+              top: p[1] - 25,
               transform: 'translate(0, 0)', // Ensure precise positioning
             }}
           >
@@ -158,6 +148,8 @@ const SpainMap: React.FC<SpainMapProps> = ({
               size="md"
               onClick={() => onCityClick?.(city.name)}
               onNavigate={() => onCityNavigate?.(city.name)}
+              tint="rgba(255, 255, 255, 0.1)"
+              tintExpanded="rgba(244, 162, 76, 0.5)"
             />
           </div>
         );

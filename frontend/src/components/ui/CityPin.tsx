@@ -10,6 +10,8 @@ interface CityPinProps {
   onClick?: () => void;
   onNavigate?: () => void;
   className?: string;
+  tint?: string;
+  tintExpanded?: string;
 }
 
 const CityPin: React.FC<CityPinProps> = ({
@@ -20,7 +22,9 @@ const CityPin: React.FC<CityPinProps> = ({
   size = 'md',
   onClick,
   onNavigate,
-  className = ''
+  className = '',
+  tint,
+  tintExpanded
 }) => {
   const [internalExpanded, setInternalExpanded] = useState(false);
   const [showText, setShowText] = useState(false);
@@ -71,6 +75,13 @@ const CityPin: React.FC<CityPinProps> = ({
   };
 
   const styles = variantStyles[variant];
+  const hasBaseTint = Boolean(tint);
+  const hasExpandedTint = Boolean(tintExpanded);
+  const bgColor =
+     isExpanded
+       ? (tintExpanded ?? tint ?? null)
+       : (tint ?? null);
+
 
   // Handle click and expansion
   const handleClick = () => {
@@ -133,7 +144,7 @@ const CityPin: React.FC<CityPinProps> = ({
   }, [isSelected, externalExpanded]);
 
   return (
-    <div className={`relative inline-block ${className}`}>
+    <div className={`relative inline-block group ${className}`}>
       <div
         className={`
           relative cursor-pointer transition-all duration-500 ease-out
@@ -143,12 +154,12 @@ const CityPin: React.FC<CityPinProps> = ({
           }
           ${styles.base}
           ${isExpanded ? styles.expanded : styles.hover}
-          ${isSelected ? 'ring-2 ring-[var(--yellow)] ring-opacity-70' : ''}
         `}
         style={{
           clipPath: isExpanded 
             ? 'polygon(15% 0%, 85% 0%, 100% 50%, 85% 100%, 15% 100%, 0% 50%)' // Hexagon shape
             : 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)', // Diamond shape
+          ...(bgColor ? { backgroundColor: bgColor } : {}),
         }}
         onClick={handleClick}
       >
