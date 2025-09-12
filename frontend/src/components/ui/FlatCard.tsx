@@ -149,6 +149,7 @@ export const FlatCard = React.forwardRef<HTMLDivElement, FlatCardProps>(
         ref={ref}
         className={classes}
         style={{ ...backgroundStyle, ...varStyle, ...(style || {}) }}
+        {...rest}
       >
         {children}
       </div>
