@@ -75,8 +75,6 @@ const CityPin: React.FC<CityPinProps> = ({
   };
 
   const styles = variantStyles[variant];
-  const hasBaseTint = Boolean(tint);
-  const hasExpandedTint = Boolean(tintExpanded);
   const bgColor =
      isExpanded
        ? (tintExpanded ?? tint ?? null)
