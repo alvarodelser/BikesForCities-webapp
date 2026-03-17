@@ -87,6 +87,9 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
             zoom: 13,
+            minZoom: 11,
+            maxZoom: 22,
+            maxBounds: city.maxBounds,
         });
 
         // Disable scroll zoom as requested
@@ -96,32 +99,21 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
 
         mapInstance.on('load', async () => {
             try {
-                // Fetch features GeoJSON from the backend (network_id=1 for Madrid)
-                const [bikePathsRes, bikePathBuildingsRes, buildingsRes] = await Promise.all([
-                    fetch(`${API_BASE}/networks/1/features/geojson?feature_type=bike_paths&limit=50000`),
-                    fetch(`${API_BASE}/networks/1/features/geojson?feature_type=bike_path_buildings&limit=100000`),
-                    fetch(`${API_BASE}/networks/1/features/geojson?feature_type=buildings&limit=350000`),
-                ]);
-
-                if (!bikePathsRes.ok || !bikePathBuildingsRes.ok || !buildingsRes.ok) {
-                    throw new Error(`API error loading features`);
-                }
-
-                const [bikePathsData, bikePathBuildingsData, buildingsData] = await Promise.all([
-                    bikePathsRes.json(),
-                    bikePathBuildingsRes.json(),
-                    buildingsRes.json(),
-                ]);
+                // Add Martin vector tile source
+                mapInstance.addSource('martin-features', {
+                    type: 'vector',
+                    tiles: ['http://localhost:3000/features/{z}/{x}/{y}'],
+                    minzoom: 0,
+                    maxzoom: 22
+                });
 
                 // 1. All Buildings (Background, dark grey)
-                mapInstance.addSource('buildings', {
-                    type: 'geojson',
-                    data: buildingsData.data,
-                });
                 mapInstance.addLayer({
                     id: 'buildings-layer',
                     type: 'fill',
-                    source: 'buildings',
+                    source: 'martin-features',
+                    'source-layer': 'features',
+                    filter: ['==', ['get', 'feature_type'], 'buildings'],
                     paint: {
                         'fill-color': '#111111',
                         'fill-opacity': 0.4,
@@ -129,14 +121,12 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                 });
 
                 // 2. Bike Path Buildings (Coverage, green)
-                mapInstance.addSource('bike-path-buildings', {
-                    type: 'geojson',
-                    data: bikePathBuildingsData.data,
-                });
                 mapInstance.addLayer({
                     id: 'bike-path-buildings-layer',
                     type: 'fill',
-                    source: 'bike-path-buildings',
+                    source: 'martin-features',
+                    'source-layer': 'features',
+                    filter: ['==', ['get', 'feature_type'], 'bike_path_buildings'],
                     paint: {
                         'fill-color': '#027A76',
                         'fill-opacity': 0.8,
@@ -144,14 +134,12 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                 });
 
                 // 3. Bike Paths (Lines, bright cyan)
-                mapInstance.addSource('bike-paths', {
-                    type: 'geojson',
-                    data: bikePathsData.data,
-                });
                 mapInstance.addLayer({
                     id: 'bike-paths-layer',
                     type: 'line',
-                    source: 'bike-paths',
+                    source: 'martin-features',
+                    'source-layer': 'features',
+                    filter: ['==', ['get', 'feature_type'], 'bike_paths'],
                     paint: {
                         'line-color': '#00cac3',
                         'line-width': 2.5,
@@ -163,7 +151,9 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                 mapInstance.addLayer({
                     id: 'bike-paths-glow',
                     type: 'line',
-                    source: 'bike-paths',
+                    source: 'martin-features',
+                    'source-layer': 'features',
+                    filter: ['==', ['get', 'feature_type'], 'bike_paths'],
                     paint: {
                         'line-color': '#00cac3',
                         'line-width': 6,

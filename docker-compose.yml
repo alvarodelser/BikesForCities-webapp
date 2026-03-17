@@ -20,7 +20,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   backend:
-    build: 
+    build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: bikes_backend
@@ -46,6 +46,17 @@ services:
       - ./logs:/app/logs
     command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 
+  martin:
+    image: ghcr.io/maplibre/martin:main
+    container_name: bikes_martin
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD_URL_ENCODED}@db:5432/${POSTGRES_DB}
+    command: --listen-addresses=0.0.0.0:3000
   # frontend:
   #   build:
   #     context: ./frontend
