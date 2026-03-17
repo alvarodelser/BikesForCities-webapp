@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import type { CityData } from '../../constants/cities';
+import type { CityCanvasHandle } from './CityCanvas';
 import CityCanvas from './CityCanvas';
 import MapHeader from './MapHeader';
 import MapLegend from './MapLegend';
@@ -11,6 +12,8 @@ interface CityMapProps {
 }
 
 const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = 'var(--blue)' }) => {
+  const canvasRef = useRef<CityCanvasHandle>(null);
+
   // Convert CSS variables to actual colors with sophisticated gradients
   const getColorScheme = (colorVar: string) => {
     const colorSchemes: Record<string, { primary: string; secondary: string; accent: string; light: string }> = {
@@ -67,7 +70,15 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = '
         `
       }}
     >
-      <MapHeader city={city} selectedMode={selectedMode} colorScheme={colorScheme} />
+      <MapHeader
+        city={city}
+        selectedMode={selectedMode}
+        colorScheme={colorScheme}
+        onZoomIn={() => canvasRef.current?.zoomIn()}
+        onZoomOut={() => canvasRef.current?.zoomOut()}
+        onReset={() => canvasRef.current?.reset()}
+        onToggleBackground={(show) => canvasRef.current?.toggleBackground(show)}
+      />
 
       {/* Map Container */}
       <div className="w-full h-full pt-20">
@@ -78,13 +89,18 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = '
 
         {/* Map Content */}
         <div className="relative w-full h-full flex items-center justify-center">
-          <CityCanvas city={city} selectedMode={selectedMode} colorScheme={colorScheme} />
+          <CityCanvas
+            ref={canvasRef}
+            city={city}
+            selectedMode={selectedMode}
+            colorScheme={colorScheme}
+          />
         </div>
       </div>
 
-      <MapLegend colorScheme={colorScheme} />
+      <MapLegend />
     </div>
   );
 };
 
-export default CityMap; 
+export default CityMap;

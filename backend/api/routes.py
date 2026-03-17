@@ -479,12 +479,91 @@ async def get_network_features(
 
 
 # GeoJSON endpoints
+@router.get("/networks/{network_id}/edges/geojson", response_model=GeoJSONResponse)
+async def get_network_edges_geojson(
+    network_id: int,
+    highway: Optional[str] = Query(None, description="Filter by highway type"),
+    bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
+    limit: int = Query(5000, ge=1, le=50000, description="Maximum number of edges"),
+    conn=Depends(get_db_connection)
+):
+    """Get network edges as GeoJSON."""
+    try:
+        validate_network_exists(conn, network_id)
+
+        # Parse bounding box
+        bbox_coords = parse_bbox(bbox) if bbox else None
+
+        # Build query
+        conditions = ["network_id = %s"]
+        params = [network_id]
+
+        if highway:
+            conditions.append("highway = %s")
+            params.append(highway)
+
+        if bbox_coords:
+            bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geom")
+            conditions.append(bbox_condition)
+            params.extend(bbox_params)
+
+        where_clause = " AND ".join(conditions)
+
+        # Get edges with geometry
+        with conn.cursor() as cur:
+            query = f"""
+                SELECT ST_AsText(geom), highway, name, length, oneway
+                FROM edges
+                WHERE {where_clause}
+                ORDER BY id
+                LIMIT %s
+            """
+            cur.execute(query, params + [limit])
+            edges_data = cur.fetchall()
+
+        # Convert to GeoJSON
+        geojson_features = []
+        for geometry_wkt, hw, name, length, oneway in edges_data:
+            try:
+                geom = wkt.loads(geometry_wkt)
+                geojson_geom = mapping(geom)
+
+                properties = {
+                    "highway": hw,
+                    "name": name,
+                    "length": length,
+                    "oneway": oneway
+                }
+
+                geojson_features.append(GeoJSONFeature(
+                    geometry=geojson_geom,
+                    properties=properties
+                ))
+            except Exception as e:
+                logger.warning(f"Failed to convert edge to GeoJSON: {e}")
+                continue
+
+        feature_collection = GeoJSONFeatureCollection(
+            features=geojson_features
+        )
+
+        return GeoJSONResponse(
+            data=feature_collection,
+            message=f"Retrieved {len(geojson_features)} edges as GeoJSON"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting GeoJSON edges for network {network_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON edges")
+
+
 @router.get("/networks/{network_id}/features/geojson", response_model=GeoJSONResponse)
 async def get_network_features_geojson(
     network_id: int,
     feature_type: Optional[str] = Query(None, description="Filter by feature type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
-    limit: int = Query(1000, ge=1, le=5000, description="Maximum number of features"),
+    limit: int = Query(1000, ge=1, le=500000, description="Maximum number of features"),
     conn=Depends(get_db_connection)
 ):
     """Get network features as GeoJSON."""

@@ -7,9 +7,13 @@ interface MapHeaderProps {
     city: CityData;
     selectedMode: string;
     colorScheme: { primary: string; secondary: string; accent: string; light: string };
+    onZoomIn?: () => void;
+    onZoomOut?: () => void;
+    onReset?: () => void;
+    onToggleBackground?: (show: boolean) => void;
 }
 
-const MapHeader: React.FC<MapHeaderProps> = ({ city, selectedMode, colorScheme }) => {
+const MapHeader: React.FC<MapHeaderProps> = ({ city, selectedMode, colorScheme, onZoomIn, onZoomOut, onReset, onToggleBackground }) => {
     return (
         <div className="absolute top-0 left-0 right-0 z-20 bg-white/10 backdrop-blur-md border-b border-white/20 p-4">
             <div className="flex items-center justify-between">
@@ -29,7 +33,13 @@ const MapHeader: React.FC<MapHeaderProps> = ({ city, selectedMode, colorScheme }
                 </div>
 
                 {/* Map Controls */}
-                <MapControls colorScheme={colorScheme} />
+                <MapControls
+                    colorScheme={colorScheme}
+                    onZoomIn={onZoomIn}
+                    onZoomOut={onZoomOut}
+                    onReset={onReset}
+                    onToggleBackground={onToggleBackground}
+                />
             </div>
         </div>
     );
