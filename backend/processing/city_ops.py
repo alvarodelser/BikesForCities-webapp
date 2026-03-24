@@ -2,15 +2,15 @@ from typing import List, Tuple, Any, Union
 import networkx as nx
 from shapely import wkt
 from shapely.geometry import Point, LineString
-from backend.database.network_io import get_edges, get_nodes
+from backend.database.city_io import get_edges, get_nodes
 
 # Extract node info from graph
-def extract_nodes(graph: nx.MultiDiGraph, network_id: int) -> List[Tuple[int, int, int, float, float, str, int]]:
+def extract_nodes(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[int, int, int, float, float, str, int]]:
     """Return a list of node tuples ready for bulk-insert.
 
     The expected shape is **7 values** to match `put_nodes()`:
 
-        (network_id, id, osmid, lat, lon, geom_wkt, street_count)
+        (city_id, id, osmid, lat, lon, geom_wkt, street_count)
     """
 
     nodes: List[Tuple[int, int, int, float, float, str, int]] = []
@@ -21,7 +21,7 @@ def extract_nodes(graph: nx.MultiDiGraph, network_id: int) -> List[Tuple[int, in
         street_count = data.get("street_count")
 
         nodes.append((
-            network_id,   # FK to networks
+            city_id,   # FK to cities
             node_id,      # id (primary key)
             node_id,      # osmid – using same value as id for now
             lat,
@@ -70,12 +70,12 @@ def parse_lanes(data: dict) -> Union[List[int], None]:
     return None
 
 # Extract edge info from graph
-def extract_edges(graph: nx.MultiDiGraph, network_id: int) -> List[Tuple[Any, ...]]:
+def extract_edges(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[Any, ...]]:
     """Return a list of edge tuples ready for bulk-insert.
 
     Expected length **15** to match `put_edges()`:
 
-        (network_id, osmid, u, v, k, geom, highway, name, length,
+        (city_id, osmid, u, v, k, geom, highway, name, length,
          width, maxspeed, lanes, oneway, tunnel, bridge)
     """
 
@@ -105,7 +105,7 @@ def extract_edges(graph: nx.MultiDiGraph, network_id: int) -> List[Tuple[Any, ..
         bridge = "bridge" in data
 
         edge = (
-            network_id,
+            city_id,
             osmid,
             u,
             v,
@@ -125,13 +125,13 @@ def extract_edges(graph: nx.MultiDiGraph, network_id: int) -> List[Tuple[Any, ..
     return edges
 
 
-def build_graph(conn, network_id: int) -> nx.MultiDiGraph:
+def build_graph(conn, city_id: int) -> nx.MultiDiGraph:
     """
     Reconstruct a NetworkX graph from database data.
     
     Args:
         conn: Database connection
-        network_id: ID of the network to reconstruct
+        city_id: ID of the city to reconstruct
         
     Returns:
         nx.MultiDiGraph: Reconstructed graph with nodes and edges
@@ -140,7 +140,7 @@ def build_graph(conn, network_id: int) -> nx.MultiDiGraph:
     graph.graph["crs"] = "EPSG:4326"
 
     # Add nodes
-    for node_id, lat, lon, geom_wkt, street_count in get_nodes(conn, network_id):
+    for node_id, lat, lon, geom_wkt, street_count in get_nodes(conn, city_id):
         graph.add_node(node_id, x=lon, y=lat, street_count=street_count)
 
     # Add edges
@@ -148,7 +148,7 @@ def build_graph(conn, network_id: int) -> nx.MultiDiGraph:
         osmid, u, v, k, geom_wkt,
         highway, name, length, width,
         maxspeed, lanes, oneway, tunnel, bridge
-    ) in get_edges(conn, network_id):
+    ) in get_edges(conn, city_id):
         geom = wkt.loads(geom_wkt)
         graph.add_edge(u, v, key=k, **{
             "osmid": osmid,

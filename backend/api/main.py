@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="Bikes for Cities API",
-    description="REST API for bike-sharing network analysis and visualization",
+    description="REST API for bike-sharing city analysis and visualization",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
@@ -64,10 +64,10 @@ async def api_info() -> Dict[str, Any]:
     """Get API information."""
     return {
         "title": "Bikes for Cities API",
-        "description": "REST API for bike-sharing network analysis and visualization",
+        "description": "REST API for bike-sharing city analysis and visualization",
         "version": "1.0.0",
         "endpoints": {
-            "networks": "/api/networks",
+            "cities": "/api/cities",
             "health": "/health",
             "docs": "/docs"
         }

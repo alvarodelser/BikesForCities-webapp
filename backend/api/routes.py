@@ -10,18 +10,18 @@ from shapely import wkt
 from shapely.geometry import mapping
 
 from .models import (
-    NetworkListResponse, NetworkDetailResponse, NetworkStatsResponse,
+    CityListResponse, CityDetailResponse, CityStatsResponse,
     PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedRoutesResponse,
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, RouteResponse, FeatureResponse,
-    NetworkResponse, NetworkStats, GeoJSONFeature, ErrorResponse
+    CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
     validate_network_exists, build_bbox_condition, check_database_health
 )
-from backend.database.network_io import (
-    get_all_networks, get_network_center, count_nodes, count_edges,
+from backend.database.city_io import (
+    get_all_cities, get_city_center, count_nodes, count_edges,
     count_routes, count_features, get_nodes, get_edges, get_features
 )
 
@@ -29,49 +29,49 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# Network endpoints
-@router.get("/networks", response_model=NetworkListResponse)
+# City endpoints
+@router.get("/cities", response_model=CityListResponse)
 async def list_networks(conn=Depends(get_db_connection)):
-    """Get all networks."""
+    """Get all cities."""
     try:
-        networks_data = get_all_networks(conn)
+        networks_data = get_all_cities(conn)
         
-        networks = []
-        for network_id, name, description in networks_data:
-            networks.append(NetworkResponse(
-                id=network_id,
+        cities = []
+        for city_id, name, description in networks_data:
+            cities.append(CityResponse(
+                id=city_id,
                 name=name,
                 description=description
             ))
         
-        return NetworkListResponse(
-            data=networks,
-            count=len(networks),
-            message="Networks retrieved successfully"
+        return CityListResponse(
+            data=cities,
+            count=len(cities),
+            message="Cities retrieved successfully"
         )
     except Exception as e:
-        logger.error(f"Error listing networks: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve networks")
+        logger.error(f"Error listing cities: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve cities")
 
 
-@router.get("/networks/{network_id}", response_model=NetworkDetailResponse)
-async def get_network(network_id: int, conn=Depends(get_db_connection)):
-    """Get network details."""
+@router.get("/cities/{city_id}", response_model=CityDetailResponse)
+async def get_city(city_id: int, conn=Depends(get_db_connection)):
+    """Get city details."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
-        # Get network info
+        # Get city info
         with conn.cursor() as cur:
             cur.execute("""
                 SELECT id, name, description, center_lat, center_lon, radius
-                FROM networks WHERE id = %s
-            """, (network_id,))
+                FROM cities WHERE id = %s
+            """, (city_id,))
             result = cur.fetchone()
             
             if not result:
-                raise HTTPException(status_code=404, detail="Network not found")
+                raise HTTPException(status_code=404, detail="City not found")
             
-            network = NetworkResponse(
+            city = CityResponse(
                 id=result[0],
                 name=result[1],
                 description=result[2],
@@ -80,33 +80,33 @@ async def get_network(network_id: int, conn=Depends(get_db_connection)):
                 radius=result[5]
             )
             
-            return NetworkDetailResponse(
-                data=network,
-                message="Network retrieved successfully"
+            return CityDetailResponse(
+                data=city,
+                message="City retrieved successfully"
             )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting network {network_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve network")
+        logger.error(f"Error getting city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve city")
 
 
-@router.get("/networks/{network_id}/stats", response_model=NetworkStatsResponse)
-async def get_network_stats(network_id: int, conn=Depends(get_db_connection)):
-    """Get network statistics."""
+@router.get("/cities/{city_id}/stats", response_model=CityStatsResponse)
+async def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
+    """Get city statistics."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
-        # Get network name
+        # Get city name
         with conn.cursor() as cur:
-            cur.execute("SELECT name FROM networks WHERE id = %s", (network_id,))
-            network_name = cur.fetchone()[0]
+            cur.execute("SELECT name FROM cities WHERE id = %s", (city_id,))
+            city_name = cur.fetchone()[0]
         
         # Get counts
-        nodes_count = count_nodes(conn, network_id)
-        edges_count = count_edges(conn, network_id)
-        routes_count = count_routes(conn, network_id)
-        features_count = count_features(conn, network_id)
+        nodes_count = count_nodes(conn, city_id)
+        edges_count = count_edges(conn, city_id)
+        routes_count = count_routes(conn, city_id)
+        features_count = count_features(conn, city_id)
         
         # Get bounds
         bounds = None
@@ -116,8 +116,8 @@ async def get_network_stats(network_id: int, conn=Depends(get_db_connection)):
                     MIN(lat) as min_lat, MAX(lat) as max_lat,
                     MIN(lon) as min_lon, MAX(lon) as max_lon
                 FROM nodes 
-                WHERE network_id = %s
-            """, (network_id,))
+                WHERE city_id = %s
+            """, (city_id,))
             bounds_result = cur.fetchone()
             
             if bounds_result and all(b is not None for b in bounds_result):
@@ -129,8 +129,8 @@ async def get_network_stats(network_id: int, conn=Depends(get_db_connection)):
                 }
         
         stats = NetworkStats(
-            network_id=network_id,
-            network_name=network_name,
+            city_id=city_id,
+            city_name=city_name,
             nodes_count=nodes_count,
             edges_count=edges_count,
             routes_count=routes_count,
@@ -138,36 +138,36 @@ async def get_network_stats(network_id: int, conn=Depends(get_db_connection)):
             bounds=bounds
         )
         
-        return NetworkStatsResponse(
+        return CityStatsResponse(
             data=stats,
-            message="Network statistics retrieved successfully"
+            message="City statistics retrieved successfully"
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting network stats {network_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve network statistics")
+        logger.error(f"Error getting city stats {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve city statistics")
 
 
 # Node endpoints
-@router.get("/networks/{network_id}/nodes", response_model=PaginatedNodesResponse)
+@router.get("/cities/{city_id}/nodes", response_model=PaginatedNodesResponse)
 async def get_network_nodes(
-    network_id: int,
+    city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
     conn=Depends(get_db_connection)
 ):
-    """Get network nodes with pagination and optional bounding box filtering."""
+    """Get city nodes with pagination and optional bounding box filtering."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
         # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
         # Build query
-        conditions = ["network_id = %s"]
-        params = [network_id]
+        conditions = ["city_id = %s"]
+        params = [city_id]
         
         if bbox_coords:
             bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geom")
@@ -218,30 +218,30 @@ async def get_network_nodes(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting nodes for network {network_id}: {e}")
+        logger.error(f"Error getting nodes for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve nodes")
 
 
 # Edge endpoints
-@router.get("/networks/{network_id}/edges", response_model=PaginatedEdgesResponse)
+@router.get("/cities/{city_id}/edges", response_model=PaginatedEdgesResponse)
 async def get_network_edges(
-    network_id: int,
+    city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
     highway: Optional[str] = Query(None, description="Filter by highway type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
     conn=Depends(get_db_connection)
 ):
-    """Get network edges with pagination and filtering."""
+    """Get city edges with pagination and filtering."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
         # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
         # Build query
-        conditions = ["network_id = %s"]
-        params = [network_id]
+        conditions = ["city_id = %s"]
+        params = [city_id]
         
         if highway:
             conditions.append("highway = %s")
@@ -310,14 +310,14 @@ async def get_network_edges(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting edges for network {network_id}: {e}")
+        logger.error(f"Error getting edges for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve edges")
 
 
 # Route endpoints
-@router.get("/networks/{network_id}/routes", response_model=PaginatedRoutesResponse)
+@router.get("/cities/{city_id}/routes", response_model=PaginatedRoutesResponse)
 async def get_network_routes(
-    network_id: int,
+    city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
     strategy: Optional[str] = Query(None, description="Filter by routing strategy"),
@@ -325,13 +325,13 @@ async def get_network_routes(
     max_duration: Optional[float] = Query(None, ge=0, description="Maximum trip duration in minutes"),
     conn=Depends(get_db_connection)
 ):
-    """Get network routes with pagination and filtering."""
+    """Get city routes with pagination and filtering."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
         # Build query
-        conditions = ["network_id = %s"]
-        params = [network_id]
+        conditions = ["city_id = %s"]
+        params = [city_id]
         
         if strategy:
             conditions.append("strategy = %s")
@@ -396,30 +396,30 @@ async def get_network_routes(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting routes for network {network_id}: {e}")
+        logger.error(f"Error getting routes for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve routes")
 
 
 # Feature endpoints
-@router.get("/networks/{network_id}/features", response_model=PaginatedFeaturesResponse)
+@router.get("/cities/{city_id}/features", response_model=PaginatedFeaturesResponse)
 async def get_network_features(
-    network_id: int,
+    city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
     feature_type: Optional[str] = Query(None, description="Filter by feature type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
     conn=Depends(get_db_connection)
 ):
-    """Get network features with pagination and filtering."""
+    """Get city features with pagination and filtering."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
         # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
         # Build query
-        conditions = ["network_id = %s"]
-        params = [network_id]
+        conditions = ["city_id = %s"]
+        params = [city_id]
         
         if feature_type:
             conditions.append("feature_type = %s")
@@ -474,29 +474,29 @@ async def get_network_features(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting features for network {network_id}: {e}")
+        logger.error(f"Error getting features for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve features")
 
 
 # GeoJSON endpoints
-@router.get("/networks/{network_id}/edges/geojson", response_model=GeoJSONResponse)
+@router.get("/cities/{city_id}/edges/geojson", response_model=GeoJSONResponse)
 async def get_network_edges_geojson(
-    network_id: int,
+    city_id: int,
     highway: Optional[str] = Query(None, description="Filter by highway type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
     limit: int = Query(5000, ge=1, le=50000, description="Maximum number of edges"),
     conn=Depends(get_db_connection)
 ):
-    """Get network edges as GeoJSON."""
+    """Get city edges as GeoJSON."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
 
         # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
 
         # Build query
-        conditions = ["network_id = %s"]
-        params = [network_id]
+        conditions = ["city_id = %s"]
+        params = [city_id]
 
         if highway:
             conditions.append("highway = %s")
@@ -554,28 +554,28 @@ async def get_network_edges_geojson(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting GeoJSON edges for network {network_id}: {e}")
+        logger.error(f"Error getting GeoJSON edges for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON edges")
 
 
-@router.get("/networks/{network_id}/features/geojson", response_model=GeoJSONResponse)
+@router.get("/cities/{city_id}/features/geojson", response_model=GeoJSONResponse)
 async def get_network_features_geojson(
-    network_id: int,
+    city_id: int,
     feature_type: Optional[str] = Query(None, description="Filter by feature type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
     limit: int = Query(1000, ge=1, le=500000, description="Maximum number of features"),
     conn=Depends(get_db_connection)
 ):
-    """Get network features as GeoJSON."""
+    """Get city features as GeoJSON."""
     try:
-        validate_network_exists(conn, network_id)
+        validate_network_exists(conn, city_id)
         
         # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
         # Build query
-        conditions = ["network_id = %s"]
-        params = [network_id]
+        conditions = ["city_id = %s"]
+        params = [city_id]
         
         if feature_type:
             conditions.append("feature_type = %s")
@@ -631,7 +631,7 @@ async def get_network_features_geojson(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting GeoJSON features for network {network_id}: {e}")
+        logger.error(f"Error getting GeoJSON features for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON features")
 
 

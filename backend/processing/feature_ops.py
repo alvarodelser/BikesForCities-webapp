@@ -36,7 +36,7 @@ TO_WEBMERCATOR = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 
 def extract_features_from_point(lat: float, lon: float, feature_type: str, dist: int = 10000):
-    """Extract features from OSM using point and distance (same pattern as network extraction)"""
+    """Extract features from OSM using point and distance (same pattern as city extraction)"""
     tags = FEATURE_TYPES.get(feature_type)
     if tags is None:
         return None
@@ -144,7 +144,7 @@ def get_sea(boundary, coastline, land):
 
 
 
-def extract_features_for_network(network_id: int, center_lat: float, center_lon: float, radius: float) -> list[tuple]:
+def extract_features_for_network(city_id: int, center_lat: float, center_lon: float, radius: float) -> list[tuple]:
     """Extract all features within radius from center point using ox.features_from_point()"""
     
     print(f"▶️  Extracting OSM features within {radius/1000:.1f}km radius...")
@@ -152,7 +152,7 @@ def extract_features_for_network(network_id: int, center_lat: float, center_lon:
     features_data = []
     extracted_features = {}
     
-    # Extract base features using ox.features_from_point() (same pattern as network)
+    # Extract base features using ox.features_from_point() (same pattern as city)
     for feature_type in FEATURE_TYPES.keys():
         print(f"   • Extracting {feature_type}...", end=" ")
         gdf = extract_features_from_point(center_lat, center_lon, feature_type, dist=int(radius))

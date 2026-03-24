@@ -20,11 +20,11 @@ from matplotlib.patches import FancyArrowPatch, Circle
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 
-from backend.database.network_io import (
-    get_all_networks, count_nodes, count_edges, count_routes,
-    get_features, get_network_center
+from backend.database.city_io import (
+    get_all_cities, count_nodes, count_edges, count_routes,
+    get_features, get_city_center
 )
-from .network_ops import build_graph
+from .city_ops import build_graph
 
 # Coordinate transformers (same as mappingmodule.py)
 TO_WSG84 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
@@ -34,38 +34,38 @@ TO_WEBMERCATOR = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 def plot_network_overview(conn, save_path: Optional[str] = None) -> None:
     """
-    Plot a horizontal comparison overview of all networks in the database (nodes vs edges vs routes).
+    Plot a horizontal comparison overview of all cities in the database (nodes vs edges vs routes).
     
     Args:
         conn: Database connection
         save_path: If provided, save plot to this path instead of showing
     """
-    networks = get_all_networks(conn)
+    cities = get_all_cities(conn)
     
-    if not networks:
-        print("❌ No networks found in database")
+    if not cities:
+        print("❌ No cities found in database")
         return
     
     # Prepare data for plotting
     network_data = []
-    for network_id, network_name, description in networks:
-        nodes = count_nodes(conn, network_id)
-        edges = count_edges(conn, network_id)
-        routes = count_routes(conn, network_id)
+    for city_id, city_name, description in cities:
+        nodes = count_nodes(conn, city_id)
+        edges = count_edges(conn, city_id)
+        routes = count_routes(conn, city_id)
         
         network_data.append({
-            'name': network_name,
+            'name': city_name,
             'nodes': nodes,
             'edges': edges,
             'routes': routes,
-            'network_id': network_id
+            'city_id': city_id
         })
     
     df = pd.DataFrame(network_data)
     
-    # Dynamic figure height based on number of networks
+    # Dynamic figure height based on number of cities
     num_networks = len(df)
-    fig_height = max(4, num_networks * 0.8 + 2)  # Minimum 4, scale with networks
+    fig_height = max(4, num_networks * 0.8 + 2)  # Minimum 4, scale with cities
     figsize = (10, fig_height)
     
     # Create horizontal bar plot
@@ -84,7 +84,7 @@ def plot_network_overview(conn, save_path: Optional[str] = None) -> None:
     bars3 = ax.barh([y + bar_height for y in y_pos], df['routes'], bar_height, 
                     label='Routes', alpha=0.8, color=colors[2])
     
-    ax.set_title('Network Completeness Comparison', fontsize=14, fontweight='bold', pad=20)
+    ax.set_title('City Completeness Comparison', fontsize=14, fontweight='bold', pad=20)
     ax.set_xlabel('Count')
     ax.set_yticks(y_pos)
     ax.set_yticklabels(df['name'])
@@ -101,23 +101,23 @@ def plot_network_overview(conn, save_path: Optional[str] = None) -> None:
         plt.show()
 
 
-def plot_network_graph(conn, network_id: int, figsize: Tuple[int, int] = (12, 12), 
+def plot_network_graph(conn, city_id: int, figsize: Tuple[int, int] = (12, 12), 
                       sample_size: Optional[int] = None, highway_filter: Optional[str] = None,
                       plot_nodes: bool = True, save_path: Optional[str] = None) -> None:
     """
-    Plot the network graph structure with optional filtering and node display control.
+    Plot the city graph structure with optional filtering and node display control.
     
     Args:
         conn: Database connection
-        network_id: ID of the network to plot
+        city_id: ID of the city to plot
         figsize: Figure size (width, height)
         sample_size: If provided, randomly sample this many nodes for plotting
         highway_filter: If provided, only show edges with this highway type (e.g., 'cycleway')
         plot_nodes: Whether to plot nodes or not
         save_path: If provided, save plot to this path instead of showing
     """
-    print(f"🔄 Building graph for network ID {network_id}...")
-    graph = build_graph(conn, network_id)
+    print(f"🔄 Building graph for city ID {city_id}...")
+    graph = build_graph(conn, city_id)
     
     if graph.number_of_nodes() == 0:
         print("❌ No nodes found in graph")
@@ -172,7 +172,7 @@ def plot_network_graph(conn, network_id: int, figsize: Tuple[int, int] = (12, 12
     
     # Create title
     filter_text = f" ({highway_filter} only)" if highway_filter else ""
-    plt.title(f'Network Graph (ID: {network_id}){filter_text}\n'
+    plt.title(f'City Graph (ID: {city_id}){filter_text}\n'
               f'{graph.number_of_nodes():,} nodes, {graph.number_of_edges():,} edges')
     plt.axis('equal')
     plt.axis('off')
@@ -186,13 +186,13 @@ def plot_network_graph(conn, network_id: int, figsize: Tuple[int, int] = (12, 12
         plt.show()
 
 
-def plot_highway_distribution(conn, network_id: int, figsize: Tuple[int, int] = (12, 8), save_path: Optional[str] = None) -> None:
+def plot_highway_distribution(conn, city_id: int, figsize: Tuple[int, int] = (12, 8), save_path: Optional[str] = None) -> None:
     """
-    Plot the distribution of highway types in the network (top 15 categories).
+    Plot the distribution of highway types in the city (top 15 categories).
     
     Args:
         conn: Database connection
-        network_id: ID of the network to analyze
+        city_id: ID of the city to analyze
         figsize: Figure size (width, height)
         save_path: If provided, save plot to this path instead of showing
     """
@@ -201,11 +201,11 @@ def plot_highway_distribution(conn, network_id: int, figsize: Tuple[int, int] = 
         cur.execute("""
             SELECT highway, COUNT(*) as count
             FROM edges 
-            WHERE network_id = %s 
+            WHERE city_id = %s 
             GROUP BY highway 
             ORDER BY count DESC
             LIMIT 15
-        """, (network_id,))
+        """, (city_id,))
         highway_data = cur.fetchall()
     
     if not highway_data:
@@ -225,7 +225,7 @@ def plot_highway_distribution(conn, network_id: int, figsize: Tuple[int, int] = 
     bars = plt.bar(range(len(highways)), counts, alpha=0.8, color=colors, 
                    edgecolor='white', linewidth=0.5)
     
-    plt.title(f'Highway Type Distribution - Top 15 (Network ID: {network_id})', 
+    plt.title(f'Highway Type Distribution - Top 15 (City ID: {city_id})', 
               fontsize=14, fontweight='bold', pad=20)
     plt.xlabel('Highway Type', fontsize=12)
     plt.ylabel('Number of Edges', fontsize=12)
@@ -248,24 +248,24 @@ def plot_highway_distribution(conn, network_id: int, figsize: Tuple[int, int] = 
         plt.show()
 
 
-def print_network_stats(conn, network_id: Optional[int] = None) -> None:
+def print_network_stats(conn, city_id: Optional[int] = None) -> None:
     """
-    Print detailed statistics about networks.
+    Print detailed statistics about cities.
     
     Args:
         conn: Database connection
-        network_id: If provided, show stats for specific network. Otherwise show all.
+        city_id: If provided, show stats for specific city. Otherwise show all.
     """
-    if network_id:
-        networks = [(network_id, "Specified Network", None)]
+    if city_id:
+        cities = [(city_id, "Specified City", None)]
     else:
-        networks = get_all_networks(conn)
+        cities = get_all_cities(conn)
     
     print("=" * 80)
     print("NETWORK STATISTICS")
     print("=" * 80)
     
-    for net_id, net_name, description in networks:
+    for net_id, net_name, description in cities:
         print(f"\n🏙️  {net_name} (ID: {net_id})")
         if description:
             print(f"   Description: {description}")
@@ -286,7 +286,7 @@ def print_network_stats(conn, network_id: Optional[int] = None) -> None:
                     MIN(lat) as min_lat, MAX(lat) as max_lat,
                     MIN(lon) as min_lon, MAX(lon) as max_lon
                 FROM nodes 
-                WHERE network_id = %s
+                WHERE city_id = %s
             """, (net_id,))
             bounds = cur.fetchone()
             
@@ -304,7 +304,7 @@ def print_network_stats(conn, network_id: Optional[int] = None) -> None:
                         MAX(trip_minutes) as max_duration,
                         COUNT(DISTINCT id_bike) as unique_bikes
                     FROM routes 
-                    WHERE network_id = %s
+                    WHERE city_id = %s
                 """, (net_id,))
                 route_stats = cur.fetchone()
                 
@@ -381,12 +381,12 @@ def add_annotation(ax, text, x_factor, y_factor, width, height, bg_color):
     )
 
 
-def load_features_from_db(conn, network_id: int, boundary: Polygon) -> dict:
+def load_features_from_db(conn, city_id: int, boundary: Polygon) -> dict:
     """Load features from database and filter by boundary"""
-    print(f"🔄 Loading features from database for network {network_id}...")
+    print(f"🔄 Loading features from database for city {city_id}...")
     
     # Get all features from database
-    features_data = get_features(conn, network_id)
+    features_data = get_features(conn, city_id)
     
     # Convert to GeoDataFrame and filter by boundary
     features_dict = {}
@@ -482,28 +482,28 @@ def plot_features_map(ax, center, boundary, angle, features, settings):
                       plot_width, plot_height, '#027A76')
 
 
-def generate_features_map(conn, network_id: int, center_lat: float, center_lon: float, 
+def generate_features_map(conn, city_id: int, center_lat: float, center_lon: float, 
                          angle: float, width: int, height: int, features_config: dict, 
                          settings: dict, save_path: Optional[str] = None):
     """Generate features map from database (adapted from mappingmodule.py generate_map function)"""
     
-    # Get network center if not provided
+    # Get city center if not provided
     if center_lat is None or center_lon is None:
-        network_center = get_network_center(conn, network_id)
+        network_center = get_city_center(conn, city_id)
         if network_center:
             center_lat, center_lon, _ = network_center
         else:
-            raise ValueError(f"No center coordinates found for network {network_id}")
+            raise ValueError(f"No center coordinates found for city {city_id}")
     
     center = (center_lat, center_lon)
     boundary = get_boundary(center_lat, center_lon, angle, width, height)
     
-    print(f"🎨 Generating features map for network {network_id}...")
+    print(f"🎨 Generating features map for city {city_id}...")
     print(f"   Center: ({center_lat:.6f}, {center_lon:.6f})")
     print(f"   Boundary: {width}m x {height}m at {angle}° rotation")
     
     # Load features from database
-    features = load_features_from_db(conn, network_id, boundary)
+    features = load_features_from_db(conn, city_id, boundary)
     
     # Calculate annotations if requested
     if settings.get('annotations', {}).get('total_length', {}).get('plot') and 'bike_paths' in features:
@@ -541,14 +541,14 @@ def generate_features_map(conn, network_id: int, center_lat: float, center_lon: 
         return fig, ax  # Return figure and axis for notebook use
 
 
-def plot_features_overview(conn, network_id: int, save_path: Optional[str] = None):
-    """Plot overview of all features for a network"""
+def plot_features_overview(conn, city_id: int, save_path: Optional[str] = None):
+    """Plot overview of all features for a city"""
     
-    print(f"🔄 Generating features overview for network {network_id}...")
+    print(f"🔄 Generating features overview for city {city_id}...")
     
     # Get feature counts by type
     feature_counts = {}
-    features_data = get_features(conn, network_id)
+    features_data = get_features(conn, city_id)
     
     for _, feature_type, _, _ in features_data:
         feature_counts[feature_type] = feature_counts.get(feature_type, 0) + 1
@@ -566,7 +566,7 @@ def plot_features_overview(conn, network_id: int, save_path: Optional[str] = Non
     colors = plt.cm.Set3(range(len(feature_types)))
     bars = ax.bar(feature_types, counts, color=colors, alpha=0.8, edgecolor='white', linewidth=0.5)
     
-    ax.set_title(f'Feature Distribution (Network ID: {network_id})', fontsize=14, fontweight='bold', pad=20)
+    ax.set_title(f'Feature Distribution (City ID: {city_id})', fontsize=14, fontweight='bold', pad=20)
     ax.set_xlabel('Feature Type', fontsize=12)
     ax.set_ylabel('Number of Features', fontsize=12)
     ax.grid(axis='y', alpha=0.3)

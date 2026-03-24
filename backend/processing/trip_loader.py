@@ -8,7 +8,7 @@ from .route_strategy import shortest_path
 import json
 import pandas as pd
 from tqdm import tqdm
-from backend.database.network_io import put_routes, count_routes
+from backend.database.city_io import put_routes, count_routes
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "logs" / "ingestion_log.json"
@@ -34,7 +34,7 @@ def _load_city_data() -> dict[str, dict]:
     return _CITY_CACHE
 
 def load_graph(city_name: str, dist: int = 10_000) -> nx.MultiDiGraph:
-    """Download the bike network around *city_name*.
+    """Download the bike city around *city_name*.
 
     Latitude/longitude are pulled from ``data/spain_data.json``.  If the city
     isn't found, a ``ValueError`` is raised.
@@ -171,7 +171,7 @@ ROUTE_ALGORITHMS = {
 def process_all_csvs(
     graph: nx.MultiDiGraph,
     conn,
-    network_id: int,
+    city_id: int,
     city: str,
     strategy: str = "shortest",
     max_distance: float = 150.0,
@@ -181,7 +181,7 @@ def process_all_csvs(
     Process all unprocessed CSV files using the provided graph.
     """
     # Check existing trips in database before processing
-    existing_routes = count_routes(conn, network_id)
+    existing_routes = count_routes(conn, city_id)
     print(f"📊 Current routes in database: {existing_routes:,}")
     
     # Get file progress overview
@@ -200,7 +200,7 @@ def process_all_csvs(
         print(f"\n{'='*60}")
         print(f"📂 Processing file {file_num}/{len(unprocessed_files)} (overall: {processed_count + file_num}/{total_count})")
         
-        result = process_single_csv(graph, conn, network_id, city, strategy, max_distance, batch_size)
+        result = process_single_csv(graph, conn, city_id, city, strategy, max_distance, batch_size)
         if result is None:
             break
         files_processed_this_session += 1
@@ -219,7 +219,7 @@ def process_all_csvs(
 def process_next_csv(
     graph: nx.MultiDiGraph,
     conn,
-    network_id: int,
+    city_id: int,
     city: str,
     strategy: str = "shortest",
     max_distance: float = 150.0,
@@ -229,13 +229,13 @@ def process_next_csv(
     Process the next unprocessed CSV file (backward compatibility).
     Use process_all_csvs() for processing all files.
     """
-    return process_single_csv(graph, conn, network_id, city, strategy, max_distance, batch_size)
+    return process_single_csv(graph, conn, city_id, city, strategy, max_distance, batch_size)
 
 
 def process_single_csv(
     graph: nx.MultiDiGraph,
     conn,
-    network_id: int,
+    city_id: int,
     city: str,
     strategy: str = "shortest",
     max_distance: float = 150.0,
@@ -284,13 +284,13 @@ def process_single_csv(
         d1 = ox.distance.great_circle(*startpoint, *start_geom)
         d2 = ox.distance.great_circle(*endpoint, *end_geom)
 
-        # Handle trips that are too far from network
+        # Handle trips that are too far from city
         if d1 > max_distance:
-            print(f"❌ ERROR: Origin too far from network (distance={d1:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
+            print(f"❌ ERROR: Origin too far from city (distance={d1:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
             routes_skipped_distance += 1
             continue
         if d2 > max_distance:
-            print(f"❌ ERROR: Destination too far from network (distance={d2:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
+            print(f"❌ ERROR: Destination too far from city (distance={d2:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
             routes_skipped_distance += 1
             continue
 
@@ -303,7 +303,7 @@ def process_single_csv(
             continue
 
         route_tuple = (
-            network_id,
+            city_id,
             row["idTrip"],
             startnode,
             endnode,

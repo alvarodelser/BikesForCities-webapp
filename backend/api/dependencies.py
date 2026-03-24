@@ -8,7 +8,7 @@ from typing import Generator, Optional, Tuple
 import logging
 from math import ceil
 
-from backend.database.network_io import connect_db
+from backend.database.city_io import connect_db
 
 logger = logging.getLogger(__name__)
 
@@ -93,52 +93,52 @@ def parse_bbox(bbox_str: Optional[str]) -> Optional[Tuple[float, float, float, f
         )
 
 
-def validate_network_exists(conn: psycopg2.extensions.connection, network_id: int) -> bool:
+def validate_network_exists(conn: psycopg2.extensions.connection, city_id: int) -> bool:
     """
-    Validate that a network exists in the database.
+    Validate that a city exists in the database.
     
     Args:
         conn: Database connection
-        network_id: Network ID to validate
+        city_id: City ID to validate
         
     Returns:
-        True if network exists
+        True if city exists
         
     Raises:
-        HTTPException: If network doesn't exist
+        HTTPException: If city doesn't exist
     """
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM networks WHERE id = %s", (network_id,))
+            cur.execute("SELECT 1 FROM cities WHERE id = %s", (city_id,))
             result = cur.fetchone()
             
             if not result:
                 raise HTTPException(
                     status_code=404,
-                    detail=f"Network with ID {network_id} not found"
+                    detail=f"City with ID {city_id} not found"
                 )
             
             return True
     except psycopg2.Error as e:
-        logger.error(f"Database error while validating network {network_id}: {e}")
+        logger.error(f"Database error while validating city {city_id}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Database error while validating network"
+            detail="Database error while validating city"
         )
 
 
-def get_network_dependency(network_id: int, conn: psycopg2.extensions.connection = Depends(get_db_connection)):
+def get_network_dependency(city_id: int, conn: psycopg2.extensions.connection = Depends(get_db_connection)):
     """
-    Dependency to validate network existence and return connection.
+    Dependency to validate city existence and return connection.
     
     Args:
-        network_id: Network ID to validate
+        city_id: City ID to validate
         conn: Database connection
         
     Returns:
         Database connection
     """
-    validate_network_exists(conn, network_id)
+    validate_network_exists(conn, city_id)
     return conn
 
 

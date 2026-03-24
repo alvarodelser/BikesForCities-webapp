@@ -15,9 +15,9 @@ class BaseResponse(BaseModel):
     message: Optional[str] = None
 
 
-# Network models
+# City models
 class NetworkBase(BaseModel):
-    """Base network model."""
+    """Base city model."""
     name: str
     description: Optional[str] = None
     center_lat: Optional[float] = None
@@ -25,8 +25,8 @@ class NetworkBase(BaseModel):
     radius: Optional[float] = None
 
 
-class NetworkResponse(NetworkBase):
-    """Network response model."""
+class CityResponse(NetworkBase):
+    """City response model."""
     id: int
     created_at: Optional[datetime] = None
     
@@ -34,22 +34,22 @@ class NetworkResponse(NetworkBase):
         from_attributes = True
 
 
-class NetworkListResponse(BaseResponse):
-    """Response model for network list."""
-    data: List[NetworkResponse]
+class CityListResponse(BaseResponse):
+    """Response model for city list."""
+    data: List[CityResponse]
     count: int
 
 
-class NetworkDetailResponse(BaseResponse):
-    """Response model for network details."""
-    data: NetworkResponse
+class CityDetailResponse(BaseResponse):
+    """Response model for city details."""
+    data: CityResponse
 
 
 # Statistics models
 class NetworkStats(BaseModel):
-    """Network statistics model."""
-    network_id: int
-    network_name: str
+    """City statistics model."""
+    city_id: int
+    city_name: str
     nodes_count: int
     edges_count: int
     routes_count: int
@@ -57,8 +57,8 @@ class NetworkStats(BaseModel):
     bounds: Optional[Dict[str, float]] = None  # min_lat, max_lat, min_lon, max_lon
 
 
-class NetworkStatsResponse(BaseResponse):
-    """Response model for network statistics."""
+class CityStatsResponse(BaseResponse):
+    """Response model for city statistics."""
     data: NetworkStats
 
 
