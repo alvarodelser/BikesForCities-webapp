@@ -37,11 +37,32 @@ async def list_networks(conn=Depends(get_db_connection)):
         networks_data = get_all_cities(conn)
         
         cities = []
-        for city_id, name, description in networks_data:
+        for row in networks_data:
+            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, 
+             population, budget, coverage, cycling_network, 
+             min_lat, max_lat, min_lon, max_lon) = row
+            
+            bounds = None
+            if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
+                bounds = {
+                    "min_lat": min_lat,
+                    "max_lat": max_lat,
+                    "min_lon": min_lon,
+                    "max_lon": max_lon
+                }
+
             cities.append(CityResponse(
                 id=city_id,
                 name=name,
-                description=description
+                description=description,
+                center_lat=center_lat,
+                center_lon=center_lon,
+                radius=radius,
+                population=population,
+                budget=budget,
+                coverage=coverage,
+                cycling_network=cycling_network,
+                bounds=bounds
             ))
         
         return CityListResponse(

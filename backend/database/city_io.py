@@ -363,13 +363,26 @@ def get_edges(conn: psycopg2.extensions.connection, city_id: int) -> List[Tuple]
 
 def get_all_cities(conn: psycopg2.extensions.connection) -> List[Tuple]:
     """
-    Retrieve all cities from the database.
+    Retrieve all cities from the database with their latest metrics.
     
     :param conn: PostgreSQL database connection
-    :return: List of tuples (id, name, description, wikidata_id)
+    :return: List of tuples containing city data and metrics
     """
     with conn.cursor() as cur:
-        cur.execute("SELECT id, name, description, wikidata_id FROM cities ORDER BY name")
+        cur.execute("""
+            SELECT 
+                c.id, c.name, c.description, c.wikidata_id, c.center_lat, c.center_lon, c.radius,
+                c.population,
+                (SELECT total_expenses FROM city_budgets cb WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) as budget,
+                (SELECT coverage FROM city_metrics cm WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) as coverage,
+                (SELECT total_kilometers FROM city_metrics cm WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) as cycling_network,
+                (SELECT MIN(lat) FROM nodes WHERE city_id = c.id) as min_lat,
+                (SELECT MAX(lat) FROM nodes WHERE city_id = c.id) as max_lat,
+                (SELECT MIN(lon) FROM nodes WHERE city_id = c.id) as min_lon,
+                (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) as max_lon
+            FROM cities c 
+            ORDER BY c.name
+        """)
         return cur.fetchall()
 
 

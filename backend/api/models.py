@@ -29,6 +29,11 @@ class CityResponse(NetworkBase):
     """City response model."""
     id: int
     created_at: Optional[datetime] = None
+    population: Optional[int] = None
+    budget: Optional[float] = None
+    coverage: Optional[float] = None
+    cycling_network: Optional[float] = None
+    bounds: Optional[Dict[str, float]] = None
     
     class Config:
         from_attributes = True

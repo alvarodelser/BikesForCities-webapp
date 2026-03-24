@@ -1,14 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router';
-import { CITIES } from '../../constants/cities';
+import type { CityData } from '../../constants/cities';
+import { fetchCities } from '../../services/api';
 import SpainMap from './SpainMap';
 import ScrollableCityCards from '../ui/ScrollableCityCards';
 import WaveBackground from '../ui/WaveBackground';
+import Spinner from '../ui/Spinner';
 
 const MapSelector: React.FC = () => {
   const [selectedCity, setSelectedCity] = useState<string | null>(null);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
+  const [cities, setCities] = useState<CityData[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    fetchCities().then(data => {
+      setCities(data);
+      setLoading(false);
+    }).catch(err => {
+      console.error(err);
+      setLoading(false);
+    });
+  }, []);
 
   const handleCitySelect = (cityName: string) => {
     setSelectedCity(cityName);
@@ -17,11 +31,19 @@ const MapSelector: React.FC = () => {
 
   const handleCityNavigate = (cityName: string) => {
     // Find the city data to get the path
-    const city = CITIES.find(c => c.name === cityName);
+    const city = cities.find(c => c.name === cityName);
     if (city) {
       navigate(city.path);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen flex items-center justify-center bg-[var(--blue-dark)]">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -60,6 +82,7 @@ const MapSelector: React.FC = () => {
           onCityNavigate={handleCityNavigate}
           selectedCity={selectedCity}
           expandedCity={expandedCity}
+          cities={cities}
           className=""
         />
       </div>
@@ -69,7 +92,7 @@ const MapSelector: React.FC = () => {
       {/* Scrollable City Cards */}
       <div className="absolute left-0 right-0 z-20 w-full mx-0 px-4" style={{ bottom: '1vh' }}>
         <ScrollableCityCards 
-          cities={CITIES}
+          cities={cities}
           selectedCity={selectedCity} 
           onCitySelect={handleCitySelect}
           onCityNavigate={handleCityNavigate}

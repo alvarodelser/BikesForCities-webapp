@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
-import { CITIES } from '../../constants/cities';
+import type { CityData } from '../../constants/cities';
 import CityPin from '../ui/CityPin';
 import GlassCard from '../ui/GlassCard';
 import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
@@ -12,6 +12,7 @@ interface SpainMapProps {
   onCityNavigate?: (cityName: string) => void;
   selectedCity?: string | null;
   expandedCity?: string | null;
+  cities: CityData[];
   className?: string;
 }
 
@@ -21,8 +22,8 @@ interface CityCoordinates {
 }
 
 // Convert city data to coordinate format for D3
-const getCityCoordinates = (): CityCoordinates[] => {
-  return CITIES.map(city => ({
+const getCityCoordinates = (cities: CityData[]): CityCoordinates[] => {
+  return cities.map(city => ({
     name: city.name,
     coordinates: [city.geoCoords.longitude, city.geoCoords.latitude]
   }));
@@ -50,6 +51,7 @@ const SpainMap: React.FC<SpainMapProps> = ({
   onCityNavigate,
   selectedCity,
   expandedCity,
+  cities,
   className = ''
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -127,7 +129,7 @@ const SpainMap: React.FC<SpainMapProps> = ({
       />
       
       {/* City Pins Overlay */}
-      {projection && getCityCoordinates().map((city) => {
+      {projection && getCityCoordinates(cities).map((city) => {
         const p = projection(city.coordinates);
         if (!p) return null;
         return (

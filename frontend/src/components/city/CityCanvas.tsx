@@ -1,9 +1,10 @@
-import React, { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
+import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { CityData } from '../../constants/cities';
 
-const API_BASE = 'http://localhost:8000/api';
+import { TILE_SERVER_URL } from '../../config/api';
+import Spinner from '../ui/Spinner';
 
 interface CityCanvasProps {
     city: CityData;
@@ -102,7 +103,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                 // Add Martin vector tile source
                 mapInstance.addSource('martin-features', {
                     type: 'vector',
-                    tiles: ['http://localhost:3000/features/{z}/{x}/{y}'],
+                    tiles: [`${TILE_SERVER_URL}/features/{z}/{x}/{y}`],
                     minzoom: 0,
                     maxzoom: 22
                 });
@@ -185,8 +186,8 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
             {loading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
                     <div className="text-center">
-                        <div
-                            className="w-16 h-16 rounded-full border-4 border-t-transparent animate-spin mx-auto mb-4"
+                        <Spinner
+                            className="w-16 h-16 mx-auto mb-4"
                             style={{ borderColor: `${colorScheme.accent} transparent ${colorScheme.primary} transparent` }}
                         />
                         <p className="text-white text-lg font-medium">Loading {city.name} network...</p>

@@ -4,7 +4,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import Link from "../ui/Link";
 import ScrollableCityList from "../landing/ScrollableCityList";
 import logoImage from '../../assets/logo.svg';
-import { CITIES } from "../../constants/cities";
+import type { CityData } from "../../constants/cities";
+import { fetchCities } from "../../services/api";
 import backgroundTexture from '../../assets/background2.svg';
 
 type NavbarProps = {
@@ -19,6 +20,11 @@ const navLinks = [
 const Navbar: React.FC<NavbarProps> = () => {
   const location = useLocation();
   const [showCities, setShowCities] = useState(false);
+  const [cities, setCities] = useState<CityData[]>([]);
+
+  React.useEffect(() => {
+    fetchCities().then(data => setCities(data)).catch(console.error);
+  }, []);
 
   return (
     <nav 
@@ -74,7 +80,7 @@ const Navbar: React.FC<NavbarProps> = () => {
       {/* Bottom row: cities */}
       <div className="flex items-center justify-center gap-[200px] h-[50px] mx-[100px] -mt-[30px] relative z-10">
         <ScrollableCityList show={showCities}>
-          {CITIES.map((city) => (
+          {cities.map((city) => (
             <Link
               key={city.path}
               to={city.path}
