@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Query the database to see what's loaded in all networks."""
+"""Query the database to see what's loaded in all cities."""
 
 from __future__ import annotations
 
 from dotenv import load_dotenv
-from backend.database.network_io import (
+from backend.database.city_io import (
     connect_db, 
-    get_all_networks, 
+    get_all_cities, 
     count_nodes, 
     count_edges, 
     count_routes
@@ -16,7 +16,7 @@ from backend.database.network_io import (
 def main() -> None:
     load_dotenv()
     
-    print("🔍 Querying all network data from database...")
+    print("🔍 Querying all city data from database...")
     print("=" * 80)
     
     # Connect to database
@@ -27,36 +27,36 @@ def main() -> None:
         print(f"❌ Failed to connect to database: {e}")
         return
     
-    # Get all networks
+    # Get all cities
     try:
-        networks = get_all_networks(conn)
-        print(f"📊 Found {len(networks)} network(s) in database")
+        cities = get_all_cities(conn)
+        print(f"📊 Found {len(cities)} city(s) in database")
     except Exception as e:
-        print(f"❌ Failed to get networks: {e}")
+        print(f"❌ Failed to get cities: {e}")
         conn.close()
         return
     
-    if not networks:
-        print("❌ No networks found in database")
+    if not cities:
+        print("❌ No cities found in database")
         conn.close()
         return
     
-    # Process each network
+    # Process each city
     total_nodes = 0
     total_edges = 0
     total_routes = 0
     
-    for network_id, network_name, description in networks:
-        print(f"\n🏙️  Network: {network_name}")
-        print(f"    ID: {network_id}")
+    for city_id, city_name, description in cities:
+        print(f"\n🏙️  City: {city_name}")
+        print(f"    ID: {city_id}")
         print(f"    Description: {description or 'None'}")
         print("    " + "-" * 50)
         
         try:
-            # Count nodes, edges, and routes for this network
-            node_count = count_nodes(conn, network_id)
-            edge_count = count_edges(conn, network_id)
-            route_count = count_routes(conn, network_id)
+            # Count nodes, edges, and routes for this city
+            node_count = count_nodes(conn, city_id)
+            edge_count = count_edges(conn, city_id)
+            route_count = count_routes(conn, city_id)
             
             print(f"    🔗 Nodes:  {node_count:,}")
             print(f"    🛣️  Edges:  {edge_count:,}")
@@ -67,26 +67,26 @@ def main() -> None:
             total_edges += edge_count
             total_routes += route_count
             
-            # Check if this network meets sanity check requirements
+            # Check if this city meets sanity check requirements
             if node_count < 1000:
                 print(f"    ⚠️  WARNING: Only {node_count:,} nodes (< 1,000)")
             if edge_count < 1000:
                 print(f"    ⚠️  WARNING: Only {edge_count:,} edges (< 1,000)")
             
             if node_count > 0 and edge_count > 0:
-                print(f"    ✅ Network populated")
+                print(f"    ✅ City populated")
             elif node_count == 0 and edge_count == 0:
-                print(f"    📭 Network empty (no nodes/edges)")
+                print(f"    📭 City empty (no nodes/edges)")
             else:
-                print(f"    ⚠️  Network incomplete")
+                print(f"    ⚠️  City incomplete")
                 
         except Exception as e:
-            print(f"    ❌ Error querying network {network_name}: {e}")
+            print(f"    ❌ Error querying city {city_name}: {e}")
     
     # Summary
     print("\n" + "=" * 80)
     print("📊 SUMMARY:")
-    print(f"    Total networks: {len(networks)}")
+    print(f"    Total cities: {len(cities)}")
     print(f"    Total nodes:    {total_nodes:,}")
     print(f"    Total edges:    {total_edges:,}")
     print(f"    Total routes:   {total_routes:,}")

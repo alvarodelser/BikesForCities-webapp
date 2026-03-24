@@ -66,10 +66,10 @@ This will start:
 
 ## Notes
 - Data, cache, and logs directories are excluded from git and are mounted as volumes in the containers.
-- The database schema is initialized from `schema.sql` on first run.
+- The database schema is initialized from `backend/database/schema.sql` on first run.
 - For development, you can modify the backend and frontend code and restart the respective containers.
-- Run populate_db to start loading networks into the database.
-- Add trip csv from Madrid Datos Abiertos into data/{city}/ folder and run trip_ingestion.py to start adding routes to an existing network 
+- Run 01_load_cities/02_load_osm to start loading cities into the database.
+- Add trip csv from Madrid Datos Abiertos into data/{city}/ folder and run 03_load_trips.py to start adding routes to an existing city 
 
 ---
 

@@ -17,7 +17,7 @@ import matplotlib
 print(f"🎨 Matplotlib backend: {matplotlib.get_backend()}")
 
 from dotenv import load_dotenv
-from backend.database.network_io import connect_db, get_or_create_network
+from backend.database.city_io import connect_db, get_or_create_city
 from backend.processing.visualization import (
     plot_network_overview,
     plot_network_graph,
@@ -30,10 +30,10 @@ from backend.processing.visualization import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot and visualize database contents")
     parser.add_argument(
-        "--network",
+        "--city",
         "-n",
         default="Madrid",
-        help="Network name to analyze (default: Madrid)",
+        help="City name to analyze (default: Madrid)",
     )
     parser.add_argument(
         "--plot-type",
@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
         "--sample-size",
         "-s",
         type=int,
-        help="For graph plots, sample this many nodes (useful for large networks)",
+        help="For graph plots, sample this many nodes (useful for large cities)",
     )
     parser.add_argument(
         "--figsize",
@@ -86,46 +86,46 @@ def main() -> None:
         print(f"❌ Failed to connect to database: {e}")
         return
 
-    # Get network ID if specific network requested
-    if args.plot_type in ["graph", "cycleway", "highways"] or (args.plot_type == "stats" and args.network != "all"):
+    # Get city ID if specific city requested
+    if args.plot_type in ["graph", "cycleway", "highways"] or (args.plot_type == "stats" and args.city != "all"):
         try:
-            network_id = get_or_create_network(conn, args.network)
-            print(f"📍 Using network: {args.network} (ID: {network_id})")
+            city_id = get_or_create_city(conn, args.city)
+            print(f"📍 Using city: {args.city} (ID: {city_id})")
         except Exception as e:
-            print(f"❌ Failed to get network '{args.network}': {e}")
+            print(f"❌ Failed to get city '{args.city}': {e}")
             conn.close()
             return
     else:
-        network_id = None
+        city_id = None
 
     figsize = tuple(args.figsize)
 
     try:
         if args.plot_type == "overview" or args.plot_type == "all":
-            print("📊 Generating network overview plot...")
+            print("📊 Generating city overview plot...")
             plot_network_overview(conn, figsize=figsize, save_path=output_dir / "network_overview.png" if args.save_plots else None)
 
         if args.plot_type == "graph" or args.plot_type == "all":
-            print(f"🗺️  Generating network graph plot for {args.network}...")
-            plot_network_graph(conn, network_id, figsize=figsize, sample_size=args.sample_size, 
-                             save_path=output_dir / f"network_graph_{args.network}.png" if args.save_plots else None)
+            print(f"🗺️  Generating city graph plot for {args.city}...")
+            plot_network_graph(conn, city_id, figsize=figsize, sample_size=args.sample_size, 
+                             save_path=output_dir / f"network_graph_{args.city}.png" if args.save_plots else None)
 
         if args.plot_type == "cycleway" or args.plot_type == "all":
-            print(f"🚴 Generating cycleway network plot for {args.network}...")
-            plot_cycleway_network(conn, network_id, figsize=figsize,
-                                save_path=output_dir / f"cycleway_network_{args.network}.png" if args.save_plots else None)
+            print(f"🚴 Generating cycleway city plot for {args.city}...")
+            plot_cycleway_network(conn, city_id, figsize=figsize,
+                                save_path=output_dir / f"cycleway_network_{args.city}.png" if args.save_plots else None)
 
         if args.plot_type == "highways" or args.plot_type == "all":
-            print(f"🛣️  Generating highway distribution plot for {args.network}...")
-            plot_highway_distribution(conn, network_id, figsize=figsize,
-                                    save_path=output_dir / f"highway_distribution_{args.network}.png" if args.save_plots else None)
+            print(f"🛣️  Generating highway distribution plot for {args.city}...")
+            plot_highway_distribution(conn, city_id, figsize=figsize,
+                                    save_path=output_dir / f"highway_distribution_{args.city}.png" if args.save_plots else None)
 
         if args.plot_type == "stats" or args.plot_type == "all":
-            print("📈 Generating network statistics...")
-            if args.network.lower() == "all":
+            print("📈 Generating city statistics...")
+            if args.city.lower() == "all":
                 print_network_stats(conn)
             else:
-                print_network_stats(conn, network_id)
+                print_network_stats(conn, city_id)
 
         if args.save_plots:
             print(f"✅ Plots saved to {output_dir.absolute()}")
