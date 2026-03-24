@@ -28,7 +28,7 @@ from psycopg2.extras import execute_values
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from backend.database.city_io import connect_db  # noqa: E402
+from backend.database.city_io import connect_db, get_ingestion_status, upsert_ingestion_status  # noqa: E402
 
 
 CITYBIKES_API_BASE = "https://api.citybik.es/v2"
@@ -53,7 +53,10 @@ def _fetch_json(url: str, api_key: str | None = None, timeout_s: int = 30) -> Di
 
 
 def _parse_iso(ts: str) -> dt.datetime:
-    return dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    # Some feeds send timestamps like "...+00:00Z"; normalize trailing Z safely.
+    if ts.endswith("Z"):
+        ts = ts[:-1]
+    return dt.datetime.fromisoformat(ts)
 
 
 def _month_start(year: int, month: int) -> dt.datetime:
@@ -242,10 +245,10 @@ def _ingest_parquet_month(
     local_path = cache_dir / parquet_name
 
     if not local_path.exists():
-        print(f"⬇️  Downloading {parquet_name} …")
+        print(f"⬇️  Downloading {parquet_name} …", flush=True)
         urllib.request.urlretrieve(url, local_path)  # noqa: S310
     else:
-        print(f"📦 Using cached {parquet_name}")
+        print(f"📦 Using cached {parquet_name}", flush=True)
 
     pf = pq.ParquetFile(local_path)
     schema_cols = set(pf.schema_arrow.names)
@@ -261,6 +264,9 @@ def _ingest_parquet_month(
     bikes_col = pick(["free_bikes", "available_bikes", "bikes", "num_bikes_available"])
     slots_col = pick(["empty_slots", "available_slots", "slots", "num_docks_available"])
     extra_col = pick(["extra"])
+    name_col = pick(["name", "station_name", "title"])
+    lat_col = pick(["latitude", "lat"])
+    lon_col = pick(["longitude", "lon"])
 
     if station_col is None or time_col is None:
         raise RuntimeError(
@@ -271,7 +277,7 @@ def _ingest_parquet_month(
     batch: List[Tuple[str, dt.datetime, Optional[int], Optional[int], Optional[dict]]] = []
     batch_size = 5000
 
-    cols_to_read = [c for c in [station_col, time_col, bikes_col, slots_col, extra_col] if c]
+    cols_to_read = [c for c in [station_col, time_col, bikes_col, slots_col, extra_col, name_col, lat_col, lon_col] if c]
     for rg in range(pf.num_row_groups or 1):
         table = pf.read_row_group(rg, columns=cols_to_read)
         sids = table[station_col].to_pylist()
@@ -279,8 +285,12 @@ def _ingest_parquet_month(
         bikes = table[bikes_col].to_pylist() if bikes_col and bikes_col in table.column_names else [None] * len(sids)
         slots = table[slots_col].to_pylist() if slots_col and slots_col in table.column_names else [None] * len(sids)
         extras = table[extra_col].to_pylist() if extra_col and extra_col in table.column_names else [None] * len(sids)
+        names = table[name_col].to_pylist() if name_col and name_col in table.column_names else [None] * len(sids)
+        lats = table[lat_col].to_pylist() if lat_col and lat_col in table.column_names else [None] * len(sids)
+        lons = table[lon_col].to_pylist() if lon_col and lon_col in table.column_names else [None] * len(sids)
 
-        for sid, t, b, s, ex in zip(sids, times, bikes, slots, extras):
+        batch_stations = {}
+        for sid, t, b, s, ex, n, lat, lon in zip(sids, times, bikes, slots, extras, names, lats, lons):
             if sid is None or t is None:
                 continue
 
@@ -293,6 +303,12 @@ def _ingest_parquet_month(
 
             if observed_at.tzinfo is None:
                 observed_at = observed_at.replace(tzinfo=dt.timezone.utc)
+                
+            if isinstance(ex, str):
+                try:
+                    ex = json.loads(ex)
+                except json.JSONDecodeError:
+                    ex = None
 
             batch.append(
                 (
@@ -303,12 +319,28 @@ def _ingest_parquet_month(
                     ex if isinstance(ex, dict) else None,
                 )
             )
+            
+            if sid not in batch_stations and lat is not None and lon is not None:
+                batch_stations[sid] = {
+                    "id": sid,
+                    "latitude": lat,
+                    "longitude": lon,
+                    "name": n,
+                    "timestamp": observed_at.isoformat(),
+                    "extra": ex if isinstance(ex, dict) else None,
+                }
+                
             if len(batch) >= batch_size:
                 total_inserted += _db_insert_readings(conn, city_id=city_id, network_id=network_id, batch=batch)
                 batch = []
+                if batch_stations:
+                    _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=list(batch_stations.values()))
+                    batch_stations = {}
 
-    if batch:
-        total_inserted += _db_insert_readings(conn, city_id=city_id, network_id=network_id, batch=batch)
+        if batch:
+            total_inserted += _db_insert_readings(conn, city_id=city_id, network_id=network_id, batch=batch)
+        if batch_stations:
+            _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=list(batch_stations.values()))
 
     return total_inserted
 
@@ -322,8 +354,6 @@ def main() -> None:
 
     with open(SPAIN_DATA_PATH, "r", encoding="utf-8") as f:
         spain = json.load(f)
-
-    api_key = os.getenv("CITYBIKES_API_KEY")
 
     conn = connect_db()
     try:
@@ -343,25 +373,20 @@ def main() -> None:
 
             print(f"\n=== {city_name} (city_id={city_id}) — CityBikes network '{network_id}' ===")
 
-            if not args.no_metadata:
-                url = f"{CITYBIKES_API_BASE}/networks/{network_id}"
-                print(f"🌐 Fetching realtime station metadata from {url}")
-                payload = _fetch_json(url, api_key=api_key, timeout_s=args.api_timeout)
-                network = payload.get("network") or {}
-                stations: List[Dict[str, Any]] = network.get("stations") or []
-                if stations:
-                    n_up = _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=stations)
-                    print(f"✅ Upserted {n_up:,} stations into `stations`.")
-                else:
-                    print("❌ No stations found in realtime response; skipping metadata upsert.")
-
             if args.no_history:
                 continue
 
+            # Load status to track ingested months
+            status_obj = get_ingestion_status(conn, city_id, "stations")
+            details = status_obj.get("details", {}) if status_obj else {}
+            ingested_months = details.get("months", [])
+            
             now = dt.datetime.now(tz=dt.timezone.utc)
             for year, month in _iter_months(args.start, now):
-                if _db_month_has_data(conn, network_id, year, month):
+                yyyymm = f"{year}{month:02d}"
+                if yyyymm in ingested_months and _db_month_has_data(conn, network_id, year, month):
                     continue
+                    
                 inserted = _ingest_parquet_month(
                     conn,
                     city_id=city_id,
@@ -370,8 +395,15 @@ def main() -> None:
                     month=month,
                     download_timeout_s=args.download_timeout,
                 )
-                if inserted:
-                    print(f"📈 Inserted {inserted:,} readings for {year}{month:02d}.")
+                if inserted > 0:
+                    print(f"📈 Inserted {inserted:,} readings for {year}{month:02d}.", flush=True)
+                
+                if yyyymm not in ingested_months:
+                    ingested_months.append(yyyymm)
+                    
+            details["months"] = ingested_months
+            upsert_ingestion_status(conn, city_id, "stations", "completed", details=details)
+            print(f"✅ Upserted ingestion status for {city_name}.")
     finally:
         conn.close()
 

@@ -16,8 +16,10 @@ from backend.processing.feature_ops import extract_features_for_network, FEATURE
 from backend.database.city_io import (
     connect_db, get_all_cities, get_city_center,
     get_nodes, get_edges, put_nodes, put_edges,
-    put_features, count_features
+    put_features, count_features,
+    get_ingestion_status, upsert_ingestion_status
 )
+from datetime import datetime, timezone
 
 def main():
     load_dotenv()
@@ -37,7 +39,7 @@ def main():
         
     print(f"📊 Found {len(cities)} cities to process.")
         
-    for city_id, city_name, _ in cities:
+    for city_id, city_name, _, _ in cities:
         print(f"\n==============================================")
         print(f"🗺  Processing OSM Data for {city_name} (ID: {city_id})")
         print(f"==============================================")
@@ -46,6 +48,16 @@ def main():
         if not center:
             print(f"❌ Missing geographic data for {city_name}, skipping.")
             continue
+
+        status = get_ingestion_status(conn, city_id, "osm")
+        if status and status.get("status") == "completed":
+            updated_at = status.get("updated_at")
+            if updated_at:
+                now = datetime.now(tz=timezone.utc)
+                diff = now - updated_at
+                if diff.days <= 365:
+                    print(f"⏭️  Skipping {city_name}: OSM data already ingested within the last 12 months ({updated_at.strftime('%Y-%m-%d')}).")
+                    continue
             
         center_lat, center_lon, radius = center
         
@@ -83,6 +95,9 @@ def main():
                 count = count_features(conn, city_id, feature_type)
                 if count > 0:
                     print(f"   • {feature_type}: {count:,}")
+                    
+        print(f"✅ Finished updating {city_name}")
+        upsert_ingestion_status(conn, city_id, "osm", "completed")
                     
     conn.close()
     
