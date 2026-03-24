@@ -20,7 +20,7 @@ Analyze bike-sharing trip data and urban cycling infrastructure to provide insig
 
 ### 1.3 Core Components Status
 - [x] **Data Layer**: PostgreSQL/PostGIS spatial database
-- [x] **Processing Engine**: OSM network processing and trip ingestion
+- [x] **Processing Engine**: OSM city processing and trip ingestion
 - [x] **Analysis Tools**: Visualization and statistical analysis
 - [x] **OSM Features**: Buildings, waterways, and coverage analysis
 - [x] **API Layer**: Basic REST API for data access (FastAPI, endpoints implementados)
@@ -56,11 +56,11 @@ Analyze bike-sharing trip data and urban cycling infrastructure to provide insig
 
 ### 3.1 Data Ingestion Pipeline ✅
 ```
-OSM Data → Network Processing → Database Storage
+OSM Data → City Processing → Database Storage
 CSV Trips → Route Computation → Trip Storage
 OSM Features → Feature Extraction → Feature Storage
 ```
-- [x] **OSM Network Download**: Automated city network extraction
+- [x] **OSM City Download**: Automated city city extraction
 - [x] **Graph Construction**: Convert OSM to routable NetworkX graphs
 - [x] **Trip Processing**: CSV parsing with route computation
 - [x] **Checkpoint System**: Resumable processing for large datasets
@@ -77,8 +77,8 @@ Database → CLI Tools → Data Analysis/Visualization
 - [x] **GeoJSON Export**: Feature data for visualization
 
 ### 3.3 Analysis & Visualization ✅
-- [x] **Statistical Analysis**: Network metrics and trip statistics
-- [x] **Geographic Visualization**: Network and route plotting
+- [x] **Statistical Analysis**: City metrics and trip statistics
+- [x] **Geographic Visualization**: City and route plotting
 - [x] **Comparative Analysis**: Multi-city and temporal comparisons
 - [x] **Export Capabilities**: PNG plots and data exports
 - [x] **OSM Feature Maps**: Multi-layer visualization with coverage analysis
@@ -103,7 +103,7 @@ Database → CLI Tools → Data Analysis/Visualization
 - [x] **`data/`**: Raw CSV files and configuration data
 - [x] **`logs/`**: Processing logs and checkpoints
 - [x] **`cache/`**: Cached OSM data and temporary files
-- [x] **`schema.sql`**: Database schema definition
+- [x] **`backend/database/schema.sql`**: Database schema definition
 
 ---
 
@@ -111,8 +111,8 @@ Database → CLI Tools → Data Analysis/Visualization
 
 ### 5.1 Current Workflow ✅
 1. **Setup Database**: Create PostgreSQL instance with PostGIS
-2. **Populate Network**: Run `scripts/populate_db.py` to load OSM data and extract features
-3. **Process Trips**: Run `scripts/trip_ingestion.py` to compute routes
+2. **Populate City**: Run `ingestion/01_load_cities.py and ingestion/02_load_osm.py` to load OSM data and extract features
+3. **Process Trips**: Run `ingestion/03_load_trips.py` to compute routes
 4. **Analyze Data**: Use `scripts/database_summary.py` and `scripts/plot_database.py`
 
 ### 5.2 Target Workflow
@@ -128,7 +128,7 @@ Database → CLI Tools → Data Analysis/Visualization
 | Component | Status | Completeness |
 |-----------|--------|--------------|
 | Database Schema | ✅ Complete | 100% |
-| Network Processing | ✅ Complete | 100% |
+| City Processing | ✅ Complete | 100% |
 | Trip Processing | ✅ Complete | 100% |
 | Data Visualization | ✅ Complete | 100% |
 | Command Line Tools | ✅ Complete | 100% |
@@ -167,11 +167,11 @@ cp .env.example .env  # Configure database credentials
 
 # 3. Initialize database
 psql -c "CREATE DATABASE bikes_for_cities;"
-psql -d bikes_for_cities -f schema.sqlac
+psql -d bikes_for_cities -f backend/database/schema.sql
 
 # 4. Load sample data
-python scripts/populate_db.py
-python scripts/trip_ingestion.py
+python ingestion/01_load_cities.py and ingestion/02_load_osm.py
+python ingestion/03_load_trips.py
 
 # 5. Generate analysis
 python scripts/database_summary.py

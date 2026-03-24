@@ -13,11 +13,12 @@ BikesForCities-webbackend/
 |   ├── 📁 cache/                        # Application cache
 |   ├── 📁 database/                     # Database operations
 |   |   ├── 📄 __init__.py                   # Database package initialization
-|   |   └── 📄 network_io.py                 # Network I/O operations
+|   |   ├── 📄 city_io.py                 # City I/O operations
+|   |   └── 📄 schema.sql                    # Database schema
 |   ├── 📁 processing/                   # Data processing modules
 |   |   ├── 📄 __init__.py                   # Processing package initialization
 |   |   ├── 📄 feature_ops.py                # Feature operations
-|   |   ├── 📄 network_ops.py                # Network operations
+|   |   ├── 📄 city_ops.py                # City operations
 |   |   ├── 📄 route_strategy.py             # Route strategy algorithms
 |   |   ├── 📄 trip_loader.py                # Trip data loading
 |   |   └── 📄 visualization.py              # Data visualization
@@ -33,13 +34,12 @@ scripts/
 |   ├── 📄 __init__.py                   # Scripts package initialization
 |   ├── 📄 database_summary.py           # Database summary generation
 |   ├── 📄 plot_database.py              # Database plotting utilities
-|   ├── 📄 populate_db.py                # Database population script
-|   └── 📄 trip_ingestion.py             # Trip data ingestion script
+|   ├── 📄 01_load_cities/02_load_osm.py                # Database population script
+|   └── 📄 03_load_trips.py             # Trip data ingestion script
 ├── 📁 .venv/                        # Python virtual environment
 ├── 📄 .gitignore                    # Git ignore rules
 ├── 📄 README.md                     # Project documentation
 ├── 📄 requirements.txt              # Python dependencies
-├── 📄 schema.sql                    # Database schema
 ├── 📄 Dockerfile                    # Docker configuration for API
 ├── 📄 docker-compose.yml            # Docker Compose configuration (API/Backend + Database)
 ```

@@ -6,11 +6,11 @@
 The BikesForCities frontend is a React-based Single Page Application (SPA) designed to visualize and analyze bike-sharing trip data and urban cycling infrastructure. The application provides interactive maps, statistical dashboards, and data exploration tools for city planning and mobility optimization.
 
 ### 1.2 Mission Statement
-Create an intuitive, responsive web interface that enables users to explore bike network data, analyze trip patterns, and gain insights into urban cycling infrastructure for informed city planning decisions.
+Create an intuitive, responsive web interface that enables users to explore bike city data, analyze trip patterns, and gain insights into urban cycling infrastructure for informed city planning decisions.
 
 ### 1.3 Target Users
 - **Urban Planners**: Analyze bike infrastructure and trip patterns
-- **Transportation Researchers**: Study mobility patterns and network efficiency
+- **Transportation Researchers**: Study mobility patterns and city efficiency
 - **City Officials**: Make data-driven decisions about bike infrastructure
 - **General Public**: Explore cycling data in their cities
 
@@ -77,16 +77,16 @@ src/
 │   └── forms/              # Form components
 ├── pages/                  # Main application pages
 │   ├── Dashboard/          # Dashboard page
-│   ├── NetworkView/        # Network visualization page
+│   ├── NetworkView/        # City visualization page
 │   ├── Statistics/         # Statistics and analytics page
 │   └── About/              # About page
 ├── hooks/                  # Custom React hooks
-│   ├── useNetworks.ts      # Network data hooks
+│   ├── useNetworks.ts      # City data hooks
 │   ├── useMap.ts           # Map interaction hooks
 │   └── useCharts.ts        # Chart data hooks
 ├── services/               # API and external services
 │   ├── api.ts              # API client configuration
-│   ├── networks.ts         # Network API calls
+│   ├── cities.ts         # City API calls
 │   ├── features.ts         # OSM features API calls
 │   └── routes.ts           # Trip routes API calls
 ├── utils/                  # Utility functions
@@ -101,7 +101,7 @@ src/
 │   └── global.css          # Global CSS styles
 ├── types/                  # TypeScript type definitions
 │   ├── api.ts              # API response types
-│   ├── network.ts          # Network data types
+│   ├── city.ts          # City data types
 │   └── common.ts           # Common type definitions
 ├── App.tsx                 # Main application component
 ├── main.tsx                # Application entry point
@@ -139,24 +139,24 @@ App
 
 ### 4.1 Essential Features
 
-#### 4.1.1 Network Visualization
+#### 4.1.1 City Visualization
 **Requirements:**
-- Display bike networks on interactive maps
-- Support multiple map layers (network, features, routes)
+- Display bike cities on interactive maps
+- Support multiple map layers (city, features, routes)
 - Provide layer toggle controls
-- Show network statistics and metadata
+- Show city statistics and metadata
 - Support geographic filtering and search
 
 **Implementation:**
 - React-Leaflet with OpenStreetMap tiles
 - Custom map controls for layer management
-- GeoJSON rendering for network data
+- GeoJSON rendering for city data
 - Popup components for feature information
 
 #### 4.1.2 Dashboard Overview
 **Requirements:**
 - Display key metrics and statistics
-- Show network comparison charts
+- Show city comparison charts
 - Provide quick access to main features
 - Display recent activity or updates
 
@@ -168,7 +168,7 @@ App
 
 #### 4.1.3 Statistics & Analytics
 **Requirements:**
-- Comprehensive network statistics
+- Comprehensive city statistics
 - Trip pattern analysis
 - Infrastructure coverage metrics
 - Export capabilities for data
@@ -185,7 +185,7 @@ App
 **Requirements:**
 - Location-based search with autocomplete
 - Bounding box filtering
-- Network selection by geographic area
+- City selection by geographic area
 
 **Implementation:**
 - Geocoding service integration
@@ -194,7 +194,7 @@ App
 
 #### 4.2.2 Data Export
 **Requirements:**
-- Export network data as GeoJSON
+- Export city data as GeoJSON
 - Download statistics as CSV/JSON
 - Save map views as images
 
@@ -346,38 +346,38 @@ apiClient.interceptors.response.use(
 );
 ```
 
-#### 6.1.2 Network Data Service
+#### 6.1.2 City Data Service
 ```typescript
-// services/networks.ts
+// services/cities.ts
 export const networkService = {
-  // Get all networks
-  getNetworks: () => apiClient.get('/api/networks'),
+  // Get all cities
+  getNetworks: () => apiClient.get('/api/cities'),
   
-  // Get network details
-  getNetwork: (id: number) => apiClient.get(`/api/networks/${id}`),
+  // Get city details
+  getNetwork: (id: number) => apiClient.get(`/api/cities/${id}`),
   
-  // Get network statistics
-  getNetworkStats: (id: number) => apiClient.get(`/api/networks/${id}/stats`),
+  // Get city statistics
+  getNetworkStats: (id: number) => apiClient.get(`/api/cities/${id}/stats`),
   
-  // Get network nodes with pagination and filtering
+  // Get city nodes with pagination and filtering
   getNetworkNodes: (id: number, params: NodeQueryParams) => 
-    apiClient.get(`/api/networks/${id}/nodes`, { params }),
+    apiClient.get(`/api/cities/${id}/nodes`, { params }),
   
-  // Get network edges with filtering
+  // Get city edges with filtering
   getNetworkEdges: (id: number, params: EdgeQueryParams) => 
-    apiClient.get(`/api/networks/${id}/edges`, { params }),
+    apiClient.get(`/api/cities/${id}/edges`, { params }),
   
-  // Get network routes
+  // Get city routes
   getNetworkRoutes: (id: number, params: RouteQueryParams) => 
-    apiClient.get(`/api/networks/${id}/routes`, { params }),
+    apiClient.get(`/api/cities/${id}/routes`, { params }),
   
   // Get OSM features
   getNetworkFeatures: (id: number, params: FeatureQueryParams) => 
-    apiClient.get(`/api/networks/${id}/features`, { params }),
+    apiClient.get(`/api/cities/${id}/features`, { params }),
   
   // Get features as GeoJSON
   getFeaturesGeoJSON: (id: number, params: GeoJSONParams) => 
-    apiClient.get(`/api/networks/${id}/features/geojson`, { params }),
+    apiClient.get(`/api/cities/${id}/features/geojson`, { params }),
 };
 ```
 
@@ -412,18 +412,18 @@ function App() {
 ```typescript
 // hooks/useNetworks.ts
 import { useQuery } from '@tanstack/react-query';
-import { networkService } from '../services/networks';
+import { networkService } from '../services/cities';
 
 export const useNetworks = () => {
   return useQuery({
-    queryKey: ['networks'],
+    queryKey: ['cities'],
     queryFn: () => networkService.getNetworks(),
   });
 };
 
 export const useNetwork = (id: number) => {
   return useQuery({
-    queryKey: ['network', id],
+    queryKey: ['city', id],
     queryFn: () => networkService.getNetwork(id),
     enabled: !!id,
   });
@@ -431,7 +431,7 @@ export const useNetwork = (id: number) => {
 
 export const useNetworkStats = (id: number) => {
   return useQuery({
-    queryKey: ['network-stats', id],
+    queryKey: ['city-stats', id],
     queryFn: () => networkService.getNetworkStats(id),
     enabled: !!id,
   });
@@ -443,7 +443,7 @@ export const useNetworkStats = (id: number) => {
 #### 6.3.1 API Response Types
 ```typescript
 // types/api.ts
-export interface NetworkResponse {
+export interface CityResponse {
   id: number;
   name: string;
   description?: string;
@@ -454,8 +454,8 @@ export interface NetworkResponse {
 }
 
 export interface NetworkStats {
-  network_id: number;
-  network_name: string;
+  city_id: number;
+  city_name: string;
   nodes_count: number;
   edges_count: number;
   routes_count: number;
@@ -510,8 +510,8 @@ const AppRoutes = () => (
     <Layout>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/network/:id" element={<NetworkView />} />
-        <Route path="/network/:id/stats" element={<NetworkStats />} />
+        <Route path="/city/:id" element={<NetworkView />} />
+        <Route path="/city/:id/stats" element={<NetworkStats />} />
         <Route path="/statistics" element={<Statistics />} />
         <Route path="/about" element={<About />} />
         <Route path="*" element={<NotFound />} />
@@ -525,11 +525,11 @@ const AppRoutes = () => (
 ```typescript
 // components/layout/Navigation.tsx
 interface NavigationProps {
-  networks: NetworkResponse[];
+  cities: CityResponse[];
   currentNetwork?: number;
 }
 
-const Navigation: React.FC<NavigationProps> = ({ networks, currentNetwork }) => {
+const Navigation: React.FC<NavigationProps> = ({ cities, currentNetwork }) => {
   return (
     <AppBar position="static">
       <Toolbar>
@@ -543,15 +543,15 @@ const Navigation: React.FC<NavigationProps> = ({ networks, currentNetwork }) => 
           <FormControl size="small" sx={{ minWidth: 200 }}>
             <Select
               value={currentNetwork || ''}
-              onChange={(e) => navigate(`/network/${e.target.value}`)}
+              onChange={(e) => navigate(`/city/${e.target.value}`)}
               displayEmpty
             >
               <MenuItem value="">
-                <em>Select Network</em>
+                <em>Select City</em>
               </MenuItem>
-              {networks.map((network) => (
-                <MenuItem key={network.id} value={network.id}>
-                  {network.name}
+              {cities.map((city) => (
+                <MenuItem key={city.id} value={city.id}>
+                  {city.name}
                 </MenuItem>
               ))}
             </Select>
@@ -581,7 +581,7 @@ const Statistics = lazy(() => import('./pages/Statistics'));
 <Suspense fallback={<CircularProgress />}>
   <Routes>
     <Route path="/" element={<Dashboard />} />
-    <Route path="/network/:id" element={<NetworkView />} />
+    <Route path="/city/:id" element={<NetworkView />} />
     <Route path="/statistics" element={<Statistics />} />
   </Routes>
 </Suspense>
@@ -817,7 +817,7 @@ i18n.use(initReactI18next).init({
   },
   "navigation": {
     "dashboard": "Dashboard",
-    "networks": "Networks",
+    "cities": "Cities",
     "statistics": "Statistics"
   },
   "maps": {
@@ -899,15 +899,15 @@ The implementation follows modern React best practices and leverages the existin
 
 ## Appendix A: API Endpoints Reference
 
-### Network Endpoints
-- `GET /api/networks` - List all networks
-- `GET /api/networks/{id}` - Get network details
-- `GET /api/networks/{id}/stats` - Get network statistics
-- `GET /api/networks/{id}/nodes` - Get network nodes
-- `GET /api/networks/{id}/edges` - Get network edges
-- `GET /api/networks/{id}/routes` - Get network routes
-- `GET /api/networks/{id}/features` - Get OSM features
-- `GET /api/networks/{id}/features/geojson` - Get features as GeoJSON
+### City Endpoints
+- `GET /api/cities` - List all cities
+- `GET /api/cities/{id}` - Get city details
+- `GET /api/cities/{id}/stats` - Get city statistics
+- `GET /api/cities/{id}/nodes` - Get city nodes
+- `GET /api/cities/{id}/edges` - Get city edges
+- `GET /api/cities/{id}/routes` - Get city routes
+- `GET /api/cities/{id}/features` - Get OSM features
+- `GET /api/cities/{id}/features/geojson` - Get features as GeoJSON
 
 ### Health & Info Endpoints
 - `GET /api/health` - Health check

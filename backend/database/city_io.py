@@ -76,8 +76,35 @@ def update_city_wikidata(conn, city_id: int, population: Optional[int] = None,
         """, (population, website, mayor, mayor_party, city_id))
     conn.commit()
 
+def get_ingestion_status(conn, city_id: int, data_type: str) -> Optional[dict]:
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT updated_at, status, details
+            FROM ingestion_status
+            WHERE city_id = %s AND data_type = %s
+        """, (city_id, data_type))
+        row = cur.fetchone()
+        if row:
+            return {"updated_at": row[0], "status": row[1], "details": row[2] or {}}
+        return None
+
+def upsert_ingestion_status(conn, city_id: int, data_type: str, status: str, details: Optional[dict] = None):
+    import json
+    details_json = json.dumps(details) if details else None
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO ingestion_status (city_id, data_type, updated_at, status, details)
+            VALUES (%s, %s, NOW(), %s, %s)
+            ON CONFLICT (city_id, data_type) DO UPDATE SET
+                updated_at = NOW(),
+                status = EXCLUDED.status,
+                details = COALESCE(EXCLUDED.details, ingestion_status.details)
+        """, (city_id, data_type, status, details_json))
+    conn.commit()
+
 import pandas as pd
 from psycopg2.extras import execute_values
+
 
 def put_historical_mayors(conn, city_id: int, mayors_df: pd.DataFrame):
     """Bulk insert historical mayors for a given city and clear existing."""

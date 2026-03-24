@@ -26,6 +26,16 @@ CREATE TABLE city_modes (
     forum BOOLEAN DEFAULT FALSE
 );
 
+CREATE TABLE IF NOT EXISTS ingestion_status (
+    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    data_type TEXT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    status TEXT NOT NULL,
+    details JSONB,
+    PRIMARY KEY (city_id, data_type)
+);
+
+
 CREATE TABLE historical_mayors (
     id SERIAL PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
@@ -45,6 +55,13 @@ CREATE TABLE city_metrics (
     total_stations INTEGER,
     updated_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (city_id, metric_month)
+);
+
+CREATE TABLE IF NOT EXISTS estimated_trips_per_interval (
+    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    observed_at TIMESTAMPTZ NOT NULL,
+    estimated_trips DOUBLE PRECISION,
+    PRIMARY KEY (city_id, observed_at)
 );
 
 CREATE TABLE city_elections (
