@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import type { CityData } from '../../constants/cities';
 import CityPin from '../ui/CityPin';
-import GlassCard from '../ui/GlassCard';
+import ErrorState from '../ui/ErrorState';
 import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
 
 interface SpainMapProps {
@@ -101,19 +101,11 @@ const SpainMap: React.FC<SpainMapProps> = ({
   if (error || !geoData || !projection) {
     return (
       <div className={`relative ${className} flex items-center justify-center`} style={{ width, height }}>
-        <GlassCard
-          surface="glass"
-          tint="rgba(225, 111, 111, 0.48)"
-          className="p-8 text-center max-w-md"
-        >
-          <h3 className="text-xl font-semibold text-white mb-4">Map Unavailable</h3>
-          <p className="text-white mb-6">
-            {error || 'Unable to load the Spain map at this time.'}
-          </p>
-          <p className="text-sm text-white">
-            Please try refreshing the page or explore our cities using the cards below.
-          </p>
-        </GlassCard>
+        <ErrorState 
+          title="Map Unavailable"
+          message={error || 'Unable to load the Spain map at this time.'}
+          showRetry={true}
+        />
       </div>
     );
   }

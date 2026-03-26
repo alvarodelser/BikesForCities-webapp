@@ -2,8 +2,8 @@ import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 're
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { CityData } from '../../constants/cities';
-
 import { TILE_SERVER_URL } from '../../config/api';
+import ErrorState from '../ui/ErrorState';
 import Spinner from '../ui/Spinner';
 
 interface CityCanvasProps {
@@ -199,10 +199,11 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
             {/* Error overlay */}
             {error && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
-                    <div className="bg-red-900/80 border border-red-500/50 rounded-xl p-6 max-w-md text-center">
-                        <p className="text-red-200 text-lg font-medium mb-2">Failed to load map</p>
-                        <p className="text-red-300/70 text-sm">{error}</p>
-                    </div>
+                    <ErrorState 
+                        title="Failed to load map"
+                        message={error}
+                        showRetry={true}
+                    />
                 </div>
             )}
         </div>

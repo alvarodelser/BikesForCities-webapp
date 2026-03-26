@@ -34,7 +34,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
         }}
       />
       
-      <div className="relative w-full z-10">
+      <div className="relative w-full z-10 mt-[80px]">
         {/* Title */}
         <h1
           className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[var(--blue-dark)] to-[var(--blue)] bg-clip-text text-transparent my-[0px] mx-[120px]"

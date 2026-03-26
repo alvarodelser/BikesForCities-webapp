@@ -6,7 +6,6 @@ import ScrollableCityList from "../landing/ScrollableCityList";
 import logoImage from '../../assets/logo.svg';
 import type { CityData } from "../../constants/cities";
 import { fetchCities } from "../../services/api";
-import backgroundTexture from '../../assets/background2.svg';
 
 type NavbarProps = {
   omit?: string;
@@ -27,73 +26,66 @@ const Navbar: React.FC<NavbarProps> = () => {
   }, []);
 
   return (
-    <nav 
-      className="w-full z-20 relative bg-[var(--cream)]"
-    >
-    {/* Background texture extending upward to cover navbar */}
-    <div 
-        className="absolute pointer-events-none"
-        style={{
-          backgroundImage: `url(${backgroundTexture})`,
-          backgroundSize: '600px 600px',
-          backgroundPosition: 'top left',
-          backgroundRepeat: 'repeat',
-          top: 0, // Extend upward to cover navbar
-          left: 0,
-          right: 0,
-          bottom: 0,
-          opacity: 0.07
-        }}
-      />
-      {/* Top row: logos */}
-      <div className="flex justify-between items-center h-[50px] mx-[50px] relative z-10">
-          <img src={logoImage} alt="Logo Left" className="h-full" />
-          <img src={logoImage} alt="Logo Right" className="h-full" />
+    <nav className="fixed top-0 left-0 right-0 w-full z-50 bg-[var(--cream)]/85 backdrop-blur-md shadow-sm border-b border-black/5 transition-all duration-300">
+      {/* Main navigation row */}
+      <div className="flex items-center justify-between h-[70px] px-8 md:px-16 max-w-[1400px] mx-auto relative z-10">
+        {/* Left: Logo */}
+        <Link to="/" className="h-[40px] flex items-center shrink-0">
+          <img src={logoImage} alt="BikesForCities Logo" className="h-full object-contain" />
+        </Link>
+
+        {/* Right: Navigation Links */}
+        <div className="flex items-center gap-6 md:gap-10">
+          <Link
+            to="/"
+            className={`text-sm font-[800] transition-colors ${location.pathname === '/' ? 'text-[var(--green)]' : ''}`}
+          >
+            Inicio
+          </Link>
+
+          <Link
+            onClick={() => setShowCities(!showCities)}
+            className={`text-sm font-[800] flex items-center gap-[2px] transition-colors ${showCities ? 'text-[var(--green)]' : ''}`}
+          >
+            Ciudades
+            {showCities ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+          </Link>
+
+          {navLinks.filter(l => l.name !== "Inicio").map((link) => {
+            const isActive = location.pathname === link.to;
+            return (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`text-sm font-[800] transition-colors ${isActive ? 'text-[var(--green)]' : ''}`}
+              >
+                {link.name}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Middle row: menu */}
-      <div className="flex items-center justify-center gap-[200px] h-[75px] mx-[100px] relative z-10">
-        <Link
-          onClick={() => setShowCities(!showCities)}
-          className="font-[800] flex items-center gap-[1px]"
-        >
-          Ciudades
-          {showCities ? (
-            <ChevronUp size={18} />
-          ) : (
-            <ChevronDown size={18} />
-          )}
-        </Link>
-        {navLinks
-          .filter(link => link.to !== location.pathname)
-          .map(link => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className="text-sm font-[800]"
-            >
-              {link.name}
-            </Link>
-        ))}
-      </div>
-        
-      {/* Bottom row: cities */}
-      <div className="flex items-center justify-center gap-[200px] h-[50px] mx-[100px] -mt-[30px] relative z-10">
-        <ScrollableCityList show={showCities}>
-          {cities.map((city) => (
-            <Link
-              key={city.path}
-              to={city.path}
-              className="text-xs font-[300] whitespace-nowrap snap-start"
-            >
-              {city.name}
-            </Link>
-          ))}
-        </ScrollableCityList>
+      {/* Dropdown row: cities */}
+      <div
+        className={`w-full transition-all duration-300 ease-in-out relative z-0 ${showCities ? 'max-h-[80px] opacity-100 border-t border-black/5' : 'max-h-0 opacity-0'
+          } overflow-hidden bg-[var(--cream)]/95`}
+      >
+        <div className="flex items-center justify-center h-[50px] px-8 md:px-16 max-w-[1400px] mx-auto">
+          <ScrollableCityList show={showCities}>
+            {cities.map((city) => (
+              <Link
+                key={city.path}
+                to={city.path}
+                className="text-xs font-[500] whitespace-nowrap snap-start px-3 py-1.5 rounded hover:bg-black/5 transition-colors"
+              >
+                {city.name}
+              </Link>
+            ))}
+          </ScrollableCityList>
+        </div>
       </div>
     </nav>
-
-
   );
 };
 

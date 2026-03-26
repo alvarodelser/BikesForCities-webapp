@@ -5,6 +5,7 @@ import { fetchCities } from '../../services/api';
 import SpainMap from './SpainMap';
 import ScrollableCityCards from '../ui/ScrollableCityCards';
 import WaveBackground from '../ui/WaveBackground';
+import ErrorState from '../ui/ErrorState';
 import Spinner from '../ui/Spinner';
 
 const MapSelector: React.FC = () => {
@@ -12,14 +13,20 @@ const MapSelector: React.FC = () => {
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const [cities, setCities] = useState<CityData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   React.useEffect(() => {
     fetchCities().then(data => {
-      setCities(data);
+      if (data && data.length > 0) {
+        setCities(data);
+      } else {
+        setError("No cities data found in the database. Please run the ingestion scripts.");
+      }
       setLoading(false);
     }).catch(err => {
       console.error(err);
+      setError("Unable to reach the database. Please ensure Docker is running.");
       setLoading(false);
     });
   }, []);
@@ -98,6 +105,17 @@ const MapSelector: React.FC = () => {
           onCityNavigate={handleCityNavigate}
         />
       </div>
+
+      {/* Error Overlay */}
+      {error && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center text-center bg-black/40 backdrop-blur-sm">
+          <ErrorState 
+            title="Database Connection Error" 
+            message={error} 
+            showRetry={true} 
+          />
+        </div>
+      )}
     </div>
   );
 };
