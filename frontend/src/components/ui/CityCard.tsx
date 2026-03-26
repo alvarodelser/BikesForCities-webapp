@@ -2,6 +2,7 @@ import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { GlassCard } from './GlassCard';
 import { FlatCard } from './FlatCard';
+import { formatPopulation, formatCurrency, formatDistance, formatPercentage } from '../../utils/formatters';
 
 interface CityCardProps {
   city: CityData;
@@ -37,19 +38,6 @@ const CityCard: React.FC<CityCardProps> = ({
 
   const scale = getScale();
   const opacity = getOpacity();
-
-  // Format numbers for display
-  const formatPopulation = (pop: number) => {
-    if (pop >= 1000000) return `${(pop / 1000000).toFixed(1)}M`;
-    if (pop >= 1000) return `${(pop / 1000).toFixed(0)}K`;
-    return pop.toString();
-  };
-
-  const formatBudget = (budget: number) => {
-    if (budget >= 1000000) return `${(budget / 1000000).toFixed(1)}M€`;
-    if (budget >= 1000) return `${(budget / 1000).toFixed(0)}K€`;
-    return `${budget}€`;
-  };
 
   return (
     <div 
@@ -98,7 +86,7 @@ const CityCard: React.FC<CityCardProps> = ({
               Presupuesto
             </h3>
             <p className="font-bold text-white drop-shadow-lg text-base">
-              {formatBudget(city.budget)}
+              {formatCurrency(city.budget)}
             </p>
           </GlassCard>
           
@@ -107,7 +95,7 @@ const CityCard: React.FC<CityCardProps> = ({
               Red Ciclista
             </h3>
             <p className="font-bold text-white drop-shadow-lg text-base">
-              {city.cyclingNetwork}km
+              {formatDistance(city.cyclingNetwork)}km
             </p>
           </GlassCard>
 
@@ -116,7 +104,7 @@ const CityCard: React.FC<CityCardProps> = ({
               Cobertura
             </h3>
             <p className="font-bold text-white drop-shadow-lg text-base">
-              {city.coverage}%
+              {formatPercentage(city.coverage)}%
             </p>
           </GlassCard>
         </div>

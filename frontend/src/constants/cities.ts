@@ -10,4 +10,5 @@ export interface CityData {
   budget: number;
   cyclingNetwork: number;
   coverage: number;
+  angle?: number;
 }

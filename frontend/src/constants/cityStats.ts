@@ -9,6 +9,7 @@ import {
   Clock,
   Users
 } from 'lucide-react';
+import { formatDistance, formatPopulation } from '../utils/formatters';
 
 export interface StatItem {
   label: string;
@@ -82,9 +83,9 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
     case 'network':
       return {
         stats: [
-          { label: 'Network Length', value: `${city.cyclingNetwork} km`, trend: 'up', icon: BarChart3 },
+          { label: 'Network Length', value: `${formatDistance(city.cyclingNetwork)} km`, trend: 'up', icon: BarChart3 },
           { label: 'Connectivity Score', value: '78%', trend: 'up', icon: Target },
-          { label: 'Planned Extensions', value: '12 km', trend: 'up', icon: TrendingUp },
+          { label: 'Planned Extensions', value: `${formatDistance(12)} km`, trend: 'up', icon: TrendingUp },
           { label: 'Network Density', value: '2.3 km/km²', trend: 'neutral', icon: Activity }
         ],
         insights: {
@@ -148,7 +149,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
     case 'demographics':
       return {
         stats: [
-          { label: 'Population Density', value: '5,200/km²', trend: 'neutral', icon: Users },
+          { label: 'Population Density', value: `${formatPopulation(5200)}/km²`, trend: 'neutral', icon: Users },
           { label: 'Age Distribution', value: '25-45', trend: 'neutral', icon: BarChart3 },
           { label: 'Car Ownership', value: '65%', trend: 'down', icon: TrendingDown },
           { label: 'Cycling Adoption', value: '23%', trend: 'up', icon: TrendingUp }

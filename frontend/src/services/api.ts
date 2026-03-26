@@ -21,6 +21,7 @@ export const fetchCities = async (): Promise<CityData[]> => {
     population: city.population || 0,
     budget: city.budget || 0,
     cyclingNetwork: city.cycling_network || 0,
-    coverage: city.coverage || 0
+    coverage: city.coverage || 0,
+    angle: city.angle || 0
   }));
 };

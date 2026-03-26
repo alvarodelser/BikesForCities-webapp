@@ -4,6 +4,7 @@ import landingHeroImage from '../../assets/outline.png';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
+import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
 
 interface OverviewSectionProps {
   city: CityData;
@@ -65,10 +66,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Population</h3>
             </div>
             <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">
-              {city.population >= 1000000 
-                ? `${(city.population / 1000000).toFixed(1)}M` 
-                : `${(city.population / 1000).toFixed(0)}K`
-              }
+              {formatPopulation(city.population)}
             </p>
             
                       </GlassCard>
@@ -85,10 +83,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Budget</h3>
             </div>
             <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">
-              {city.budget >= 1000000 
-                ? `${(city.budget / 1000000).toFixed(1)}M€` 
-                : `${(city.budget / 1000).toFixed(0)}K€`
-              }
+              {formatCurrency(city.budget)}
             </p>
             
                      </GlassCard>
@@ -104,7 +99,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               </div>
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Cycling Network</h3>
             </div>
-            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{city.cyclingNetwork}km</p>
+            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{formatDistance(city.cyclingNetwork)}km</p>
             
                       </GlassCard>
 
@@ -119,7 +114,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               </div>
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Coverage</h3>
             </div>
-            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{city.coverage}%</p>
+            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{formatPercentage(city.coverage)}%</p>
             
           </GlassCard>
         </div>

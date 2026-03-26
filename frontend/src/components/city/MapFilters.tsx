@@ -8,6 +8,7 @@ import {
   Users, 
   TrendingUp
 } from 'lucide-react';
+import { formatDistance } from '../../utils/formatters';
 
 interface MapFiltersProps {
   city: CityData;
@@ -64,8 +65,8 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
       icon: Network,
       description: 'Cycling infrastructure planning and optimization',
       stats: [
-        { label: 'Current Network', value: city.cyclingNetwork, unit: 'km' },
-        { label: 'Planned Extensions', value: 12, unit: 'km' },
+        { label: 'Current Network', value: formatDistance(city.cyclingNetwork), unit: 'km' },
+        { label: 'Planned Extensions', value: formatDistance(12), unit: 'km' },
         { label: 'Connectivity Score', value: 78, unit: '%' }
       ],
       available: true,
