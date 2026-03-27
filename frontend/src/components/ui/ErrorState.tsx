@@ -13,7 +13,7 @@ export interface ErrorStateProps {
 }
 
 const ErrorState: React.FC<ErrorStateProps> = ({
-  title = 'Something went wrong',
+  title = 'Algo ha ido mal',
   message,
   showRetry = false,
   onRetry,
@@ -48,7 +48,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({
               className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors font-medium border border-white/10"
             >
               <RefreshCw size={18} />
-              Try Again
+              Reintentar
             </button>
           )}
           
@@ -58,7 +58,7 @@ const ErrorState: React.FC<ErrorStateProps> = ({
               className="flex items-center gap-2 px-6 py-3 bg-[var(--green)] hover:bg-[var(--green-dark)] text-white rounded-lg transition-colors font-medium shadow-lg"
             >
               <Home size={18} />
-              Go Home
+              Ir al Inicio
             </button>
           )}
         </div>
