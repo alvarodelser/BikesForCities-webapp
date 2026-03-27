@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useSearchParams } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { getModeStats } from '../../constants/cityStats';
 import MapFilters from './MapFilters';
@@ -10,22 +11,45 @@ interface MapSectionProps {
 }
 
 const MapSection: React.FC<MapSectionProps> = ({ city }) => {
-  const [selectedMode, setSelectedMode] = useState<string>('traffic');
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // Define the mode names for validation
+  const modeNames: Record<string, string> = {
+    'infrastructure': 'Infraestructura',
+    'traffic': 'Tráfico',
+    'stations': 'Estaciones',
+    'terrain': 'Terreno',
+    'intersections': 'Intersecciones',
+    'accidents': 'Accidentes'
+  };
+
+  // Get and validate mode from URL
+  const modeParam = searchParams.get('mode');
+  const selectedMode = (modeParam && modeNames[modeParam]) ? modeParam : 'infrastructure';
+
+  const handleModeChange = (newMode: string) => {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set('mode', newMode);
+      return next;
+    }, { replace: true });
+  };
 
   // Define the mode colors (matching MapFilters)
   const modeColors: Record<string, string> = {
+    'infrastructure': 'var(--blue)',
     'traffic': 'var(--red)',
-    'stations': 'var(--green)', 
-    'network': 'var(--blue)',
-    'topography': 'var(--orange)',
-    'usage': 'var(--yellow)',
-    'demographics': 'var(--blue-dark)'
+    'stations': 'var(--green)',
+    'terrain': 'var(--orange)',
+    'intersections': 'var(--yellow)',
+    'accidents': 'var(--red)'
   };
 
   // Get the stats data for the selected mode
   const modeStats = getModeStats(selectedMode, city);
-  const title = `${selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1).replace('-', ' ')} Statistics`;
-  const subtitle = `Detailed analytics for ${city.name}'s ${selectedMode.replace('-', ' ')} data`;
+  const modeName = modeNames[selectedMode] || selectedMode;
+  const title = `Estadísticas de ${modeName}`;
+  const subtitle = `Análisis detallado de datos de ${modeName.toLowerCase()} en ${city.name}`;
   const selectedColor = modeColors[selectedMode] || 'var(--blue)';
 
   return (
@@ -34,7 +58,7 @@ const MapSection: React.FC<MapSectionProps> = ({ city }) => {
       <MapFilters 
         city={city} 
         selectedMode={selectedMode} 
-        onModeChange={setSelectedMode} 
+        onModeChange={handleModeChange} 
       />
       
       {/* Map */}

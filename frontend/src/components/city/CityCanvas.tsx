@@ -101,7 +101,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
             try {
                 // Calculate rectangular boundary (8x10km) centered on city
                 const generateRectBoundary = (lon: number, lat: number, angleDeg: number) => {
-                    const widthLimit = 8000;  // 8km
+                    const widthLimit = 10000;  // 10km
                     const heightLimit = 10000; // 10km
                     
                     // Convert degrees to radians
@@ -211,7 +211,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                     source: 'focus-mask',
                     paint: {
                         'fill-color': '#000000',
-                        'fill-opacity': 0.4,
+                        'fill-opacity': 0.07,
                     },
                 });
 
@@ -321,21 +321,6 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                     },
                 });
 
-                // Add a glow/halo effect for bike paths
-                mapInstance.addLayer({
-                    id: 'bike-paths-glow',
-                    type: 'line',
-                    source: 'martin-features',
-                    'source-layer': 'features',
-                    filter: ['==', ['get', 'feature_type'], 'bike_paths'],
-                    paint: {
-                        'line-color': '#00cac3',
-                        'line-width': 10,
-                        'line-opacity': 0.5,
-                        'line-blur': 8,
-                    },
-                });
-
                 // 10. Labels (always on top via separate source)
                 mapInstance.addSource('carto-labels', {
                     type: 'raster',
@@ -352,6 +337,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                     source: 'carto-labels',
                     minzoom: 0,
                     maxzoom: 19,
+                    layout: { visibility: 'none' },
                 });
 
                 setLoading(false);
@@ -381,8 +367,8 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
                             className="w-16 h-16 mx-auto mb-4"
                             style={{ borderColor: `${colorScheme.accent} transparent ${colorScheme.primary} transparent` }}
                         />
-                        <p className="text-white text-lg font-medium">Loading {city.name} network...</p>
-                        <p className="text-white/60 text-sm mt-1">Fetching road topology from database</p>
+                        <p className="text-white text-lg font-medium">Cargando red de {city.name}...</p>
+                        <p className="text-white/60 text-sm mt-1">Obteniendo topología vial de la base de datos</p>
                     </div>
                 </div>
             )}
@@ -391,7 +377,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ city, colorS
             {error && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-10">
                     <ErrorState
-                        title="Failed to load map"
+                        title="Error al cargar el mapa"
                         message={error}
                         showRetry={true}
                     />

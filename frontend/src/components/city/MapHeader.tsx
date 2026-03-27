@@ -27,8 +27,8 @@ const MapHeader: React.FC<MapHeaderProps> = ({ city, selectedMode, colorScheme, 
                         <MapPin className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-white">{city.name} Cycling Infrastructure</h1>
-                        <p className="text-white/80 capitalize">{selectedMode.replace('-', ' ')} Mode</p>
+                        <h1 className="text-2xl font-bold text-white">{city.name} — Infraestructura Ciclista</h1>
+                        <p className="text-white/80 capitalize">Modo: {selectedMode.replace('-', ' ')}</p>
                     </div>
                 </div>
 

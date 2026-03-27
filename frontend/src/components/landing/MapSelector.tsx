@@ -21,12 +21,12 @@ const MapSelector: React.FC = () => {
       if (data && data.length > 0) {
         setCities(data);
       } else {
-        setError("No cities data found in the database. Please run the ingestion scripts.");
+        setError("No se encontraron datos de ciudades en la base de datos. Por favor, ejecuta los scripts de ingesta.");
       }
       setLoading(false);
     }).catch(err => {
       console.error(err);
-      setError("Unable to reach the database. Please ensure Docker is running.");
+      setError("No se puede conectar con la base de datos. Asegúrate de que Docker esté en ejecución.");
       setLoading(false);
     });
   }, []);
@@ -110,7 +110,7 @@ const MapSelector: React.FC = () => {
       {error && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center text-center bg-black/40 backdrop-blur-sm">
           <ErrorState 
-            title="Database Connection Error" 
+            title="Error de Conexión" 
             message={error} 
             showRetry={true} 
           />

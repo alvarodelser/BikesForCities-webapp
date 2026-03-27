@@ -48,10 +48,10 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = '
             </div>
             <div>
               <h1 className="text-2xl font-bold" style={{ color: colorScheme.secondary }}>
-                {city.name} Cycling Infrastructure
+                {city.name} — Infraestructura Ciclista
               </h1>
               <p className="text-sm capitalize" style={{ color: `${colorScheme.secondary}99` }}>
-                {selectedMode.replace('-', ' ')} Mode
+                Modo: {selectedMode.replace('-', ' ')}
               </p>
             </div>
           </div>
@@ -68,7 +68,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = '
       </div>
 
       {/* Full-width/height map with padding under the header */}
-      <div className="absolute inset-0 pt-20 pb-4 px-4">
+      <div className="absolute inset-0 pt-24 pb-4 px-4">
         <div
           className="w-full h-full rounded-2xl overflow-hidden shadow-2xl border-2 transition-colors duration-500"
           style={{ borderColor: colorScheme.primary }}

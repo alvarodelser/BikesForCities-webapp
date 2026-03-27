@@ -5,12 +5,12 @@ interface MapLegendProps {
 }
 
 const legendItems = [
-    { type: 'line', color: '#00cac3', label: 'Bike Path' },
-    { type: 'square', color: '#027A76', label: 'Buildings < 150m' },
-    { type: 'square', color: '#ead5c5', label: 'Buildings' },
-    { type: 'dashed', color: '#4a5568', label: 'City Boundary' },
-    { type: 'square', color: '#dde5e4', label: 'Parks & Forest' },
-    { type: 'square', color: '#a4b7ca', label: 'Water & Sea' },
+    { type: 'line', color: '#00cac3', label: 'Carril Bici' },
+    { type: 'square', color: '#027A76', label: 'Edificios < 150m' },
+    { type: 'square', color: '#ead5c5', label: 'Edificios' },
+    { type: 'dashed', color: '#4a5568', label: 'Límite Municipal' },
+    { type: 'square', color: '#dde5e4', label: 'Parques y Bosques' },
+    { type: 'square', color: '#a4b7ca', label: 'Agua y Mar' },
 ];
 
 const LegendItem: React.FC<{ type: string; color: string; label: string }> = ({ type, color, label }) => (
@@ -33,11 +33,11 @@ const MapLegend: React.FC<MapLegendProps> = ({ inline = false }) => {
         );
     }
 
-    // Mobile: floating bottom-center pill
+    // Mobile: floating bottom-left pill
     return (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
+        <div className="absolute bottom-4 left-4 z-20">
             <div className="bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl rounded-2xl p-4">
-                <h3 className="text-black font-bold mb-3 text-sm border-b border-black/5 pb-1">Map Legend</h3>
+                <h3 className="text-black font-bold mb-3 text-sm border-b border-black/5 pb-1">Leyenda</h3>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2">
                     {legendItems.map((item) => (
                         <LegendItem key={item.label} {...item} />
