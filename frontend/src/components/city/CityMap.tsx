@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import type { CityData } from '../../constants/cities';
 import type { CityCanvasHandle } from './CityCanvas';
 import CityCanvas from './CityCanvas';
@@ -14,6 +14,7 @@ interface CityMapProps {
 
 const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = 'var(--blue)' }) => {
   const canvasRef = useRef<CityCanvasHandle>(null);
+  const [showBikePathBuildings, setShowBikePathBuildings] = useState(true);
 
   const getColorScheme = (colorVar: string) => {
     const colorSchemes: Record<string, { primary: string; secondary: string; accent: string; light: string }> = {
@@ -78,12 +79,16 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = '
             city={city}
             selectedMode={selectedMode}
             colorScheme={colorScheme}
+            showBikePathBuildings={showBikePathBuildings}
           />
         </div>
       </div>
 
       {/* Floating Legend */}
-      <MapLegend />
+      <MapLegend 
+        showBikePathBuildings={showBikePathBuildings}
+        onToggleBikePathBuildings={() => setShowBikePathBuildings(!showBikePathBuildings)}
+      />
     </div>
   );
 };

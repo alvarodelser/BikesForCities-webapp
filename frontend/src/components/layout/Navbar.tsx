@@ -22,6 +22,7 @@ const Navbar: React.FC<NavbarProps> = () => {
   const [showCities, setShowCities] = useState(false);
   const [cities, setCities] = useState<CityData[]>([]);
   const [scrolled, setScrolled] = useState(false);
+  const [openedAtTop, setOpenedAtTop] = useState(false);
 
   React.useEffect(() => {
     fetchCities().then(data => setCities(data)).catch(console.error);
@@ -59,27 +60,30 @@ const Navbar: React.FC<NavbarProps> = () => {
   return (
     <div
       className={`fixed left-0 right-0 z-50 flex justify-center w-full pointer-events-none transition-all duration-500 ease-in-out
-        ${scrolled && !showCities ? 'top-6 px-4' : 'top-0 px-0'}
+        ${scrolled && (!showCities || !openedAtTop) ? 'top-6 px-4' : 'top-0 px-0'}
       `}
     >
       <nav
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={`pointer-events-auto backdrop-blur-md shadow-lg transition-all duration-500 ease-in-out flex flex-col items-center overflow-hidden border w-full
-          ${scrolled && !showCities
+          ${scrolled && (!showCities || !openedAtTop)
             ? 'bg-[var(--cream)]/85 border-black/5 rounded-[32px] max-w-[800px]'
             : 'bg-[var(--cream)]/95 border-black/5 rounded-none max-w-full'
           }
-          ${showCities ? '!max-w-full !rounded-none !top-0' : ''}
+          ${showCities && openedAtTop ? '!max-w-full !rounded-none !top-0' : ''}
         `}
       >
         {/* Main navigation row */}
-        <div
-          className={`flex items-center justify-between px-8 gap-8 md:gap-16 w-full transition-all duration-500
-            ${scrolled ? 'h-[60px] max-w-[800px]' : 'h-[72px] max-w-full'}
-            ${showCities ? '!max-w-full' : ''}
-          `}
-        >
+          <div
+            className={`flex items-center justify-between px-8 gap-8 md:gap-16 w-full transition-all duration-500
+              ${scrolled && (!showCities || !openedAtTop)
+                ? 'h-[60px] max-w-[800px]'
+                : 'h-[72px] max-w-full'
+              }
+              ${showCities && openedAtTop ? '!max-w-full' : ''}
+            `}
+          >
           {/* Left: Logo */}
           <Link to="/" onClick={() => setShowCities(false)} className="flex items-center shrink-0">
             <img
@@ -100,7 +104,10 @@ const Navbar: React.FC<NavbarProps> = () => {
             </Link>
 
             <Link
-              onClick={() => setShowCities(!showCities)}
+              onClick={() => {
+                if (!showCities) setOpenedAtTop(!scrolled);
+                setShowCities(!showCities);
+              }}
               className={`font-[800] flex items-center gap-[2px] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${showCities ? 'text-[var(--green)]' : ''}`}
             >
               Ciudades
@@ -129,7 +136,7 @@ const Navbar: React.FC<NavbarProps> = () => {
             ${showCities ? 'max-h-[80px] opacity-100 border-t border-black/5' : 'max-h-0 opacity-0'}
           `}
         >
-          <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-full">
+          <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-[800px]">
             <ScrollableCityList show={showCities}>
               {cities.map((city) => (
                 <Link
