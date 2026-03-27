@@ -14,7 +14,7 @@ type LinkProps = {
   
     const handleClick = () => {
       if (onClick) onClick();
-      else if (to) navigate(to);
+      if (to) navigate(to);
     };
   
     return (
