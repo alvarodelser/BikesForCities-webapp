@@ -371,7 +371,7 @@ def get_all_cities(conn: psycopg2.extensions.connection) -> List[Tuple]:
     with conn.cursor() as cur:
         cur.execute("""
             SELECT 
-                c.id, c.name, c.description, c.wikidata_id, c.center_lat, c.center_lon, c.radius,
+                c.id, c.name, c.description, c.wikidata_id, c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) as budget,
                 (SELECT coverage FROM city_metrics cm WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) as coverage,
@@ -379,8 +379,14 @@ def get_all_cities(conn: psycopg2.extensions.connection) -> List[Tuple]:
                 (SELECT MIN(lat) FROM nodes WHERE city_id = c.id) as min_lat,
                 (SELECT MAX(lat) FROM nodes WHERE city_id = c.id) as max_lat,
                 (SELECT MIN(lon) FROM nodes WHERE city_id = c.id) as min_lon,
-                (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) as max_lon
+                (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) as max_lon,
+                m.infrastructure, m.traffic, m.accidents, m.topography, m.intersections, m.stations, m.forum,
+                c.mayor, c.mayor_party,
+                (SELECT citybikes_network_id FROM stations s WHERE s.city_id = c.id LIMIT 1) as service_name,
+                (SELECT COUNT(*) FROM stations s WHERE s.city_id = c.id) as stations_count,
+                (SELECT SUM(estimated_trips) FROM estimated_trips_per_interval et WHERE et.city_id = c.id AND et.observed_at > (SELECT MAX(observed_at) FROM estimated_trips_per_interval) - INTERVAL '30 days') as monthly_trips
             FROM cities c 
+            LEFT JOIN city_modes m ON c.id = m.city_id
             ORDER BY c.name
         """)
         return cur.fetchall()

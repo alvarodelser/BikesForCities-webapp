@@ -147,22 +147,27 @@ const ComparePage: React.FC = () => {
                   tint="rgba(255, 255, 255, 0.05)"
                   blurStrength="lg"
                   shadow="lg"
-                  className="min-h-[400px] flex flex-col p-0 overflow-hidden relative"
+                  className={`
+                    ${city ? 'min-h-[400px]' : 'min-h-[150px]'} 
+                    flex flex-col p-0 overflow-hidden relative transition-all duration-500 ease-in-out
+                  `}
                 >
-                  {/* Backdrop Gradient */}
-                  <div 
-                    className="absolute inset-0 z-0 opacity-80"
-                    style={{ background: gradient }}
-                  />
+                  {/* Backdrop Gradient (only if city selected) */}
+                  {city && (
+                    <div 
+                      className="absolute inset-0 z-0 opacity-80 animate-in fade-in duration-700"
+                      style={{ background: gradient }}
+                    />
+                  )}
                   
                   {/* Content Overlay */}
                   <div className="relative z-10 flex flex-col h-full">
                     {/* Header */}
                     <div 
-                      className="px-6 py-4 flex items-center justify-between border-b border-white/20"
-                      style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}
+                      className="px-6 py-4 flex items-center justify-between border-b border-white/10"
+                      style={{ backgroundColor: city ? 'rgba(0,0,0,0.1)' : 'transparent' }}
                     >
-                      <h3 className="text-xl font-bold text-white tracking-tight">
+                      <h3 className={`text-xl font-bold tracking-tight transition-colors ${city ? 'text-white' : 'text-white/20'}`}>
                         {city ? city.name : `Ciudad ${idx + 1}`}
                       </h3>
                       {city && (
@@ -172,10 +177,10 @@ const ComparePage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Placeholder content */}
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-black/5">
+                    {/* Content Body */}
+                    <div className={`flex-1 flex flex-col items-center justify-center p-8 text-center ${city ? 'bg-black/5' : 'bg-transparent'}`}>
                       {city ? (
-                        <div className="space-y-6 w-full">
+                        <div className="space-y-6 w-full animate-in zoom-in-95 duration-500">
                           <div className="aspect-video w-full rounded-xl bg-white/10 border border-white/10 flex items-center justify-center relative overflow-hidden group">
                              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:opacity-100 transition-opacity opacity-0" />
                              <span className="text-white/60 font-medium z-10">Mapa de {city.name} (próximamente)</span>
@@ -185,13 +190,8 @@ const ComparePage: React.FC = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-4">
-                          <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4 border border-white/20">
-                            <span className="text-2xl opacity-40">?</span>
-                          </div>
-                          <p className="text-white/50 text-sm max-w-[200px] mx-auto italic">
-                            Selecciona una ciudad en la tabla superior para comparar
-                          </p>
+                        <div className="flex flex-col items-center gap-2">
+                           <p className="text-white/20 text-xs uppercase tracking-widest font-bold">Sin selección</p>
                         </div>
                       )}
                     </div>

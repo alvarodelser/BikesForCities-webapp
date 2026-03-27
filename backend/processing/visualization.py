@@ -48,7 +48,8 @@ def plot_network_overview(conn, save_path: Optional[str] = None) -> None:
     
     # Prepare data for plotting
     network_data = []
-    for city_id, city_name, description in cities:
+    for row in cities:
+        city_id, city_name, description, *_ = row
         nodes = count_nodes(conn, city_id)
         edges = count_edges(conn, city_id)
         routes = count_routes(conn, city_id)
@@ -265,7 +266,8 @@ def print_network_stats(conn, city_id: Optional[int] = None) -> None:
     print("NETWORK STATISTICS")
     print("=" * 80)
     
-    for net_id, net_name, description in cities:
+    for row in cities:
+        net_id, net_name, description, *_ = row
         print(f"\n🏙️  {net_name} (ID: {net_id})")
         if description:
             print(f"   Description: {description}")

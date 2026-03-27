@@ -38,9 +38,11 @@ async def list_networks(conn=Depends(get_db_connection)):
         
         cities = []
         for row in networks_data:
-            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, 
+            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, angle,
              population, budget, coverage, cycling_network, 
-             min_lat, max_lat, min_lon, max_lon) = row
+             min_lat, max_lat, min_lon, max_lon,
+             infra, traffic, accidents, topo, inter, stations, forum,
+             mayor, mayor_party, service_name, stations_count, monthly_trips) = row
             
             bounds = None
             if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
@@ -50,6 +52,16 @@ async def list_networks(conn=Depends(get_db_connection)):
                     "min_lon": min_lon,
                     "max_lon": max_lon
                 }
+
+            available_modes = {
+                "infrastructure": bool(infra),
+                "traffic": bool(traffic),
+                "accidents": bool(accidents),
+                "terrain": bool(topo),
+                "intersections": bool(inter),
+                "stations": bool(stations),
+                "forum": bool(forum)
+            }
 
             cities.append(CityResponse(
                 id=city_id,
@@ -62,7 +74,13 @@ async def list_networks(conn=Depends(get_db_connection)):
                 budget=budget,
                 coverage=coverage,
                 cycling_network=cycling_network,
-                bounds=bounds
+                mayor=mayor,
+                mayor_party=mayor_party,
+                service_name=service_name,
+                stations_count=int(stations_count) if stations_count is not None else None,
+                monthly_trips=int(monthly_trips) if monthly_trips is not None else None,
+                bounds=bounds,
+                available_modes=available_modes
             ))
         
         return CityListResponse(

@@ -33,7 +33,13 @@ class CityResponse(NetworkBase):
     budget: Optional[float] = None
     coverage: Optional[float] = None
     cycling_network: Optional[float] = None
+    mayor: Optional[str] = None
+    mayor_party: Optional[str] = None
+    service_name: Optional[str] = None
+    stations_count: Optional[int] = None
+    monthly_trips: Optional[int] = None
     bounds: Optional[Dict[str, float]] = None
+    available_modes: Optional[Dict[str, bool]] = None
     
     class Config:
         from_attributes = True
