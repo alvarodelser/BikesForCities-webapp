@@ -3,12 +3,22 @@ import { Link } from 'react-router';
 import { Github, Linkedin, Instagram, Bookmark, Heart } from 'lucide-react';
 import IconContainer from '../ui/IconContainer';
 
+type Particle = {
+  id: number;
+  angle: number;
+  distance: number;
+  size: number;
+};
+
 const Footer: React.FC = () => {
+  const [isHeartFilled, setIsHeartFilled] = React.useState(false);
+  const [particles, setParticles] = React.useState<Particle[]>([]);
+
   const socialLinks = [
-    { icon: Instagram, href: 'https://instagram.com', label: 'Instagram' },
-    { icon: Bookmark, href: 'https://substack.com', label: 'Substack' },
-    { icon: Linkedin, href: 'https://linkedin.com', label: 'LinkedIn' },
-    { icon: Github, href: 'https://github.com', label: 'GitHub' },
+    { icon: Instagram, href: 'https://www.instagram.com/bikesforcities', label: 'Instagram' },
+    { icon: Bookmark, href: 'https://substack.com/@bikesforcities', label: 'Substack' },
+    { icon: Linkedin, href: 'https://www.linkedin.com/company/105136520/', label: 'LinkedIn' },
+    { icon: Github, href: 'https://github.com/alvarodelser/BikesForCities-webapp', label: 'GitHub' },
   ];
 
   const navigationLinks = [
@@ -17,8 +27,33 @@ const Footer: React.FC = () => {
     { to: '/map', label: 'Explorar Mapas' }
   ];
 
+  const handleHeartClick = () => {
+    if (isHeartFilled) return;
+    setIsHeartFilled(true);
+    
+    const newParticles: Particle[] = Array.from({ length: 12 }).map((_, i) => ({
+      id: Math.random(),
+      angle: (i * 30 * Math.PI) / 180,
+      distance: Math.random() * 40 + 20,
+      size: Math.random() * 4 + 2,
+    }));
+    setParticles(newParticles);
+    
+    // Clear particles after animation
+    setTimeout(() => setParticles([]), 1000);
+  };
+
   return (
     <footer className="w-full bg-[var(--blue-dark)] py-16 px-6">
+      <style>{`
+        @keyframes particle-out {
+          0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { transform: translate(calc(-50% + cos(var(--angle)) * var(--dist)), calc(-50% + sin(var(--angle)) * var(--dist))) scale(0); opacity: 0; }
+        }
+        .animate-particle {
+          animation: particle-out 0.8s ease-out forwards;
+        }
+      `}</style>
       <div className="max-w-6xl mx-auto">
         {/* Main footer content */}
         <div 
@@ -108,7 +143,35 @@ const Footer: React.FC = () => {
             <span className="text-white/70 text-sm drop-shadow-sm">
               © 2025 Bikes for Cities. Hecho con
             </span>
-            <Heart className="w-4 h-4 text-[var(--yellow)] drop-shadow-sm" />
+            <div className="relative inline-flex items-center justify-center">
+              <button 
+                onClick={handleHeartClick}
+                disabled={isHeartFilled}
+                className={`transition-all duration-500 transform focus:outline-none relative z-10 ${isHeartFilled ? 'cursor-default scale-110' : 'cursor-pointer hover:scale-120 active:scale-150'}`}
+                title={isHeartFilled ? "" : "Click para transformar"}
+                aria-label="Click para transformar"
+              >
+                <Heart 
+                  className={`w-4 h-4 text-[var(--yellow)] drop-shadow-sm transition-all duration-500 ${isHeartFilled ? 'fill-current scale-110' : ''}`} 
+                />
+              </button>
+              {particles.map((p) => (
+                <div
+                  key={p.id}
+                  className="absolute animate-particle pointer-events-none"
+                  style={{
+                    '--angle': `${p.angle}rad`,
+                    '--dist': `${p.distance}px`,
+                    width: p.size,
+                    height: p.size,
+                    backgroundColor: 'var(--yellow)',
+                    borderRadius: '50%',
+                    top: '50%',
+                    left: '50%',
+                  } as any}
+                />
+              ))}
+            </div>
             <span className="text-white/70 text-sm drop-shadow-sm">
               para un futuro más sostenible
             </span>
@@ -120,3 +183,4 @@ const Footer: React.FC = () => {
 };
 
 export default Footer;
+Footer;
