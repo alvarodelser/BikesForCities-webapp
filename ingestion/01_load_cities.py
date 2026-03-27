@@ -43,7 +43,7 @@ def main():
             center_lat=city_info.get("latitude"),
             center_lon=city_info.get("longitude"),
             angle=city_info.get("angle", 0.0),
-            radius=15000, # default distance
+            radius=10000, # default distance
             wikidata_id=city_info.get("wikidata_id")
         )
         

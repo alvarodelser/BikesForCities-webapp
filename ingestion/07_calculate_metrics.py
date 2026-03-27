@@ -146,30 +146,55 @@ def get_city_months_with_station_data(conn, city_id: int):
         return [row[0] for row in cur.fetchall()]
 
 
-def calculate_monthly_metrics(conn, city_id: int, metric_month: dt.datetime):
+def calculate_monthly_metrics(conn, city_id: int, metric_month: dt.datetime, center_lat: float, center_lon: float, angle: float):
     period_end = next_month(metric_month)
 
+    import math
+    dy = 5000.0 / 111320.0
+    dx = 5000.0 / (111320.0 * math.cos(math.radians(center_lat)))
+    
     with conn.cursor() as cur:
-        # 1. Total Kilometers of bike paths
+        # Define the 10km x 10km square BBOX (rotated)
+        bbox_query = """
+            SELECT ST_Translate(
+                ST_Rotate(
+                    ST_GeomFromText(%s, 4326),
+                    radians(%s), -- ST_Rotate expects radians. angle is in degrees.
+                    ST_SetSRID(ST_Point(0, 0), 4326)
+                ),
+                %s, %s
+            ) AS geom
+        """
+        poly_wkt = f"POLYGON(({-dx} {-dy}, {dx} {-dy}, {dx} {dy}, {-dx} {dy}, {-dx} {-dy}))"
+        # User angle is clockwise (typically), ST_Rotate is counter-clockwise.
+        # But in the frontend, angle is used as 'bearing'. 
+        # Usually bearing is clockwise from north.
+        # ST_Rotate(geom, angle) rotates counter-clockwise.
+        # So negative angle might be needed if they are consistent.
+        cur.execute(bbox_query, (poly_wkt, -angle, center_lon, center_lat))
+        bbox_geom = cur.fetchone()[0]
+
+        # 1. Total Kilometers of bike paths (intersection with BBOX)
         cur.execute(
             """
-            SELECT SUM(length) / 1000.0 
+            SELECT SUM(ST_Length(ST_Intersection(geom, %s)::geography)) / 1000.0 
             FROM edges 
             WHERE city_id = %s AND highway LIKE '%%cycleway%%'
+              AND ST_Intersects(geom, %s)
         """,
-            (city_id,),
+            (bbox_geom, city_id, bbox_geom),
         )
         res = cur.fetchone()
         total_km = res[0] if res and res[0] else 0.0
 
-        # 2. Coverage (bike path buildings / total buildings)
+        # 2. Coverage (bike path buildings / total buildings) inside BBOX
         cur.execute(
             """
             SELECT 
-              (SELECT COUNT(*) FROM features WHERE city_id = %s AND feature_type = 'bike_path_buildings'),
-              (SELECT COUNT(*) FROM features WHERE city_id = %s AND feature_type IN ('buildings', 'bike_path_buildings'))
+              (SELECT COUNT(*) FROM features WHERE city_id = %s AND feature_type = 'bike_path_buildings' AND ST_Intersects(geometry, %s)),
+              (SELECT COUNT(*) FROM features WHERE city_id = %s AND feature_type IN ('buildings', 'bike_path_buildings') AND ST_Intersects(geometry, %s))
         """,
-            (city_id, city_id),
+            (city_id, bbox_geom, city_id, bbox_geom),
         )
         close_bldgs, total_bldgs = cur.fetchone()
 
@@ -232,16 +257,18 @@ def main():
 
     print(f"📊 Calculating monthly cross-domain metrics for {len(cities)} cities...\n")
 
-    for city_id, name, _, _ in cities:
+    for city_id, name, _, _, center_lat, center_lon, _, angle, *_ in cities:
         months = get_city_months_with_station_data(conn, city_id)
         if not months:
-            print(f"⏭️  {name}: no station history yet, skipping.")
-            continue
+            # If no station data, still calculate OSM metrics for the current month
+            months = [month_start(dt.datetime.now(dt.timezone.utc))]
+            print(f"▶️  {name}: no station history, calculating OSM metrics for current month.")
+        else:
+            print(f"▶️  {name}: {len(months)} month(s) to process")
 
-        print(f"▶️  {name}: {len(months)} month(s) to process")
         for m in months:
             metric_month = month_start(m)
-            km, cov, est_trips, total_stations = calculate_monthly_metrics(conn, city_id, metric_month)
+            km, cov, est_trips, total_stations = calculate_monthly_metrics(conn, city_id, metric_month, center_lat, center_lon, angle)
 
             cov_str = f"{cov*100:.1f}%" if cov is not None else "N/A"
             print(
