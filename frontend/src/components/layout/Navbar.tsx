@@ -70,14 +70,14 @@ const Navbar: React.FC<NavbarProps> = () => {
             ? 'bg-[var(--cream)]/85 border-black/5 rounded-[32px] max-w-[800px]'
             : 'bg-[var(--cream)]/95 border-black/5 rounded-none max-w-full'
           }
-          ${showCities ? '!max-w-[1400px] !rounded-[32px] !top-0' : ''}
+          ${showCities ? '!max-w-full !rounded-none !top-0' : ''}
         `}
       >
         {/* Main navigation row */}
         <div
           className={`flex items-center justify-between px-8 gap-8 md:gap-16 w-full transition-all duration-500
             ${scrolled ? 'h-[60px] max-w-[800px]' : 'h-[72px] max-w-full'}
-            ${showCities ? '!max-w-[1400px]' : ''}
+            ${showCities ? '!max-w-full' : ''}
           `}
         >
           {/* Left: Logo */}
@@ -129,7 +129,7 @@ const Navbar: React.FC<NavbarProps> = () => {
             ${showCities ? 'max-h-[80px] opacity-100 border-t border-black/5' : 'max-h-0 opacity-0'}
           `}
         >
-          <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-[1400px]">
+          <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-full">
             <ScrollableCityList show={showCities}>
               {cities.map((city) => (
                 <Link

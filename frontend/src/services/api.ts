@@ -22,6 +22,12 @@ export const fetchCities = async (): Promise<CityData[]> => {
     budget: city.budget || 0,
     cyclingNetwork: city.cycling_network || 0,
     coverage: city.coverage || 0,
+    mayor: city.mayor,
+    mayor_party: city.mayor_party,
+    service_name: city.service_name,
+    stations_count: city.stations_count,
+    monthly_trips: city.monthly_trips,
+    available_modes: city.available_modes,
     angle: city.angle || 0
   }));
 };
