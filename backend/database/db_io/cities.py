@@ -1,0 +1,333 @@
+"""
+cities.py – CRUD for city-level tables:
+  cities, city_modes, ingestion_status, historical_mayors,
+  city_elections, city_councilors, city_budgets / budget_lines.
+"""
+import json
+from typing import List, Optional, Tuple
+
+import pandas as pd
+import psycopg2
+from psycopg2.extras import execute_values
+
+
+# ---------------------------------------------------------------------------
+# Core city table
+# ---------------------------------------------------------------------------
+
+def get_or_create_city(
+    conn,
+    name: str,
+    description: Optional[str] = None,
+    center_lat: Optional[float] = None,
+    center_lon: Optional[float] = None,
+    radius: Optional[float] = None,
+    angle: Optional[float] = None,
+    wikidata_id: Optional[str] = None,
+) -> int:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO cities (name, description, center_lat, center_lon, radius, angle, wikidata_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (name) DO UPDATE SET
+                description  = EXCLUDED.description,
+                center_lat   = EXCLUDED.center_lat,
+                center_lon   = EXCLUDED.center_lon,
+                radius       = EXCLUDED.radius,
+                angle        = EXCLUDED.angle,
+                wikidata_id  = EXCLUDED.wikidata_id
+            RETURNING id
+            """,
+            (name, description, center_lat, center_lon, radius, angle, wikidata_id),
+        )
+        return cur.fetchone()[0]
+
+
+def put_city_modes(conn, city_id: int, modes_dict: dict):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO city_modes (
+                city_id, infrastructure, traffic, accidents,
+                topography, intersections, stations, forum
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (city_id) DO UPDATE SET
+                infrastructure = EXCLUDED.infrastructure,
+                traffic        = EXCLUDED.traffic,
+                accidents      = EXCLUDED.accidents,
+                topography     = EXCLUDED.topography,
+                intersections  = EXCLUDED.intersections,
+                stations       = EXCLUDED.stations,
+                forum          = EXCLUDED.forum
+            """,
+            (
+                city_id,
+                modes_dict.get("infrastructure", False),
+                modes_dict.get("traffic", False),
+                modes_dict.get("accidents", False),
+                modes_dict.get("topography", False),
+                modes_dict.get("intersections", False),
+                modes_dict.get("stations", False),
+                modes_dict.get("forum", False),
+            ),
+        )
+    conn.commit()
+
+
+def update_city_wikidata(
+    conn,
+    city_id: int,
+    population: Optional[int] = None,
+    website: Optional[str] = None,
+    mayor: Optional[str] = None,
+    mayor_party: Optional[str] = None,
+):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE cities
+            SET population  = %s,
+                website     = %s,
+                mayor       = %s,
+                mayor_party = %s
+            WHERE id = %s
+            """,
+            (population, website, mayor, mayor_party, city_id),
+        )
+    conn.commit()
+
+
+def get_all_cities(conn) -> List[Tuple]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                c.id, c.name, c.description, c.wikidata_id,
+                c.center_lat, c.center_lon, c.radius, c.angle,
+                c.population,
+                (SELECT total_expenses FROM city_budgets cb
+                 WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) AS budget,
+                (SELECT coverage FROM city_metrics cm
+                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
+                (SELECT total_kilometers FROM city_metrics cm
+                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS cycling_network,
+                (SELECT MIN(lat) FROM nodes WHERE city_id = c.id) AS min_lat,
+                (SELECT MAX(lat) FROM nodes WHERE city_id = c.id) AS max_lat,
+                (SELECT MIN(lon) FROM nodes WHERE city_id = c.id) AS min_lon,
+                (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) AS max_lon,
+                m.infrastructure, m.traffic, m.accidents,
+                m.topography, m.intersections, m.stations, m.forum,
+                c.mayor, c.mayor_party,
+                (SELECT citybikes_network_id FROM stations s
+                 WHERE s.city_id = c.id LIMIT 1) AS service_name,
+                (SELECT COUNT(*) FROM stations s WHERE s.city_id = c.id) AS stations_count,
+                (SELECT SUM(estimated_trips)
+                 FROM estimated_trips_per_interval et
+                 WHERE et.city_id = c.id
+                   AND et.observed_at > (SELECT MAX(observed_at)
+                                         FROM estimated_trips_per_interval)
+                                        - INTERVAL '30 days') AS monthly_trips
+            FROM cities c
+            LEFT JOIN city_modes m ON c.id = m.city_id
+            ORDER BY c.name
+            """
+        )
+        return cur.fetchall()
+
+
+def get_city_center(conn, city_id: int) -> Optional[Tuple[float, float, float]]:
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT center_lat, center_lon, radius FROM cities WHERE id = %s",
+            (city_id,),
+        )
+        result = cur.fetchone()
+        if result and all(x is not None for x in result):
+            return result
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Ingestion status
+# ---------------------------------------------------------------------------
+
+def get_ingestion_status(conn, city_id: int, data_type: str) -> Optional[dict]:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT updated_at, status, details
+            FROM ingestion_status
+            WHERE city_id = %s AND data_type = %s
+            """,
+            (city_id, data_type),
+        )
+        row = cur.fetchone()
+        if row:
+            return {"updated_at": row[0], "status": row[1], "details": row[2] or {}}
+        return None
+
+
+def upsert_ingestion_status(
+    conn, city_id: int, data_type: str, status: str, details: Optional[dict] = None
+):
+    details_json = json.dumps(details) if details else None
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO ingestion_status (city_id, data_type, updated_at, status, details)
+            VALUES (%s, %s, NOW(), %s, %s)
+            ON CONFLICT (city_id, data_type) DO UPDATE SET
+                updated_at = NOW(),
+                status     = EXCLUDED.status,
+                details    = COALESCE(EXCLUDED.details, ingestion_status.details)
+            """,
+            (city_id, data_type, status, details_json),
+        )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# Historical mayors
+# ---------------------------------------------------------------------------
+
+def put_historical_mayors(conn, city_id: int, mayors_df: pd.DataFrame):
+    """Bulk insert historical mayors for a given city (clears existing first)."""
+    if mayors_df.empty:
+        return
+    with conn.cursor() as cur:
+        cur.execute("DELETE FROM historical_mayors WHERE city_id = %s", (city_id,))
+        args = []
+        for _, row in mayors_df.iterrows():
+            name = row.get("mayorLabel")
+            if not name or pd.isna(name):
+                continue
+            party = (
+                row.get("partyLabel")
+                if "partyLabel" in row and not pd.isna(row.get("partyLabel"))
+                else None
+            )
+            start_dt = row.get("start")
+            start_date = start_dt.strftime("%Y-%m-%d") if pd.notna(start_dt) else None
+            end_dt = row.get("end")
+            end_date = end_dt.strftime("%Y-%m-%d") if pd.notna(end_dt) else None
+            args.append((city_id, name, party, start_date, end_date))
+        if args:
+            execute_values(
+                cur,
+                """
+                INSERT INTO historical_mayors (city_id, name, party, start_date, end_date)
+                VALUES %s
+                ON CONFLICT (city_id, name, start_date) DO NOTHING
+                """,
+                args,
+            )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# City elections & councilors
+# ---------------------------------------------------------------------------
+
+def put_city_elections(conn, city_id: int, elections_df: pd.DataFrame):
+    """Bulk insert multi-party electoral results."""
+    if elections_df.empty:
+        return
+    with conn.cursor() as cur:
+        years = tuple(int(y) for y in elections_df["year"].unique())
+        if years:
+            cur.execute(
+                "DELETE FROM city_elections WHERE city_id = %s AND year IN %s",
+                (city_id, years),
+            )
+        args = [
+            (city_id, int(row["year"]), row["party"], int(row["votes"]), int(row["councilors"]))
+            for _, row in elections_df.iterrows()
+        ]
+        if args:
+            execute_values(
+                cur,
+                """
+                INSERT INTO city_elections (city_id, year, party, votes, councilors)
+                VALUES %s
+                ON CONFLICT (city_id, year, party) DO NOTHING
+                """,
+                args,
+            )
+    conn.commit()
+
+
+def put_city_councilors(conn, city_id: int, councilors_df: pd.DataFrame):
+    """Bulk insert individual candidates."""
+    if councilors_df.empty:
+        return
+    with conn.cursor() as cur:
+        years = tuple(int(y) for y in councilors_df["year"].unique())
+        if years:
+            cur.execute(
+                "DELETE FROM city_councilors WHERE city_id = %s AND year IN %s",
+                (city_id, years),
+            )
+        args = [
+            (city_id, int(row["year"]), row["party"], row["name"], row["elected"])
+            for _, row in councilors_df.iterrows()
+        ]
+        if args:
+            execute_values(
+                cur,
+                """
+                INSERT INTO city_councilors (city_id, year, party, name, elected)
+                VALUES %s
+                ON CONFLICT (city_id, year, party, name) DO NOTHING
+                """,
+                args,
+            )
+    conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# City budgets
+# ---------------------------------------------------------------------------
+
+def put_city_budgets(
+    conn,
+    city_id: int,
+    year: int,
+    total_income: int,
+    total_expenses: int,
+    public_debt: int,
+    lines_list: List[dict],
+) -> int:
+    """
+    Upsert a yearly city budget and replace its breakdown lines.
+    lines_list: list of dicts {'category_name', 'line_type': 'INCOME'|'EXPENSE', 'amount'}
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO city_budgets (city_id, year, total_income, total_expenses, public_debt)
+            VALUES (%s, %s, %s, %s, %s)
+            ON CONFLICT (city_id, year)
+            DO UPDATE SET
+                total_income   = EXCLUDED.total_income,
+                total_expenses = EXCLUDED.total_expenses,
+                public_debt    = EXCLUDED.public_debt
+            RETURNING id
+            """,
+            (city_id, year, total_income, total_expenses, public_debt),
+        )
+        budget_id = cur.fetchone()[0]
+        cur.execute("DELETE FROM budget_lines WHERE budget_id = %s", (budget_id,))
+        if lines_list:
+            args_str = ",".join(
+                cur.mogrify(
+                    "(%s,%s,%s,%s)",
+                    (budget_id, line["category_name"], line["line_type"], line["amount"]),
+                ).decode("utf-8")
+                for line in lines_list
+            )
+            cur.execute(
+                f"INSERT INTO budget_lines (budget_id, category_name, line_type, amount) VALUES {args_str}"
+            )
+    conn.commit()
+    return budget_id

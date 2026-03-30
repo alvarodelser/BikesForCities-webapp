@@ -201,6 +201,17 @@ CREATE TABLE IF NOT EXISTS station_readings (
     PRIMARY KEY (citybikes_network_id, station_id, observed_at)
 );
 
+-- Traffic table for bike trips per road segment (one row per edge per month)
+CREATE TABLE IF NOT EXISTS edge_traffic (
+    edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE,
+    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    trip_count INTEGER DEFAULT 0,
+    month DATE NOT NULL,             -- first day of the month, e.g. 2024-01-01
+    PRIMARY KEY (edge_id, month)
+);
+CREATE INDEX IF NOT EXISTS idx_edge_traffic_city_id ON edge_traffic(city_id);
+CREATE INDEX IF NOT EXISTS idx_edge_traffic_month ON edge_traffic(month);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_network_id ON nodes(city_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_geom ON nodes USING GIST(geom);

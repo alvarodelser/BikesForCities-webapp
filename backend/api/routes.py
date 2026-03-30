@@ -14,15 +14,17 @@ from .models import (
     PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedRoutesResponse,
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, RouteResponse, FeatureResponse,
-    CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse
+    CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
+    StationResponse, StationListResponse, TrafficResponse, TrafficCount
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
     validate_network_exists, build_bbox_condition, check_database_health
 )
-from backend.database.city_io import (
+from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
-    count_routes, count_features, get_nodes, get_edges, get_features
+    count_routes, count_features, get_nodes, get_edges, get_features,
+    get_stations, has_traffic, get_edge_traffic, get_latest_traffic_month
 )
 
 logger = logging.getLogger(__name__)
@@ -53,9 +55,11 @@ async def list_networks(conn=Depends(get_db_connection)):
                     "max_lon": max_lon
                 }
 
+            has_traffic_data = has_traffic(conn, city_id)
+
             available_modes = {
                 "infrastructure": bool(infra),
-                "traffic": bool(traffic),
+                "traffic": bool(has_traffic_data),
                 "accidents": bool(accidents),
                 "terrain": bool(topo),
                 "intersections": bool(inter),
@@ -99,24 +103,78 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
     try:
         validate_network_exists(conn, city_id)
         
-        # Get city info
+        # Get city info with all fields similar to list_networks
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT id, name, description, center_lat, center_lon, radius
-                FROM cities WHERE id = %s
+                SELECT 
+                    c.id, c.name, c.description, c.wikidata_id, c.center_lat, c.center_lon, c.radius, c.angle,
+                    c.population,
+                    (SELECT total_expenses FROM city_budgets cb WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) as budget,
+                    (SELECT coverage FROM city_metrics cm WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) as coverage,
+                    (SELECT total_kilometers FROM city_metrics cm WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) as cycling_network,
+                    (SELECT MIN(lat) FROM nodes WHERE city_id = c.id) as min_lat,
+                    (SELECT MAX(lat) FROM nodes WHERE city_id = c.id) as max_lat,
+                    (SELECT MIN(lon) FROM nodes WHERE city_id = c.id) as min_lon,
+                    (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) as max_lon,
+                    m.infrastructure, m.traffic, m.accidents, m.topography, m.intersections, m.stations, m.forum,
+                    c.mayor, c.mayor_party,
+                    (SELECT citybikes_network_id FROM stations s WHERE s.city_id = c.id LIMIT 1) as service_name,
+                    (SELECT COUNT(*) FROM stations s WHERE s.city_id = c.id) as stations_count,
+                    (SELECT SUM(estimated_trips) FROM estimated_trips_per_interval et WHERE et.city_id = c.id AND et.observed_at > (SELECT MAX(observed_at) FROM estimated_trips_per_interval) - INTERVAL '30 days') as monthly_trips
+                FROM cities c 
+                LEFT JOIN city_modes m ON c.id = m.city_id
+                WHERE c.id = %s
             """, (city_id,))
-            result = cur.fetchone()
+            row = cur.fetchone()
             
-            if not result:
+            if not row:
                 raise HTTPException(status_code=404, detail="City not found")
+
+            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, angle,
+             population, budget, coverage, cycling_network, 
+             min_lat, max_lat, min_lon, max_lon,
+             infra, traffic, accidents, topo, inter, stations, forum,
+             mayor, mayor_party, service_name, stations_count, monthly_trips) = row
             
+            bounds = None
+            if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
+                bounds = {
+                    "min_lat": min_lat,
+                    "max_lat": max_lat,
+                    "min_lon": min_lon,
+                    "max_lon": max_lon
+                }
+
+            has_traffic_data = has_traffic(conn, city_id)
+
+            available_modes = {
+                "infrastructure": bool(infra),
+                "traffic": bool(has_traffic_data),
+                "accidents": bool(accidents),
+                "terrain": bool(topo),
+                "intersections": bool(inter),
+                "stations": bool(stations),
+                "forum": bool(forum)
+            }
+
             city = CityResponse(
-                id=result[0],
-                name=result[1],
-                description=result[2],
-                center_lat=result[3],
-                center_lon=result[4],
-                radius=result[5]
+                id=city_id,
+                name=name,
+                description=description,
+                center_lat=center_lat,
+                center_lon=center_lon,
+                radius=radius,
+                population=population,
+                budget=budget,
+                coverage=coverage,
+                cycling_network=cycling_network,
+                mayor=mayor,
+                mayor_party=mayor_party,
+                service_name=service_name,
+                stations_count=int(stations_count) if stations_count is not None else None,
+                monthly_trips=int(monthly_trips) if monthly_trips is not None else None,
+                bounds=bounds,
+                available_modes=available_modes
             )
             
             return CityDetailResponse(
@@ -648,7 +706,9 @@ async def get_network_features_geojson(
                 geojson_geom = mapping(geom)
                 
                 # Parse tags (PostgreSQL JSONB is already a dict)
-                properties = tags if tags else {}
+                properties: Dict[str, Any] = {}
+                if tags:
+                    properties.update(tags)
                 properties["feature_type"] = feature_type
                 
                 geojson_features.append(GeoJSONFeature(
@@ -672,6 +732,85 @@ async def get_network_features_geojson(
     except Exception as e:
         logger.error(f"Error getting GeoJSON features for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON features")
+
+
+# Station endpoints
+@router.get("/cities/{city_id}/stations", response_model=StationListResponse)
+async def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
+    """Get all stations for a city."""
+    try:
+        validate_network_exists(conn, city_id)
+        
+        stations_data = get_stations(conn, city_id)
+        
+        stations = [
+            StationResponse(
+                id=row[0],
+                station_id=row[1],
+                name=row[2],
+                lat=row[3],
+                lon=row[4],
+                citybikes_network_id=row[5],
+                extra=row[6],
+                estimated_monthly_trips=row[7],
+                downtime_minutes=row[8]
+            )
+            for row in stations_data
+        ]
+        
+        return StationListResponse(
+            data=stations,
+            count=len(stations),
+            message="Stations retrieved successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting stations for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve stations")
+
+
+# Traffic endpoint
+@router.get("/cities/{city_id}/traffic", response_model=TrafficResponse)
+async def get_city_traffic(
+    city_id: int,
+    month: Optional[str] = Query(None, description="Month filter YYYY-MM (defaults to latest)"),
+    conn=Depends(get_db_connection)
+):
+    """Get trip counts per road segment for a city, optionally filtered by month."""
+    try:
+        validate_network_exists(conn, city_id)
+
+        # Resolve month parameter
+        from datetime import date
+        month_date: Optional[date] = None
+        if month:
+            try:
+                month_date = date.fromisoformat(month + "-01")
+            except ValueError:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
+        else:
+            # Default to latest month available
+            month_date = get_latest_traffic_month(conn, city_id)
+
+        rows = get_edge_traffic(conn, city_id, month=month_date)
+
+        traffic_data = [
+            TrafficCount(edge_id=row[0], trip_count=row[1], month=row[2])
+            for row in rows
+        ]
+
+        return TrafficResponse(
+            data=traffic_data,
+            count=len(traffic_data),
+            message=f"Traffic data retrieved successfully" + (f" for {month_date}" if month_date else "")
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting traffic for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve traffic data")
 
 
 # Health check with database validation

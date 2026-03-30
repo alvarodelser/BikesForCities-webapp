@@ -4,7 +4,7 @@ Pydantic models for API request/response schemas.
 
 from typing import List, Optional, Dict, Any, Union
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, date
 from geojson_pydantic import Feature, FeatureCollection, Point, LineString, Polygon
 
 
@@ -134,6 +134,28 @@ class FeatureResponse(BaseModel):
         from_attributes = True
 
 
+class StationResponse(BaseModel):
+    """Station response model."""
+    id: int
+    station_id: str
+    name: Optional[str] = None
+    lat: float
+    lon: float
+    citybikes_network_id: str
+    estimated_monthly_trips: Optional[float] = None
+    downtime_minutes: Optional[float] = None
+    extra: Optional[Dict[str, Any]] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class StationListResponse(BaseResponse):
+    """Response model for station list."""
+    data: List[StationResponse]
+    count: int
+
+
 # Paginated response models
 class PaginatedResponse(BaseResponse):
     """Base paginated response model."""
@@ -243,3 +265,14 @@ class APIInfoResponse(BaseModel):
     description: str
     version: str
     endpoints: Dict[str, str] 
+# Traffic models
+class TrafficCount(BaseModel):
+    """Traffic count for a single edge."""
+    edge_id: int
+    trip_count: int
+    month: Optional[date] = None
+
+class TrafficResponse(BaseResponse):
+    """Response model for edge traffic data."""
+    data: List[TrafficCount]
+    count: int
