@@ -1,9 +1,9 @@
 """
 routes.py – CRUD for routes, route_edges, route_nodes tables.
 """
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, RealDictCursor
 
 
 def put_routes(conn, routes: List[Tuple]) -> dict:
@@ -109,3 +109,67 @@ def count_routes(conn, city_id: int) -> int:
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM routes WHERE city_id = %s", (city_id,))
         return cur.fetchone()[0]
+
+
+def count_unprocessed_routes(conn, city_id: int) -> int:
+    with conn.cursor() as cur:
+        cur.execute("SELECT COUNT(*) FROM routes WHERE city_id = %s AND processed = FALSE", (city_id,))
+        return cur.fetchone()[0]
+
+
+def get_paginated_routes(conn, city_id: int, strategy: Optional[str] = None,
+                         min_duration: Optional[float] = None, max_duration: Optional[float] = None,
+                         limit: int = 100, offset: int = 0) -> Tuple[list, int]:
+    """Retrieve paginated routes for API with optional filters."""
+    conditions = ["city_id = %s"]
+    params = [city_id]
+    
+    if strategy:
+        conditions.append("strategy = %s")
+        params.append(strategy)
+        
+    if min_duration is not None:
+        conditions.append("trip_minutes >= %s")
+        params.append(min_duration)
+        
+    if max_duration is not None:
+        conditions.append("trip_minutes <= %s")
+        params.append(max_duration)
+        
+    where_clause = " AND ".join(conditions)
+    
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Count
+        cur.execute(f"SELECT COUNT(*) FROM routes WHERE {where_clause}", params)
+        total = cur.fetchone()["count"]
+        
+        # Paginated fetch
+        query = f"""
+            SELECT 
+                id, id_trip, origin_node, dest_node, strategy,
+                trip_minutes, datetime_unlock, id_bike, created_at
+            FROM routes
+            WHERE {where_clause}
+            ORDER BY id
+            LIMIT %s OFFSET %s
+        """
+        cur.execute(query, params + [limit, offset])
+        return cur.fetchall(), total
+
+
+def get_route_stats(conn, city_id: int) -> Optional[dict]:
+    """Get statistical aggregations for city routes."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT 
+                AVG(trip_minutes) as avg_duration,
+                MIN(trip_minutes) as min_duration,
+                MAX(trip_minutes) as max_duration,
+                COUNT(DISTINCT id_bike) as unique_bikes
+            FROM routes 
+            WHERE city_id = %s
+            """,
+            (city_id,)
+        )
+        return cur.fetchone()

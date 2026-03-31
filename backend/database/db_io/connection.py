@@ -12,3 +12,12 @@ def connect_db():
         host=os.getenv("POSTGRES_HOST"),
         port=os.getenv("POSTGRES_PORT", "5432"),
     )
+
+def check_alive(conn) -> bool:
+    """Return True if the database connection is alive."""
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+        return True
+    except Exception:
+        return False

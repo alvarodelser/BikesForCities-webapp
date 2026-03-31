@@ -8,7 +8,7 @@ from typing import List, Optional, Tuple
 
 import pandas as pd
 import psycopg2
-from psycopg2.extras import execute_values
+from psycopg2.extras import execute_values, RealDictCursor
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +145,71 @@ def get_city_center(conn, city_id: int) -> Optional[Tuple[float, float, float]]:
         result = cur.fetchone()
         if result and all(x is not None for x in result):
             return result
+        return None
+
+
+def city_exists(conn, city_id: int) -> bool:
+    with conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM cities WHERE id = %s", (city_id,))
+        return cur.fetchone() is not None
+
+
+def get_city_id_by_name(conn, name: str) -> Optional[int]:
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM cities WHERE name = %s", (name,))
+        result = cur.fetchone()
+        return result[0] if result else None
+
+
+def get_city_details(conn, city_id: int) -> Optional[dict]:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT
+                c.id, c.name, c.description, c.wikidata_id,
+                c.center_lat, c.center_lon, c.radius, c.angle,
+                c.population,
+                (SELECT total_expenses FROM city_budgets cb
+                 WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) AS budget,
+                (SELECT coverage FROM city_metrics cm
+                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
+                (SELECT total_kilometers FROM city_metrics cm
+                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS cycling_network,
+                c.mayor, c.mayor_party,
+                (SELECT citybikes_network_id FROM stations s
+                 WHERE s.city_id = c.id LIMIT 1) AS service_name,
+                (SELECT COUNT(*) FROM stations s WHERE s.city_id = c.id) AS stations_count,
+                (SELECT SUM(estimated_trips)
+                 FROM estimated_trips_per_interval et
+                 WHERE et.city_id = c.id
+                   AND et.observed_at > (SELECT MAX(observed_at)
+                                         FROM estimated_trips_per_interval
+                                         WHERE city_id = c.id)
+                                        - INTERVAL '30 days') AS monthly_trips,
+                m.infrastructure, m.traffic, m.accidents, m.topography,
+                m.intersections, m.stations, m.forum
+            FROM cities c
+            LEFT JOIN city_modes m ON c.id = m.city_id
+            WHERE c.id = %s
+            """,
+            (city_id,)
+        )
+        return cur.fetchone()
+
+
+def get_city_bounds(conn, city_id: int) -> Optional[dict]:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT MIN(lat) as min_lat, MAX(lat) as max_lat,
+                   MIN(lon) as min_lon, MAX(lon) as max_lon
+            FROM nodes WHERE city_id = %s
+            """,
+            (city_id,)
+        )
+        result = cur.fetchone()
+        if result and result.get("min_lat") is not None:
+            return dict(result)
         return None
 
 
@@ -331,3 +396,50 @@ def put_city_budgets(
             )
     conn.commit()
     return budget_id
+
+
+def get_city_modes(conn, city_id: int) -> Optional[dict]:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT
+                infrastructure, traffic, accidents,
+                topography, intersections, stations, forum
+            FROM city_modes
+            WHERE city_id = %s
+            """,
+            (city_id,),
+        )
+        row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def get_city_budgets(conn, city_id: int) -> List[dict]:
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT
+                cb.id,
+                cb.year,
+                cb.total_income,
+                cb.total_expenses,
+                cb.public_debt,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'category_name', bl.category_name,
+                            'line_type', bl.line_type,
+                            'amount', bl.amount
+                        )
+                    ) FILTER (WHERE bl.id IS NOT NULL),
+                    '[]'::json
+                ) AS lines
+            FROM city_budgets cb
+            LEFT JOIN budget_lines bl ON bl.budget_id = cb.id
+            WHERE cb.city_id = %s
+            GROUP BY cb.id
+            ORDER BY cb.year DESC
+            """,
+            (city_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]

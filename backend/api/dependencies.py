@@ -8,7 +8,7 @@ from typing import Generator, Optional, Tuple
 import logging
 from math import ceil
 
-from backend.database.city_io import connect_db
+from backend.database.db_io import connect_db, city_exists, check_alive
 
 logger = logging.getLogger(__name__)
 
@@ -108,17 +108,12 @@ def validate_network_exists(conn: psycopg2.extensions.connection, city_id: int) 
         HTTPException: If city doesn't exist
     """
     try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM cities WHERE id = %s", (city_id,))
-            result = cur.fetchone()
-            
-            if not result:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"City with ID {city_id} not found"
-                )
-            
-            return True
+        if not city_exists(conn, city_id):
+            raise HTTPException(
+                status_code=404,
+                detail=f"City with ID {city_id} not found"
+            )
+        return True
     except psycopg2.Error as e:
         logger.error(f"Database error while validating city {city_id}: {e}")
         raise HTTPException(
@@ -195,10 +190,7 @@ def check_database_health(conn: psycopg2.extensions.connection) -> bool:
         True if database is healthy
     """
     try:
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-            result = cur.fetchone()
-            return result is not None
+        return check_alive(conn)
     except Exception as e:
         logger.error(f"Database health check failed: {e}")
         return False 

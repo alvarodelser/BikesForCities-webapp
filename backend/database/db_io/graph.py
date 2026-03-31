@@ -1,9 +1,9 @@
 """
 graph.py – CRUD for spatial graph tables: nodes and edges.
 """
-from typing import List, Tuple
-
+from typing import List, Tuple, Optional
 import psycopg2
+from psycopg2.extras import RealDictCursor
 
 
 def put_nodes(conn, nodes: List[Tuple]):
@@ -96,3 +96,86 @@ def count_edges(conn, city_id: int) -> int:
     with conn.cursor() as cur:
         cur.execute("SELECT COUNT(*) FROM edges WHERE city_id = %s", (city_id,))
         return cur.fetchone()[0]
+
+
+def get_paginated_nodes(conn, city_id: int, bbox: Optional[Tuple[float, float, float, float]] = None,
+                        limit: int = 100, offset: int = 0) -> Tuple[list, int]:
+    """Retrieve paginated nodes for API with optional bbox filter."""
+    conditions = ["city_id = %s"]
+    params = [city_id]
+    
+    if bbox:
+        conditions.append("ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326))")
+        params.extend(bbox)
+        
+    where_clause = " AND ".join(conditions)
+    
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Count
+        cur.execute(f"SELECT COUNT(*) FROM nodes WHERE {where_clause}", params)
+        total = cur.fetchone()["count"]
+        
+        # Paginated fetch
+        query = f"""
+            SELECT id, lat, lon, street_count
+            FROM nodes
+            WHERE {where_clause}
+            ORDER BY id
+            LIMIT %s OFFSET %s
+        """
+        cur.execute(query, params + [limit, offset])
+        return cur.fetchall(), total
+
+
+def get_paginated_edges(conn, city_id: int, highway: Optional[str] = None, 
+                        bbox: Optional[Tuple[float, float, float, float]] = None,
+                        limit: int = 100, offset: int = 0) -> Tuple[list, int]:
+    """Retrieve paginated edges for API with optional filters."""
+    conditions = ["city_id = %s"]
+    params = [city_id]
+    
+    if highway:
+        conditions.append("highway = %s")
+        params.append(highway)
+        
+    if bbox:
+        conditions.append("ST_Intersects(geom, ST_MakeEnvelope(%s, %s, %s, %s, 4326))")
+        params.extend(bbox)
+        
+    where_clause = " AND ".join(conditions)
+    
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        # Count
+        cur.execute(f"SELECT COUNT(*) FROM edges WHERE {where_clause}", params)
+        total = cur.fetchone()["count"]
+        
+        # Paginated fetch
+        query = f"""
+            SELECT 
+                id, osmid, u, v, k, ST_AsText(geom) as geometry,
+                highway, name, length, width,
+                maxspeed, lanes, oneway, tunnel, bridge
+            FROM edges
+            WHERE {where_clause}
+            ORDER BY id
+            LIMIT %s OFFSET %s
+        """
+        cur.execute(query, params + [limit, offset])
+        return cur.fetchall(), total
+
+
+def get_highway_distribution(conn, city_id: int, limit: int = 15) -> List[Tuple[str, int]]:
+    """Get count of edges per highway type for analysis."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT highway, COUNT(*) as count
+            FROM edges 
+            WHERE city_id = %s 
+            GROUP BY highway 
+            ORDER BY count DESC
+            LIMIT %s
+            """,
+            (city_id, limit)
+        )
+        return cur.fetchall()

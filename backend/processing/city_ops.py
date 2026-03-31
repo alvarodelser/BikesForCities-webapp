@@ -2,7 +2,7 @@ from typing import List, Tuple, Any, Union
 import networkx as nx
 from shapely import wkt
 from shapely.geometry import Point, LineString
-from backend.database.city_io import get_edges, get_nodes
+from backend.database.db_io import get_edges, get_nodes
 
 # Extract node info from graph
 def extract_nodes(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[int, int, int, float, float, str, int]]:

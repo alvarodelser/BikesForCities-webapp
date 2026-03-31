@@ -8,7 +8,7 @@ from .route_strategy import shortest_path
 import json
 import pandas as pd
 from tqdm import tqdm
-from backend.database.city_io import put_routes, count_routes
+from backend.database.db_io import put_routes, count_routes, get_edge_id_map, put_route_edges
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "logs" / "ingestion_log.json"
@@ -131,10 +131,10 @@ def load_next_csv(city: str) -> Union[tuple[pd.DataFrame, str, int], None]:
             print(f"📂 Loading {fname} (starting from row {start_idx})...")
             
             # Load and clean data
-            df_raw = pd.read_csv(file, sep =';', usecols=['geolocation_unlock', 'geolocation_lock', 'idTrip', 'idBike', 'trip_minutes'])
+            df_raw = pd.read_csv(file, sep =';', usecols=['geolocation_unlock', 'geolocation_lock', 'idTrip', 'idBike', 'trip_minutes', 'unlock_date', 'lock_date'])
             rows_loaded = len(df_raw)
             
-            df = df_raw.dropna(subset=['geolocation_unlock', 'geolocation_lock', 'idTrip'])
+            df = df_raw.dropna(subset=['geolocation_unlock', 'geolocation_lock', 'idTrip', 'unlock_date', 'lock_date'])
             df = df[df['geolocation_unlock'] != df['geolocation_lock']]
             rows_after_cleanup = len(df)
             
@@ -259,7 +259,6 @@ def process_single_csv(
     routes_processed = 0
     routes_saved = 0
     routes_skipped_distance = 0
-    routes_skipped_no_path = 0
     
     # Create progress bar
     pbar = tqdm(
@@ -275,31 +274,21 @@ def process_single_csv(
         startpoint = (row['geolocation_unlock'])
         endpoint = (row['geolocation_lock'])
 
-        # Get nearest nodes
-        startnode = ox.distance.nearest_nodes(graph, *startpoint)
-        endnode = ox.distance.nearest_nodes(graph, *endpoint)
-        start_geom = (graph.nodes[startnode]['x'], graph.nodes[startnode]['y'])
-        end_geom = (graph.nodes[endnode]['x'], graph.nodes[endnode]['y'])
-
-        d1 = ox.distance.great_circle(*startpoint, *start_geom)
-        d2 = ox.distance.great_circle(*endpoint, *end_geom)
-
-        # Handle trips that are too far from city
-        if d1 > max_distance:
-            print(f"❌ ERROR: Origin too far from city (distance={d1:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
-            routes_skipped_distance += 1
-            continue
-        if d2 > max_distance:
-            print(f"❌ ERROR: Destination too far from city (distance={d2:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
-            routes_skipped_distance += 1
-            continue
-
-        # Handle trips with no path
+        # Resolve nodes (fast calculation, required for Phase 2 grouping)
         try:
-            route = ROUTE_ALGORITHMS[strategy](graph, startnode, endnode)
-        except nx.NetworkXNoPath:
-            print(f"❌ ERROR: No path between nodes {startnode} and {endnode} at row {idx}, trip {row['idTrip']} - SKIPPING")
-            routes_skipped_no_path += 1
+            startnode = ox.distance.nearest_nodes(graph, *startpoint)
+            endnode = ox.distance.nearest_nodes(graph, *endpoint)
+            start_geom = (graph.nodes[startnode]['x'], graph.nodes[startnode]['y'])
+            end_geom = (graph.nodes[endnode]['x'], graph.nodes[endnode]['y'])
+
+            d1 = ox.distance.great_circle(*startpoint, *start_geom)
+            d2 = ox.distance.great_circle(*endpoint, *end_geom)
+
+            if d1 > max_distance or d2 > max_distance:
+                routes_skipped_distance += 1
+                continue
+        except Exception as e:
+            # print(f"Error resolving nodes at row {idx}: {e}")
             continue
 
         route_tuple = (
@@ -309,8 +298,13 @@ def process_single_csv(
             endnode,
             strategy,
             float(row["trip_minutes"]),
-            None,  # datetime_unlock not available in current CSV subset
+            row["unlock_date"],
             int(row["idBike"]),
+            startpoint[1], # origin_lat
+            startpoint[0], # origin_lon
+            endpoint[1],   # dest_lat
+            endpoint[0],   # dest_lon
+            row["lock_date"]
         )
 
         routes_batch.append(route_tuple)
@@ -322,11 +316,7 @@ def process_single_csv(
             routes_saved += len(routes_batch)
             routes_batch.clear()
             
-            # Update progress bar description with stats
-            pbar.set_postfix({
-                'saved': f"{routes_saved:,}",
-                'batch': f"{len(routes_batch)}"
-            })
+            pbar.set_postfix({'saved': f"{routes_saved:,}"})
 
         # Update checkpoint (less frequently for performance)
         if idx % 50 == 0 or idx == total_rows - 1:
@@ -346,9 +336,7 @@ def process_single_csv(
     print(f"   💾 Total routes saved to database: {routes_saved:,}")
     if routes_skipped_distance > 0:
         print(f"   ⚠️  Skipped (too far): {routes_skipped_distance:,}")
-    if routes_skipped_no_path > 0:
-        print(f"   ⚠️  Skipped (no path): {routes_skipped_no_path:,}")
     
-    total_attempts = routes_processed + routes_skipped_distance + routes_skipped_no_path
+    total_attempts = routes_processed + routes_skipped_distance
     success_rate = (routes_processed / total_attempts * 100) if total_attempts > 0 else 0
     print(f"   📈 Success rate: {success_rate:.1f}% ({routes_processed:,}/{total_attempts:,})")
