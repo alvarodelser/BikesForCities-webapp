@@ -12,7 +12,7 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from backend.database.city_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors
+from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status
 
 def query_wikidata(sparql_query):
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
@@ -130,46 +130,53 @@ def main():
     updated_count = 0
     
     for city_row in cities:
-        city_id, city_name, _, wikidata_id = city_row
+        city_id, city_name, _, wikidata_id, *rest = city_row
         
         if not wikidata_id:
             print(f"⏭️  Skipping '{city_name}' (No wikidata_id in DB)")
             continue
             
-        print(f"▶️  Fetching data for '{city_name}' ({wikidata_id})...")
-        basics = get_city_basics(wikidata_id)
-        df_mayors = get_historical_mayors(wikidata_id)
-        
-        mayor_current = None
-        party_current = None
-        
-        # Populate current mayor into main cities table if history exists
-        if not df_mayors.empty:
-            current_row = df_mayors.iloc[0]
-            mayor_current = current_row.get('mayorLabel')
-            party_current = current_row.get('partyLabel') if 'partyLabel' in current_row else None
+        upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "RUNNING")
+        try:
+            print(f"▶️  Fetching data for '{city_name}' ({wikidata_id})...")
+            basics = get_city_basics(wikidata_id)
+            df_mayors = get_historical_mayors(wikidata_id)
             
-            # Insert full history to historical_mayors
-            put_historical_mayors(conn, city_id, df_mayors)
-        
-        if basics:
-            update_city_wikidata(
-                conn, 
-                city_id=city_id,
-                population=basics.get("population"),
-                website=basics.get("website"),
-                mayor=mayor_current,
-                mayor_party=party_current
-            )
+            mayor_current = None
+            party_current = None
             
-            w_str = (basics['website'][:30] + '...') if basics['website'] and len(basics['website']) > 30 else basics['website']
-            pop_str = f"{basics['population']:,}" if basics['population'] else 'None'
+            # Populate current mayor into main cities table if history exists
+            if not df_mayors.empty:
+                current_row = df_mayors.iloc[0]
+                mayor_current = current_row.get('mayorLabel')
+                party_current = current_row.get('partyLabel') if 'partyLabel' in current_row else None
+                
+                # Insert full history to historical_mayors
+                put_historical_mayors(conn, city_id, df_mayors)
             
-            print(f"  ✔ Pop: {pop_str} | Website: {w_str}")
-            print(f"  ✔ Current Mayor: {mayor_current} ({party_current}) | Loaded {len(df_mayors)} historical records.")
-            updated_count += 1
-        else:
-            print(f"  ❌ No matching Wikidata municipality entry found for {wikidata_id}.")
+            if basics:
+                update_city_wikidata(
+                    conn, 
+                    city_id=city_id,
+                    population=basics.get("population"),
+                    website=basics.get("website"),
+                    mayor=mayor_current,
+                    mayor_party=party_current
+                )
+                
+                w_str = (basics['website'][:30] + '...') if basics['website'] and len(basics['website']) > 30 else basics['website']
+                pop_str = f"{basics['population']:,}" if basics['population'] else 'None'
+                
+                print(f"  ✔ Pop: {pop_str} | Website: {w_str}")
+                print(f"  ✔ Current Mayor: {mayor_current} ({party_current}) | Loaded {len(df_mayors)} historical records.")
+                updated_count += 1
+                upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "SUCCESS")
+            else:
+                print(f"  ❌ No matching Wikidata municipality entry found for {wikidata_id}.")
+                upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "FAILED")
+        except Exception as e:
+            upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "FAILED")
+            print(f"  ❌ Error fetching Wikidata for {city_name}: {e}")
             
     print(f"\n🏁 Finished updating {updated_count} cities with Wikidata info.")
     conn.close()
