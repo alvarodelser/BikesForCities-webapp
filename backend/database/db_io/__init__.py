@@ -82,6 +82,11 @@ from .metrics import (
     get_station_merge_map,
     get_citybikes_network_id,
     update_station_metrics,
+    upsert_station_monthly,
+    get_station_monthly_flow,
+    upsert_station_actual_trips,
+    upsert_city_actual_trips,
+    get_city_actual_vs_estimated,
     upsert_estimated_trips_interval,
     get_city_months_with_station_data,
     calculate_osm_metrics,
@@ -118,7 +123,9 @@ __all__ = [
     "get_edge_traffic", "get_latest_traffic_month", "has_traffic",
     # metrics
     "get_skellam_readings_diffs", "get_station_merge_map", "get_citybikes_network_id",
-    "update_station_metrics", "upsert_estimated_trips_interval",
+    "update_station_metrics", "upsert_station_monthly", "get_station_monthly_flow",
+    "upsert_station_actual_trips", "upsert_city_actual_trips", "get_city_actual_vs_estimated",
+    "upsert_estimated_trips_interval",
     "get_city_months_with_station_data", "calculate_osm_metrics",
     "get_total_active_stations", "upsert_city_metrics",
 ]

@@ -8,18 +8,34 @@ import datetime as dt
 
 
 def get_stations(conn, city_id: int) -> List[Tuple]:
-    """Retrieve all active (non-merged) stations for a city.
+    """Retrieve all active (non-merged) stations for a city, with latest monthly metrics.
 
     Returns (id, station_id, name, lat, lon, citybikes_network_id,
-             extra, estimated_monthly_trips, downtime_minutes).
+             extra, estimated_monthly_trips, downtime_minutes,
+             estimated_inbound, estimated_outbound, actual_trips).
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, station_id, name, lat, lon, citybikes_network_id,
-                   extra, estimated_monthly_trips, downtime_minutes
-            FROM stations
-            WHERE city_id = %s AND merged_into_id IS NULL
+            SELECT s.id, s.station_id, s.name, s.lat, s.lon, s.citybikes_network_id,
+                   s.extra,
+                   sm.estimated_trips       AS estimated_monthly_trips,
+                   sm.downtime_minutes,
+                   sm.estimated_inbound,
+                   sm.estimated_outbound,
+                   sm.actual_trips
+            FROM stations s
+            LEFT JOIN LATERAL (
+                SELECT estimated_trips, downtime_minutes,
+                       estimated_inbound, estimated_outbound, actual_trips
+                FROM station_monthly
+                WHERE city_id = s.city_id
+                  AND citybikes_network_id = s.citybikes_network_id
+                  AND station_id = s.station_id
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) sm ON TRUE
+            WHERE s.city_id = %s AND s.merged_into_id IS NULL
             """,
             (city_id,)
         )

@@ -47,19 +47,68 @@ def get_citybikes_network_id(conn, city_id: int) -> Optional[str]:
         return res[0] if res else None
 
 
-def update_station_metrics(conn, station_rows: List[Tuple[float, float, dt.datetime, str, str]]) -> None:
-    """Batch update estimated_monthly_trips and downtime for stations."""
-    if not station_rows:
+def upsert_station_monthly(
+    conn,
+    rows: List[Tuple],  # (city_id, network_id, station_id, month, trips, inbound, outbound, downtime)
+) -> None:
+    """Upsert per-station monthly Skellam-estimated metrics into station_monthly."""
+    if not rows:
         return
     with conn.cursor() as cur:
         execute_values(cur, """
-            UPDATE stations AS s
-            SET estimated_monthly_trips = data.trips,
-                downtime_minutes = data.downtime,
-                metric_month = CAST(data.month AS TIMESTAMPTZ)
-            FROM (VALUES %s) AS data(trips, downtime, month, net_id, sta_id)
-            WHERE s.citybikes_network_id = data.net_id AND s.station_id = data.sta_id
-        """, station_rows)
+            INSERT INTO station_monthly (
+                city_id, citybikes_network_id, station_id, metric_month,
+                estimated_trips, estimated_inbound, estimated_outbound, downtime_minutes
+            ) VALUES %s
+            ON CONFLICT (city_id, citybikes_network_id, station_id, metric_month) DO UPDATE SET
+                estimated_trips   = EXCLUDED.estimated_trips,
+                estimated_inbound = EXCLUDED.estimated_inbound,
+                estimated_outbound= EXCLUDED.estimated_outbound,
+                downtime_minutes  = EXCLUDED.downtime_minutes
+        """, rows)
+
+
+def update_station_metrics(conn, station_rows) -> None:
+    """DEPRECATED: kept for backward compat. Use upsert_station_monthly instead."""
+    pass  # no-op – callers should migrate to upsert_station_monthly
+
+
+def get_station_monthly_flow(
+    conn, city_id: int, metric_month
+) -> List[Tuple]:
+    """Return (station_id, network_id, lat, lon, inbound, outbound) for a city/month."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT sm.station_id, sm.citybikes_network_id,
+                   s.lat, s.lon,
+                   sm.estimated_inbound, sm.estimated_outbound
+            FROM station_monthly sm
+            JOIN stations s
+              ON s.citybikes_network_id = sm.citybikes_network_id
+             AND s.station_id = sm.station_id
+             AND s.city_id = sm.city_id
+             AND s.merged_into_id IS NULL
+            WHERE sm.city_id = %s AND sm.metric_month = %s
+        """, (city_id, metric_month))
+        return cur.fetchall()
+
+
+def upsert_station_actual_trips(
+    conn,
+    rows: List[Tuple],  # (actual_trips, city_id, network_id, station_id, month)
+) -> None:
+    """Overwrite actual trip counts for stations that have real data."""
+    if not rows:
+        return
+    with conn.cursor() as cur:
+        execute_values(cur, """
+            INSERT INTO station_monthly (
+                city_id, citybikes_network_id, station_id, metric_month, actual_trips
+            ) VALUES %s
+            ON CONFLICT (city_id, citybikes_network_id, station_id, metric_month) DO UPDATE SET
+                actual_trips = EXCLUDED.actual_trips
+        """, rows, template="(%s, %s, %s, %s, %s)")
+
 
 
 def upsert_estimated_trips_interval(conn, rows: List[Tuple[int, dt.datetime, float]]) -> None:
@@ -180,8 +229,8 @@ def upsert_city_metrics(
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (city_id, metric_month) DO UPDATE SET
-                coverage = EXCLUDED.coverage,
-                total_kilometers = EXCLUDED.total_kilometers,
+                coverage = COALESCE(EXCLUDED.coverage, city_metrics.coverage),
+                total_kilometers = COALESCE(EXCLUDED.total_kilometers, city_metrics.total_kilometers),
                 estimated_monthly_trips = EXCLUDED.estimated_monthly_trips,
                 total_stations = EXCLUDED.total_stations,
                 avg_station_downtime = EXCLUDED.avg_station_downtime,
@@ -190,3 +239,26 @@ def upsert_city_metrics(
             (city_id, metric_month, coverage, total_km, estimated_monthly_trips, total_stations, station_downtime),
         )
 
+
+def upsert_city_actual_trips(conn, city_id: int, metric_month, actual_trips: float) -> None:
+    """Write actual trip count (from real data) into city_metrics."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO city_metrics (city_id, metric_month, actual_monthly_trips, updated_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (city_id, metric_month) DO UPDATE SET
+                actual_monthly_trips = EXCLUDED.actual_monthly_trips,
+                updated_at = NOW()
+        """, (city_id, metric_month, actual_trips))
+
+
+def get_city_actual_vs_estimated(conn, city_id: int):
+    """Return per-month estimated vs actual trips for a city."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT metric_month, estimated_monthly_trips, actual_monthly_trips
+            FROM city_metrics
+            WHERE city_id = %s AND estimated_monthly_trips IS NOT NULL
+            ORDER BY metric_month
+        """, (city_id,))
+        return cur.fetchall()

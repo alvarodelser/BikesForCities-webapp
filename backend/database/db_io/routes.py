@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional
 from psycopg2.extras import execute_values, RealDictCursor
 
 
-def put_routes(conn, routes: List[Tuple]) -> dict:
+def put_routes(conn, routes: List[Tuple], commit: bool = True) -> dict:
     """Bulk insert routes. Returns mapping id_trip -> route_id.
 
     Tuple layout:
@@ -31,7 +31,8 @@ def put_routes(conn, routes: List[Tuple]) -> dict:
             [(*r, False) for r in routes],
             fetch=True,
         )
-    conn.commit()
+    if commit:
+        conn.commit()
     return {id_trip: route_id for route_id, id_trip in result}
 
 
