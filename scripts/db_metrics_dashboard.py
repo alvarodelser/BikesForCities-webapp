@@ -255,8 +255,6 @@ def build_dashboard() -> str:
 
     table_rows: list[str] = []
     for cd in city_data:
-    table_rows: list[str] = []
-    for cd in city_data:
         feat_cells = "".join(
             f"<td>{cd['feat'].get(ft, 0):,}</td>" for ft in feat_cols
         )
