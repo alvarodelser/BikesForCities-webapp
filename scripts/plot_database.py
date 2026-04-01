@@ -17,7 +17,7 @@ import matplotlib
 print(f"🎨 Matplotlib backend: {matplotlib.get_backend()}")
 
 from dotenv import load_dotenv
-from backend.database.city_io import connect_db, get_or_create_city
+from backend.database.db_io import connect_db, get_or_create_city
 from backend.processing.visualization import (
     plot_network_overview,
     plot_network_graph,
