@@ -136,7 +136,7 @@ def insert_station_readings(conn, rows: List[Tuple]) -> int:
     if not rows:
         return 0
     with conn.cursor() as cur:
-        execute_values(
+        res = execute_values(
             cur,
             """
             INSERT INTO station_readings (
@@ -144,8 +144,10 @@ def insert_station_readings(conn, rows: List[Tuple]) -> int:
             )
             VALUES %s
             ON CONFLICT (citybikes_network_id, station_id, observed_at) DO NOTHING
+            RETURNING 1
             """,
             rows,
+            fetch=True
         )
     conn.commit()
-    return len(rows)
+    return len(res) if res else 0

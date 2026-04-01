@@ -31,12 +31,12 @@ def get_or_create_city(
             INSERT INTO cities (name, description, center_lat, center_lon, radius, angle, wikidata_id)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (name) DO UPDATE SET
-                description  = EXCLUDED.description,
-                center_lat   = EXCLUDED.center_lat,
-                center_lon   = EXCLUDED.center_lon,
-                radius       = EXCLUDED.radius,
-                angle        = EXCLUDED.angle,
-                wikidata_id  = EXCLUDED.wikidata_id
+                description  = COALESCE(EXCLUDED.description, cities.description),
+                center_lat   = COALESCE(EXCLUDED.center_lat, cities.center_lat),
+                center_lon   = COALESCE(EXCLUDED.center_lon, cities.center_lon),
+                radius       = COALESCE(EXCLUDED.radius, cities.radius),
+                angle        = COALESCE(EXCLUDED.angle, cities.angle),
+                wikidata_id  = COALESCE(EXCLUDED.wikidata_id, cities.wikidata_id)
             RETURNING id
             """,
             (name, description, center_lat, center_lon, radius, angle, wikidata_id),
