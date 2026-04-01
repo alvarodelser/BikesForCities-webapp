@@ -294,6 +294,7 @@ docker-compose.override.yml
 deprecated_code/
 
 # Documentation files (if not in docs/)
+metrics_dashboard.html
 anteproyecto.md
 reporte.md 
 *storybook.log
