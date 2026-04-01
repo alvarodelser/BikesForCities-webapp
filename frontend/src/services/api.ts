@@ -31,3 +31,39 @@ export const fetchCities = async (): Promise<CityData[]> => {
     angle: city.angle || 0
   }));
 };
+
+export interface StationData {
+  id: number;
+  station_id: string;
+  name: string | null;
+  lat: number;
+  lon: number;
+  citybikes_network_id: string;
+  estimated_monthly_trips: number | null;
+  downtime_minutes: number | null;
+  extra?: any;
+}
+
+export const fetchStations = async (cityId: number): Promise<StationData[]> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch stations');
+  }
+  const result = await response.json();
+  return result.data;
+};
+
+export interface TrafficCount {
+  edge_id: number;
+  trip_count: number;
+  month?: string;
+}
+
+export const fetchTraffic = async (cityId: number): Promise<TrafficCount[]> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch traffic data');
+  }
+  const result = await response.json();
+  return result.data;
+};

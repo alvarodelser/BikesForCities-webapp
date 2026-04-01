@@ -3,7 +3,7 @@ import { useLocation } from "react-router";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Link from "../ui/Link";
 import ScrollableCityList from "../landing/ScrollableCityList";
-import logoImage from '../../assets/logo.svg';
+import B4CLogo from '../ui/B4CLogo';
 import type { CityData } from "../../constants/cities";
 import { fetchCities } from "../../services/api";
 
@@ -19,10 +19,12 @@ const navLinks = [
 
 const Navbar: React.FC<NavbarProps> = () => {
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const currentMode = searchParams.get('mode');
+
   const [showCities, setShowCities] = useState(false);
   const [cities, setCities] = useState<CityData[]>([]);
   const [scrolled, setScrolled] = useState(false);
-  const [openedAtTop, setOpenedAtTop] = useState(false);
 
   React.useEffect(() => {
     fetchCities().then(data => setCities(data)).catch(console.error);
@@ -59,37 +61,30 @@ const Navbar: React.FC<NavbarProps> = () => {
 
   return (
     <div
-      className={`fixed left-0 right-0 z-50 flex justify-center w-full pointer-events-none transition-all duration-500 ease-in-out
-        ${scrolled && (!showCities || !openedAtTop) ? 'top-6 px-4' : 'top-0 px-0'}
+      className={`fixed left-0 right-0 z-[2000] flex justify-center w-full pointer-events-none transition-all duration-500 ease-in-out
+        ${scrolled ? 'top-6 px-4' : 'top-0 px-0'}
       `}
     >
       <nav
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={`pointer-events-auto backdrop-blur-md shadow-lg transition-all duration-500 ease-in-out flex flex-col items-center overflow-hidden border w-full
-          ${scrolled && (!showCities || !openedAtTop)
+          ${scrolled
             ? 'bg-[var(--cream)]/85 border-black/5 rounded-[32px] max-w-[800px]'
             : 'bg-[var(--cream)]/95 border-black/5 rounded-none max-w-full'
           }
-          ${showCities && openedAtTop ? '!max-w-full !rounded-none !top-0' : ''}
         `}
       >
         {/* Main navigation row */}
-          <div
-            className={`flex items-center justify-between px-8 gap-8 md:gap-16 w-full transition-all duration-500
-              ${scrolled && (!showCities || !openedAtTop)
-                ? 'h-[60px] max-w-[800px]'
-                : 'h-[72px] max-w-full'
-              }
-              ${showCities && openedAtTop ? '!max-w-full' : ''}
+        <div
+          className={`flex items-center justify-between px-8 gap-8 md:gap-16 w-full transition-all duration-500
+              ${scrolled ? 'h-[60px] max-w-[800px]' : 'h-[72px] max-w-full'}
             `}
-          >
+        >
           {/* Left: Logo */}
-          <Link to="/" onClick={() => setShowCities(false)} className="flex items-center shrink-0">
-            <img
-              src={logoImage}
-              alt="BikesForCities Logo"
-              className={`object-contain transition-all duration-500 ${scrolled ? 'h-[28px]' : 'h-[34px]'}`}
+          <Link to="/" onClick={() => setShowCities(false)} className="flex items-center shrink-0 group">
+            <B4CLogo
+              className={`object-contain transition-all duration-500 text-black group-hover:text-[var(--green)] ${scrolled ? 'h-[28px]' : 'h-[34px]'}`}
             />
           </Link>
 
@@ -104,10 +99,7 @@ const Navbar: React.FC<NavbarProps> = () => {
             </Link>
 
             <Link
-              onClick={() => {
-                if (!showCities) setOpenedAtTop(!scrolled);
-                setShowCities(!showCities);
-              }}
+              onClick={() => setShowCities(!showCities)}
               className={`font-[800] flex items-center gap-[2px] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${showCities ? 'text-[var(--green)]' : ''}`}
             >
               Ciudades
@@ -141,7 +133,7 @@ const Navbar: React.FC<NavbarProps> = () => {
               {cities.map((city) => (
                 <Link
                   key={city.path}
-                  to={city.path}
+                  to={currentMode ? `${city.path}?mode=${currentMode}` : city.path}
                   onClick={() => setShowCities(false)}
                   className="text-xs font-[500] whitespace-nowrap snap-start px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors"
                 >

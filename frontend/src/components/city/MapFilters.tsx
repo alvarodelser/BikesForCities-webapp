@@ -13,6 +13,7 @@ interface MapFiltersProps {
   city: CityData;
   selectedMode: string;
   onModeChange: (mode: string) => void;
+  isModeAvailable: (mode: string) => boolean;
 }
 
 interface FilterMode {
@@ -75,7 +76,7 @@ const filterModes: FilterMode[] = [
   },
 ];
 
-const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange }) => {
+const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange, isModeAvailable }) => {
   return (
     <section className="w-full px-6 relative">
       <div className="mx-[100px]">
@@ -88,7 +89,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
         {/* Filter Modes Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {filterModes
-            .filter(mode => city.available_modes?.[mode.id] !== false)
+            .filter(mode => isModeAvailable(mode.id))
             .map((mode) => (
             <button
               key={mode.id}

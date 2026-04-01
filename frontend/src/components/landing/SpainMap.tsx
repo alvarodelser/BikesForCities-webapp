@@ -29,12 +29,75 @@ const getCityCoordinates = (cities: CityData[]): CityCoordinates[] => {
   }));
 };
 
+// Constants for Canary Islands transformation
+const CANARY_PROV_CODES = ["35", "38"];
+const CANARY_LAT_OFFSET = 7.5;
+const CANARY_LON_OFFSET = 0;
+
+/**
+ * Transforms coordinates for Canary Islands to move them closer to the mainland.
+ * @param lon Longitude
+ * @param lat Latitude
+ * @param codProv Optional province code to force transformation
+ */
+const transformCanaryCoords = (lon: number, lat: number, codProv?: string): [number, number] => {
+  // Canary Islands are approximately below 30N latitude
+  // Or we can identify them by province code if available
+  if (codProv && CANARY_PROV_CODES.includes(codProv)) {
+    return [lon + CANARY_LON_OFFSET, lat + CANARY_LAT_OFFSET];
+  }
+
+  // Backup check by latitude range if no province code is provided (e.g. for city pins)
+  if (!codProv && lat < 30) {
+    return [lon + CANARY_LON_OFFSET, lat + CANARY_LAT_OFFSET];
+  }
+
+  return [lon, lat];
+};
+
+/**
+ * Deeply transforms all coordinates in a GeoJSON geometry.
+ */
+const transformGeometry = (geometry: any, codProv: string) => {
+  if (!geometry || !geometry.coordinates) return;
+
+  let count = 0;
+  const transform = (coords: any) => {
+    if (!Array.isArray(coords)) return;
+
+    if (coords.length === 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+      // It's a point [lon, lat]
+      const [shiftedLon, shiftedLat] = transformCanaryCoords(coords[0], coords[1], codProv);
+      coords[0] = shiftedLon;
+      coords[1] = shiftedLat;
+      count++;
+    } else {
+      // It's a nested array
+      coords.forEach(transform);
+    }
+  };
+
+  transform(geometry.coordinates);
+};
+
 // Load Spain provinces GeoJSON data
 const loadSpainGeoJSON = async () => {
   try {
     const response = await fetch(spainGeoJSON);
     if (response.ok) {
-      return await response.json();
+      const data = await response.json();
+
+      // Transform Canary Islands features in place
+      if (data && data.features) {
+        data.features.forEach((feature: any) => {
+          const codProv = feature.properties?.cod_prov;
+          if (CANARY_PROV_CODES.includes(codProv)) {
+            transformGeometry(feature.geometry, codProv);
+          }
+        });
+      }
+
+      return data;
     } else {
       throw new Error(`Failed to load GeoJSON: ${response.status}`);
     }
@@ -43,6 +106,7 @@ const loadSpainGeoJSON = async () => {
     throw error;
   }
 };
+
 
 const SpainMap: React.FC<SpainMapProps> = ({
   width,
@@ -78,30 +142,64 @@ const SpainMap: React.FC<SpainMapProps> = ({
   }, []);
 
   useEffect(() => {
-  if (!svgRef.current || !geoData) return;
+    if (!svgRef.current || !geoData) return;
 
-  const svg = d3.select(svgRef.current);
-  svg.selectAll("*").remove();
-  const path = d3.geoPath().projection(projection);
+    const svg = d3.select(svgRef.current);
+    svg.selectAll("*").remove();
+    const path = d3.geoPath().projection(projection);
 
-  // draw provinces
-  const g = svg.append("g");
-  g.selectAll(".province")
-    .data(geoData.features)
-    .enter()
-    .append("path")
-    .attr("class", "province")
-    .attr("d", (d: any) => path(d) || "")
-    .style("fill", "rgba(191, 221, 206, 1)")
-    .style("stroke", "rgba(191, 221, 206, 0.4)")
-    .style("stroke-width", 1);
-}, [geoData, projection]);  // projection already depends on width & height
+    // draw map features (merged into a single MultiPolygon for a truly solid shape)
+    const g = svg.append("g");
+    
+    // Add definitions for the gradient
+    const defs = svg.append("defs");
+    
+    // Gradient definitions for a premium, high-contrast look
+    const gradient = defs.append("linearGradient")
+      .attr("id", "map-gradient")
+      .attr("x1", "0%")
+      .attr("y1", "0%")
+      .attr("x2", "100%")
+      .attr("y2", "100%");
+
+    gradient.append("stop")
+      .attr("offset", "0%")
+      .style("stop-color", "#BFDDCE"); // var(--green-light)
+
+    gradient.append("stop")
+      .attr("offset", "100%")
+      .style("stop-color", "#FBF6EF"); // var(--cream)
+
+
+
+
+    // Create a single MultiPolygon from all features
+    const mergedGeometry = {
+      type: "MultiPolygon",
+      coordinates: geoData.features.flatMap((f: any) => 
+        f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : [f.geometry.coordinates]
+      )
+    };
+
+    g.append("path")
+      .attr("class", "spain-shape")
+      .datum(mergedGeometry)
+      .attr("d", path as any)
+      .style("fill", "url(#map-gradient)") // Premium gradient fill spanning the whole shape
+      .style("stroke", "none") // No borders at all
+      .style("opacity", 1.0);
+  }, [geoData, projection]);  // projection already depends on width & height
+
+
+
+
+
 
   // Show error state with simple GlassCard
   if (error || !geoData || !projection) {
     return (
       <div className={`relative ${className} flex items-center justify-center`} style={{ width, height }}>
-        <ErrorState 
+        <ErrorState
           title="Map Unavailable"
           message={error || 'Unable to load the Spain map at this time.'}
           showRetry={true}
@@ -119,10 +217,11 @@ const SpainMap: React.FC<SpainMapProps> = ({
         height={height}
         style={{ overflow: 'visible' }}
       />
-      
+
       {/* City Pins Overlay */}
       {projection && getCityCoordinates(cities).map((city) => {
-        const p = projection(city.coordinates);
+        const [shiftedLon, shiftedLat] = transformCanaryCoords(city.coordinates[0], city.coordinates[1]);
+        const p = projection([shiftedLon, shiftedLat]);
         if (!p) return null;
         return (
           <div

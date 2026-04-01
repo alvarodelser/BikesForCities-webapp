@@ -1,12 +1,15 @@
 @layer base {
-    .no-scrollbar::-webkit-scrollbar {
-      display: none;
-    }
-    .no-scrollbar {
-      -ms-overflow-style: none; /* IE and Edge */
-      scrollbar-width: none;    /* Firefox */
-    }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
   }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
+  }
+}
 
 /* Hide scrollbars for ScrollableCityCards */
 .overflow-x-auto::-webkit-scrollbar {
@@ -17,4 +20,70 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-  
+
+/* =========================================================
+   MAP SECTION BACKGROUND
+   Three composited layers controlled by --mode-* CSS vars.
+   ========================================================= */
+
+.map-section-bg {
+  isolation: isolate;
+}
+
+.map-section-bg__base {
+  z-index: 0;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--mode-secondary, #1a2a4a) 85%, black) 0%,
+      color-mix(in srgb, var(--mode-primary, #2c5c8c) 60%, #0a0e18) 45%,
+      color-mix(in srgb, var(--mode-secondary, #1a2a4a) 90%, black) 100%
+    );
+}
+
+.map-section-bg__radial {
+  z-index: 1;
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 75% 20%,
+      color-mix(in srgb, var(--mode-accent, #5dade2) 35%, transparent) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      ellipse 45% 40% at 15% 80%,
+      color-mix(in srgb, var(--mode-primary, #3f7aba) 22%, transparent) 0%,
+      transparent 65%
+    );
+  mix-blend-mode: screen;
+}
+
+.map-section-bg__noise {
+  z-index: 2;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+}
+
+/* Glassmorphism Popups for MapLibre */
+.maplibregl-popup-content {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 12px !important;
+  padding: 8px 12px !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1) !important;
+  color: #1a1a1a !important;
+  transform: translateZ(0);
+}
+
+.maplibregl-popup-tip {
+  border-top-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.maplibregl-popup-close-button {
+  padding: 4px 8px !important;
+  font-size: 16px !important;
+  color: #666 !important;
+}
