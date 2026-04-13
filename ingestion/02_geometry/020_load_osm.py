@@ -34,6 +34,7 @@ def main():
     cities = get_all_cities(conn)
     if not cities:
         print("❌ No cities found in database. Run 01_load_cities.py first.")
+        conn.commit()
         conn.close()
         return
         
@@ -106,6 +107,7 @@ def main():
             upsert_ingestion_status(conn, city_id, "osm geometry", "FAILED")
             print(f"❌ Error processing OSM Data for {city_name}: {e}")
                     
+    conn.commit()
     conn.close()
     
     total_time = timedelta(seconds=time.perf_counter() - start_total)

@@ -122,6 +122,7 @@ def main():
     
     if not cities:
         print("❌ No cities found in database. Run 01_load_cities.py first.")
+        conn.commit()
         conn.close()
         return
         
@@ -179,6 +180,7 @@ def main():
             print(f"  ❌ Error fetching Wikidata for {city_name}: {e}")
             
     print(f"\n🏁 Finished updating {updated_count} cities with Wikidata info.")
+    conn.commit()
     conn.close()
 
 if __name__ == "__main__":

@@ -20,7 +20,6 @@ def put_nodes(conn, nodes: List[Tuple]):
             """,
             nodes,
         )
-    conn.commit()
 
 
 def put_edges(conn, edges: List[Tuple]):
@@ -47,7 +46,6 @@ def put_edges(conn, edges: List[Tuple]):
                 for e in edges
             ],
         )
-    conn.commit()
 
 
 def get_nodes(conn, city_id: int) -> List[Tuple]:

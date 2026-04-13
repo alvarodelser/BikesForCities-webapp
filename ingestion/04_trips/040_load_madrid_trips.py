@@ -268,6 +268,7 @@ def main():
         print(f"❌ {exc}")
         raise
     finally:
+        conn.commit()
         conn.close()
 
 if __name__ == "__main__":

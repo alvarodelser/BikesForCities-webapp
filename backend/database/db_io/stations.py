@@ -127,7 +127,6 @@ def upsert_stations(conn, rows: List[Tuple]) -> int:
             rows,
             template="(%s,%s,%s,%s,%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),4326),%s,%s,%s,%s)",
         )
-    conn.commit()
     return len(rows)
 
 
@@ -149,5 +148,4 @@ def insert_station_readings(conn, rows: List[Tuple]) -> int:
             rows,
             fetch=True
         )
-    conn.commit()
     return len(res) if res else 0

@@ -19,7 +19,6 @@ def put_features(conn, city_id: int, features_data: List[Tuple]):
             """,
             [(city_id, ft, geom, tags) for ft, geom, tags in features_data],
         )
-    conn.commit()
 
 
 def get_features(

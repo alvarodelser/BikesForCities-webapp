@@ -165,6 +165,7 @@ def main():
         
         if df_results.empty:
             print("❌ No results parsed. Exiting.")
+            conn.commit()
             conn.close()
             return
             
@@ -191,6 +192,7 @@ def main():
         for city_id, _ in cities:
             upsert_ingestion_status(conn, city_id, "electoral data", "FAILED")
     finally:
+        conn.commit()
         conn.close()
 
 if __name__ == "__main__":

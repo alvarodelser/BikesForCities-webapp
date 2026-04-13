@@ -316,7 +316,7 @@ def generate_for_city(conn, city_id: int, city_name: str,
                 with conn: # implicit transaction block for the entire month
                     for i in range(0, len(all_route_rows), 50_000):
                         batch = all_route_rows[i:i+50_000]
-                        put_routes(conn, batch, commit=False)
+                        put_routes(conn, batch)
                 
                 # Transaction implicitly commits here.
                 # Now record the success in ingestion_status
@@ -350,6 +350,7 @@ def main() -> None:
     cities = get_all_cities(conn)
     if not cities:
         print("❌ No cities found.")
+        conn.commit()
         conn.close()
         return
 
@@ -357,6 +358,7 @@ def main() -> None:
     calib_city = next((c for c in cities if c[1].lower() == args.calibration_city.lower()), None)
     if calib_city is None:
         print(f"❌ Calibration city '{args.calibration_city}' not found.")
+        conn.commit()
         conn.close()
         return
 
@@ -368,6 +370,7 @@ def main() -> None:
         target = [c for c in cities if c[1].lower() == args.city.lower()]
         if not target:
             print(f"❌ City '{args.city}' not found.")
+            conn.commit()
             conn.close()
             return
     else:
@@ -387,6 +390,7 @@ def main() -> None:
             print(f"❌ Error generating trips for {city_name}: {e}")
 
     print("\n🏁 Finished synthetic trip generation.")
+    conn.commit()
     conn.close()
 
 

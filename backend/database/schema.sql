@@ -159,8 +159,8 @@ CREATE TABLE IF NOT EXISTS routes (
     id SERIAL PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     id_trip TEXT UNIQUE NOT NULL,
-    origin_node BIGINT REFERENCES nodes(id),
-    dest_node BIGINT REFERENCES nodes(id),
+    origin_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
+    dest_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
     strategy TEXT NOT NULL,              -- e.g., 'shortest', 'fastest', 'scenic'
     trip_minutes DOUBLE PRECISION,
     datetime_unlock TIMESTAMP,
@@ -173,13 +173,13 @@ CREATE TABLE IF NOT EXISTS route_nodes ( -- Separate table for efficient queries
     id SERIAL PRIMARY KEY,
     route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
     node_order INTEGER,
-    node_id BIGINT REFERENCES nodes(id)
+    node_id BIGINT REFERENCES nodes(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS route_edges ( -- Separate table for efficient queries
     id SERIAL PRIMARY KEY,
     route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
-    edge_id INTEGER REFERENCES edges(id)
+    edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE
 );
 
 -- OSM Features table

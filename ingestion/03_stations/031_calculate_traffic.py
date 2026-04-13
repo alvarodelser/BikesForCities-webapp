@@ -262,6 +262,7 @@ def main():
     cities = get_all_cities(conn)
     if not cities:
         print("❌ No cities found.")
+        conn.commit()
         conn.close()
         return
 
@@ -290,6 +291,7 @@ def main():
             print(f"❌ Error calculating metrics for {name}: {e}")
 
     print("\n🏁 Finished calculating all metrics.")
+    conn.commit()
     conn.close()
 
 

@@ -384,6 +384,7 @@ def main() -> None:
                 upsert_ingestion_status(conn, city_id, "citibikes stations", "FAILED")
                 print(f"❌ Error processing stations for {city_name}: {e}")
     finally:
+        conn.commit()
         conn.close()
 
 
