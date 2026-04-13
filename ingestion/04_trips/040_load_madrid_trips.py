@@ -159,7 +159,15 @@ def ensure_data_present(year: int, force: bool = False) -> int:
 # ---------------------------------------------------------------------------
 
 def _load_csv(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path, sep=";", usecols=["geolocation_unlock", "geolocation_lock", "idTrip", "idBike", "trip_minutes", "unlock_date", "lock_date"])
+    expected = {"geolocation_unlock", "geolocation_lock", "idTrip", "_id", "idBike", "trip_minutes", "unlock_date", "lock_date"}
+    df = pd.read_csv(path, sep=";", usecols=lambda c: c in expected)
+
+    if "idTrip" not in df.columns:
+        if "_id" in df.columns:
+            df["idTrip"] = df["_id"]
+        else:
+            df["idTrip"] = [f"{path.stem}_{i}" for i in range(len(df))]
+
     df.dropna(subset=["geolocation_unlock", "geolocation_lock", "idTrip", "unlock_date", "lock_date"], inplace=True)
     df = df[df["geolocation_unlock"] != df["geolocation_lock"]]
     df["geolocation_unlock"] = df["geolocation_unlock"].apply(lambda x: ast.literal_eval(x)["coordinates"])
