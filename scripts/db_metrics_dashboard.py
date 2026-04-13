@@ -219,6 +219,15 @@ def build_dashboard() -> str:
             center_lat, center_lon = city[4], city[5]
             radius = city[6]
 
+            emojis = ""
+            if city[16]: emojis += "🛣️"
+            if city[17]: emojis += "🚗"
+            if city[18]: emojis += "⚠️"
+            if city[19]: emojis += "⛰️"
+            if city[20]: emojis += "🚦"
+            if city[21]: emojis += "🅿️"
+            if city[22]: emojis += "💬"
+
             stations = city[26] or 0
             est_trips = city[27] or 0
 
@@ -236,7 +245,7 @@ def build_dashboard() -> str:
                 nodes=nodes, edges=edges, routes=routes,
                 stations=stations, est_trips=est_trips,
                 station_months=station_months, traffic_months=traffic_months,
-                feat=feat,
+                feat=feat, modes_emojis=emojis,
             ))
 
         ingestion_rows = _get_all_ingestion_statuses(conn)
@@ -266,6 +275,7 @@ def build_dashboard() -> str:
             "<tr>"
             f"<td>{cd['id']}</td>"
             f"<td><b>{_html_escape(cd['name'])}</b></td>"
+            f"<td style='letter-spacing: 2px;'>{cd['modes_emojis']}</td>"
             f"<td>{cd['nodes']:,}</td>"
             f"<td>{cd['edges']:,}</td>"
             f"<td>{cd['routes']:,}</td>"
@@ -401,7 +411,7 @@ def build_dashboard() -> str:
   <table>
     <thead>
       <tr>
-        <th>ID</th><th>City</th>
+        <th>ID</th><th>City</th><th>Modes</th>
         <th>Nodes</th><th>Edges</th><th>Routes</th>
         <th>Stations</th><th>Est. Trips (30d)</th>
         {th_feat}
