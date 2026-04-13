@@ -46,7 +46,7 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
     """Retrieve paginated stations for API."""
     with conn.cursor() as cur:
         # Count
-        cur.execute("SELECT COUNT(*) FROM stations WHERE city_id = %s", (city_id,))
+        cur.execute("SELECT COUNT(*) FROM stations WHERE city_id = %s AND merged_into_id IS NULL", (city_id,))
         total = cur.fetchone()[0]
         
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -56,7 +56,7 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
                 id, station_id, name, lat, lon, citybikes_network_id,
                 extra, estimated_monthly_trips, downtime_minutes
             FROM stations
-            WHERE city_id = %s
+            WHERE city_id = %s AND merged_into_id IS NULL
             ORDER BY id
             LIMIT %s OFFSET %s
         """
@@ -149,3 +149,19 @@ def insert_station_readings(conn, rows: List[Tuple]) -> int:
             fetch=True
         )
     return len(res) if res else 0
+
+
+def get_station_hourly_availability(conn, city_id: int, station_id: str) -> List[dict]:
+    """Get the average bike availability per hour of the day for a specific station."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute("""
+            SELECT 
+                EXTRACT(hour FROM observed_at AT TIME ZONE 'UTC') AS hour_of_day,
+                AVG(available_bikes) AS avg_bikes
+            FROM station_readings
+            WHERE city_id = %s AND station_id = %s
+            GROUP BY 1
+            ORDER BY 1
+        """, (city_id, station_id))
+        return cur.fetchall()
+
