@@ -249,16 +249,21 @@ def main():
     data_type = "madrid trips"
 
     try:
-        # Step 1: Automated Download
-        years = args.years or sorted(HISTORICAL_URLS.keys())
-        for year in years:
-            ensure_data_present(year, force=args.force)
-
-        # Step 2: Ingestion
+        # Step 1: Automated Download (only for years not already processed)
         status_obj = get_ingestion_status(conn, city_id, data_type)
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
 
+        years = args.years or sorted(HISTORICAL_URLS.keys())
+        for year in years:
+            year_short = str(year)[2:]
+            # If we already have any CSV for this year, ensure_data_present will skip the download.
+            # But we can also check if we've successfully ingested any file from this year.
+            if any(f.startswith(f"trips_{year_short}_") for f in done_files) and not args.force:
+                continue
+            ensure_data_present(year, force=args.force)
+
+        # Step 2: Ingestion
         upsert_ingestion_status(conn, city_id, data_type, "RUNNING", details=details)
 
         def on_file_done(fname: str):
