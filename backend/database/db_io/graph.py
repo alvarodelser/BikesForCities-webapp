@@ -302,31 +302,55 @@ def _polygon_area_m2(polygon, ref_lat: float) -> float:
     return abs(area) / 2.0
 
 
-def _compute_coverage(all_coords, station_lat: float, station_lon: float, max_distance: float) -> Tuple[Optional[dict], float]:
-    """Build convex hull from endpoint coordinates and compute area-based coverage.
+def _compute_coverage(result_edges, station_lat: float, station_lon: float, max_distance: float) -> Tuple[Optional[dict], float]:
+    """Build a polygon by buffering the union of reach-edge geometries.
+
+    This produces a star-shaped polygon that follows the actual road network,
+    rather than a convex hull that overshoots into unreachable areas.
 
     Returns (polygon_geojson_or_None, coverage_pct).
     """
     import math
-    from shapely.geometry import MultiPoint, mapping
+    from shapely.geometry import shape, mapping
+    from shapely.ops import unary_union
 
-    if len(all_coords) < 3:
+    if len(result_edges) < 2:
         return None, 0.0
 
-    hull = MultiPoint(all_coords).convex_hull
-    if hull.is_empty or hull.geom_type == 'Point' or hull.geom_type == 'LineString':
+    # Build Shapely geometries from the edge GeoJSON
+    geoms = []
+    for edge in result_edges:
+        try:
+            g = shape(edge["geojson_geom"])
+            if not g.is_empty:
+                geoms.append(g)
+        except Exception:
+            pass
+
+    if not geoms:
         return None, 0.0
 
-    # Round corners: buffer outward then back inward (morphological closing)
-    # ~50 m in degrees at typical European latitudes
-    buf = 0.0005
-    hull = hull.buffer(buf, resolution=32).buffer(-buf * 0.4, resolution=32)
+    # Union all edge lines, then buffer to create a corridor polygon
+    # ~80 m in degrees at typical European latitudes (0.0008° ≈ 80 m)
+    buf_deg = 0.0008
+    network = unary_union(geoms)
+    polygon = network.buffer(buf_deg, resolution=8)
 
-    polygon_area = _polygon_area_m2(hull, station_lat)
+    # Smooth jagged edges
+    polygon = polygon.simplify(0.0002, preserve_topology=True)
+
+    if polygon.is_empty or polygon.geom_type not in ('Polygon', 'MultiPolygon'):
+        return None, 0.0
+
+    # If MultiPolygon, take the largest piece
+    if polygon.geom_type == 'MultiPolygon':
+        polygon = max(polygon.geoms, key=lambda p: p.area)
+
+    polygon_area = _polygon_area_m2(polygon, station_lat)
     circle_area = math.pi * max_distance ** 2
     coverage = (polygon_area / circle_area * 100) if circle_area > 0 else 0.0
 
-    return mapping(hull), min(coverage, 100.0)
+    return mapping(polygon), min(coverage, 100.0)
 
 
 # ---------- Public API ----------
@@ -401,7 +425,7 @@ def get_station_reachability(
     result_edges, all_coords = _collect_reach_edges(adj, parent, dist, visited, max_distance)
 
     # 6. Polygon + coverage
-    polygon_geojson, coverage = _compute_coverage(all_coords, station_lat, station_lon, max_distance)
+    polygon_geojson, coverage = _compute_coverage(result_edges, station_lat, station_lon, max_distance)
 
     return {
         "edges": result_edges,
@@ -485,8 +509,8 @@ def compute_all_reach_coverages(
         root_id = node_ids_arr[idx]
 
         parent, dist, visited = _run_dijkstra(adj, root_id, max_distance)
-        _, all_coords = _collect_reach_edges(adj, parent, dist, visited, max_distance)
-        _, coverage = _compute_coverage(all_coords, float(slat), float(slon), max_distance)
+        result_edges, _ = _collect_reach_edges(adj, parent, dist, visited, max_distance)
+        _, coverage = _compute_coverage(result_edges, float(slat), float(slon), max_distance)
         results[station_id] = round(coverage, 1)
 
     return results
