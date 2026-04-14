@@ -177,3 +177,94 @@ def get_highway_distribution(conn, city_id: int, limit: int = 15) -> List[Tuple[
             (city_id, limit)
         )
         return cur.fetchall()
+
+
+def get_station_reachability(
+    conn, city_id: int, station_lat: float, station_lon: float,
+    max_distance: float = 1000.0,
+) -> List[dict]:
+    """Compute a reachability tree from the closest node to the given lat/lon.
+
+    Uses Dijkstra expansion along edges, respecting one-way constraints.
+    Stops when cumulative distance exceeds *max_distance* metres.
+
+    Returns a list of dicts, each with keys:
+        geojson_geom  – GeoJSON geometry string for the edge
+        dist_start    – cumulative distance at the start node (metres)
+        dist_end      – cumulative distance at the end node (metres)
+    """
+    import heapq
+    import json
+
+    with conn.cursor() as cur:
+        # 1. Find the closest node
+        cur.execute(
+            """
+            SELECT id, lat, lon
+            FROM nodes
+            WHERE city_id = %s
+            ORDER BY geom <-> ST_SetSRID(ST_MakePoint(%s, %s), 4326)
+            LIMIT 1
+            """,
+            (city_id, station_lon, station_lat),
+        )
+        root_row = cur.fetchone()
+        if root_row is None:
+            return []
+        root_id = root_row[0]
+
+        # 2. Fetch all edges for the city
+        cur.execute(
+            """
+            SELECT u, v, length, oneway, ST_AsGeoJSON(geom) as geojson
+            FROM edges
+            WHERE city_id = %s
+            """,
+            (city_id,),
+        )
+        edges_raw = cur.fetchall()
+
+    # 3. Build adjacency list
+    # adj[node_id] = [(neighbour_id, edge_length, geojson_geom, is_forward)]
+    from collections import defaultdict
+    adj: dict = defaultdict(list)
+    for u, v, length, oneway, geojson in edges_raw:
+        length = float(length) if length else 0.0
+        adj[u].append((v, length, geojson, True))
+        if not oneway:
+            adj[v].append((u, length, geojson, False))
+
+    # 4. Dijkstra expansion
+    dist: dict = {root_id: 0.0}
+    visited: set = set()
+    heap = [(0.0, root_id)]  # (distance, node_id)
+    result_edges: List[dict] = []
+
+    while heap:
+        d, node = heapq.heappop(heap)
+        if node in visited:
+            continue
+        visited.add(node)
+
+        for neighbour, edge_len, geojson, is_forward in adj.get(node, []):
+            new_dist = d + edge_len
+            if new_dist > max_distance:
+                # Still include this edge (it crosses the boundary)
+                result_edges.append({
+                    "geojson_geom": json.loads(geojson),
+                    "dist_start": d,
+                    "dist_end": new_dist,
+                })
+                continue
+            if neighbour in visited:
+                continue
+            if neighbour not in dist or new_dist < dist[neighbour]:
+                dist[neighbour] = new_dist
+                heapq.heappush(heap, (new_dist, neighbour))
+                result_edges.append({
+                    "geojson_geom": json.loads(geojson),
+                    "dist_start": d,
+                    "dist_end": new_dist,
+                })
+
+    return result_edges

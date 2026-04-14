@@ -151,17 +151,29 @@ def insert_station_readings(conn, rows: List[Tuple]) -> int:
     return len(res) if res else 0
 
 
-def get_station_hourly_availability(conn, city_id: int, station_id: str) -> List[dict]:
-    """Get the average bike availability per hour of the day for a specific station."""
+def get_station_hourly_availability(conn, city_id: int, station_id: str, day_mode: str = "all") -> List[dict]:
+    """
+    Get the average bike availability per hour of the day for a specific station.
+    day_mode: 'all', 'week' (Mon-Fri), 'weekend' (Sat-Sun)
+    """
+    where_clause = "WHERE s.city_id = %s AND s.station_id = %s AND r.observed_at >= NOW() - INTERVAL '3 months'"
+    params = [city_id, station_id]
+
+    if day_mode == 'week':
+        where_clause += " AND EXTRACT(DOW FROM r.observed_at) BETWEEN 1 AND 5"
+    elif day_mode == 'weekend':
+        where_clause += " AND EXTRACT(DOW FROM r.observed_at) IN (0, 6)"
+
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT 
-                EXTRACT(hour FROM observed_at AT TIME ZONE 'UTC') AS hour_of_day,
-                AVG(available_bikes) AS avg_bikes
-            FROM station_readings
-            WHERE city_id = %s AND station_id = %s
+                EXTRACT(hour FROM r.observed_at AT TIME ZONE 'UTC') AS hour_of_day,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS avg_bikes
+            FROM station_readings r
+            JOIN stations s ON s.citybikes_network_id = r.citybikes_network_id AND s.station_id = r.station_id
+            {where_clause}
             GROUP BY 1
             ORDER BY 1
-        """, (city_id, station_id))
+        """, params)
         return cur.fetchall()
 

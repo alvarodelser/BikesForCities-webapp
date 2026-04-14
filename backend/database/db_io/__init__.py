@@ -38,6 +38,7 @@ from .graph import (
     get_paginated_nodes,
     get_paginated_edges,
     get_highway_distribution,
+    get_station_reachability,
 )
 
 from .routes import (
@@ -67,6 +68,7 @@ from .stations import (
     get_nearby_unmerged_station,
     upsert_stations,
     insert_station_readings,
+    get_station_hourly_availability,
 )
 
 from .traffic import (
@@ -108,6 +110,7 @@ __all__ = [
     "put_nodes", "put_edges", "get_nodes", "get_edges",
     "get_edge_id_map", "count_nodes", "count_edges",
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
+    "get_station_reachability",
     # routes
     "put_routes", "put_route_edges", "put_route_edges_with_order",
     "get_routes_without_edges", "get_unprocessed_route_groups",
@@ -118,6 +121,7 @@ __all__ = [
     # stations
     "get_stations", "get_paginated_stations", "has_station_readings_for_month",
     "get_nearby_unmerged_station", "upsert_stations", "insert_station_readings",
+    "get_station_hourly_availability",
     # traffic
     "upsert_edge_traffic", "upsert_edge_traffic_for_city",
     "get_edge_traffic", "get_latest_traffic_month", "has_traffic",

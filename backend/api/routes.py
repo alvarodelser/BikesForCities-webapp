@@ -27,7 +27,8 @@ from backend.database.db_io import (
     get_stations, has_traffic, get_edge_traffic, get_latest_traffic_month,
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_routes,
-    get_paginated_features, get_paginated_stations
+    get_paginated_features, get_paginated_stations,
+    get_station_hourly_availability, get_station_reachability
 )
 
 logger = logging.getLogger(__name__)
@@ -484,6 +485,78 @@ async def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
     except Exception as e:
         logger.error(f"Error getting stations for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve stations")
+
+
+@router.get("/cities/{city_id}/stations/{station_id}/hourly-availability")
+async def get_station_hourly_availability_api(
+    city_id: int, station_id: str, 
+    period: str = Query("all", description="Filtering period: all, week, weekend"),
+    conn=Depends(get_db_connection)
+):
+    """Get the average bike availability per hour of the day for a specific station."""
+    try:
+        validate_network_exists(conn, city_id)
+        data = get_station_hourly_availability(conn, city_id, station_id, day_mode=period)
+        return {
+            "data": [{"hour_of_day": int(r["hour_of_day"]), "avg_bikes": float(r["avg_bikes"])} for r in data],
+            "message": "Hourly availability retrieved successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting hourly availability for station {station_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve hourly availability")
+
+
+@router.get("/cities/{city_id}/stations/{station_id}/reach")
+async def get_station_reach(
+    city_id: int, station_id: str,
+    max_distance: float = Query(1000.0, ge=100, le=5000, description="Max reachability distance in metres"),
+    conn=Depends(get_db_connection),
+):
+    """Compute a reachability tree from the station's closest graph node.
+
+    Returns a GeoJSON FeatureCollection where each Feature is an edge
+    with `dist_start` and `dist_end` properties (cumulative metres).
+    """
+    try:
+        validate_network_exists(conn, city_id)
+
+        # Look up the station's coordinates
+        stations_data, _ = get_paginated_stations(conn, city_id, limit=10000, offset=0)
+        station = next((s for s in stations_data if str(s["station_id"]) == str(station_id)), None)
+        if station is None:
+            raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
+
+        edges = get_station_reachability(
+            conn, city_id, float(station["lat"]), float(station["lon"]),
+            max_distance=max_distance,
+        )
+
+        features = [
+            {
+                "type": "Feature",
+                "geometry": e["geojson_geom"],
+                "properties": {
+                    "dist_start": round(e["dist_start"], 1),
+                    "dist_end": round(e["dist_end"], 1),
+                },
+            }
+            for e in edges
+        ]
+
+        return {
+            "data": {
+                "type": "FeatureCollection",
+                "features": features,
+            },
+            "message": f"Reachability tree with {len(features)} edges",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error computing reachability for station {station_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to compute reachability")
 
 
 # Traffic endpoint
