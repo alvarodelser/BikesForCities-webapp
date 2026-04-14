@@ -178,23 +178,180 @@ def get_highway_distribution(conn, city_id: int, limit: int = 15) -> List[Tuple[
         )
         return cur.fetchall()
 
+# ---------- Reachability helpers ----------
+
+def _build_adj_list(edges_raw) -> dict:
+    """Build an adjacency list from raw edge tuples (u, v, length, oneway, geojson)."""
+    from collections import defaultdict
+    adj: dict = defaultdict(list)
+    for u, v, length, oneway, geojson in edges_raw:
+        length = float(length) if length else 0.0
+        adj[u].append((v, length, geojson, True))
+        if not oneway:
+            adj[v].append((u, length, geojson, False))
+    return adj
+
+
+def _run_dijkstra(adj: dict, root_id, max_distance: float):
+    """Run Dijkstra from *root_id*, stopping at *max_distance* metres.
+
+    Returns (parent, dist, visited) where:
+        parent  – {node_id: (from_node, edge_len, geojson_str, is_forward)}
+        dist    – {node_id: shortest_distance}
+        visited – set of visited node IDs
+    """
+    import heapq
+
+    dist = {root_id: 0.0}
+    parent: dict = {}
+    visited: set = set()
+    heap = [(0.0, root_id)]
+
+    while heap:
+        d, node = heapq.heappop(heap)
+        if node in visited:
+            continue
+        visited.add(node)
+
+        for neighbour, edge_len, geojson, is_fwd in adj.get(node, []):
+            new_dist = d + edge_len
+            if neighbour in visited:
+                continue
+            if new_dist > max_distance:
+                continue
+            if neighbour not in dist or new_dist < dist[neighbour]:
+                dist[neighbour] = new_dist
+                parent[neighbour] = (node, edge_len, geojson, is_fwd)
+                heapq.heappush(heap, (new_dist, neighbour))
+
+    return parent, dist, visited
+
+
+def _collect_reach_edges(adj, parent, dist, visited, max_distance):
+    """Build the list of reach-tree edges (including boundary-cropped edges).
+
+    Returns (result_edges, all_coords) where:
+        result_edges – list of {geojson_geom, dist_start, dist_end}
+        all_coords   – list of (lon, lat) endpoint coordinates for hull construction
+    """
+    import json
+    from shapely.geometry import shape, mapping
+    from shapely.ops import substring
+
+    result_edges: list = []
+    all_coords: list = []
+
+    # Tree edges (fully within range)
+    for node_id, (from_node, edge_len, geojson_str, _is_fwd) in parent.items():
+        parsed = json.loads(geojson_str)
+        result_edges.append({
+            "geojson_geom": parsed,
+            "dist_start": dist[from_node],
+            "dist_end": dist[node_id],
+        })
+        coords = parsed.get("coordinates", [])
+        if coords:
+            all_coords.append(tuple(coords[0][:2]))
+            all_coords.append(tuple(coords[-1][:2]))
+
+    # Boundary edges (cropped at max_distance)
+    for node in visited:
+        d = dist[node]
+        for neighbour, edge_len, geojson_str, is_fwd in adj.get(node, []):
+            if neighbour in visited:
+                continue
+            remaining = max_distance - d
+            if remaining <= 0 or edge_len <= 0:
+                continue
+            fraction = min(remaining / edge_len, 1.0)
+            try:
+                geom = shape(json.loads(geojson_str))
+                if is_fwd:
+                    cropped = substring(geom, 0, fraction, normalized=True)
+                else:
+                    cropped = substring(geom, 1 - fraction, 1, normalized=True)
+                if not cropped.is_empty:
+                    cropped_mapping = mapping(cropped)
+                    result_edges.append({
+                        "geojson_geom": cropped_mapping,
+                        "dist_start": d,
+                        "dist_end": max_distance,
+                    })
+                    crop_coords = list(cropped.coords)
+                    if crop_coords:
+                        all_coords.append(tuple(crop_coords[-1][:2]))
+            except Exception:
+                pass
+
+    return result_edges, all_coords
+
+
+def _polygon_area_m2(polygon, ref_lat: float) -> float:
+    """Approximate area of a lon/lat polygon in m² using cos(lat) scaling."""
+    import math
+    cos_lat = math.cos(math.radians(ref_lat))
+    m_per_deg_lon = 111_320 * cos_lat
+    m_per_deg_lat = 110_540
+    coords = list(polygon.exterior.coords)
+    n = len(coords)
+    area = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        area += (coords[i][0] * m_per_deg_lon) * (coords[j][1] * m_per_deg_lat)
+        area -= (coords[j][0] * m_per_deg_lon) * (coords[i][1] * m_per_deg_lat)
+    return abs(area) / 2.0
+
+
+def _compute_coverage(all_coords, station_lat: float, station_lon: float, max_distance: float) -> Tuple[Optional[dict], float]:
+    """Build convex hull from endpoint coordinates and compute area-based coverage.
+
+    Returns (polygon_geojson_or_None, coverage_pct).
+    """
+    import math
+    from shapely.geometry import MultiPoint, mapping
+
+    if len(all_coords) < 3:
+        return None, 0.0
+
+    hull = MultiPoint(all_coords).convex_hull
+    if hull.is_empty or hull.geom_type == 'Point' or hull.geom_type == 'LineString':
+        return None, 0.0
+
+    # Round corners: buffer outward then back inward (morphological closing)
+    # ~50 m in degrees at typical European latitudes
+    buf = 0.0005
+    hull = hull.buffer(buf, resolution=32).buffer(-buf * 0.4, resolution=32)
+
+    polygon_area = _polygon_area_m2(hull, station_lat)
+    circle_area = math.pi * max_distance ** 2
+    coverage = (polygon_area / circle_area * 100) if circle_area > 0 else 0.0
+
+    return mapping(hull), min(coverage, 100.0)
+
+
+# ---------- Public API ----------
 
 def get_station_reachability(
     conn, city_id: int, station_lat: float, station_lon: float,
     max_distance: float = 1000.0,
-) -> List[dict]:
+) -> dict:
     """Compute a reachability tree from the closest node to the given lat/lon.
 
     Uses Dijkstra expansion along edges, respecting one-way constraints.
-    Stops when cumulative distance exceeds *max_distance* metres.
+    Edges are cropped exactly at *max_distance* metres.
 
-    Returns a list of dicts, each with keys:
-        geojson_geom  – GeoJSON geometry string for the edge
-        dist_start    – cumulative distance at the start node (metres)
-        dist_end      – cumulative distance at the end node (metres)
+    Returns a dict with keys:
+        edges           – list of {geojson_geom, dist_start, dist_end}
+        polygon_geojson – GeoJSON geometry for the convex hull of endpoints
+        circle_geojson  – GeoJSON geometry for the geodesic circle at max_distance
+        coverage        – polygon_area / circle_area × 100
     """
-    import heapq
     import json
+
+    empty_result = {
+        "edges": [], "polygon_geojson": None,
+        "circle_geojson": None, "coverage": 0.0,
+    }
 
     with conn.cursor() as cur:
         # 1. Find the closest node
@@ -210,7 +367,7 @@ def get_station_reachability(
         )
         root_row = cur.fetchone()
         if root_row is None:
-            return []
+            return empty_result
         root_id = root_row[0]
 
         # 2. Fetch all edges for the city
@@ -224,47 +381,113 @@ def get_station_reachability(
         )
         edges_raw = cur.fetchall()
 
-    # 3. Build adjacency list
-    # adj[node_id] = [(neighbour_id, edge_length, geojson_geom, is_forward)]
-    from collections import defaultdict
-    adj: dict = defaultdict(list)
-    for u, v, length, oneway, geojson in edges_raw:
-        length = float(length) if length else 0.0
-        adj[u].append((v, length, geojson, True))
-        if not oneway:
-            adj[v].append((u, length, geojson, False))
+        # 3. Compute geodesic circle (geography buffer)
+        cur.execute(
+            """
+            SELECT ST_AsGeoJSON(
+                ST_Buffer(ST_MakePoint(%s, %s)::geography, %s)::geometry
+            )
+            """,
+            (station_lon, station_lat, max_distance),
+        )
+        circle_row = cur.fetchone()
+        circle_geojson = json.loads(circle_row[0]) if circle_row else None
 
-    # 4. Dijkstra expansion
-    dist: dict = {root_id: 0.0}
-    visited: set = set()
-    heap = [(0.0, root_id)]  # (distance, node_id)
-    result_edges: List[dict] = []
+    # 4. Build adjacency list + Dijkstra
+    adj = _build_adj_list(edges_raw)
+    parent, dist, visited = _run_dijkstra(adj, root_id, max_distance)
 
-    while heap:
-        d, node = heapq.heappop(heap)
-        if node in visited:
-            continue
-        visited.add(node)
+    # 5. Collect edges + endpoint coordinates
+    result_edges, all_coords = _collect_reach_edges(adj, parent, dist, visited, max_distance)
 
-        for neighbour, edge_len, geojson, is_forward in adj.get(node, []):
-            new_dist = d + edge_len
-            if new_dist > max_distance:
-                # Still include this edge (it crosses the boundary)
-                result_edges.append({
-                    "geojson_geom": json.loads(geojson),
-                    "dist_start": d,
-                    "dist_end": new_dist,
-                })
-                continue
-            if neighbour in visited:
-                continue
-            if neighbour not in dist or new_dist < dist[neighbour]:
-                dist[neighbour] = new_dist
-                heapq.heappush(heap, (new_dist, neighbour))
-                result_edges.append({
-                    "geojson_geom": json.loads(geojson),
-                    "dist_start": d,
-                    "dist_end": new_dist,
-                })
+    # 6. Polygon + coverage
+    polygon_geojson, coverage = _compute_coverage(all_coords, station_lat, station_lon, max_distance)
 
-    return result_edges
+    return {
+        "edges": result_edges,
+        "polygon_geojson": polygon_geojson,
+        "circle_geojson": circle_geojson,
+        "coverage": round(coverage, 1),
+    }
+
+
+def compute_all_reach_coverages(
+    conn, city_id: int, max_distance: float = 1000.0,
+) -> dict:
+    """Batch-compute reachability coverage for every station in a city.
+
+    Builds the adjacency list once and runs Dijkstra per station.
+    Returns {station_id: coverage_pct}.
+    """
+    with conn.cursor() as cur:
+        # 1. Fetch all edges once
+        cur.execute(
+            """
+            SELECT u, v, length, oneway, ST_AsGeoJSON(geom)
+            FROM edges WHERE city_id = %s
+            """,
+            (city_id,),
+        )
+        edges_raw = cur.fetchall()
+
+        # 2. Fetch all non-merged stations
+        cur.execute(
+            """
+            SELECT station_id, lat, lon
+            FROM stations
+            WHERE city_id = %s AND merged_into_id IS NULL
+            """,
+            (city_id,),
+        )
+        stations = cur.fetchall()
+
+    if not edges_raw or not stations:
+        return {}
+
+    adj = _build_adj_list(edges_raw)
+
+    # 3. Build a node-lookup structure for nearest-node queries
+    # (in-memory KD-tree avoids per-station PostGIS round-trip)
+    import numpy as np
+    node_ids_set: set = set()
+    for u, v, *_ in edges_raw:
+        node_ids_set.add(u)
+        node_ids_set.add(v)
+
+    with conn.cursor() as cur:
+        if not node_ids_set:
+            return {}
+        cur.execute(
+            "SELECT id, lat, lon FROM nodes WHERE city_id = %s",
+            (city_id,),
+        )
+        node_rows = cur.fetchall()
+
+    if not node_rows:
+        return {}
+
+    node_ids_arr = [r[0] for r in node_rows]
+    node_coords = np.array([(r[2], r[1]) for r in node_rows])  # (lon, lat)
+
+    from scipy.spatial import cKDTree
+    import math
+
+    # Approximate degree-to-metre for the KD-tree (good enough for nearest-node)
+    ref_lat = float(stations[0][1])
+    cos_lat = math.cos(math.radians(ref_lat))
+    scale = np.array([111_320 * cos_lat, 110_540])  # lon, lat → metres
+    tree = cKDTree(node_coords * scale)
+
+    results: dict = {}
+    for station_id, slat, slon in stations:
+        query_pt = np.array([float(slon), float(slat)]) * scale
+        _, idx = tree.query(query_pt)
+        root_id = node_ids_arr[idx]
+
+        parent, dist, visited = _run_dijkstra(adj, root_id, max_distance)
+        _, all_coords = _collect_reach_edges(adj, parent, dist, visited, max_distance)
+        _, coverage = _compute_coverage(all_coords, float(slat), float(slon), max_distance)
+        results[station_id] = round(coverage, 1)
+
+    return results
+

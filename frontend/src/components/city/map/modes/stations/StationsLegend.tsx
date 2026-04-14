@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 
@@ -6,6 +6,13 @@ export default function StationsLegend() {
     const { thresholds } = useThresholds();
     const { submode, setSubmode } = useMapState();
     const metric = submode === 'downtime' ? 'downtime' : submode === 'reach' ? 'reach' : 'trips';
+    const [showPolygon, setShowPolygon] = useState(true);
+
+    const handlePolygonToggle = () => {
+        const next = !showPolygon;
+        setShowPolygon(next);
+        window.dispatchEvent(new CustomEvent('reach-polygon-toggle', { detail: { visible: next } }));
+    };
 
     return (
         <div className="flex flex-col gap-2 w-full">
@@ -37,42 +44,52 @@ export default function StationsLegend() {
                     </div>
                 </div>
                 <span className="text-[10px] font-medium text-black/40 italic">
-                    ({metric === 'trips' ? 'viajes/mes' : metric === 'downtime' ? 'minutos sin bicis / día' : 'distancia alcanzable (metros)'})
+                    ({metric === 'trips' ? 'viajes/mes' : metric === 'downtime' ? 'minutos sin bicis / día' : '% cobertura (área alcanzable / círculo 1km)'})
                 </span>
             </div>
 
             {/* Gradient bar + labels */}
             {metric === 'reach' ? (
-                /* --- Reach distance legend --- */
-                <div className="flex gap-4 h-64 my-2 relative">
-                    <div className="flex flex-col w-4 h-full rounded-full overflow-hidden border border-black/10 shadow-sm bg-white/50 backdrop-blur-sm">
-                        <div
-                            className="flex-1 w-full"
-                            style={{
-                                background: 'linear-gradient(to top, #10B981, #F59E0B, #EF4444)',
-                            }}
-                        />
-                    </div>
-
-                    <div className="flex-1 relative h-full text-[10px] font-bold text-black/60 tracking-tight">
-                        <div className="absolute top-0 flex items-center h-4">
-                            <span className="opacity-40">1000 m</span>
+                <>
+                    <div className="flex gap-4 h-64 my-2 relative">
+                        <div className="flex flex-col w-4 h-full rounded-full overflow-hidden border border-black/10 shadow-sm bg-white/50 backdrop-blur-sm">
+                            <div
+                                className="flex-1 w-full"
+                                style={{
+                                    background: 'linear-gradient(to top, #e0f2f1, #80cbc4, #26a69a, #00897b, #004d40)',
+                                }}
+                            />
                         </div>
-                        <div className="absolute top-1/2 flex items-center w-full h-0 -translate-y-1/2">
-                            <div className="flex items-center gap-1.5 w-full">
-                                <div className="w-4 h-[1.5px] bg-black/20" />
-                                <span className="px-2 py-1 rounded-md border shadow-md backdrop-blur-md whitespace-nowrap bg-amber-100/90 text-black/80 border-amber-200/60">
-                                    500 m
-                                </span>
+                        <div className="flex-1 relative h-full text-[10px] font-bold text-black/60 tracking-tight">
+                            <div className="absolute top-0 flex items-center h-4">
+                                <span className="opacity-40">{thresholds?.max != null ? `${Math.round(thresholds.max)}%` : '–'}</span>
+                            </div>
+                            <div className="absolute top-1/2 flex items-center w-full h-0 -translate-y-1/2">
+                                <div className="flex items-center gap-1.5 w-full">
+                                    <div className="w-4 h-[1.5px] bg-black/20" />
+                                    <span className="px-2 py-1 rounded-md border shadow-md backdrop-blur-md whitespace-nowrap bg-teal-100/90 text-black/80 border-teal-200/60">
+                                        {thresholds?.q50 != null ? `${Math.round(thresholds.q50)}%` : '–'} (mediana)
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="absolute bottom-0 flex items-center h-4">
+                                <span className="opacity-40">{thresholds?.min != null ? `${Math.round(thresholds.min)}%` : '–'}</span>
                             </div>
                         </div>
-                        <div className="absolute bottom-0 flex items-center h-4">
-                            <span className="opacity-40">0 m (estación)</span>
-                        </div>
                     </div>
-                </div>
+                    <label className="flex items-center gap-2 cursor-pointer select-none mt-1 px-1">
+                        <input
+                            type="checkbox"
+                            checked={showPolygon}
+                            onChange={handlePolygonToggle}
+                            className="w-3.5 h-3.5 accent-teal-600 rounded cursor-pointer"
+                        />
+                        <span className="text-[10px] font-semibold text-black/50">
+                            Mostrar polígono de cobertura
+                        </span>
+                    </label>
+                </>
             ) : (
-                /* --- Trips / Downtime quantile legend --- */
                 <div className="flex gap-4 h-64 my-2 relative">
                     <div className="flex flex-col w-4 h-full rounded-full overflow-hidden border border-black/10 shadow-sm bg-white/50 backdrop-blur-sm">
                         <div className="h-10 w-full" style={{ backgroundColor: metric === 'trips' ? '#042F2E' : '#450A0A' }} />
@@ -86,7 +103,6 @@ export default function StationsLegend() {
                         />
                         {metric === 'trips' && <div className="h-10 w-full bg-[#A0AEC0]" />}
                     </div>
-
                     <div className="flex-1 relative h-full text-[10px] font-bold text-black/60 tracking-tight">
                         <div className="absolute top-0 flex items-center h-4">
                             <span className="opacity-40">{thresholds?.max != null ? Math.round(thresholds.max) : '–'} {metric === 'trips' ? 'v/m' : 'min'}</span>

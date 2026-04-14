@@ -516,19 +516,17 @@ async def get_station_reach(
 ):
     """Compute a reachability tree from the station's closest graph node.
 
-    Returns a GeoJSON FeatureCollection where each Feature is an edge
-    with `dist_start` and `dist_end` properties (cumulative metres).
+    Returns edges as GeoJSON, a reach polygon, geodesic circle, and coverage %.
     """
     try:
         validate_network_exists(conn, city_id)
 
-        # Look up the station's coordinates
         stations_data, _ = get_paginated_stations(conn, city_id, limit=10000, offset=0)
         station = next((s for s in stations_data if str(s["station_id"]) == str(station_id)), None)
         if station is None:
             raise HTTPException(status_code=404, detail=f"Station {station_id} not found")
 
-        edges = get_station_reachability(
+        result = get_station_reachability(
             conn, city_id, float(station["lat"]), float(station["lon"]),
             max_distance=max_distance,
         )
@@ -542,13 +540,34 @@ async def get_station_reach(
                     "dist_end": round(e["dist_end"], 1),
                 },
             }
-            for e in edges
+            for e in result["edges"]
         ]
+
+        circle_feature = None
+        if result["circle_geojson"]:
+            circle_feature = {
+                "type": "Feature",
+                "geometry": result["circle_geojson"],
+                "properties": {},
+            }
+
+        polygon_feature = None
+        if result["polygon_geojson"]:
+            polygon_feature = {
+                "type": "Feature",
+                "geometry": result["polygon_geojson"],
+                "properties": {},
+            }
 
         return {
             "data": {
-                "type": "FeatureCollection",
-                "features": features,
+                "edges": {
+                    "type": "FeatureCollection",
+                    "features": features,
+                },
+                "circle": circle_feature,
+                "polygon": polygon_feature,
+                "coverage": result["coverage"],
             },
             "message": f"Reachability tree with {len(features)} edges",
         }

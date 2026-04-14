@@ -54,7 +54,7 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
         query = """
             SELECT 
                 id, station_id, name, lat, lon, citybikes_network_id,
-                extra, estimated_monthly_trips, downtime_minutes
+                extra, estimated_monthly_trips, downtime_minutes, reach_coverage
             FROM stations
             WHERE city_id = %s AND merged_into_id IS NULL
             ORDER BY id
@@ -176,4 +176,26 @@ def get_station_hourly_availability(conn, city_id: int, station_id: str, day_mod
             ORDER BY 1
         """, params)
         return cur.fetchall()
+
+
+def update_station_reach_coverage(conn, city_id: int, coverages: dict):
+    """Batch-update reach_coverage for stations.
+
+    coverages: {station_id: coverage_pct}
+    """
+    if not coverages:
+        return
+    from psycopg2.extras import execute_values
+    rows = [(v, city_id, k) for k, v in coverages.items()]
+    with conn.cursor() as cur:
+        execute_values(
+            cur,
+            """
+            UPDATE stations AS s SET reach_coverage = d.coverage
+            FROM (VALUES %s) AS d(coverage, city_id, station_id)
+            WHERE s.city_id = d.city_id::int AND s.station_id = d.station_id
+            """,
+            rows,
+            template="(%s, %s, %s)",
+        )
 

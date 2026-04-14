@@ -7,7 +7,7 @@ export const fetchCities = async (): Promise<CityData[]> => {
     throw new Error('Failed to fetch cities');
   }
   const result = await response.json();
-  
+
   return result.data.map((city: any) => ({
     id: city.id,
     name: city.name,
@@ -59,8 +59,8 @@ export interface HourlyAvailability {
 }
 
 export const fetchStationHourlyAvailability = async (
-  cityId: number, 
-  stationId: string, 
+  cityId: number,
+  stationId: string,
   period: string = 'all'
 ): Promise<HourlyAvailability[]> => {
   const response = await fetch(

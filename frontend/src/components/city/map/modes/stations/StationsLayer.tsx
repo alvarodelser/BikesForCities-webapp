@@ -31,29 +31,29 @@ const getMetricColor = (val: number, q5: number, q50: number, q95: number, metri
     return interpolateColor(colors[1], colors[2], Math.max(0, Math.min(1, (val - q50) / (q95 - q50 || 1))));
 };
 
-// --- Reach colormap: distance → color (green → amber → red) ---
-const REACH_COLORS = [
-    { stop: 0,    color: '#10B981' }, // emerald-500
-    { stop: 0.5,  color: '#F59E0B' }, // amber-500
-    { stop: 1.0,  color: '#EF4444' }, // red-500
+// --- Cropped viridis for reach edges (purple → blue → teal → green, no yellow) ---
+const VIRIDIS_STOPS = [
+    { stop: 0.0,   color: '#440154' },
+    { stop: 0.33,  color: '#3b528b' },
+    { stop: 0.67,  color: '#21918c' },
+    { stop: 1.0,   color: '#5ec962' },
 ];
 
-const getReachColor = (distance: number, maxDistance: number) => {
+const getViridisColor = (distance: number, maxDistance: number) => {
     const t = Math.max(0, Math.min(1, distance / maxDistance));
-    for (let i = 0; i < REACH_COLORS.length - 1; i++) {
-        const a = REACH_COLORS[i];
-        const b = REACH_COLORS[i + 1];
+    for (let i = 0; i < VIRIDIS_STOPS.length - 1; i++) {
+        const a = VIRIDIS_STOPS[i];
+        const b = VIRIDIS_STOPS[i + 1];
         if (t >= a.stop && t <= b.stop) {
             const factor = (t - a.stop) / (b.stop - a.stop);
             return interpolateColor(a.color, b.color, factor);
         }
     }
-    return REACH_COLORS[REACH_COLORS.length - 1].color;
+    return VIRIDIS_STOPS[VIRIDIS_STOPS.length - 1].color;
 };
 
-// ---- DOM-based popup builders (avoids setHTML silent parse failures) ----
+// ---- DOM-based popup builders ----
 
-/** Create the basic info DOM for any popup */
 function buildBasicDOM(name: string, val: number, unit: string, color: string, textColor: string) {
     const container = document.createElement('div');
     container.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:2px;";
@@ -76,7 +76,6 @@ function buildBasicDOM(name: string, val: number, unit: string, color: string, t
     return container;
 }
 
-/** Create a loading spinner row */
 function buildLoadingDOM() {
     const row = document.createElement('div');
     row.id = 'popup-loader';
@@ -90,7 +89,6 @@ function buildLoadingDOM() {
     return row;
 }
 
-/** Build an SVG line chart using the DOM API (no string injection) */
 function buildLinePlotDOM(data: HourlyAvailability[]) {
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const w = 230, h = 105, padL = 35, padB = 35, padT = 18, padR = 12;
@@ -107,7 +105,6 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
     const getY = (bikes: number) => padT + chartH - (bikes / maxBikes) * chartH;
     const zeroY = getY(0);
 
-    // --- 1. Highlight areas based on X-axis (Vertical bands where bikes < 3) ---
     const sortedData = [...data].sort((a,b) => a.hour_of_day - b.hour_of_day);
     const hourWidth = chartW / 23;
     
@@ -123,7 +120,6 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         }
     });
 
-    // --- 2. Axes ---
     const axisColor = '#E2E8F0';
     const yAxisLine = document.createElementNS(SVG_NS, 'line');
     yAxisLine.setAttribute('x1', String(padL)); yAxisLine.setAttribute('y1', String(padT));
@@ -137,7 +133,6 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
     xAxisLine.setAttribute('stroke', axisColor);
     svg.appendChild(xAxisLine);
 
-    // Y Labels
     const labelStyle = 'font-size:8px;fill:#A1A1AA;font-weight:700;font-family:sans-serif;pointer-events:none;';
     [0, Math.round(maxBikes)].forEach(val => {
         const txt = document.createElementNS(SVG_NS, 'text');
@@ -149,7 +144,6 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         svg.appendChild(txt);
     });
 
-    // --- 3. Hover Tooltip (Inside SVG) ---
     const tooltipText = document.createElementNS(SVG_NS, 'text');
     tooltipText.setAttribute('x', String(w - 10));
     tooltipText.setAttribute('y', String(padT - 6));
@@ -157,14 +151,12 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
     tooltipText.style.cssText = 'font-size:9px;fill:#71717A;font-weight:800;visibility:hidden;';
     svg.appendChild(tooltipText);
 
-    // --- 4. X-Axis Icons (Time Markers) ---
     const addTimeIcon = (hour: number, timeStr: string, svgContent: string) => {
         const x = getX(hour);
         const g = document.createElementNS(SVG_NS, 'g');
         g.setAttribute('transform', `translate(${x - 6}, ${h - 28}) scale(0.5)`);
         g.innerHTML = svgContent;
         svg.appendChild(g);
-        
         const txt = document.createElementNS(SVG_NS, 'text');
         txt.setAttribute('x', String(x)); txt.setAttribute('y', String(h - 4));
         txt.setAttribute('text-anchor', 'middle');
@@ -173,19 +165,12 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         svg.appendChild(txt);
     };
 
-    const iconMoon = '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>';
-    const iconSunrise = '<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>';
-    const iconSun = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>';
-    const iconSunset = '<path d="M12 10V2"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m16 22-4-4-4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>';
-
     const wrapIcon = (c: string) => `<g fill="none" stroke="#A1A1AA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${c}</g>`;
+    addTimeIcon(0,  '0:00', wrapIcon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'));
+    addTimeIcon(8,  '8:00', wrapIcon('<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
+    addTimeIcon(12, '12:00', wrapIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'));
+    addTimeIcon(20, '20:00', wrapIcon('<path d="M12 10V2"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m16 22-4-4-4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
 
-    addTimeIcon(0,  '0:00', wrapIcon(iconMoon));
-    addTimeIcon(8,  '8:00', wrapIcon(iconSunrise));
-    addTimeIcon(12, '12:00', wrapIcon(iconSun));
-    addTimeIcon(20, '20:00', wrapIcon(iconSunset));
-
-    // --- 5. Plot Line & Points ---
     const pts = sortedData.map(d => `${getX(d.hour_of_day).toFixed(1)},${getY(d.avg_bikes).toFixed(1)}`).join(' ');
     const polyline = document.createElementNS(SVG_NS, 'polyline');
     polyline.setAttribute('points', pts);
@@ -204,24 +189,14 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         circle.setAttribute('stroke', '#FFFFFF');
         circle.setAttribute('stroke-width', '1');
         circle.style.cssText = 'transition: r 0.1s ease; cursor: crosshair;';
-
-        circle.addEventListener('mouseenter', () => {
-            circle.setAttribute('r', '5');
-            tooltipText.textContent = `${d.avg_bikes.toFixed(1)} bicis`;
-            tooltipText.style.visibility = 'visible';
-        });
-        circle.addEventListener('mouseleave', () => {
-            circle.setAttribute('r', '3.5');
-            tooltipText.style.visibility = 'hidden';
-        });
-
+        circle.addEventListener('mouseenter', () => { circle.setAttribute('r', '5'); tooltipText.textContent = `${d.avg_bikes.toFixed(1)} bicis`; tooltipText.style.visibility = 'visible'; });
+        circle.addEventListener('mouseleave', () => { circle.setAttribute('r', '3.5'); tooltipText.style.visibility = 'hidden'; });
         svg.appendChild(circle);
     });
 
     return svg;
 }
 
-// Inject the spinner keyframes once
 let spinnerInjected = false;
 function ensureSpinnerCSS() {
     if (spinnerInjected) return;
@@ -232,14 +207,18 @@ function ensureSpinnerCSS() {
 }
 
 interface StationsLayerProps {
-    submode: string; // 'trips' | 'downtime' | 'reach'
+    submode: string;
 }
 
 const SOURCE_ID = 'stations-source';
 const LAYER_ID  = 'stations-layer';
-const REACH_SOURCE_ID = 'reach-source';
-const REACH_LAYER_ID  = 'reach-layer';
-const MAX_REACH_DISTANCE = 1000; // metres
+const REACH_SOURCE_ID  = 'reach-source';
+const REACH_LAYER_ID   = 'reach-layer';
+const REACH_CIRCLE_SOURCE_ID = 'reach-circle-source';
+const REACH_CIRCLE_LAYER_ID  = 'reach-circle-layer';
+const REACH_POLY_SOURCE_ID   = 'reach-poly-source';
+const REACH_POLY_LAYER_ID    = 'reach-poly-layer';
+const MAX_REACH_DISTANCE = 1000;
 
 export default function StationsLayer({ submode }: StationsLayerProps) {
     const { map, city } = useMap();
@@ -255,40 +234,38 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
     const hourlyCache = useRef<Map<string, Record<string, HourlyAvailability[]>>>(new Map());
     const reachAbortRef = useRef<AbortController | null>(null);
 
-    // --- Cleanup reach layer helper ---
-    const cleanupReachLayer = useCallback(() => {
+    const cleanupReachLayers = useCallback(() => {
         if (!map) return;
-        if (map.getLayer(REACH_LAYER_ID)) map.removeLayer(REACH_LAYER_ID);
-        if (map.getSource(REACH_SOURCE_ID)) map.removeSource(REACH_SOURCE_ID);
+        for (const [lid, sid] of [
+            [REACH_LAYER_ID, REACH_SOURCE_ID],
+            [REACH_CIRCLE_LAYER_ID, REACH_CIRCLE_SOURCE_ID],
+            [REACH_POLY_LAYER_ID, REACH_POLY_SOURCE_ID],
+        ]) {
+            if (map.getLayer(lid)) map.removeLayer(lid);
+            if (map.getSource(sid)) map.removeSource(sid);
+        }
     }, [map]);
 
-    // --- Mount: show layer, hide others ---
+    // --- Mount ---
     useEffect(() => {
         if (!map) return;
         if (map.getLayer(LAYER_ID))     map.setLayoutProperty(LAYER_ID, 'visibility', 'visible');
         if (map.getLayer('bike-paths-layer'))  map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
         if (map.getLayer('traffic-layer'))     map.setLayoutProperty('traffic-layer', 'visibility', 'none');
-
         return () => {
             if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
-            cleanupReachLayer();
+            cleanupReachLayers();
             setThresholds(null);
         };
     }, [map]);
 
-    // --- Cleanup reach layer when leaving reach submode ---
-    useEffect(() => {
-        if (!isReach) {
-            cleanupReachLayer();
-        }
-    }, [isReach, cleanupReachLayer]);
+    useEffect(() => { if (!isReach) cleanupReachLayers(); }, [isReach, cleanupReachLayers]);
 
-    // --- Data fetch: reload on city change ---
+    // --- Data fetch ---
     useEffect(() => {
-        if (!map || !city) return;
+        if (!map || !city?.id) return;
         let cancelled = false;
 
-        if (!city?.id) return;
         fetchStations(city.id).then(data => {
             if (cancelled || !map) return;
             setStations(data);
@@ -296,11 +273,8 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             const features = data.map(s => {
                 let normalizedName = (s.name || 'Sin nombre')
                     .replace(/^[^a-zA-Z\xC0-\xFF]+/, '')
-                    .toLowerCase()
-                    .split(/[\s_-]+/)
-                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                    .join(' ');
-
+                    .toLowerCase().split(/[\s_-]+/)
+                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
                 return {
                     type: 'Feature' as const,
                     geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
@@ -309,6 +283,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         id: s.station_id,
                         usage: s.estimated_monthly_trips || 0,
                         downtime: s.downtime_minutes || 0,
+                        reach_coverage: s.reach_coverage || 0,
                     },
                 };
             });
@@ -320,7 +295,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         return () => { cancelled = true; };
     }, [map, city?.id]);
 
-    // --- Thresholds update (only for trips/downtime) ---
+    // --- Thresholds (trips/downtime) ---
     useEffect(() => {
         if (!stations.length || isReach) return;
         const values = stations.map((s: any) =>
@@ -337,27 +312,29 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         }
     }, [stations, metric, isReach, setThresholds]);
 
-    // --- For reach mode: set thresholds to distance bounds ---
+    // --- Thresholds (reach): use computed coverage values ---
     useEffect(() => {
-        if (!isReach) return;
+        if (!isReach || !stations.length) return;
+        const values = stations
+            .map((s: any) => s.reach_coverage || 0)
+            .sort((a: number, b: number) => a - b);
         setThresholds({
-            q5: 0,
-            q50: MAX_REACH_DISTANCE / 2,
-            q95: MAX_REACH_DISTANCE,
-            max: MAX_REACH_DISTANCE,
-            min: 0,
+            q5:  values[Math.floor(values.length * 0.05)] || 0,
+            q50: values[Math.floor(values.length * 0.5)]  || 25,
+            q95: values[Math.floor(values.length * 0.95)] || 80,
+            max: Math.max(...values),
+            min: Math.min(...values),
         });
-    }, [isReach, setThresholds]);
+    }, [isReach, stations, setThresholds]);
 
-    // --- Color Update (trips/downtime only) ---
+    // --- Color: trips/downtime ---
     useEffect(() => {
         if (!map || !map.getLayer(LAYER_ID) || !thresholds || isReach) return;
         const metricProp = metric === 'trips' ? 'usage' : 'downtime';
         map.setPaintProperty(LAYER_ID, 'circle-color', [
             'case',
             ['<', ['get', metricProp], thresholds.q5], metric === 'trips' ? '#A0AEC0' : '#FEE2E2',
-            [
-                'interpolate', ['linear'], ['get', metricProp],
+            ['interpolate', ['linear'], ['get', metricProp],
                 thresholds.q5,  metric === 'trips' ? '#D1FAE5' : '#FEE2E2',
                 thresholds.q50, metric === 'trips' ? '#34D399' : '#EF4444',
                 thresholds.q95, metric === 'trips' ? '#065F46' : '#7F1D1D',
@@ -366,94 +343,152 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         map.setPaintProperty(LAYER_ID, 'circle-radius', 6);
     }, [map, metric, thresholds, isReach]);
 
-    // --- Reach mode: neutral station styling ---
+    // --- Color: reach — teal gradient by coverage ---
     useEffect(() => {
-        if (!map || !map.getLayer(LAYER_ID) || !isReach) return;
-        map.setPaintProperty(LAYER_ID, 'circle-color', '#64748B');
-        map.setPaintProperty(LAYER_ID, 'circle-radius', 5);
-    }, [map, isReach]);
+        if (!map || !map.getLayer(LAYER_ID) || !isReach || !thresholds) return;
+        map.setPaintProperty(LAYER_ID, 'circle-color', [
+            'interpolate', ['linear'], ['get', 'reach_coverage'],
+            0,   '#e0f2f1',
+            25,  '#80cbc4',
+            50,  '#26a69a',
+            75,  '#00897b',
+            100, '#004d40',
+        ]);
+        map.setPaintProperty(LAYER_ID, 'circle-radius', 6);
+    }, [map, isReach, thresholds]);
 
-    // --- Reach: load & render reachability on station click ---
-    const loadReach = useCallback((stationId: string) => {
+    // --- Polygon visibility toggle (driven by legend checkbox) ---
+    useEffect(() => {
+        if (!map) return;
+        const handler = (e: Event) => {
+            const visible = (e as CustomEvent).detail?.visible;
+            if (map.getLayer(REACH_POLY_LAYER_ID)) {
+                map.setLayoutProperty(REACH_POLY_LAYER_ID, 'visibility', visible ? 'visible' : 'none');
+            }
+        };
+        window.addEventListener('reach-polygon-toggle', handler);
+        return () => window.removeEventListener('reach-polygon-toggle', handler);
+    }, [map]);
+
+    // --- Reach: load & render ---
+    const loadReach = useCallback((stationId: string, infoContainer?: HTMLElement) => {
         if (!map || !city) return;
-
-        // Abort any previous request
         if (reachAbortRef.current) reachAbortRef.current.abort();
         const controller = new AbortController();
         reachAbortRef.current = controller;
-
-        // Clean previous reach layer
-        cleanupReachLayer();
+        cleanupReachLayers();
 
         fetchStationReach(city.id, stationId, MAX_REACH_DISTANCE)
-            .then(geojson => {
+            .then(reachData => {
                 if (controller.signal.aborted || !map) return;
 
-                // Add color property to each feature
-                const coloredFeatures = geojson.features.map(f => {
-                    const props = f.properties || {};
-                    const avgDist = ((props.dist_start || 0) + (props.dist_end || 0)) / 2;
-                    return {
-                        ...f,
-                        properties: {
-                            ...props,
-                            color: getReachColor(avgDist, MAX_REACH_DISTANCE),
-                        },
+                // 1. Reach polygon (light fill)
+                if (reachData.polygon) {
+                    const polyGJ: GeoJSON.FeatureCollection = {
+                        type: 'FeatureCollection',
+                        features: [reachData.polygon],
                     };
-                });
-
-                const coloredGeojson: GeoJSON.FeatureCollection = {
-                    type: 'FeatureCollection',
-                    features: coloredFeatures,
-                };
-
-                // Add the source & layer
-                if (map.getSource(REACH_SOURCE_ID)) {
-                    (map.getSource(REACH_SOURCE_ID) as maplibregl.GeoJSONSource).setData(coloredGeojson);
-                } else {
-                    map.addSource(REACH_SOURCE_ID, {
-                        type: 'geojson',
-                        data: coloredGeojson,
-                    });
-                }
-
-                if (!map.getLayer(REACH_LAYER_ID)) {
-                    // Insert below stations layer so points stay on top
+                    map.addSource(REACH_POLY_SOURCE_ID, { type: 'geojson', data: polyGJ });
                     map.addLayer({
-                        id: REACH_LAYER_ID,
-                        type: 'line',
-                        source: REACH_SOURCE_ID,
+                        id: REACH_POLY_LAYER_ID,
+                        type: 'fill',
+                        source: REACH_POLY_SOURCE_ID,
                         paint: {
-                            'line-color': ['get', 'color'],
-                            'line-width': 3,
-                            'line-opacity': 0.85,
+                            'fill-color': '#0d9488',
+                            'fill-opacity': 0.12,
                         },
                     }, LAYER_ID);
+                }
+
+                // 2. Geodesic circle (dashed outline)
+                if (reachData.circle) {
+                    const circleGJ: GeoJSON.FeatureCollection = {
+                        type: 'FeatureCollection',
+                        features: [reachData.circle],
+                    };
+                    map.addSource(REACH_CIRCLE_SOURCE_ID, { type: 'geojson', data: circleGJ });
+                    map.addLayer({
+                        id: REACH_CIRCLE_LAYER_ID,
+                        type: 'line',
+                        source: REACH_CIRCLE_SOURCE_ID,
+                        paint: {
+                            'line-color': '#64748B',
+                            'line-width': 1.5,
+                            'line-dasharray': [4, 4],
+                            'line-opacity': 0.5,
+                        },
+                    }, LAYER_ID);
+                }
+
+                // 3. Reach edges (viridis)
+                const coloredFeatures = reachData.edges.features.map(f => {
+                    const props = f.properties || {};
+                    const avgDist = ((props.dist_start || 0) + (props.dist_end || 0)) / 2;
+                    return { ...f, properties: { ...props, color: getViridisColor(avgDist, MAX_REACH_DISTANCE) } };
+                });
+                const coloredGJ: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: coloredFeatures };
+                map.addSource(REACH_SOURCE_ID, { type: 'geojson', data: coloredGJ });
+                map.addLayer({
+                    id: REACH_LAYER_ID,
+                    type: 'line',
+                    source: REACH_SOURCE_ID,
+                    paint: { 'line-color': ['get', 'color'], 'line-width': 3, 'line-opacity': 0.85 },
+                }, LAYER_ID);
+
+                // 4. Update popup
+                if (infoContainer) {
+                    infoContainer.innerHTML = '';
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex;align-items:baseline;gap:4px;margin-top:2px;';
+                    const lbl = document.createElement('span');
+                    lbl.style.cssText = 'font-size:9px;color:#71717A;font-weight:600;';
+                    lbl.textContent = 'Cobertura:';
+                    row.appendChild(lbl);
+                    const val = document.createElement('span');
+                    val.style.cssText = 'font-size:14px;font-weight:900;color:#1a202c;';
+                    val.textContent = `${reachData.coverage.toFixed(1)}%`;
+                    row.appendChild(val);
+                    infoContainer.appendChild(row);
                 }
             })
             .catch(err => {
                 if (!controller.signal.aborted) {
                     console.error('Failed to load reach:', err);
+                    if (infoContainer) {
+                        infoContainer.innerHTML = '';
+                        const e = document.createElement('div');
+                        e.style.cssText = 'font-size:10px;color:#EF4444;margin-top:2px;';
+                        e.textContent = 'Error al calcular';
+                        infoContainer.appendChild(e);
+                    }
                 }
             });
-    }, [map, city, cleanupReachLayer]);
+    }, [map, city, cleanupReachLayers]);
 
-    // --- Station popups (hover + click-to-stick) ---
+    // --- Popups ---
     useEffect(() => {
         if (!map) return;
         ensureSpinnerCSS();
 
         const popup = new maplibregl.Popup({
             closeButton: false, closeOnClick: false,
-            className: 'station-popup', maxWidth: '250px',
+            className: 'station-popup',
+            maxWidth: isReach ? '180px' : '250px',
+            anchor: isReach ? 'left' : undefined,
         });
         popupRef.current = popup;
 
+        /** Pixel offset so popup sits at the 1 km circle edge */
+        const circleEdgePx = (coords: [number, number]): number => {
+            const c = map.project(coords);
+            const dLon = MAX_REACH_DISTANCE / (111320 * Math.cos(coords[1] * Math.PI / 180));
+            const e = map.project([coords[0] + dLon, coords[1]]);
+            return Math.round(e.x - c.x) + 10;
+        };
+
         const getColors = (val: number) => {
-            const q5  = thresholds?.q5  ?? 5;
-            const q50 = thresholds?.q50 ?? 50;
-            const q95 = thresholds?.q95 ?? 200;
-            const color     = getMetricColor(val, q5, q50, q95, metric);
+            const q5  = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
+            const color = getMetricColor(val, q5, q50, q95, metric);
             const textColor = ['#042F2E','#450A0A','#065F46','#7F1D1D'].includes(color) ? 'white' : 'black';
             return { color, textColor };
         };
@@ -461,26 +496,26 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         const onMouseEnter = (e: maplibregl.MapLayerMouseEvent) => {
             if (stickyRef.current) return;
             map.getCanvas().style.cursor = 'pointer';
-            const features = e.features;
-            if (!features || features.length === 0) return;
-            const coords = (features[0].geometry as any).coordinates.slice() as [number, number];
-            const props = features[0].properties!;
+            const f = e.features?.[0]; if (!f) return;
+            const coords = (f.geometry as any).coordinates.slice() as [number, number];
+            const props = f.properties!;
 
             if (isReach) {
-                // Simple name-only popup in reach mode
-                const container = document.createElement('div');
-                container.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:2px;";
-                const header = document.createElement('div');
-                header.style.cssText = 'font-weight:700;font-size:13px;color:#1a202c;';
-                header.textContent = props.name;
-                container.appendChild(header);
-                const hint = document.createElement('div');
-                hint.style.cssText = 'font-size:10px;color:#71717A;margin-top:2px;';
-                hint.textContent = 'Click para ver alcance';
-                container.appendChild(hint);
-                popup.setLngLat(coords).setDOMContent(container).addTo(map);
+                const c = document.createElement('div');
+                c.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:2px;";
+                const h = document.createElement('div');
+                h.style.cssText = 'font-weight:700;font-size:12px;color:#1a202c;';
+                h.textContent = props.name;
+                c.appendChild(h);
+                const cov = document.createElement('div');
+                cov.style.cssText = 'font-size:10px;color:#71717A;margin-top:2px;';
+                const covVal = props.reach_coverage ?? 0;
+                cov.textContent = `Cobertura: ${Math.round(covVal)}% · Click para detalle`;
+                c.appendChild(cov);
+                popup.setOffset(circleEdgePx(coords));
+                popup.setLngLat(coords).setDOMContent(c).addTo(map);
             } else {
-                const val  = metric === 'trips' ? (props.usage || 0) : (props.downtime || 0);
+                const val = metric === 'trips' ? (props.usage || 0) : (props.downtime || 0);
                 const unit = metric === 'trips' ? 'Viajes / Mes' : 'min / d\u00eda sin bicis';
                 const { color, textColor } = getColors(val);
                 popup.setLngLat(coords).setDOMContent(buildBasicDOM(props.name, val, unit, color, textColor)).addTo(map);
@@ -494,42 +529,40 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         };
 
         const onClick = (e: maplibregl.MapLayerMouseEvent) => {
-            const features = e.features;
-            if (!features || features.length === 0) return;
-            const coords = (features[0].geometry as any).coordinates.slice() as [number, number];
-            const props = features[0].properties!;
-            
+            const f = e.features?.[0]; if (!f) return;
+            const coords = (f.geometry as any).coordinates.slice() as [number, number];
+            const props = f.properties!;
             stickyRef.current = { id: props.id, coords, props };
             setStickyId(props.id);
 
             if (isReach) {
-                // Load reachability tree
-                loadReach(props.id);
-                // Show a compact popup
-                const container = document.createElement('div');
-                container.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:2px;";
-                const header = document.createElement('div');
-                header.style.cssText = 'font-weight:700;font-size:13px;color:#1a202c;display:flex;justify-content:space-between;align-items:center;';
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = props.name;
-                header.appendChild(nameSpan);
-                const closeBtn = document.createElement('span');
-                closeBtn.textContent = '\u2715';
-                closeBtn.style.cssText = 'cursor:pointer;color:#A0AEC0;margin-left:8px;font-size:12px;';
-                closeBtn.onclick = (ev) => {
-                    ev.stopPropagation();
-                    stickyRef.current = null;
-                    setStickyId(null);
-                    popupRef.current?.remove();
-                    cleanupReachLayer();
-                };
-                header.appendChild(closeBtn);
-                container.appendChild(header);
+                const c = document.createElement('div');
+                c.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:4px;min-width:140px;";
+                const hdr = document.createElement('div');
+                hdr.style.cssText = 'font-weight:700;font-size:12px;color:#1a202c;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(0,0,0,0.05);padding-bottom:3px;margin-bottom:4px;';
+                const n = document.createElement('span');
+                n.textContent = props.name;
+                n.style.cssText = 'max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+                hdr.appendChild(n);
+                const x = document.createElement('span');
+                x.textContent = '\u2715';
+                x.style.cssText = 'cursor:pointer;color:#A0AEC0;font-size:11px;margin-left:6px;';
+                x.onclick = (ev) => { ev.stopPropagation(); stickyRef.current = null; setStickyId(null); popupRef.current?.remove(); cleanupReachLayers(); };
+                hdr.appendChild(x);
+                c.appendChild(hdr);
                 const info = document.createElement('div');
-                info.style.cssText = 'font-size:10px;color:#71717A;margin-top:4px;';
-                info.textContent = `Alcance: ${MAX_REACH_DISTANCE}m`;
-                container.appendChild(info);
-                popup.setLngLat(coords).setDOMContent(container).addTo(map);
+                info.style.cssText = 'display:flex;align-items:center;gap:5px;';
+                const spin = document.createElement('div');
+                spin.style.cssText = 'width:10px;height:10px;border:2px solid #CBD5E0;border-top-color:#718096;border-radius:50%;animation:popupSpin .6s linear infinite;';
+                info.appendChild(spin);
+                const lt = document.createElement('span');
+                lt.style.cssText = 'font-size:10px;color:#71717A;';
+                lt.textContent = 'Calculando\u2026';
+                info.appendChild(lt);
+                c.appendChild(info);
+                popup.setOffset(circleEdgePx(coords));
+                popup.setLngLat(coords).setDOMContent(c).addTo(map);
+                loadReach(props.id, info);
             } else {
                 updatePopupContent();
                 popup.setLngLat(coords).addTo(map);
@@ -539,11 +572,9 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         const onMapClick = (e: maplibregl.MapMouseEvent) => {
             if (!stickyRef.current) return;
             const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-            if (!features || features.length === 0) {
-                stickyRef.current = null;
-                setStickyId(null);
-                popup.remove();
-                if (isReach) cleanupReachLayer();
+            if (!features?.length) {
+                stickyRef.current = null; setStickyId(null); popup.remove();
+                if (isReach) cleanupReachLayers();
             }
         };
 
@@ -551,118 +582,67 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         map.on('mouseleave', LAYER_ID, onMouseLeave);
         map.on('click', LAYER_ID, onClick);
         map.on('click', onMapClick);
+        return () => { map.off('mouseenter', LAYER_ID, onMouseEnter); map.off('mouseleave', LAYER_ID, onMouseLeave); map.off('click', LAYER_ID, onClick); map.off('click', onMapClick); popup.remove(); };
+    }, [map, metric, thresholds, city, isReach, loadReach, cleanupReachLayers]);
 
-        return () => {
-            map.off('mouseenter', LAYER_ID, onMouseEnter);
-            map.off('mouseleave', LAYER_ID, onMouseLeave);
-            map.off('click', LAYER_ID, onClick);
-            map.off('click', onMapClick);
-            popup.remove();
-        };
-    }, [map, metric, thresholds, city, isReach, loadReach, cleanupReachLayer]);
-
-    // Reactive popup content update
     const updatePopupContent = () => {
         if (!stickyRef.current || !popupRef.current || !map || isReach) return;
-        const { props, coords } = stickyRef.current;
+        const { props } = stickyRef.current;
         const val = metric === 'trips' ? (props.usage || 0) : (props.downtime || 0);
         const unit = metric === 'trips' ? 'Viajes / Mes' : 'min / d\u00eda sin bicis';
-        
-        const q5  = thresholds?.q5  ?? 5;
-        const q50 = thresholds?.q50 ?? 50;
-        const q95 = thresholds?.q95 ?? 200;
+        const q5 = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
         const color = getMetricColor(val, q5, q50, q95, metric);
         const textColor = ['#042F2E','#450A0A','#065F46','#7F1D1D'].includes(color) ? 'white' : 'black';
 
         const container = buildBasicDOM(props.name, val, unit, color, textColor);
         const header = container.firstElementChild as HTMLElement;
         if (header) {
-            header.style.display = 'flex';
-            header.style.justifyContent = 'space-between';
+            header.style.display = 'flex'; header.style.justifyContent = 'space-between';
             const closeBtn = document.createElement('span');
-            closeBtn.textContent = '\u2715';
-            closeBtn.style.cssText = 'cursor:pointer;color:#A0AEC0;margin-left:8px;';
-            closeBtn.onclick = (ev) => {
-                ev.stopPropagation();
-                stickyRef.current = null;
-                setStickyId(null);
-                popupRef.current?.remove();
-            };
+            closeBtn.textContent = '\u2715'; closeBtn.style.cssText = 'cursor:pointer;color:#A0AEC0;margin-left:8px;';
+            closeBtn.onclick = (ev) => { ev.stopPropagation(); stickyRef.current = null; setStickyId(null); popupRef.current?.remove(); };
             header.appendChild(closeBtn);
         }
 
-        // --- Period Toggle ---
         if (metric === 'downtime') {
             const toggleRow = document.createElement('div');
             toggleRow.style.cssText = 'margin-top:10px;display:flex;gap:4px;background:#F4F4F5;padding:2px;border-radius:6px;';
-            
-            const periods = [
-                { id: 'all', label: 'Toda' },
-                { id: 'week', label: 'L-V' },
-                { id: 'weekend', label: 'Finde' }
-            ];
-
-            periods.forEach(p => {
+            [{ id: 'all', label: 'Toda' }, { id: 'week', label: 'L-V' }, { id: 'weekend', label: 'Finde' }].forEach(p => {
                 const btn = document.createElement('button');
                 btn.textContent = p.label;
                 const isActive = activePeriod === p.id;
                 btn.style.cssText = `flex:1;border:none;border-radius:4px;font-size:9px;padding:3px 0;font-weight:700;cursor:pointer;transition:all 0.1s;background:${isActive ? '#FFFFFF' : 'transparent'};color:${isActive ? '#18181B' : '#71717A'};box-shadow:${isActive ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'};`;
-                btn.onclick = (ev) => {
-                    ev.stopPropagation();
-                    setActivePeriod(p.id);
-                };
+                btn.onclick = (ev) => { ev.stopPropagation(); setActivePeriod(p.id); };
                 toggleRow.appendChild(btn);
             });
             container.appendChild(toggleRow);
 
-            // --- Chart Area ---
             if (city?.id) {
                 const stationCache = hourlyCache.current.get(props.id) || {};
                 const cached = stationCache[activePeriod];
-
                 if (cached) {
                     container.appendChild(buildLinePlotDOM(cached));
                 } else {
                     const loader = buildLoadingDOM();
                     container.appendChild(loader);
-                    const currentStationId = props.id;
-                    const currentPeriod = activePeriod;
-                    
+                    const csid = props.id, cp = activePeriod;
                     fetchStationHourlyAvailability(city.id, props.id, activePeriod)
                         .then(data => {
-                            const newCache = { ...stationCache, [currentPeriod]: data };
-                            hourlyCache.current.set(currentStationId, newCache);
-                            
-                            if (stickyRef.current?.id === currentStationId && activePeriod === currentPeriod) {
-                                if (data.length > 0) {
-                                    loader.replaceWith(buildLinePlotDOM(data));
-                                } else {
-                                    const msg = document.createElement('div');
-                                    msg.style.cssText = 'margin-top:14px;font-size:11px;color:#A1A1AA;text-align:center;';
-                                    msg.textContent = 'Sin datos.';
-                                    loader.replaceWith(msg);
-                                }
+                            hourlyCache.current.set(csid, { ...stationCache, [cp]: data });
+                            if (stickyRef.current?.id === csid && activePeriod === cp) {
+                                if (data.length > 0) loader.replaceWith(buildLinePlotDOM(data));
+                                else { const m = document.createElement('div'); m.style.cssText = 'margin-top:14px;font-size:11px;color:#A1A1AA;text-align:center;'; m.textContent = 'Sin datos.'; loader.replaceWith(m); }
                             }
-                        })
-                        .catch(() => {
-                            if (stickyRef.current?.id === currentStationId && activePeriod === currentPeriod) {
-                                const msg = document.createElement('div');
-                                msg.style.cssText = 'margin-top:14px;font-size:11px;color:#EF4444;text-align:center;';
-                                msg.textContent = 'Error al cargar.';
-                                loader.replaceWith(msg);
-                            }
+                        }).catch(() => {
+                            if (stickyRef.current?.id === csid && activePeriod === cp) { const m = document.createElement('div'); m.style.cssText = 'margin-top:14px;font-size:11px;color:#EF4444;text-align:center;'; m.textContent = 'Error al cargar.'; loader.replaceWith(m); }
                         });
                 }
             }
         }
-
         popupRef.current?.setDOMContent(container);
     };
 
-    // Keep popup synced with state
-    useEffect(() => {
-        updatePopupContent();
-    }, [activePeriod, stickyId, metric, thresholds]);
+    useEffect(() => { updatePopupContent(); }, [activePeriod, stickyId, metric, thresholds]);
 
     return null;
 }
