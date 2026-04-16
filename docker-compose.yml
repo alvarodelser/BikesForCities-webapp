@@ -3,7 +3,7 @@ version: '3.8'
 services:
   b4c_database:
     image: postgis/postgis:14-3.3
-    container_name: postgis_container
+    container_name: b4c_database
     networks:
       default:
         aliases:
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: bikes_backend
+    container_name: b4c_backend_api
     ports:
       - "127.0.0.1:4001:8000"
     depends_on:
@@ -48,7 +48,7 @@ services:
 
   b4c_tile_server:
     image: ghcr.io/maplibre/martin:main
-    container_name: bikes_martin
+    container_name: b4c_tile_server
     restart: unless-stopped
     ports:
       - "127.0.0.1:4002:3000"
