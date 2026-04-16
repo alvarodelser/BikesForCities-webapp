@@ -6,6 +6,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 import sys
+import argparse
 from dotenv import load_dotenv
 
 # Add project root to python path
@@ -22,6 +23,10 @@ from backend.database.db_io import (
 from datetime import datetime, timezone
 
 def main():
+    parser = argparse.ArgumentParser(description="Load OSM network and features")
+    parser.add_argument("--force", action="store_true", help="Force re-download even if downloaded within 365 days")
+    args = parser.parse_args()
+
     load_dotenv()
     
     start_total = time.perf_counter()
@@ -52,13 +57,13 @@ def main():
             continue
 
         status = get_ingestion_status(conn, city_id, "osm geometry")
-        if status and status.get("status") == "SUCCESS":
+        if status and status.get("status") == "SUCCESS" and not args.force:
             updated_at = status.get("updated_at")
             if updated_at:
                 now = datetime.now(tz=timezone.utc)
                 diff = now - updated_at
                 if diff.days <= 365:
-                    print(f"⏭️  Skipping {city_name}: OSM data already ingested within the last 12 months ({updated_at.strftime('%Y-%m-%d')}).")
+                    print(f"⏭️  Skipping {city_name}: OSM data already ingested within the last 12 months ({updated_at.strftime('%Y-%m-%d')}). Use --force to override.")
                     continue
             
         center_lat, center_lon, radius = center

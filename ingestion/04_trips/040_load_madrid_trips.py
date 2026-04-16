@@ -217,11 +217,11 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str) -> int:
     return rows_inserted
 
 
-def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False) -> int:
+def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False, force: bool = False) -> int:
     csv_files = list_trip_csvs("Madrid")
     files_processed = 0
     for f in csv_files:
-        if f.name in done_files: continue
+        if f.name in done_files and not force: continue
         print(f"\n📂 Ingesting {f.name}")
         df = _load_csv(f)
         n = _insert_trips(conn, city_id, df, f.name)
@@ -272,7 +272,7 @@ def main():
             upsert_ingestion_status(conn, city_id, data_type, "RUNNING", details=details)
             conn.commit()
 
-        n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file)
+        n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file, force=args.force)
         upsert_ingestion_status(conn, city_id, data_type, "SUCCESS", details=details)
         print(f"\n🏁 Finished! {n} monthly files ingested.")
 

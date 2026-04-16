@@ -9,13 +9,14 @@ from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io.connection import connect_db
-from backend.database.db_io.cities import get_all_cities, upsert_ingestion_status
+from backend.database.db_io.cities import get_all_cities, upsert_ingestion_status, get_ingestion_status
 from backend.database.db_io.metrics import calculate_osm_metrics
 
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Calculate infrastructure coverage")
     parser.add_argument("--city", help="City name (optional, runs for all if omitted)")
+    parser.add_argument("--force", action="store_true", help="Force re-computation even if already SUCCESS")
     args = parser.parse_args()
 
     try:
@@ -39,6 +40,12 @@ def main():
 
     for city_row in target_cities:
         city_id, name, _, _, center_lat, center_lon, _, angle, *rest = city_row
+        
+        status_obj = get_ingestion_status(conn, city_id, "infrastructure coverage")
+        if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
+            print(f"⏭️  Skipping {name}: infrastructure coverage already computed. Use --force to override.")
+            continue
+            
         upsert_ingestion_status(conn, city_id, "infrastructure coverage", "RUNNING")
         try:
             total_km, coverage = calculate_osm_metrics(conn, city_id, center_lat, center_lon, angle)

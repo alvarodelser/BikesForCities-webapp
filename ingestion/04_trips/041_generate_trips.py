@@ -180,6 +180,7 @@ def spread_timestamps(month: dt.date, n: int) -> List[dt.datetime]:
 
 def generate_for_city(conn, city_id: int, city_name: str,
                       edges: np.ndarray, probs: np.ndarray,
+                      force: bool = False,
                       min_trips_threshold: float = 0.5) -> None:
     """Run synthetic trip generation for one city."""
     print(f"\n  🏙️  Generating synthetic trips for {city_name} …")
@@ -199,9 +200,23 @@ def generate_for_city(conn, city_id: int, city_name: str,
 
     for month in months:
         month_str = month.strftime("%Y-%m-%d")
-        if month_str in processed_months:
+        if month_str in processed_months and not force:
             print(f"     ⏭️  Skipping {month}: station-based synthetic trips already in ingestion_status.")
             continue
+
+        if force and month_str in processed_months:
+            print(f"     ⚠️  Force mode: Deleting existing synthetic trips for {month}...")
+            with conn.cursor() as cur:
+                cur.execute("""
+                    DELETE FROM routes
+                    WHERE city_id = %s
+                      AND strategy = 'station-based synthetic'
+                      AND EXTRACT(YEAR FROM datetime_unlock) = %s
+                      AND EXTRACT(MONTH FROM datetime_unlock) = %s
+                """, (city_id, month.year, month.month))
+            conn.commit()
+            # Remove from processed_months to safely track it again
+            processed_months.remove(month_str)
 
         flow_rows = get_station_monthly_flow(conn, city_id, month)
         # flow_rows: (station_id, network_id, lat, lon, inbound, outbound)
@@ -342,6 +357,7 @@ def main() -> None:
     parser.add_argument("--city", help="City name (optional – runs all eligible cities)")
     parser.add_argument("--calibration-city", default="Madrid",
                         help="City with real trip data used for histogram calibration (default: Madrid)")
+    parser.add_argument("--force", action="store_true", help="Force run, deleting existing synthetic trips")
     args = parser.parse_args()
 
     try:
@@ -386,7 +402,7 @@ def main() -> None:
         city_id, city_name = city_row[0], city_row[1]
         upsert_ingestion_status(conn, city_id, "synthetic trips", "RUNNING")
         try:
-            generate_for_city(conn, city_id, city_name, hist_edges, hist_probs)
+            generate_for_city(conn, city_id, city_name, hist_edges, hist_probs, force=args.force)
             if not conn.closed:
                 upsert_ingestion_status(conn, city_id, "synthetic trips", "SUCCESS")
         except Exception as e:

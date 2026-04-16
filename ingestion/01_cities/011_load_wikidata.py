@@ -3,6 +3,7 @@
 Fetches population, website, and an entire deduplicated timeline of historic mayors.
 """
 import sys
+import argparse
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -12,7 +13,7 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status
+from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status, get_ingestion_status
 
 def query_wikidata(sparql_query):
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
@@ -110,6 +111,10 @@ def get_historical_mayors(wikidata_id: str):
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Ingest Wikidata population, website and mayors")
+    parser.add_argument("--force", action="store_true", help="Force re-ingestion of Wikidata even if already SUCCESS")
+    args = parser.parse_args()
+
     load_dotenv()
     
     try:
@@ -135,6 +140,11 @@ def main():
         
         if not wikidata_id:
             print(f"⏭️  Skipping '{city_name}' (No wikidata_id in DB)")
+            continue
+            
+        status_obj = get_ingestion_status(conn, city_id, "wikidata population website and mayors")
+        if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
+            print(f"⏭️  Skipping '{city_name}': Wikidata already ingested. Use --force to override.")
             continue
             
         upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "RUNNING")

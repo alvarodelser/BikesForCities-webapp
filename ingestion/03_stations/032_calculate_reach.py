@@ -7,6 +7,7 @@ at max_distance (default 1 km).  Result is stored in stations.reach_coverage.
 """
 
 import sys
+import argparse
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -14,7 +15,7 @@ from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities,
-    compute_all_reach_coverages, update_station_reach_coverage,
+    compute_all_reach_coverages, update_station_reach_coverage, get_ingestion_status
 )
 from backend.database.db_io.cities import upsert_ingestion_status
 
@@ -23,6 +24,10 @@ MAX_DISTANCE = 1000.0  # metres
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Compute station reachability")
+    parser.add_argument("--force", action="store_true", help="Force re-computation even if already SUCCESS")
+    args = parser.parse_args()
+
     load_dotenv()
 
     try:
@@ -40,6 +45,11 @@ def main():
     print(f"📡 Computing station reachability for {len(cities)} cities…\n")
 
     for city_id, name, *_rest in cities:
+        status_obj = get_ingestion_status(conn, city_id, "compute reach coverage")
+        if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
+            print(f"⏭️  Skipping {name}: reach coverage already computed. Use --force to override.")
+            continue
+            
         upsert_ingestion_status(conn, city_id, "compute reach coverage", "RUNNING")
         try:
             coverages = compute_all_reach_coverages(conn, city_id, MAX_DISTANCE)

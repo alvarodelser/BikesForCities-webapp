@@ -103,6 +103,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-timeout", type=int, default=30, help="HTTP timeout for CityBikes API (seconds).")
     parser.add_argument("--no-history", action="store_true", help="Skip historical parquet ingestion (metadata only).")
     parser.add_argument("--no-metadata", action="store_true", help="Skip realtime metadata upsert (history only).")
+    parser.add_argument("--force", action="store_true", help="Force re-download even if month already ingested.")
     return parser.parse_args()
 
 
@@ -360,7 +361,7 @@ def main() -> None:
                 now = dt.datetime.now(tz=dt.timezone.utc)
                 for year, month in _iter_months(args.start, now):
                     yyyymm = f"{year}{month:02d}"
-                    if yyyymm in ingested_months and _db_month_has_data(conn, network_id, year, month):
+                    if yyyymm in ingested_months and _db_month_has_data(conn, network_id, year, month) and not args.force:
                         continue
                         
                     inserted = _ingest_parquet_month(

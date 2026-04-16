@@ -40,6 +40,7 @@ from backend.database.db_io import (
     connect_db,
     get_or_create_city,
     upsert_ingestion_status,
+    get_ingestion_status,
 )
 
 # ---------------------------------------------------------------------------
@@ -246,14 +247,29 @@ def main():
     upsert_ingestion_status(conn, city_id, data_type, "RUNNING")
     
     try:
+        status_obj = get_ingestion_status(conn, city_id, data_type)
+        details = (status_obj.get("details") or {}) if status_obj else {}
+        processed_years = details.setdefault("processed_years", [])
+        
         years = args.years or sorted(ACCIDENT_URLS.keys())
-        total = 0
+        total = details.get("total_accidents", 0)
+        
         for year in years:
+            if year in processed_years and not args.force:
+                print(f"\n🚜 Skipping year {year}: already processed. Use --force to override.")
+                continue
+
             print(f"\n🚜 Processing accidents for year {year}...")
             n = process_accidents_year(conn, city_id, year, force=args.force)
             total += n
+            
+            if year not in processed_years:
+                processed_years.append(year)
+                
+        details["processed_years"] = processed_years
+        details["total_accidents"] = total
         
-        upsert_ingestion_status(conn, city_id, data_type, "SUCCESS", details={"total_accidents": total, "years": years})
+        upsert_ingestion_status(conn, city_id, data_type, "SUCCESS", details=details)
         print(f"\n🏁 Finished! {total:,} accidents ingested for Madrid.")
         
     except Exception as exc:

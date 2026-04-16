@@ -5,6 +5,7 @@ and parses the fixed-width DAT files to extract parties, votes, and councilors f
 """
 import sys
 import os
+import argparse
 import requests
 import zipfile
 import pandas as pd
@@ -12,7 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status
+from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status, get_ingestion_status
 
 # Current latest election: May 2023
 ELECTION_YEAR = 2023
@@ -145,6 +146,10 @@ def parse_elections(data_dir, cities):
     return pd.DataFrame(parsed_results), pd.DataFrame(parsed_candidates)
 
 def main():
+    parser = argparse.ArgumentParser(description="Ingest Municipal Electoral Data")
+    parser.add_argument("--force", action="store_true", help="Force re-ingestion of Electoral data even if already SUCCESS")
+    args = parser.parse_args()
+
     load_dotenv()
     conn = connect_db()
     
@@ -154,14 +159,29 @@ def main():
         print("❌ No cities found in database.")
         return
         
-    cities = [(r[0], r[1]) for r in db_cities_raw]
+    all_cities = [(r[0], r[1]) for r in db_cities_raw]
+    cities_to_process = []
     
+    if args.force:
+        cities_to_process = all_cities
+    else:
+        for cid, name in all_cities:
+            status_obj = get_ingestion_status(conn, cid, "electoral data")
+            if not (status_obj and status_obj.get("status") == "SUCCESS"):
+                cities_to_process.append((cid, name))
+                
+    if not cities_to_process:
+        print("⏭️  Skipping electoral data: All cities already successfully ingested. Use --force to override.")
+        conn.commit()
+        conn.close()
+        return
+
     try:
-        data_dir = "/tmp/electoral_data"
+        data_dir = str(Path(__file__).resolve().parents[2] / "data" / "electoral_data")
         download_and_extract(URL, data_dir)
         
         print("\n▶️  Processing raw DAT files into analytical format...")
-        df_results, df_candidates = parse_elections(data_dir, cities)
+        df_results, df_candidates = parse_elections(data_dir, cities_to_process)
         
         if df_results.empty:
             print("❌ No results parsed. Exiting.")
@@ -174,7 +194,7 @@ def main():
         # Upsert to DB grouping by City
         for city_id, group in df_results.groupby('city_id'):
             upsert_ingestion_status(conn, city_id, "electoral data", "RUNNING")
-            city_name = next(name for cid, name in cities if cid == city_id)
+            city_name = next(name for cid, name in cities_to_process if cid == city_id)
             print(f"  • Upserting {len(group)} parties for {city_name}...")
             put_city_elections(conn, city_id, group)
             upsert_ingestion_status(conn, city_id, "electoral data", "SUCCESS")
@@ -182,14 +202,14 @@ def main():
         if not df_candidates.empty:
             print(f"✔ Prepared {len(df_candidates)} candidates.")
             for city_id, group in df_candidates.groupby('city_id'):
-                city_name = next(name for cid, name in cities if cid == city_id)
+                city_name = next(name for cid, name in cities_to_process if cid == city_id)
                 print(f"  • Upserting {len(group)} candidates for {city_name}...")
                 put_city_councilors(conn, city_id, group)
                 
         print("\n🏁 Spanish Municipal Electoral Ingestion complete.")
     except Exception as e:
         print(f"❌ Error during electoral ingestion: {e}")
-        for city_id, _ in cities:
+        for city_id, _ in cities_to_process:
             upsert_ingestion_status(conn, city_id, "electoral data", "FAILED")
     finally:
         conn.commit()

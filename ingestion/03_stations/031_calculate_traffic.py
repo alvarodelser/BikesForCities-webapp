@@ -6,6 +6,7 @@ and upserts them into `city_metrics`.
 
 import datetime as dt
 import sys
+import argparse
 from pathlib import Path
 from typing import Tuple
 
@@ -18,7 +19,7 @@ from backend.database.db_io import (
     upsert_station_monthly, upsert_estimated_trips_interval, get_city_months_with_station_data,
     calculate_osm_metrics, get_total_active_stations, upsert_city_metrics
 )
-from backend.database.db_io.cities import upsert_ingestion_status
+from backend.database.db_io.cities import upsert_ingestion_status, get_ingestion_status
 
 def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, period_end: dt.datetime) -> Tuple[float, float]:
     from scipy.special import ive
@@ -251,6 +252,10 @@ def calculate_monthly_metrics(conn, city_id: int, metric_month: dt.datetime, cen
 
 
 def main():
+    parser = argparse.ArgumentParser(description="Calculate cross-domain metrics")
+    parser.add_argument("--force", action="store_true", help="Force re-computation even if month already processed")
+    args = parser.parse_args()
+
     load_dotenv()
 
     try:
@@ -271,6 +276,10 @@ def main():
     for city_id, name, _, _, center_lat, center_lon, _, angle, *rest in cities:
         upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "RUNNING")
         try:
+            status_obj = get_ingestion_status(conn, city_id, "compute est. traffic, station downtime")
+            details = status_obj.get("details", {}) if status_obj else {}
+            processed_months = details.setdefault("processed_months", [])
+
             months = get_city_months_with_station_data(conn, city_id)
             if not months:
                 months = [month_start(dt.datetime.now(dt.timezone.utc))]
@@ -280,12 +289,23 @@ def main():
 
             for m in months:
                 metric_month = month_start(m)
+                month_str = metric_month.strftime("%Y-%m-%d")
+                
+                if month_str in processed_months and not args.force:
+                     print(f"   ⏭️  Skipping {metric_month:%Y-%m}: est. traffic already computed.")
+                     continue
+                     
                 est_trips, total_stations, downtime = calculate_monthly_metrics(conn, city_id, metric_month, center_lat, center_lon, angle)
 
                 print(
                     f"   ✔ {metric_month:%Y-%m} | est trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f} min/day"
                 )
-            upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "SUCCESS")
+                
+                if month_str not in processed_months:
+                     processed_months.append(month_str)
+                     
+            details["processed_months"] = processed_months
+            upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "SUCCESS", details=details)
         except Exception as e:
             upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "FAILED")
             print(f"❌ Error calculating metrics for {name}: {e}")

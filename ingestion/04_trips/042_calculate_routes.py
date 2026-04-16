@@ -134,7 +134,7 @@ def snap_nodes_for_city(
     return updated_total
 
 def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 500,
-                        num_workers: int | None = None, max_distance: float = 150.0):
+                        num_workers: int | None = None, max_distance: float = 150.0, force: bool = False):
     if num_workers is None:
         num_workers = os.cpu_count() or 4
         
@@ -143,6 +143,12 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
     upsert_ingestion_status(conn, city_id, "calculate madrid traffic details:shortest", "RUNNING")
     upsert_ingestion_status(conn, city_id, "compute est. traffic", "RUNNING")
     try:
+        if force:
+            print(f"   ⚠️  Force mode: Re-evaluating ALL routes for {city_name}...")
+            with conn.cursor() as cur:
+                cur.execute("UPDATE routes SET processed = FALSE, origin_node = NULL, dest_node = NULL WHERE city_id = %s AND strategy = 'shortest'", (city_id,))
+            conn.commit()
+
         # Build graph (needed for both snapping and path computation)
         pending_snap_check: int
         with conn.cursor() as cur:
@@ -253,6 +259,7 @@ def main():
     parser.add_argument("--workers", type=int, help="Number of workers (default: CPU count)")
     parser.add_argument("--max-distance", "-d", type=float, default=150.0,
                         help="Max distance (m) to snap trip endpoints to nearest graph node")
+    parser.add_argument("--force", action="store_true", help="Force re-computation of ALL routes (resets processed status)")
     args = parser.parse_args()
 
     try:
@@ -274,7 +281,7 @@ def main():
 
     for city_id, name, *_ in target_cities:
         process_city_routes(conn, city_id, name, batch_size=args.batch,
-                            num_workers=args.workers, max_distance=args.max_distance)
+                            num_workers=args.workers, max_distance=args.max_distance, force=args.force)
 
     print("\n🏁 Phase 2 Route Computation Finished.")
     conn.commit()
