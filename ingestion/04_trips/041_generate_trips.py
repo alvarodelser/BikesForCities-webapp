@@ -313,10 +313,11 @@ def generate_for_city(conn, city_id: int, city_name: str,
         if all_route_rows:
             try:
                 print(f"  💾 Writing transaction for {len(all_route_rows):,} synthetic routes …")
+                BATCH_SIZE = 5_000
                 with conn: # implicit transaction block for the entire month
-                    for i in range(0, len(all_route_rows), 50_000):
-                        batch = all_route_rows[i:i+50_000]
-                        put_routes(conn, batch, commit=False)
+                    for i in range(0, len(all_route_rows), BATCH_SIZE):
+                        batch = all_route_rows[i:i+BATCH_SIZE]
+                        put_routes(conn, batch)
                 
                 # Transaction implicitly commits here.
                 # Now record the success in ingestion_status
@@ -324,7 +325,9 @@ def generate_for_city(conn, city_id: int, city_name: str,
                 details["processed_months"] = processed_months
                 upsert_ingestion_status(conn, city_id, "synthetic trips", "SUCCESS", details)
             except Exception as e:
-                conn.rollback() # Safely discard any failed batch insertions
+                # If the server closed the connection (OperationalError), rollback won't work
+                if not conn.closed:
+                    conn.rollback()
                 upsert_ingestion_status(conn, city_id, "synthetic trips", "FAILED_MONTH", details)
                 print(f"❌ Failed to process month {month_str}: {e}")
             
@@ -350,6 +353,7 @@ def main() -> None:
     cities = get_all_cities(conn)
     if not cities:
         print("❌ No cities found.")
+        conn.commit()
         conn.close()
         return
 
@@ -357,6 +361,7 @@ def main() -> None:
     calib_city = next((c for c in cities if c[1].lower() == args.calibration_city.lower()), None)
     if calib_city is None:
         print(f"❌ Calibration city '{args.calibration_city}' not found.")
+        conn.commit()
         conn.close()
         return
 
@@ -368,6 +373,7 @@ def main() -> None:
         target = [c for c in cities if c[1].lower() == args.city.lower()]
         if not target:
             print(f"❌ City '{args.city}' not found.")
+            conn.commit()
             conn.close()
             return
     else:
@@ -381,12 +387,16 @@ def main() -> None:
         upsert_ingestion_status(conn, city_id, "synthetic trips", "RUNNING")
         try:
             generate_for_city(conn, city_id, city_name, hist_edges, hist_probs)
-            upsert_ingestion_status(conn, city_id, "synthetic trips", "SUCCESS")
+            if not conn.closed:
+                upsert_ingestion_status(conn, city_id, "synthetic trips", "SUCCESS")
         except Exception as e:
-            upsert_ingestion_status(conn, city_id, "synthetic trips", "FAILED")
+            if not conn.closed:
+                upsert_ingestion_status(conn, city_id, "synthetic trips", "FAILED")
             print(f"❌ Error generating trips for {city_name}: {e}")
 
     print("\n🏁 Finished synthetic trip generation.")
+    if not conn.closed:
+        conn.commit()
     conn.close()
 
 

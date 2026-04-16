@@ -262,61 +262,6 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
             }
         }
     }, [trafficData, styleLoaded, selectedMode]);
-    
-    // Reactive event listeners for station popups
-    useEffect(() => {
-        if (!map.current || !styleLoaded) return;
-        const m = map.current;
-        const popup = (m as any)._popup as maplibregl.Popup;
-        if (!popup) return;
-
-        const onMouseEnter = (e: maplibregl.MapLayerMouseEvent) => {
-            m.getCanvas().style.cursor = 'pointer';
-            const features = e.features;
-            if (!features || features.length === 0) return;
-            
-            const coordinates = (features[0].geometry as any).coordinates.slice();
-            const props = features[0].properties!;
-            const name = props.name;
-            const usage = props.usage || 0;
-            const downtime = props.downtime || 0;
-
-            const activeUsages = stations.map(s => (activeMetric === 'trips' ? s.estimated_monthly_trips : s.downtime_minutes) || 0).sort((a,b)=>a-b);
-            const cq5 = activeUsages.length > 0 ? activeUsages[Math.floor(activeUsages.length * 0.05)] : 5;
-            const cq50 = activeUsages.length > 0 ? activeUsages[Math.floor(activeUsages.length * 0.5)] : 20;
-            const cq95 = activeUsages.length > 0 ? activeUsages[Math.floor(activeUsages.length * 0.95)] : 100;
-            
-            const val = activeMetric === 'trips' ? usage : downtime;
-            const unit = activeMetric === 'trips' ? 'Viajes por Mes' : 'minutos sin bicis / día';
-            
-            const color = getMetricColor(val, cq5, cq50, cq95, activeMetric);
-            const textColor = (color === '#042F2E' || color === '#450A0A' || color === '#065F46' || color === '#7F1D1D') ? 'white' : 'black';
-
-            popup.setLngLat(coordinates as [number, number]).setHTML(`
-                <div style="font-family: 'Archivo Narrow', sans-serif; padding: 2px;">
-                    <div style="font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #1a202c; border-bottom: 1px solid rgba(0,0,0,0.05); padding-bottom: 4px;">
-                        ${name}
-                    </div>
-                    <div style="background: ${color}; color: ${textColor}; padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 800; display: inline-block; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                        ${Math.round(val)} <span style="font-size: 10px; font-weight: 500; opacity: 0.9;">${unit}</span>
-                    </div>
-                </div>
-            `).addTo(m);
-        };
-
-        const onMouseLeave = () => {
-            m.getCanvas().style.cursor = '';
-            popup.remove();
-        };
-
-        m.on('mouseenter', 'stations-layer', onMouseEnter);
-        m.on('mouseleave', 'stations-layer', onMouseLeave);
-
-        return () => {
-            m.off('mouseenter', 'stations-layer', onMouseEnter);
-            m.off('mouseleave', 'stations-layer', onMouseLeave);
-        };
-    }, [styleLoaded, activeMetric, stations]);
 
     useEffect(() => {
         if (!mapContainer.current) return;
@@ -449,8 +394,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
                 }
             });
 
-            const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, className: 'station-popup' });
-            (mapInstance as any)._popup = popup; // Store popup in map instance for the and listeners
+
 
             setLoading(false);
             setStyleLoaded(true);

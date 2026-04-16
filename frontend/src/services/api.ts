@@ -7,7 +7,7 @@ export const fetchCities = async (): Promise<CityData[]> => {
     throw new Error('Failed to fetch cities');
   }
   const result = await response.json();
-  
+
   return result.data.map((city: any) => ({
     id: city.id,
     name: city.name,
@@ -53,6 +53,26 @@ export const fetchStations = async (cityId: number): Promise<StationData[]> => {
   return result.data;
 };
 
+export interface HourlyAvailability {
+  hour_of_day: number;
+  avg_bikes: number;
+}
+
+export const fetchStationHourlyAvailability = async (
+  cityId: number,
+  stationId: string,
+  period: string = 'all'
+): Promise<HourlyAvailability[]> => {
+  const response = await fetch(
+    `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/hourly-availability?period=${period}`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch hourly availability');
+  }
+  const result = await response.json();
+  return result.data;
+};
+
 export interface TrafficCount {
   edge_id: number;
   trip_count: number;
@@ -63,6 +83,21 @@ export const fetchTraffic = async (cityId: number): Promise<TrafficCount[]> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic`);
   if (!response.ok) {
     throw new Error('Failed to fetch traffic data');
+  }
+  const result = await response.json();
+  return result.data;
+};
+
+export const fetchStationReach = async (
+  cityId: number,
+  stationId: string,
+  maxDistance: number = 1000
+): Promise<GeoJSON.FeatureCollection> => {
+  const response = await fetch(
+    `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/reach?max_distance=${maxDistance}`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch station reachability');
   }
   const result = await response.json();
   return result.data;

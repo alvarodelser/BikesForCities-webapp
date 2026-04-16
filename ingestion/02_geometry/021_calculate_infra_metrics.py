@@ -70,6 +70,7 @@ def main():
             print(f"❌ Error calculating infrastructure for {name}: {e}")
 
     print("\n🏁 Finished calculating infrastructure coverage.")
+    conn.commit()
     conn.close()
 
 if __name__ == "__main__":

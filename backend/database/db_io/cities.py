@@ -72,7 +72,6 @@ def put_city_modes(conn, city_id: int, modes_dict: dict):
                 modes_dict.get("forum", False),
             ),
         )
-    conn.commit()
 
 
 def update_city_wikidata(
@@ -95,7 +94,6 @@ def update_city_wikidata(
             """,
             (population, website, mayor, mayor_party, city_id),
         )
-    conn.commit()
 
 
 def get_all_cities(conn) -> List[Tuple]:
@@ -249,7 +247,6 @@ def upsert_ingestion_status(
             """,
             (city_id, data_type, status, details_json),
         )
-    conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -287,7 +284,6 @@ def put_historical_mayors(conn, city_id: int, mayors_df: pd.DataFrame):
                 """,
                 args,
             )
-    conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -319,7 +315,6 @@ def put_city_elections(conn, city_id: int, elections_df: pd.DataFrame):
                 """,
                 args,
             )
-    conn.commit()
 
 
 def put_city_councilors(conn, city_id: int, councilors_df: pd.DataFrame):
@@ -347,7 +342,6 @@ def put_city_councilors(conn, city_id: int, councilors_df: pd.DataFrame):
                 """,
                 args,
             )
-    conn.commit()
 
 
 # ---------------------------------------------------------------------------
@@ -394,7 +388,6 @@ def put_city_budgets(
             cur.execute(
                 f"INSERT INTO budget_lines (budget_id, category_name, line_type, amount) VALUES {args_str}"
             )
-    conn.commit()
     return budget_id
 
 

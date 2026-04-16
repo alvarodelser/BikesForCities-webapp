@@ -6,7 +6,7 @@ from typing import List, Tuple, Optional
 from psycopg2.extras import execute_values, RealDictCursor
 
 
-def put_routes(conn, routes: List[Tuple], commit: bool = True) -> dict:
+def put_routes(conn, routes: List[Tuple]) -> dict:
     """Bulk insert routes. Returns mapping id_trip -> route_id.
 
     Tuple layout:
@@ -31,8 +31,6 @@ def put_routes(conn, routes: List[Tuple], commit: bool = True) -> dict:
             [(*r, False) for r in routes],
             fetch=True,
         )
-    if commit:
-        conn.commit()
     return {id_trip: route_id for route_id, id_trip in result}
 
 
@@ -44,7 +42,6 @@ def put_route_edges(conn, route_edge_tuples: List[Tuple[int, int]]):
             "INSERT INTO route_edges (route_id, edge_id) VALUES %s",
             route_edge_tuples,
         )
-    conn.commit()
 
 
 def put_route_edges_with_order(conn, route_edge_tuples: List[Tuple[int, int, int]]):
@@ -55,7 +52,6 @@ def put_route_edges_with_order(conn, route_edge_tuples: List[Tuple[int, int, int
             "INSERT INTO route_edges (route_id, edge_id, edge_order) VALUES %s",
             route_edge_tuples,
         )
-    conn.commit()
 
 
 def get_routes_without_edges(conn, city_id: int, limit: int = 1000) -> List[Tuple]:
@@ -103,7 +99,6 @@ def mark_routes_processed(conn, route_ids: List[int]):
             "UPDATE routes SET processed = TRUE WHERE id = ANY(%s)",
             ([route_ids],),
         )
-    conn.commit()
 
 
 def count_routes(conn, city_id: int) -> int:

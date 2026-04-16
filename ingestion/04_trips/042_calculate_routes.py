@@ -277,6 +277,7 @@ def main():
                             num_workers=args.workers, max_distance=args.max_distance)
 
     print("\n🏁 Phase 2 Route Computation Finished.")
+    conn.commit()
     conn.close()
 
 if __name__ == "__main__":

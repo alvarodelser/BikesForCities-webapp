@@ -27,10 +27,28 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+import os
+
 # Add CORS middleware
+env = os.getenv("ENVIRONMENT", "development")
+
+if env == "production":
+    # Restrict to strictly your Vercel instance
+    origins = [
+        "https://bikesforcities-7wypojwsq-alvarodelsers-projects.vercel.app"
+    ]
+else:
+    # Allow local frontend ports
+    origins = [
+        "http://localhost:5173", 
+        "http://localhost:3000",
+        "127.0.0.1:5173",
+        "*"
+    ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],

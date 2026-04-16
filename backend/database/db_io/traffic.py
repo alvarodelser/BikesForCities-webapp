@@ -31,7 +31,6 @@ def upsert_edge_traffic(
             """,
             records,
         )
-    conn.commit()
 
 
 def upsert_edge_traffic_for_city(
@@ -96,7 +95,6 @@ def upsert_edge_traffic_for_city(
             (city_id,),
         )
 
-    conn.commit()
 
 
 # ---------------------------------------------------------------------------

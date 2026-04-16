@@ -33,7 +33,7 @@ export const MODES: Record<string, ModeConfig> = {
     stations: {
         layer:          StationsLayer,
         legend:         StationsLegend,
-        submodes:       ['trips', 'downtime'],
+        submodes:       ['trips', 'downtime', 'reach'],
         defaultSubmode: 'trips',
     },
     traffic: {

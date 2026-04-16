@@ -64,6 +64,7 @@ def main():
         loaded_count += 1
         
     print(f"\n🏁 Finished loading cities. {loaded_count} loaded, {skipped_count} skipped.")
+    conn.commit()
     conn.close()
 
 if __name__ == "__main__":

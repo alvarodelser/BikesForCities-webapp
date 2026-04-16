@@ -1,0 +1,74 @@
+"""
+032_calculate_reach.py
+Pre-computes station reachability coverage for all cities.
+
+Coverage = area of convex hull of reachable endpoints / area of geodesic circle
+at max_distance (default 1 km).  Result is stored in stations.reach_coverage.
+"""
+
+import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+sys.path.append(str(Path(__file__).resolve().parents[2]))
+from backend.database.db_io import (
+    connect_db, get_all_cities,
+    compute_all_reach_coverages, update_station_reach_coverage,
+)
+from backend.database.db_io.cities import upsert_ingestion_status
+
+
+MAX_DISTANCE = 1000.0  # metres
+
+
+def main():
+    load_dotenv()
+
+    try:
+        conn = connect_db()
+    except Exception as e:
+        print(f"❌ DB Connection failed: {e}")
+        return
+
+    cities = get_all_cities(conn)
+    if not cities:
+        print("❌ No cities found.")
+        conn.close()
+        return
+
+    print(f"📡 Computing station reachability for {len(cities)} cities…\n")
+
+    for city_id, name, *_rest in cities:
+        upsert_ingestion_status(conn, city_id, "compute reach coverage", "RUNNING")
+        try:
+            coverages = compute_all_reach_coverages(conn, city_id, MAX_DISTANCE)
+            if not coverages:
+                print(f"⏭️  {name}: no stations or edges — skipped")
+                upsert_ingestion_status(conn, city_id, "compute reach coverage", "SKIPPED")
+                continue
+
+            update_station_reach_coverage(conn, city_id, coverages)
+            conn.commit()
+
+            vals = list(coverages.values())
+            avg = sum(vals) / len(vals) if vals else 0
+            print(
+                f"   ✔ {name}: {len(coverages)} stations | "
+                f"avg coverage {avg:.1f}% | "
+                f"min {min(vals):.1f}% | max {max(vals):.1f}%"
+            )
+            upsert_ingestion_status(conn, city_id, "compute reach coverage", "SUCCESS")
+        except Exception as e:
+            upsert_ingestion_status(conn, city_id, "compute reach coverage", "FAILED")
+            print(f"❌ Error for {name}: {e}")
+            import traceback
+            traceback.print_exc()
+
+    print("\n🏁 Finished computing reachability for all cities.")
+    conn.commit()
+    conn.close()
+
+
+if __name__ == "__main__":
+    main()

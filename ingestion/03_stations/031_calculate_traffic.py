@@ -48,7 +48,7 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
     MAX_GAP = 3600 
     df['is_valid_interval'] = (df['duration_sec'] > 0) & (df['duration_sec'] <= MAX_GAP)
     
-    df['is_down'] = (df['available_bikes'] <= 3).astype(float)
+    df['is_down'] = (df['available_bikes'] <= 2).astype(float)
     df['valid_duration_sec'] = df['duration_sec'].where(df['is_valid_interval'], 0)
     df['valid_downtime_sec'] = (df['is_down'] * df['duration_sec']).where(df['is_valid_interval'], 0)
     
@@ -262,6 +262,7 @@ def main():
     cities = get_all_cities(conn)
     if not cities:
         print("❌ No cities found.")
+        conn.commit()
         conn.close()
         return
 
@@ -290,6 +291,7 @@ def main():
             print(f"❌ Error calculating metrics for {name}: {e}")
 
     print("\n🏁 Finished calculating all metrics.")
+    conn.commit()
     conn.close()
 
 
