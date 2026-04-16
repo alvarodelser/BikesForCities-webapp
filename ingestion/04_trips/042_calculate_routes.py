@@ -47,91 +47,6 @@ def compute_path_worker(args):
         return None
 
 
-def snap_nodes_for_city(
-    conn,
-    city_id: int,
-    graph: nx.MultiDiGraph,
-    max_distance: float = 150.0,
-    batch_size: int = 5_000,
-) -> int:
-    """
-    For all unprocessed routes where origin_node / dest_node are NULL,
-    snap origin_lat/lon and dest_lat/lon to the nearest graph node.
-    Rows that fall further than *max_distance* (metres) from any node are
-    discarded (marked processed=TRUE with no edge data so they are ignored
-    by downstream steps).
-    Returns the number of rows updated.
-    """
-    updated_total = 0
-    while True:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, origin_lat, origin_lon, dest_lat, dest_lon
-                FROM routes
-                WHERE city_id = %s
-                  AND processed = FALSE
-                  AND origin_node IS NULL
-                  AND origin_lat IS NOT NULL
-                LIMIT %s
-                """,
-                (city_id, batch_size),
-            )
-            rows = cur.fetchall()
-
-        if not rows:
-            break
-
-        to_update: list[tuple] = []   # (origin_node, dest_node, route_id)
-        to_discard: list[int] = []    # route_ids too far from graph
-
-        for route_id, olat, olon, dlat, dlon in rows:
-            try:
-                on = ox.distance.nearest_nodes(graph, olon, olat)
-                dn = ox.distance.nearest_nodes(graph, dlon, dlat)
-
-                # Distance check
-                og = (graph.nodes[on]["x"], graph.nodes[on]["y"])
-                dg = (graph.nodes[dn]["x"], graph.nodes[dn]["y"])
-                d1 = ox.distance.great_circle(olat, olon, og[1], og[0])
-                d2 = ox.distance.great_circle(dlat, dlon, dg[1], dg[0])
-
-                if d1 > max_distance or d2 > max_distance:
-                    to_discard.append(route_id)
-                else:
-                    to_update.append((on, dn, route_id))
-            except Exception:
-                to_discard.append(route_id)
-
-        if to_update:
-            from psycopg2.extras import execute_values
-            with conn.cursor() as cur:
-                execute_values(
-                    cur,
-                    """
-                    UPDATE routes AS r SET
-                        origin_node = v.origin_node,
-                        dest_node   = v.dest_node
-                    FROM (VALUES %s) AS v(origin_node, dest_node, id)
-                    WHERE r.id = v.id
-                    """,
-                    to_update,
-                    template="(%s::bigint, %s::bigint, %s::int)",
-                )
-
-        if to_discard:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE routes SET processed = TRUE WHERE id = ANY(%s)",
-                    (to_discard,),
-                )
-
-        conn.commit()
-        updated_total += len(to_update) + len(to_discard)
-        print(f"   📍 Snapped {len(to_update):,} routes, "
-              f"discarded {len(to_discard):,} (too far)")
-
-    return updated_total
 
 def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 500,
                         num_workers: int | None = None, max_distance: float = 150.0, force: bool = False):
@@ -149,22 +64,7 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
                 cur.execute("UPDATE routes SET processed = FALSE, origin_node = NULL, dest_node = NULL WHERE city_id = %s AND strategy = 'shortest'", (city_id,))
             conn.commit()
 
-        # Build graph (needed for both snapping and path computation)
-        pending_snap_check: int
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT COUNT(*) FROM routes WHERE city_id=%s AND processed=FALSE AND origin_node IS NULL",
-                (city_id,)
-            )
-            pending_snap_check = cur.fetchone()[0]
-
         graph: nx.MultiDiGraph | None = None
-        if pending_snap_check > 0:
-            print(f"   📍 {pending_snap_check:,} routes need node snapping. Building graph...")
-            graph = build_graph(conn, city_id)
-            snapped = snap_nodes_for_city(conn, city_id, graph,
-                                          max_distance=max_distance)
-            print(f"   ✅ Snapping complete ({snapped:,} rows processed)")
         
         # Check current count of unprocessed routes (with nodes filled)
         pending = count_unprocessed_routes(conn, city_id)

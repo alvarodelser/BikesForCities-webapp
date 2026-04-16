@@ -11,8 +11,7 @@ def put_routes(conn, routes: List[Tuple]) -> dict:
 
     Tuple layout:
         (city_id, id_trip, origin_node, dest_node, strategy, trip_minutes,
-         datetime_unlock, id_bike, origin_lat, origin_lon, dest_lat, dest_lon,
-         datetime_lock)
+         datetime_unlock, id_bike, datetime_lock)
     """
     with conn.cursor() as cur:
         result = execute_values(
@@ -21,7 +20,6 @@ def put_routes(conn, routes: List[Tuple]) -> dict:
             INSERT INTO routes (
                 city_id, id_trip, origin_node, dest_node, strategy,
                 trip_minutes, datetime_unlock, id_bike,
-                origin_lat, origin_lon, dest_lat, dest_lon,
                 datetime_lock, processed
             )
             VALUES %s

@@ -164,7 +164,9 @@ CREATE TABLE IF NOT EXISTS routes (
     strategy TEXT NOT NULL,              -- e.g., 'shortest', 'fastest', 'scenic'
     trip_minutes DOUBLE PRECISION,
     datetime_unlock TIMESTAMP,
+    datetime_lock TIMESTAMP,
     id_bike BIGINT,
+    processed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()   -- optional audit
 );
 

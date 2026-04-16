@@ -318,10 +318,8 @@ def generate_for_city(conn, city_id: int, city_name: str,
                 
                 all_route_rows.append(
                     (city_id, trip_id, origin_node, dest_node, "station-based synthetic", None, 
-                     ts, None, float(o_lat), float(o_lon), float(d_lat), float(d_lon), None)
+                     ts, None, None)
                 )
-                # Instead of immediate batching, we just collect them all in memory 
-                # (1.5M rows is easily kept in python memory, we batch only the DB insertions below)
 
         print(f"     {month}: {len(month_trips)} OD pairs → {sum(t[2] for t in month_trips):,} synthetic trips")
         

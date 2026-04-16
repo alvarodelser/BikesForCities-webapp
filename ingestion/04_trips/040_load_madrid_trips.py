@@ -98,69 +98,48 @@ def _detect_month(filename: str) -> Optional[int]:
     for p in parts:
         if p.isdigit() and 1 <= int(p) <= 12: return int(p)
         if p in months_map: return months_map[p]
-    return None
-
-
-def _build_station_map(conn, city_id: int) -> dict:
-    """Creates a dictionary mapping BiciMAD's internal uid to [lon, lat] from our CityBikes database."""
-    with conn.cursor() as cur:
-        cur.execute("SELECT extra->>'uid', lon, lat FROM stations WHERE city_id = %s AND extra->>'uid' IS NOT NULL", (city_id,))
-        return {str(row[0]): [float(row[1]), float(row[2])] for row in cur.fetchall()}
-
-
-def _trips_from_json_record(record: dict, station_map: dict = None) -> Optional[dict]:
+def _extract_stations_from_json(content: str) -> dict:
+    """Parses a BiciMAD station JSON dump and returns a map of {id: [lon, lat]}"""
+    station_map = {}
     try:
-        station_map = station_map or {}
-        # Schema agnostic mapping
-        tid = str(record.get("_id", record.get("idTrip", record.get("trip_id", ""))))
-        # Support MongoDB OID dict
-        if isinstance(record.get("_id"), dict): tid = str(record.get("_id").get("$oid", ""))
-
-        bid = record.get("idBike", record.get("bike_id", record.get("idbike", "")))
-        dur = record.get("travel_time", record.get("duration", record.get("total_duration_ms")))
-        if dur and float(dur) > 100000.0: dur = float(dur) / 1000.0 # ms to s
-
-        udt = record.get("unplug_hourTime", record.get("unlock_date", record.get("unplug_date")))
-        if isinstance(udt, dict): udt = udt.get("$date", "")
-        
-        gu = record.get("geolocation_unlock", record.get("unlock_station_location", record.get("unlock_location")))
-        gl = record.get("geolocation_lock", record.get("lock_station_location", record.get("lock_location")))
-
-        # Fallback to DB station mappings if coordinates are completely missing (e.g., 2017-2018 datasets)
-        if gu is None or gl is None:
-            id_u = str(record.get("idunplug_station", record.get("unlock_station_name", "")))
-            id_l = str(record.get("idplug_station", record.get("lock_station_name", "")))
-            if id_u in station_map: gu = station_map[id_u]
-            if id_l in station_map: gl = station_map[id_l]
-
-        if not tid or gu is None or gl is None: return None
-
-        def _coords(g):
-            if isinstance(g, dict):
-                if "coordinates" in g: return g["coordinates"]
-                if "lon" in g and "lat" in g: return [g["lon"], g["lat"]]
-                if "$numberDouble" in str(g): return [0.0, 0.0]
-            return g if isinstance(g, list) and len(g) >= 2 else [None, None]
-
-        cu, cl = _coords(gu), _coords(gl)
-        if None in cu or None in cl: return None
-
-        return {
-            "idTrip": tid, "idBike": bid, "trip_minutes": float(dur)/60.0 if dur else None,
-            "unlock_date": udt, "lock_date": record.get("lock_date", record.get("datetime_lock")),
-            "geolocation_unlock": json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]}),
-            "geolocation_lock": json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]}),
-        }
-    except Exception as e:
-        return None
+        data = json.loads(content)
+        records = data.get("data", data.get("stations", data)) if isinstance(data, dict) else data
+        for rec in records:
+            s_id = str(rec.get("id", rec.get("id_station", rec.get("_id", ""))))
+            geom = rec.get("geometry", {})
+            if isinstance(geom, dict) and "coordinates" in geom:
+                station_map[s_id] = [float(geom["coordinates"][0]), float(geom["coordinates"][1])]
+            elif "latitude" in rec and "longitude" in rec:
+                station_map[s_id] = [float(rec["longitude"]), float(rec["latitude"])]
+    except Exception:
+        pass
+    return station_map
 
 
 def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, force: bool = False) -> int:
     written = 0
-    for member in sorted(zf.namelist()):
+    members = sorted(zf.namelist())
+    
+    # Pre-process: look for station metadata files FIRST to build the coordinate map for this year
+    for member in members:
+        if "__MACOSX" in member: continue
+        if member.lower().endswith(".zip") and "station" in member.lower():
+            try:
+                with zf.open(member) as nf:
+                    with zipfile.ZipFile(io.BytesIO(nf.read())) as nzf:
+                        for sub_member in nzf.namelist():
+                            if sub_member.lower().endswith(".json"):
+                                content = nzf.read(sub_member).decode("utf-8", errors="replace")
+                                station_map.update(_extract_stations_from_json(content))
+            except Exception: pass
+        elif member.lower().endswith(".json") and "station" in member.lower():
+            content = zf.read(member).decode("utf-8", errors="replace")
+            station_map.update(_extract_stations_from_json(content))
+
+    for member in members:
         if "__MACOSX" in member: continue
         
-        if member.lower().endswith(".zip"):
+        if member.lower().endswith(".zip") and "station" not in member.lower():
             print(f"     📦 Nested ZIP: {member}")
             try:
                 with zf.open(member) as nf:
@@ -171,7 +150,7 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
 
         is_json, is_csv = member.lower().endswith(".json"), member.lower().endswith(".csv")
         if not (is_json or is_csv): continue
-        if "station" in member.lower(): continue # Ignore the metadata files
+        if "station" in member.lower(): continue # Already parsed for metadata
         
         month = _detect_month(member) or _detect_month(str(Path(member).parent))
         if month is None:
@@ -194,7 +173,7 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                     
                     rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
                     if not rows and recs:
-                        print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())}")
+                        print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())[:10]}")
                 else:
                     df = pd.read_csv(f, sep=None, engine="python", on_bad_lines="skip")
                     df.to_csv(csv_path, sep=";", index=False)
@@ -207,7 +186,7 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
     return written
 
 
-def ensure_data_present(conn, year: int, city_id: int, force: bool = False) -> int:
+def ensure_data_present(year: int, force: bool = False) -> int:
     url = HISTORICAL_URLS.get(year)
     if not url: return 0
     year_short = str(year)[2:]
@@ -215,7 +194,9 @@ def ensure_data_present(conn, year: int, city_id: int, force: bool = False) -> i
 
     print(f"\n📦 Fetching BiciMAD {year} dataset...")
     raw = _download(url, f"BiciMAD {year}")
-    station_map = _build_station_map(conn, city_id)
+    
+    # We build the station map entirely from within the BiciMAD zip files, not the DB
+    station_map = {}
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         return _process_archive(zf, year_short, station_map, force)
 
@@ -235,55 +216,83 @@ def _load_csv(path: Path) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
-def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str) -> int:
-    from psycopg2.extras import execute_values
+def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph) -> int:
+    from backend.database.db_io.routes import put_routes
+    import osmnx as ox
+    
     rows_inserted = 0
     batch = []
+    
+    # We can use osmnx vectorized nearest nodes for incredible speed boost
+    lons_u, lats_u = zip(*df["geolocation_unlock"].tolist())
+    lons_l, lats_l = zip(*df["geolocation_lock"].tolist())
+    
+    print(f"     🗺️  Snapping {len(df):,} trips to graph nodes...")
+    nodes_u = ox.distance.nearest_nodes(graph, X=lons_u, Y=lats_u)
+    nodes_l = ox.distance.nearest_nodes(graph, X=lons_l, Y=lats_l)
+
     pbar = tqdm(range(len(df)), desc=f"Inserting {fname}", unit="trips")
     for idx in pbar:
         row = df.iloc[idx]
-        lon_u, lat_u = row["geolocation_unlock"]
-        lon_l, lat_l = row["geolocation_lock"]
+        nu, nl = nodes_u[idx], nodes_l[idx]
+        
+        # Verify distance (optional safety mechanism)
+        gu = (graph.nodes[nu]['x'], graph.nodes[nu]['y'])
+        gl = (graph.nodes[nl]['x'], graph.nodes[nl]['y'])
+        d1 = ox.distance.great_circle(lats_u[idx], lons_u[idx], gu[1], gu[0])
+        d2 = ox.distance.great_circle(lats_l[idx], lons_l[idx], gl[1], gl[0])
+        if d1 > 150.0 or d2 > 150.0:
+            continue
+            
         batch.append((
-            city_id, str(row["idTrip"]), None, None, "shortest",
+            city_id, str(row["idTrip"]), int(nu), int(nl), "shortest",
             float(row["trip_minutes"]) if pd.notna(row["trip_minutes"]) else None,
             row["unlock_date"], int(row["idBike"]) if pd.notna(row["idBike"]) else None,
-            lat_u, lon_u, lat_l, lon_l, row.get("lock_date"), False
+            row.get("lock_date")
         ))
+        
         if len(batch) >= BATCH_SIZE:
-            with conn.cursor() as cur:
-                execute_values(cur, """
-                    INSERT INTO routes (city_id, id_trip, origin_node, dest_node, strategy, trip_minutes, datetime_unlock, id_bike, origin_lat, origin_lon, dest_lat, dest_lon, datetime_lock, processed)
-                    VALUES %s ON CONFLICT (id_trip) DO NOTHING
-                """, batch)
-            conn.commit(); rows_inserted += len(batch); batch.clear()
+            put_routes(conn, batch)
+            rows_inserted += len(batch)
+            batch.clear()
             pbar.set_postfix({"inserted": f"{rows_inserted:,}"})
+            
     if batch:
-        with conn.cursor() as cur:
-            execute_values(cur, "INSERT INTO routes (...) VALUES %s ON CONFLICT (id_trip) DO NOTHING", batch)
-        conn.commit(); rows_inserted += len(batch)
-    pbar.close(); return rows_inserted
+        put_routes(conn, batch)
+        rows_inserted += len(batch)
+        
+    pbar.close()
+    return rows_inserted
 
 
 def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False) -> int:
+    from backend.processing.city_ops import build_graph
+    
     csv_files = list_trip_csvs("Madrid")
     processed = 0
+    if not csv_files: return processed
+    
+    print(f"\n🌐 Loading OSM Graph for Madrid to snap coordinates to nodes...")
+    graph = build_graph(conn, city_id)
+    
     for f in csv_files:
         if f.name in done_files: continue
         print(f"\n📂 Ingesting {f.name}")
         df = _load_csv(f)
-        _insert_trips(conn, city_id, df, f.name)
-        on_file_done(f.name); processed += 1
+        _insert_trips(conn, city_id, df, f.name, graph)
+        on_file_done(f.name)
+        processed += 1
+        conn.commit()
         if single_file: break
     return processed
 
 
 def main():
     load_dotenv()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--years", nargs="+", type=int)
-    parser.add_argument("--force", action="store_true")
-    parser.add_argument("--single-file", action="store_true")
+    parser = argparse.ArgumentParser(description="Unified Madrid trip downloader and loader")
+    parser.add_argument("--years", nargs="+", type=int, choices=sorted(HISTORICAL_URLS.keys()), help="Years to download")
+    parser.add_argument("--force", action="store_true", help="Force re-download")
+    parser.add_argument("--single-file", action="store_true", help="Process only one file")
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -295,10 +304,13 @@ def main():
         status_obj = get_ingestion_status(conn, city_id, dtype)
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
-
+        
         years = args.years or sorted(HISTORICAL_URLS.keys())
-        for year in years: ensure_data_present(conn, year, city_id, force=args.force)
+        for year in years:
+            ensure_data_present(year, force=args.force)
 
+        print("\n🏁 Finished downloading BiciMAD trips.")
+        
         def on_file_done(fn):
             done_files.add(fn); details["done_files"] = list(done_files)
             upsert_ingestion_status(conn, city_id, dtype, "RUNNING", details=details); conn.commit()
@@ -308,8 +320,11 @@ def main():
         print(f"\n🏁 Finished! {n} files ingested.")
     except Exception as e:
         upsert_ingestion_status(conn, city_id, dtype, "FAILED")
-        print(f"❌ {e}"); raise
-    finally: conn.close()
+        print(f"❌ {e}")
+        raise
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     main()
+
