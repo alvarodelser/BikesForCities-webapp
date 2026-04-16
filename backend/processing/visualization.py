@@ -20,9 +20,10 @@ from matplotlib.patches import FancyArrowPatch, Circle
 import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 
-from backend.database.city_io import (
+from backend.database.db_io import (
     get_all_cities, count_nodes, count_edges, count_routes,
-    get_features, get_city_center
+    get_features, get_city_center, get_city_bounds,
+    get_highway_distribution, get_route_stats
 )
 from .city_ops import build_graph
 
@@ -48,7 +49,8 @@ def plot_network_overview(conn, save_path: Optional[str] = None) -> None:
     
     # Prepare data for plotting
     network_data = []
-    for city_id, city_name, description in cities:
+    for row in cities:
+        city_id, city_name, description, *_ = row
         nodes = count_nodes(conn, city_id)
         edges = count_edges(conn, city_id)
         routes = count_routes(conn, city_id)
@@ -197,16 +199,7 @@ def plot_highway_distribution(conn, city_id: int, figsize: Tuple[int, int] = (12
         save_path: If provided, save plot to this path instead of showing
     """
     # Get highway type distribution
-    with conn.cursor() as cur:
-        cur.execute("""
-            SELECT highway, COUNT(*) as count
-            FROM edges 
-            WHERE city_id = %s 
-            GROUP BY highway 
-            ORDER BY count DESC
-            LIMIT 15
-        """, (city_id,))
-        highway_data = cur.fetchall()
+    highway_data = get_highway_distribution(conn, city_id, limit=15)
     
     if not highway_data:
         print("❌ No highway data found")
@@ -265,7 +258,8 @@ def print_network_stats(conn, city_id: Optional[int] = None) -> None:
     print("NETWORK STATISTICS")
     print("=" * 80)
     
-    for net_id, net_name, description in cities:
+    for row in cities:
+        net_id, net_name, description, *_ = row
         print(f"\n🏙️  {net_name} (ID: {net_id})")
         if description:
             print(f"   Description: {description}")
@@ -280,38 +274,18 @@ def print_network_stats(conn, city_id: Optional[int] = None) -> None:
         print(f"   📊 Routes: {routes:,}")
         
         # Geographic bounds
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    MIN(lat) as min_lat, MAX(lat) as max_lat,
-                    MIN(lon) as min_lon, MAX(lon) as max_lon
-                FROM nodes 
-                WHERE city_id = %s
-            """, (net_id,))
-            bounds = cur.fetchone()
-            
-            if bounds and all(b is not None for b in bounds):
-                print(f"   🌍 Bounds: {bounds[0]:.6f}°N to {bounds[1]:.6f}°N, "
-                      f"{bounds[2]:.6f}°E to {bounds[3]:.6f}°E")
+        bounds_dict = get_city_bounds(conn, net_id)
+        if bounds_dict:
+            print(f"   🌍 Bounds: {bounds_dict['min_lat']:.6f}°N to {bounds_dict['max_lat']:.6f}°N, "
+                  f"{bounds_dict['min_lon']:.6f}°E to {bounds_dict['max_lon']:.6f}°E")
         
         # Route statistics
         if routes > 0:
-            with conn.cursor() as cur:
-                cur.execute("""
-                    SELECT 
-                        AVG(trip_minutes) as avg_duration,
-                        MIN(trip_minutes) as min_duration,
-                        MAX(trip_minutes) as max_duration,
-                        COUNT(DISTINCT id_bike) as unique_bikes
-                    FROM routes 
-                    WHERE city_id = %s
-                """, (net_id,))
-                route_stats = cur.fetchone()
-                
-                if route_stats:
-                    print(f"   🚴 Avg trip duration: {route_stats[0]:.1f} minutes")
-                    print(f"   🚴 Trip duration range: {route_stats[1]:.1f} - {route_stats[2]:.1f} minutes")
-                    print(f"   🚴 Unique bikes: {route_stats[3]:,}")
+            route_stats = get_route_stats(conn, net_id)
+            if route_stats:
+                print(f"   🚴 Avg trip duration: {route_stats['avg_duration']:.1f} minutes")
+                print(f"   🚴 Trip duration range: {route_stats['min_duration']:.1f} - {route_stats['max_duration']:.1f} minutes")
+                print(f"   🚴 Unique bikes: {route_stats['unique_bikes']:,}")
     
     print("\n" + "=" * 80)
 

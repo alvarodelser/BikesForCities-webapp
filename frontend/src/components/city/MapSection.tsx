@@ -1,57 +1,79 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { getModeStats } from '../../constants/cityStats';
+import { useMapState } from '../../hooks/useMapState';
 import MapFilters from './MapFilters';
 import CityMap from './CityMap';
 import CityStats from './CityStats';
 
+const modeNames: Record<string, string> = {
+    'infrastructure': 'Infraestructura',
+    'traffic':        'Tráfico',
+    'stations':       'Estaciones',
+    'terrain':        'Terreno',
+    'intersections':  'Intersecciones',
+    'accidents':      'Accidentes',
+};
+
+const modeColors: Record<string, string> = {
+    'infrastructure': 'var(--blue)',
+    'traffic':        'var(--red)',
+    'stations':       'var(--green)',
+    'terrain':        'var(--orange)',
+    'intersections':  'var(--yellow)',
+    'accidents':      'var(--red)',
+};
+
 interface MapSectionProps {
-  city: CityData;
+    city: CityData;
 }
 
 const MapSection: React.FC<MapSectionProps> = ({ city }) => {
-  const [selectedMode, setSelectedMode] = useState<string>('traffic');
+    const { mode, setMode } = useMapState();
+    const [,setSearchParams] = useSearchParams();
 
-  // Define the mode colors (matching MapFilters)
-  const modeColors: Record<string, string> = {
-    'traffic': 'var(--red)',
-    'stations': 'var(--green)', 
-    'network': 'var(--blue)',
-    'topography': 'var(--orange)',
-    'usage': 'var(--yellow)',
-    'demographics': 'var(--blue-dark)'
-  };
+    const isModeAvailable = (m: string | null): boolean => {
+        if (!m) return false;
+        if (m === 'infrastructure') return true;
+        if (!modeNames[m]) return false;
+        if (city.available_modes) return city.available_modes[m] === true;
+        if (m === 'stations') return (city.stations_count || 0) > 0;
+        return false;
+    };
 
-  // Get the stats data for the selected mode
-  const modeStats = getModeStats(selectedMode, city);
-  const title = `${selectedMode.charAt(0).toUpperCase() + selectedMode.slice(1).replace('-', ' ')} Statistics`;
-  const subtitle = `Detailed analytics for ${city.name}'s ${selectedMode.replace('-', ' ')} data`;
-  const selectedColor = modeColors[selectedMode] || 'var(--blue)';
+    // Redirect to infrastructure if the mode param is invalid for this city
+    useEffect(() => {
+        if (!isModeAvailable(mode)) {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set('mode', 'infrastructure');
+                next.delete('submode');
+                return next;
+            }, { replace: true });
+        }
+    }, [mode, city.id]);
 
-  return (
-    <div className="w-full">
-      {/* Map Filters */}
-      <MapFilters 
-        city={city} 
-        selectedMode={selectedMode} 
-        onModeChange={setSelectedMode} 
-      />
-      
-      {/* Map */}
-      <CityMap 
-        city={city} 
-        selectedMode={selectedMode}
-        selectedColor={selectedColor}
-      />
-      
-      {/* Statistics */}
-      <CityStats 
-        title={title}
-        subtitle={subtitle}
-        modeStats={modeStats}
-      />
-    </div>
-  );
+    const selectedColor = modeColors[mode] || 'var(--blue)';
+    const modeStats = getModeStats(mode, city);
+    const modeName  = modeNames[mode] || mode;
+    const title    = `Estadísticas de ${modeName}`;
+    const subtitle = `Análisis detallado de datos de ${modeName.toLowerCase()} en ${city.name}`;
+
+    return (
+        <div className="w-full">
+            <MapFilters
+                city={city}
+                selectedMode={mode}
+                onModeChange={(newMode) => setMode(newMode)}
+                isModeAvailable={isModeAvailable}
+            />
+
+            <CityMap city={city} selectedColor={selectedColor} />
+
+            <CityStats title={title} subtitle={subtitle} modeStats={modeStats} />
+        </div>
+    );
 };
 
-export default MapSection; 
+export default MapSection;

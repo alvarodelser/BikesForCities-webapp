@@ -8,13 +8,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Add project root to python path to import backend
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from backend.database.city_io import connect_db, get_or_create_city, put_city_modes
+from backend.database.db_io import connect_db, get_or_create_city, put_city_modes, upsert_ingestion_status
 
 load_dotenv()
 
-SPAIN_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "spain_data.json"
+SPAIN_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "spain_data.json"
 
 def main():
     if not SPAIN_DATA_PATH.exists():
@@ -43,7 +43,7 @@ def main():
             center_lat=city_info.get("latitude"),
             center_lon=city_info.get("longitude"),
             angle=city_info.get("angle", 0.0),
-            radius=15000, # default distance
+            radius=20000, # default distance
             wikidata_id=city_info.get("wikidata_id")
         )
         
@@ -59,6 +59,7 @@ def main():
         }
         
         put_city_modes(conn, city_id, modes_dict)
+        upsert_ingestion_status(conn, city_id, "initial load", "SUCCESS")
         print(f"✅ Loaded {city_key} (ID: {city_id}, WD: {city_info.get('wikidata_id', 'None')}) with modes: {modes_list}")
         loaded_count += 1
         

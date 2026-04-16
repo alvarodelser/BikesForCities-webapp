@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import Link from "../ui/Link";
 import ScrollableCityList from "../landing/ScrollableCityList";
-import logoImage from '../../assets/logo.svg';
+import B4CLogo from '../ui/B4CLogo';
 import type { CityData } from "../../constants/cities";
 import { fetchCities } from "../../services/api";
 
@@ -16,41 +16,91 @@ const navLinks = [
   { name: "Compara", to: "/compare" },
   { name: "Acerca de", to: "/about" },
 ];
+
 const Navbar: React.FC<NavbarProps> = () => {
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const currentMode = searchParams.get('mode');
+
   const [showCities, setShowCities] = useState(false);
   const [cities, setCities] = useState<CityData[]>([]);
+  const [scrolled, setScrolled] = useState(false);
 
   React.useEffect(() => {
     fetchCities().then(data => setCities(data)).catch(console.error);
   }, []);
 
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 60);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // set initial state
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (showCities) {
+      timerRef.current = setTimeout(() => {
+        setShowCities(false);
+      }, 2000);
+    }
+  };
+
   return (
-    <div className="fixed top-6 left-0 right-0 z-50 flex justify-center w-full pointer-events-none px-4">
-      <nav 
-        className={`pointer-events-auto bg-[var(--cream)]/85 backdrop-blur-md shadow-lg transition-all duration-500 ease-in-out flex flex-col items-center overflow-hidden border border-black/5 rounded-[32px] w-full
-          ${showCities ? 'max-w-[1400px]' : 'max-w-[800px]'}
+    <div
+      className={`fixed left-0 right-0 z-[2000] flex justify-center w-full pointer-events-none transition-all duration-500 ease-in-out
+        ${scrolled ? 'top-6 px-4' : 'top-0 px-0'}
+      `}
+    >
+      <nav
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`pointer-events-auto backdrop-blur-md shadow-lg transition-all duration-500 ease-in-out flex flex-col items-center overflow-hidden border w-full
+          ${scrolled
+            ? 'bg-[var(--cream)]/85 border-black/5 rounded-[32px] max-w-[800px]'
+            : 'bg-[var(--cream)]/95 border-black/5 rounded-none max-w-full'
+          }
         `}
       >
-        {/* Main navigation row - Fixed width based on content */}
-        <div className="flex items-center justify-between h-[60px] px-8 gap-8 md:gap-16 w-max shrink-0">
+        {/* Main navigation row */}
+        <div
+          className={`flex items-center justify-between px-8 gap-8 md:gap-16 w-full transition-all duration-500
+              ${scrolled ? 'h-[60px] max-w-[800px]' : 'h-[72px] max-w-full'}
+            `}
+        >
           {/* Left: Logo */}
-          <Link to="/" className="h-[28px] flex items-center shrink-0">
-            <img src={logoImage} alt="BikesForCities Logo" className="h-[28px] object-contain" />
+          <Link to="/" onClick={() => setShowCities(false)} className="flex items-center shrink-0 group">
+            <B4CLogo
+              className={`object-contain transition-all duration-500 text-black group-hover:text-[var(--green)] ${scrolled ? 'h-[28px]' : 'h-[34px]'}`}
+            />
           </Link>
 
           {/* Right: Navigation Links */}
           <div className="flex items-center gap-6 md:gap-10 shrink-0">
             <Link
               to="/"
-              className={`text-sm font-[800] transition-colors ${location.pathname === '/' ? 'text-[var(--green)]' : ''}`}
+              onClick={() => setShowCities(false)}
+              className={`font-[800] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${location.pathname === '/' ? 'text-[var(--green)]' : ''}`}
             >
               Inicio
             </Link>
 
             <Link
               onClick={() => setShowCities(!showCities)}
-              className={`text-sm font-[800] flex items-center gap-[2px] transition-colors ${showCities ? 'text-[var(--green)]' : ''}`}
+              className={`font-[800] flex items-center gap-[2px] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${showCities ? 'text-[var(--green)]' : ''}`}
             >
               Ciudades
               {showCities ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -62,7 +112,8 @@ const Navbar: React.FC<NavbarProps> = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className={`text-sm font-[800] transition-colors ${isActive ? 'text-[var(--green)]' : ''}`}
+                  onClick={() => setShowCities(false)}
+                  className={`font-[800] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${isActive ? 'text-[var(--green)]' : ''}`}
                 >
                   {link.name}
                 </Link>
@@ -77,12 +128,13 @@ const Navbar: React.FC<NavbarProps> = () => {
             ${showCities ? 'max-h-[80px] opacity-100 border-t border-black/5' : 'max-h-0 opacity-0'}
           `}
         >
-          <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-[1400px]">
+          <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-[800px]">
             <ScrollableCityList show={showCities}>
               {cities.map((city) => (
                 <Link
                   key={city.path}
-                  to={city.path}
+                  to={currentMode ? `${city.path}?mode=${currentMode}` : city.path}
+                  onClick={() => setShowCities(false)}
                   className="text-xs font-[500] whitespace-nowrap snap-start px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors"
                 >
                   {city.name}

@@ -10,5 +10,11 @@ export interface CityData {
   budget: number;
   cyclingNetwork: number;
   coverage: number;
+  mayor?: string;
+  mayor_party?: string;
+  service_name?: string;
+  stations_count?: number;
+  monthly_trips?: number;
+  available_modes?: Record<string, boolean>;
   angle?: number;
 }

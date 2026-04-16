@@ -12,7 +12,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-from backend.database.city_io import connect_db, get_all_cities, put_city_elections, put_city_councilors
+from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status
 
 # Current latest election: May 2023
 ELECTION_YEAR = 2023
@@ -156,34 +156,42 @@ def main():
         
     cities = [(r[0], r[1]) for r in db_cities_raw]
     
-    data_dir = "/tmp/electoral_data"
-    download_and_extract(URL, data_dir)
-    
-    print("\n▶️  Processing raw DAT files into analytical format...")
-    df_results, df_candidates = parse_elections(data_dir, cities)
-    
-    if df_results.empty:
-        print("❌ No results parsed. Exiting.")
-        conn.close()
-        return
+    try:
+        data_dir = "/tmp/electoral_data"
+        download_and_extract(URL, data_dir)
         
-    print(f"✔ Prepared {len(df_results)} electoral rows.")
-    
-    # Upsert to DB grouping by City
-    for city_id, group in df_results.groupby('city_id'):
-        city_name = next(name for cid, name in cities if cid == city_id)
-        print(f"  • Upserting {len(group)} parties for {city_name}...")
-        put_city_elections(conn, city_id, group)
+        print("\n▶️  Processing raw DAT files into analytical format...")
+        df_results, df_candidates = parse_elections(data_dir, cities)
         
-    if not df_candidates.empty:
-        print(f"✔ Prepared {len(df_candidates)} candidates.")
-        for city_id, group in df_candidates.groupby('city_id'):
-            city_name = next(name for cid, name in cities if cid == city_id)
-            print(f"  • Upserting {len(group)} candidates for {city_name}...")
-            put_city_councilors(conn, city_id, group)
+        if df_results.empty:
+            print("❌ No results parsed. Exiting.")
+            conn.close()
+            return
             
-    print("\n🏁 Spanish Municipal Electoral Ingestion complete.")
-    conn.close()
+        print(f"✔ Prepared {len(df_results)} electoral rows.")
+        
+        # Upsert to DB grouping by City
+        for city_id, group in df_results.groupby('city_id'):
+            upsert_ingestion_status(conn, city_id, "electoral data", "RUNNING")
+            city_name = next(name for cid, name in cities if cid == city_id)
+            print(f"  • Upserting {len(group)} parties for {city_name}...")
+            put_city_elections(conn, city_id, group)
+            upsert_ingestion_status(conn, city_id, "electoral data", "SUCCESS")
+            
+        if not df_candidates.empty:
+            print(f"✔ Prepared {len(df_candidates)} candidates.")
+            for city_id, group in df_candidates.groupby('city_id'):
+                city_name = next(name for cid, name in cities if cid == city_id)
+                print(f"  • Upserting {len(group)} candidates for {city_name}...")
+                put_city_councilors(conn, city_id, group)
+                
+        print("\n🏁 Spanish Municipal Electoral Ingestion complete.")
+    except Exception as e:
+        print(f"❌ Error during electoral ingestion: {e}")
+        for city_id, _ in cities:
+            upsert_ingestion_status(conn, city_id, "electoral data", "FAILED")
+    finally:
+        conn.close()
 
 if __name__ == "__main__":
     main()

@@ -1,91 +1,170 @@
-import React, { useRef } from 'react';
+import React, { useState } from 'react';
 import type { CityData } from '../../constants/cities';
-import type { CityCanvasHandle } from './CityCanvas';
-import CityCanvas from './CityCanvas';
-import MapLegend from './MapLegend';
+import CityCanvas from './map/CityCanvas';
+import CityLegend from './map/CityLegend';
 import MapControls from './MapControls';
+import { ThresholdsContext } from './map/ThresholdsContext';
+import type { Thresholds } from './map/ThresholdsContext';
 import { MapPin } from 'lucide-react';
+import { MapContext, type MapContextValue } from './map/MapContext';
+import maplibregl from 'maplibre-gl';
+import { useCallback } from 'react';
+import { useMapState } from '../../hooks/useMapState';
 
 interface CityMapProps {
-  city: CityData;
-  selectedMode: string;
-  selectedColor?: string;
+    city: CityData;
+    selectedColor?: string;
 }
 
-const CityMap: React.FC<CityMapProps> = ({ city, selectedMode, selectedColor = 'var(--blue)' }) => {
-  const canvasRef = useRef<CityCanvasHandle>(null);
+const modeLabels: Record<string, string> = {
+    infrastructure: 'Infraestructura Ciclista',
+    stations:       'Estaciones de Bici',
+    traffic:        'Tráfico Ciclista',
+    terrain:        'Terreno',
+    intersections:  'Intersecciones',
+    accidents:      'Accidentes',
+};
 
-  const getColorScheme = (colorVar: string) => {
-    const colorSchemes: Record<string, { primary: string; secondary: string; accent: string; light: string }> = {
-      'var(--red)': { primary: '#e74c3c', secondary: '#c0392b', accent: '#ff6b6b', light: '#ffebee' },
-      'var(--green)': { primary: '#7BA492', secondary: '#027A76', accent: '#4ecdc4', light: '#e8f5e8' },
-      'var(--blue)': { primary: '#3f7aba', secondary: '#2c5c8c', accent: '#5dade2', light: '#e3f2fd' },
-      'var(--orange)': { primary: '#f4a24c', secondary: '#e67e22', accent: '#ffb74d', light: '#fff3e0' },
-      'var(--yellow)': { primary: '#f1c40f', secondary: '#f39c12', accent: '#fff176', light: '#fffde7' },
-      'var(--blue-dark)': { primary: '#2c5c8c', secondary: '#1a365d', accent: '#4299e1', light: '#e6f3ff' },
+const getColorScheme = (colorVar: string) => {
+    const schemes: Record<string, { primary: string; secondary: string; accent: string; light: string }> = {
+        'var(--red)':       { primary: '#e74c3c', secondary: '#c0392b', accent: '#ff6b6b', light: '#ffebee' },
+        'var(--green)':     { primary: '#7BA492', secondary: '#027A76', accent: '#4ecdc4', light: '#e8f5e8' },
+        'var(--blue)':      { primary: '#3f7aba', secondary: '#2c5c8c', accent: '#5dade2', light: '#e3f2fd' },
+        'var(--orange)':    { primary: '#f4a24c', secondary: '#e67e22', accent: '#ffb74d', light: '#fff3e0' },
+        'var(--yellow)':    { primary: '#f1c40f', secondary: '#f39c12', accent: '#fff176', light: '#fffde7' },
+        'var(--blue-dark)': { primary: '#2c5c8c', secondary: '#1a365d', accent: '#4299e1', light: '#e6f3ff' },
     };
-    return colorSchemes[colorVar] || colorSchemes['var(--blue)'];
-  };
+    return schemes[colorVar] || schemes['var(--blue)'];
+};
 
-  const colorScheme = getColorScheme(selectedColor);
+/**
+ * CityMap is a presentational shell:
+ * - Provides ThresholdsContext so layers can write and legends can read thresholds
+ * - Renders the header chrome, canvas, legend, and controls
+ * - Holds NO mode/metric state — all derived from URL via useMapState
+ */
+const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }) => {
+    const { mode } = useMapState();
+    const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
+    const [thresholds, setThresholds] = useState<Thresholds | null>(null);
+    const colorScheme = getColorScheme(selectedColor);
+    const modeLabel = modeLabels[mode] || mode;
 
-  return (
-    <div
-      className="w-full h-screen relative overflow-hidden"
-      style={{
-        background: `linear-gradient(135deg, ${colorScheme.primary}22 0%, ${colorScheme.secondary}11 50%, ${colorScheme.accent}22 100%), #FBF6EF`
-      }}
-    >
-      {/* Floating Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 bg-white/10 backdrop-blur-md border-b border-white/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg"
-              style={{ background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})` }}
-            >
-              <MapPin className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold" style={{ color: colorScheme.secondary }}>
-                {city.name} Cycling Infrastructure
-              </h1>
-              <p className="text-sm capitalize" style={{ color: `${colorScheme.secondary}99` }}>
-                {selectedMode.replace('-', ' ')} Mode
-              </p>
-            </div>
-          </div>
+    // --- Control callbacks (moved from CityCanvas) ---
+    const zoomIn = useCallback(() => mapInstance?.zoomIn(), [mapInstance]);
+    const zoomOut = useCallback(() => mapInstance?.zoomOut(), [mapInstance]);
 
-          {/* Map Controls */}
-          <MapControls
-            colorScheme={colorScheme}
-            onZoomIn={() => canvasRef.current?.zoomIn()}
-            onZoomOut={() => canvasRef.current?.zoomOut()}
-            onReset={() => canvasRef.current?.reset()}
-            onToggleBackground={(show) => canvasRef.current?.toggleBackground(show)}
-          />
-        </div>
-      </div>
+    const reset = useCallback(() => {
+        if (!mapInstance) return;
+        const generateRectBoundary = (lon: number, lat: number, angleDeg: number) => {
+            const limit = 10000;
+            const angleRad = (angleDeg * Math.PI) / 180;
+            const metersPerLat = 111320;
+            const metersPerLon = 111320 * Math.cos((lat * Math.PI) / 180);
+            const offsets: [number, number][] = [[-limit/2,-limit/2],[limit/2,-limit/2],[limit/2,limit/2],[-limit/2,limit/2]];
+            return offsets.map(([dx, dy]) => [
+                lon + (dx * Math.cos(angleRad) + dy * Math.sin(angleRad)) / metersPerLon,
+                lat + (-dx * Math.sin(angleRad) + dy * Math.cos(angleRad)) / metersPerLat,
+            ]);
+        };
+        const coords = generateRectBoundary(city.geoCoords.longitude, city.geoCoords.latitude, city.angle || 0);
+        const lons   = coords.map(c => c[0]);
+        const lats   = coords.map(c => c[1]);
+        const bounds: [number, number, number, number] = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
+        mapInstance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 40, duration: 1000 });
+    }, [mapInstance, city]);
 
-      {/* Full-width/height map with padding under the header */}
-      <div className="absolute inset-0 pt-20 pb-4 px-4">
-        <div
-          className="w-full h-full rounded-2xl overflow-hidden shadow-2xl border-2 transition-colors duration-500"
-          style={{ borderColor: colorScheme.primary }}
-        >
-          <CityCanvas
-            ref={canvasRef}
-            city={city}
-            selectedMode={selectedMode}
-            colorScheme={colorScheme}
-          />
-        </div>
-      </div>
+    const toggleBackground = useCallback((show: boolean) => {
+        if (!mapInstance) return;
+        const visibility = show ? 'visible' : 'none';
+        if (mapInstance.getLayer('carto-base-layer'))   mapInstance.setLayoutProperty('carto-base-layer',   'visibility', visibility);
+        if (mapInstance.getLayer('carto-labels-layer')) mapInstance.setLayoutProperty('carto-labels-layer', 'visibility', visibility);
+    }, [mapInstance]);
 
-      {/* Floating Legend */}
-      <MapLegend />
-    </div>
-  );
+    const contextValue: MapContextValue = {
+        map: mapInstance,
+        city,
+        zoomIn,
+        zoomOut,
+        reset,
+        toggleBackground,
+    };
+
+    return (
+        <MapContext.Provider value={contextValue}>
+            <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
+                <div
+                    className="w-full h-screen relative overflow-hidden map-section-bg"
+                    style={{
+                        '--mode-primary':   colorScheme.primary,
+                        '--mode-secondary': colorScheme.secondary,
+                        '--mode-accent':    colorScheme.accent,
+                    } as React.CSSProperties}
+                >
+                    {/* Atmospheric background */}
+                    <div className="absolute inset-0 map-section-bg__base" />
+                    <div className="absolute inset-0 map-section-bg__radial" />
+                    <div className="absolute inset-0 map-section-bg__noise" />
+
+                    {/* Floating header */}
+                    <div className="absolute top-0 left-0 right-0 z-20 p-4">
+                        <div
+                            className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
+                            style={{
+                                background:       'rgba(255,255,255,0.12)',
+                                backdropFilter:   'blur(20px)',
+                                WebkitBackdropFilter: 'blur(20px)',
+                                border:           '1px solid rgba(255,255,255,0.22)',
+                                boxShadow:        '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)',
+                            }}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div
+                                    className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
+                                    style={{
+                                        background:  `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})`,
+                                        boxShadow:   `0 4px 12px ${colorScheme.primary}55`,
+                                    }}
+                                >
+                                    <MapPin className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h1
+                                        className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
+                                        style={{ color: '#ffffffee' }}
+                                    >
+                                        {city.name} — {modeLabel}
+                                    </h1>
+                                    <p className="text-xs capitalize" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                        Modo: {mode.replace('-', ' ')}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* MapControls reads map instance from MapContext */}
+                            <MapControls colorScheme={colorScheme} />
+                        </div>
+                    </div>
+
+                    {/* Map canvas */}
+                    <div className="absolute inset-0 z-10 pt-24 pb-4 px-4">
+                        <div
+                            className="w-full h-full rounded-2xl overflow-hidden shadow-2xl transition-colors duration-500"
+                            style={{
+                                border:     `2px solid ${colorScheme.primary}55`,
+                                boxShadow:  `0 0 0 1px ${colorScheme.primary}22, 0 24px 64px rgba(0,0,0,0.35)`,
+                            }}
+                        >
+                            <CityCanvas city={city} onMapInstance={setMapInstance} />
+                        </div>
+                    </div>
+
+                    {/* Legend — floats over canvas */}
+                    <CityLegend />
+                </div>
+            </ThresholdsContext.Provider>
+        </MapContext.Provider>
+    );
 };
 
 export default CityMap;

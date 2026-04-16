@@ -24,16 +24,23 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 from psycopg2.extras import execute_values
+import numpy as np
 
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from backend.database.city_io import connect_db, get_ingestion_status, upsert_ingestion_status  # noqa: E402
+from backend.database.db_io import connect_db, get_ingestion_status, upsert_ingestion_status, get_city_id_by_name  # noqa: E402
+from backend.database.db_io.stations import (
+    has_station_readings_for_month,
+    get_nearby_unmerged_station,
+    upsert_stations,
+    insert_station_readings
+)
 
 
 CITYBIKES_API_BASE = "https://api.citybik.es/v2"
 CITYBIKES_DUMPS_BASE = "https://data.citybik.es/dumps/by-network"
-SPAIN_DATA_PATH = Path(__file__).resolve().parents[1] / "data" / "spain_data.json"
+SPAIN_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "spain_data.json"
 
 
 def _fetch_json(url: str, api_key: str | None = None, timeout_s: int = 30) -> Dict[str, Any]:
@@ -100,38 +107,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def _db_get_city_id(conn, city_name: str) -> Optional[int]:
-    with conn.cursor() as cur:
-        cur.execute("SELECT id FROM cities WHERE name = %s", (city_name,))
-        row = cur.fetchone()
-        return int(row[0]) if row else None
+    return get_city_id_by_name(conn, city_name)
 
 
 def _db_month_has_data(conn, network_id: str, year: int, month: int) -> bool:
     start = _month_start(year, month)
     end = _next_month_start(start)
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT 1
-            FROM station_readings
-            WHERE citybikes_network_id = %s
-              AND observed_at >= %s
-              AND observed_at < %s
-            LIMIT 1
-            """,
-            (network_id, start, end),
-        )
-        return cur.fetchone() is not None
+    return has_station_readings_for_month(conn, network_id, start, end)
 
 
 def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[Dict[str, Any]]) -> int:
     rows = []
     for st in stations:
-        sid = st.get("id")
+        sid = str(st.get("id"))
         lat = st.get("latitude")
         lon = st.get("longitude")
         if not sid or lat is None or lon is None:
             continue
+
+        merged_into = get_nearby_unmerged_station(conn, city_id, sid, lon, lat)
+
         ts = st.get("timestamp")
         seen = _parse_iso(ts) if isinstance(ts, str) else None
         extra = st.get("extra")
@@ -139,7 +134,7 @@ def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[D
             (
                 city_id,
                 network_id,
-                str(sid),
+                sid,
                 st.get("name"),
                 float(lat),
                 float(lon),
@@ -148,39 +143,11 @@ def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[D
                 json.dumps(extra, ensure_ascii=False) if extra is not None else None,
                 seen,
                 seen,
+                merged_into
             )
         )
 
-    if not rows:
-        return 0
-
-    with conn.cursor() as cur:
-        execute_values(
-            cur,
-            """
-            INSERT INTO stations (
-                city_id, citybikes_network_id, station_id, name, lat, lon, geom, extra, first_seen, last_seen
-            )
-            VALUES %s
-            ON CONFLICT (citybikes_network_id, station_id)
-            DO UPDATE SET
-                city_id = EXCLUDED.city_id,
-                name = COALESCE(EXCLUDED.name, stations.name),
-                lat = COALESCE(EXCLUDED.lat, stations.lat),
-                lon = COALESCE(EXCLUDED.lon, stations.lon),
-                geom = COALESCE(EXCLUDED.geom, stations.geom),
-                extra = COALESCE(EXCLUDED.extra, stations.extra),
-                first_seen = COALESCE(stations.first_seen, EXCLUDED.first_seen),
-                last_seen = GREATEST(
-                    COALESCE(stations.last_seen, EXCLUDED.last_seen),
-                    COALESCE(EXCLUDED.last_seen, stations.last_seen)
-                )
-            """,
-            rows,
-            template="(%s,%s,%s,%s,%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),4326),%s,%s,%s)",
-        )
-    conn.commit()
-    return len(rows)
+    return upsert_stations(conn, rows)
 
 
 def _db_insert_readings(
@@ -204,20 +171,7 @@ def _db_insert_readings(
         )
         for (sid, observed_at, bikes, slots, extra) in batch
     ]
-    with conn.cursor() as cur:
-        execute_values(
-            cur,
-            """
-            INSERT INTO station_readings (
-                citybikes_network_id, station_id, observed_at, available_bikes, empty_slots, city_id, extra
-            )
-            VALUES %s
-            ON CONFLICT (citybikes_network_id, station_id, observed_at) DO NOTHING
-            """,
-            rows,
-        )
-    conn.commit()
-    return len(rows)
+    return insert_station_readings(conn, rows)
 
 
 def _ingest_parquet_month(
@@ -261,8 +215,14 @@ def _ingest_parquet_month(
 
     station_col = pick(["station_id", "id", "station", "station_uid", "uid"])
     time_col = pick(["timestamp", "time", "datetime", "observed_at", "last_updated", "updated_at"])
-    bikes_col = pick(["free_bikes", "available_bikes", "bikes", "num_bikes_available"])
-    slots_col = pick(["empty_slots", "available_slots", "slots", "num_docks_available"])
+    
+    # Identify all columns related to bikes and slots to ensure we sum them (e.g. ebikes + mechanical)
+    possible_bike_cols = ["free_bikes", "available_bikes", "bikes", "num_bikes_available", "ebikes", "electric_bikes", "mechanical_bikes", "bikes_ebikes"]
+    bike_cols_present = [c for c in possible_bike_cols if c in schema_cols]
+    
+    possible_slot_cols = ["empty_slots", "available_slots", "slots", "num_docks_available", "ebike_slots"]
+    slot_cols_present = [c for c in possible_slot_cols if c in schema_cols]
+    
     extra_col = pick(["extra"])
     name_col = pick(["name", "station_name", "title"])
     lat_col = pick(["latitude", "lat"])
@@ -277,13 +237,27 @@ def _ingest_parquet_month(
     batch: List[Tuple[str, dt.datetime, Optional[int], Optional[int], Optional[dict]]] = []
     batch_size = 5000
 
-    cols_to_read = [c for c in [station_col, time_col, bikes_col, slots_col, extra_col, name_col, lat_col, lon_col] if c]
+    cols_to_read = list(set([c for c in [station_col, time_col, extra_col, name_col, lat_col, lon_col] if c] + bike_cols_present + slot_cols_present))
     for rg in range(pf.num_row_groups or 1):
         table = pf.read_row_group(rg, columns=cols_to_read)
         sids = table[station_col].to_pylist()
         times = table[time_col].to_pylist()
-        bikes = table[bikes_col].to_pylist() if bikes_col and bikes_col in table.column_names else [None] * len(sids)
-        slots = table[slots_col].to_pylist() if slots_col and slots_col in table.column_names else [None] * len(sids)
+        
+        # Sum all bike/slot columns present
+        def get_sum(cols):
+            if not cols: return [None] * len(sids)
+            
+            # Using a DataFrame for easier row-wise summation with null handling
+            import pandas as pd
+            sub_df = pd.DataFrame({c: table[c].to_pylist() for c in cols})
+            
+            # Sum rows, but if all original values were None, return None for that row
+            # min_count=1 ensures that if all are NA, the result is NA (not 0)
+            summed = sub_df.sum(axis=1, min_count=1)
+            return [int(x) if pd.notnull(x) else None for x in summed]
+
+        bikes = get_sum(bike_cols_present)
+        slots = get_sum(slot_cols_present)
         extras = table[extra_col].to_pylist() if extra_col and extra_col in table.column_names else [None] * len(sids)
         names = table[name_col].to_pylist() if name_col and name_col in table.column_names else [None] * len(sids)
         lats = table[lat_col].to_pylist() if lat_col and lat_col in table.column_names else [None] * len(sids)
@@ -376,34 +350,39 @@ def main() -> None:
             if args.no_history:
                 continue
 
-            # Load status to track ingested months
-            status_obj = get_ingestion_status(conn, city_id, "stations")
-            details = status_obj.get("details", {}) if status_obj else {}
-            ingested_months = details.get("months", [])
-            
-            now = dt.datetime.now(tz=dt.timezone.utc)
-            for year, month in _iter_months(args.start, now):
-                yyyymm = f"{year}{month:02d}"
-                if yyyymm in ingested_months and _db_month_has_data(conn, network_id, year, month):
-                    continue
-                    
-                inserted = _ingest_parquet_month(
-                    conn,
-                    city_id=city_id,
-                    network_id=network_id,
-                    year=year,
-                    month=month,
-                    download_timeout_s=args.download_timeout,
-                )
-                if inserted > 0:
-                    print(f"📈 Inserted {inserted:,} readings for {year}{month:02d}.", flush=True)
+            upsert_ingestion_status(conn, city_id, "citibikes stations", "RUNNING")
+            try:
+                # Load status to track ingested months
+                status_obj = get_ingestion_status(conn, city_id, "citibikes stations")
+                details = status_obj.get("details", {}) if status_obj else {}
+                ingested_months = details.get("months", [])
                 
-                if yyyymm not in ingested_months:
-                    ingested_months.append(yyyymm)
+                now = dt.datetime.now(tz=dt.timezone.utc)
+                for year, month in _iter_months(args.start, now):
+                    yyyymm = f"{year}{month:02d}"
+                    if yyyymm in ingested_months and _db_month_has_data(conn, network_id, year, month):
+                        continue
+                        
+                    inserted = _ingest_parquet_month(
+                        conn,
+                        city_id=city_id,
+                        network_id=network_id,
+                        year=year,
+                        month=month,
+                        download_timeout_s=args.download_timeout,
+                    )
+                    if inserted > 0:
+                        print(f"📈 Inserted {inserted:,} readings for {year}{month:02d}.", flush=True)
                     
-            details["months"] = ingested_months
-            upsert_ingestion_status(conn, city_id, "stations", "completed", details=details)
-            print(f"✅ Upserted ingestion status for {city_name}.")
+                    if yyyymm not in ingested_months:
+                        ingested_months.append(yyyymm)
+                        
+                details["months"] = ingested_months
+                upsert_ingestion_status(conn, city_id, "citibikes stations", "SUCCESS")
+                print(f"✅ Upserted ingestion status for {city_name}.")
+            except Exception as e:
+                upsert_ingestion_status(conn, city_id, "citibikes stations", "FAILED")
+                print(f"❌ Error processing stations for {city_name}: {e}")
     finally:
         conn.close()
 

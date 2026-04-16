@@ -1,6 +1,6 @@
 import ast
 from pathlib import Path
-from typing import List, Union
+from typing import List, Union, Callable
 import re
 import osmnx as ox
 import networkx as nx
@@ -8,7 +8,7 @@ from .route_strategy import shortest_path
 import json
 import pandas as pd
 from tqdm import tqdm
-from backend.database.city_io import put_routes, count_routes
+from backend.database.db_io import put_routes, count_routes, get_edge_id_map, put_route_edges
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "logs" / "ingestion_log.json"
@@ -85,14 +85,22 @@ def list_trip_csvs(city: str) -> List[Path]:
     return [file for file, _, _ in valid_files]
 
 
-def get_csv_progress(city: str) -> tuple[int, int, list[str]]:
+def get_csv_progress(city: str, progress_dict: dict | None = None) -> tuple[int, int, list[str]]:
     """
-    Returns (processed_count, total_count, unprocessed_files)
+    Returns (processed_count, total_count, unprocessed_files).
+    Progress is binary: a file is either 'done' or pending.
     """
-    with open(LOG_PATH) as f:
-        log: dict = json.load(f)
+    if progress_dict is not None:
+        city_log = progress_dict
+    else:
+        if not LOG_PATH.exists():
+            with open(LOG_PATH, "w") as f:
+                json.dump({}, f)
+        
+        with open(LOG_PATH) as f:
+            log: dict = json.load(f)
+        city_log = log.get(city, {})
 
-    city_log: dict = log.get(city, {})
     csv_files = list_trip_csvs(city)
     
     processed_files = []
@@ -100,8 +108,7 @@ def get_csv_progress(city: str) -> tuple[int, int, list[str]]:
     
     for file in csv_files:
         fname = file.name
-        status = city_log.get(fname, 0)
-        if status == "done":
+        if city_log.get(fname) == "done":
             processed_files.append(fname)
         else:
             unprocessed_files.append(fname)
@@ -109,58 +116,67 @@ def get_csv_progress(city: str) -> tuple[int, int, list[str]]:
     return len(processed_files), len(csv_files), unprocessed_files
 
 
-def load_next_csv(city: str) -> Union[tuple[pd.DataFrame, str, int], None]:
+def load_next_csv(city: str, progress_dict: dict | None = None) -> Union[tuple[pd.DataFrame, str], None]:
     """
-    Finds the next CSV to process, loads it, and returns:
-    (DataFrame, filename, start_row_index)
+    Finds the next unprocessed CSV, loads it, and returns (DataFrame, filename).
     Returns None if all files are done.
     """
-    with open(LOG_PATH) as f:
-        log: dict = json.load(f)
+    if progress_dict is not None:
+        city_log = progress_dict
+    else:
+        with open(LOG_PATH) as f:
+            log: dict = json.load(f)
+        city_log = log.get(city, {})
 
-    city_log: dict = log.get(city, {})
     csv_files = list_trip_csvs(city)
     
     for file in csv_files:
         fname = file.name
-        status = city_log.get(fname, 0)
-        if status == "done":
+        if city_log.get(fname) == "done":
             continue
-        else:
-            start_idx = int(status)
-            print(f"📂 Loading {fname} (starting from row {start_idx})...")
-            
-            # Load and clean data
-            df_raw = pd.read_csv(file, sep =';', usecols=['geolocation_unlock', 'geolocation_lock', 'idTrip', 'idBike', 'trip_minutes'])
-            rows_loaded = len(df_raw)
-            
-            df = df_raw.dropna(subset=['geolocation_unlock', 'geolocation_lock', 'idTrip'])
-            df = df[df['geolocation_unlock'] != df['geolocation_lock']]
-            rows_after_cleanup = len(df)
-            
-            print(f"   📊 Loaded {rows_loaded:,} rows, {rows_after_cleanup:,} valid trips ({rows_loaded - rows_after_cleanup:,} filtered out)")
-            
-            df['geolocation_unlock'] = df['geolocation_unlock'].apply(lambda x: ast.literal_eval(x)['coordinates'])
-            df['geolocation_lock'] = df['geolocation_lock'].apply(lambda x: ast.literal_eval(x)['coordinates'])
 
-            return df, fname, start_idx
+        print(f"📂 Loading {fname}...")
+        
+        # Load and clean data
+        df_raw = pd.read_csv(file, sep=';', usecols=['geolocation_unlock', 'geolocation_lock', 'idTrip', 'idBike', 'trip_minutes', 'unlock_date', 'lock_date'])
+        rows_loaded = len(df_raw)
+        
+        df = df_raw.dropna(subset=['geolocation_unlock', 'geolocation_lock', 'idTrip', 'unlock_date', 'lock_date'])
+        df = df[df['geolocation_unlock'] != df['geolocation_lock']]
+        rows_after_cleanup = len(df)
+        
+        print(f"   📊 Loaded {rows_loaded:,} rows, {rows_after_cleanup:,} valid trips ({rows_loaded - rows_after_cleanup:,} filtered out)")
+        
+        df['geolocation_unlock'] = df['geolocation_unlock'].apply(lambda x: ast.literal_eval(x)['coordinates'])
+        df['geolocation_lock'] = df['geolocation_lock'].apply(lambda x: ast.literal_eval(x)['coordinates'])
+
+        return df, fname
             
     return None  # All done
 
 
-def save_checkpoint(city: str, fname: str, status: str):
-    with open(LOG_PATH, "r") as f:
-        log: dict = json.load(f)
+def save_checkpoint(city: str, fname: str, on_checkpoint: Callable | None = None):
+    """
+    Marks a file as done. If on_checkpoint provided, calls it (e.g. for DB updates).
+    Otherwise falls back to local JSON log.
+    """
+    if on_checkpoint:
+        on_checkpoint(city, fname, "done")
+    else:
+        # Fallback to JSON
+        if not LOG_PATH.exists():
+            with open(LOG_PATH, "w") as f:
+                json.dump({}, f)
+                
+        with open(LOG_PATH, "r") as f:
+            log: dict = json.load(f)
 
-    city_log = log.setdefault(city, {})
-    city_log[fname] = status
+        log.setdefault(city, {})[fname] = "done"
 
-    with open(LOG_PATH, "w") as f:
-        json.dump(log, f, indent=2)
+        with open(LOG_PATH, "w") as f:
+            json.dump(log, f, indent=2)
     
-    # Only print checkpoint completion, not intermediate saves
-    if status == "done":
-        print(f"   ✅ Checkpoint saved: {fname} completed")
+    print(f"   ✅ Checkpoint saved: {fname} completed")
 
 
 
@@ -176,6 +192,8 @@ def process_all_csvs(
     strategy: str = "shortest",
     max_distance: float = 150.0,
     batch_size: int = 100,
+    progress_dict: dict | None = None,
+    on_checkpoint: Callable | None = None,
 ):
     """
     Process all unprocessed CSV files using the provided graph.
@@ -185,14 +203,14 @@ def process_all_csvs(
     print(f"📊 Current routes in database: {existing_routes:,}")
     
     # Get file progress overview
-    processed_count, total_count, unprocessed_files = get_csv_progress(city)
+    processed_count, total_count, unprocessed_files = get_csv_progress(city, progress_dict=progress_dict)
     print(f"📁 Found {total_count} CSV files for {city}")
     print(f"   ✅ {processed_count} already processed")
     print(f"   🔄 {len(unprocessed_files)} remaining to process")
     
     if len(unprocessed_files) == 0:
         print(f"🎉 All CSV files already processed for {city}")
-        return None
+        return 0
     
     # Process each file
     files_processed_this_session = 0
@@ -200,7 +218,10 @@ def process_all_csvs(
         print(f"\n{'='*60}")
         print(f"📂 Processing file {file_num}/{len(unprocessed_files)} (overall: {processed_count + file_num}/{total_count})")
         
-        result = process_single_csv(graph, conn, city_id, city, strategy, max_distance, batch_size)
+        result = process_single_csv(
+            graph, conn, city_id, city, strategy, max_distance, batch_size,
+            progress_dict=progress_dict, on_checkpoint=on_checkpoint
+        )
         if result is None:
             break
         files_processed_this_session += 1
@@ -224,12 +245,17 @@ def process_next_csv(
     strategy: str = "shortest",
     max_distance: float = 150.0,
     batch_size: int = 100,
+    progress_dict: dict | None = None,
+    on_checkpoint: Callable | None = None,
 ):
     """
     Process the next unprocessed CSV file (backward compatibility).
     Use process_all_csvs() for processing all files.
     """
-    return process_single_csv(graph, conn, city_id, city, strategy, max_distance, batch_size)
+    return process_single_csv(
+        graph, conn, city_id, city, strategy, max_distance, batch_size,
+        progress_dict=progress_dict, on_checkpoint=on_checkpoint
+    )
 
 
 def process_single_csv(
@@ -240,115 +266,89 @@ def process_single_csv(
     strategy: str = "shortest",
     max_distance: float = 150.0,
     batch_size: int = 100,
+    progress_dict: dict | None = None,
+    on_checkpoint: Callable | None = None,
 ):
     """
     Process a single CSV file using the provided graph.
+    Checkpointing is per-file (binary done/pending) — no row-level resumption.
     """
-    checkpoint = load_next_csv(city)
-    if checkpoint is None:
+    result = load_next_csv(city, progress_dict=progress_dict)
+    if result is None:
         return None
 
-    df, fname, start_idx = checkpoint
+    df, fname = result
     total_rows = len(df)
-    remaining_rows = total_rows - start_idx
     
-    print(f"🚴 Processing {fname}: {remaining_rows:,} trips remaining (rows {start_idx:,} to {total_rows:,})")
+    print(f"🚴 Processing {fname}: {total_rows:,} trips")
     print(f"   Strategy: {strategy}, Max distance: {max_distance}m, Batch size: {batch_size}")
     
     routes_batch = []
     routes_processed = 0
     routes_saved = 0
     routes_skipped_distance = 0
-    routes_skipped_no_path = 0
     
-    # Create progress bar
-    pbar = tqdm(
-        range(start_idx, total_rows), 
-        desc=f"Processing {fname}", 
-        unit="trips",
-        initial=0,
-        total=remaining_rows
-    )
+    pbar = tqdm(range(total_rows), desc=f"Processing {fname}", unit="trips")
     
     for idx in pbar:
         row = df.iloc[idx]
-        startpoint = (row['geolocation_unlock'])
-        endpoint = (row['geolocation_lock'])
+        startpoint = row['geolocation_unlock']
+        endpoint = row['geolocation_lock']
 
-        # Get nearest nodes
-        startnode = ox.distance.nearest_nodes(graph, *startpoint)
-        endnode = ox.distance.nearest_nodes(graph, *endpoint)
-        start_geom = (graph.nodes[startnode]['x'], graph.nodes[startnode]['y'])
-        end_geom = (graph.nodes[endnode]['x'], graph.nodes[endnode]['y'])
-
-        d1 = ox.distance.great_circle(*startpoint, *start_geom)
-        d2 = ox.distance.great_circle(*endpoint, *end_geom)
-
-        # Handle trips that are too far from city
-        if d1 > max_distance:
-            print(f"❌ ERROR: Origin too far from city (distance={d1:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
-            routes_skipped_distance += 1
-            continue
-        if d2 > max_distance:
-            print(f"❌ ERROR: Destination too far from city (distance={d2:.1f}m) at row {idx}, trip {row['idTrip']} - SKIPPING")
-            routes_skipped_distance += 1
-            continue
-
-        # Handle trips with no path
         try:
-            route = ROUTE_ALGORITHMS[strategy](graph, startnode, endnode)
-        except nx.NetworkXNoPath:
-            print(f"❌ ERROR: No path between nodes {startnode} and {endnode} at row {idx}, trip {row['idTrip']} - SKIPPING")
-            routes_skipped_no_path += 1
+            startnode = ox.distance.nearest_nodes(graph, *startpoint)
+            endnode = ox.distance.nearest_nodes(graph, *endpoint)
+            start_geom = (graph.nodes[startnode]['x'], graph.nodes[startnode]['y'])
+            end_geom = (graph.nodes[endnode]['x'], graph.nodes[endnode]['y'])
+
+            d1 = ox.distance.great_circle(*startpoint, *start_geom)
+            d2 = ox.distance.great_circle(*endpoint, *end_geom)
+
+            if d1 > max_distance or d2 > max_distance:
+                routes_skipped_distance += 1
+                continue
+        except Exception:
             continue
 
-        route_tuple = (
+        routes_batch.append((
             city_id,
             row["idTrip"],
             startnode,
             endnode,
             strategy,
             float(row["trip_minutes"]),
-            None,  # datetime_unlock not available in current CSV subset
+            row["unlock_date"],
             int(row["idBike"]),
-        )
-
-        routes_batch.append(route_tuple)
+            startpoint[1],  # origin_lat
+            startpoint[0],  # origin_lon
+            endpoint[1],    # dest_lat
+            endpoint[0],    # dest_lon
+            row["lock_date"]
+        ))
         routes_processed += 1
 
-        # Flush batch and update progress bar
         if len(routes_batch) >= batch_size:
             put_routes(conn, routes_batch)
             routes_saved += len(routes_batch)
             routes_batch.clear()
-            
-            # Update progress bar description with stats
-            pbar.set_postfix({
-                'saved': f"{routes_saved:,}",
-                'batch': f"{len(routes_batch)}"
-            })
+            pbar.set_postfix({'saved': f"{routes_saved:,}"})
 
-        # Update checkpoint (less frequently for performance)
-        if idx % 50 == 0 or idx == total_rows - 1:
-            status = "done" if idx == total_rows - 1 else str(idx + 1)
-            save_checkpoint(city, fname, status)
-
-    # Insert remaining routes
+    # Flush remaining
     if routes_batch:
         put_routes(conn, routes_batch)
         routes_saved += len(routes_batch)
 
-    # Close progress bar
     pbar.close()
+
+    # Mark file as done only after successful completion
+    save_checkpoint(city, fname, on_checkpoint=on_checkpoint)
+    if progress_dict is not None:
+        progress_dict[fname] = "done"
     
     print(f"✅ Finished processing {fname}")
-    print(f"   📊 Total routes processed: {routes_processed:,}")
-    print(f"   💾 Total routes saved to database: {routes_saved:,}")
+    print(f"   📊 Routes processed: {routes_processed:,}, saved: {routes_saved:,}")
     if routes_skipped_distance > 0:
         print(f"   ⚠️  Skipped (too far): {routes_skipped_distance:,}")
-    if routes_skipped_no_path > 0:
-        print(f"   ⚠️  Skipped (no path): {routes_skipped_no_path:,}")
-    
-    total_attempts = routes_processed + routes_skipped_distance + routes_skipped_no_path
-    success_rate = (routes_processed / total_attempts * 100) if total_attempts > 0 else 0
-    print(f"   📈 Success rate: {success_rate:.1f}% ({routes_processed:,}/{total_attempts:,})")
+    total_attempts = routes_processed + routes_skipped_distance
+    if total_attempts > 0:
+        print(f"   📈 Success rate: {routes_processed / total_attempts * 100:.1f}%")

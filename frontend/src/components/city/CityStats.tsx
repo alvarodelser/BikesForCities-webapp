@@ -31,7 +31,7 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
           >
             <div className="flex items-center gap-3 mb-2">
               <BarChart3 className="w-6 h-6" />
-              <h3 className="font-semibold">Overall Score</h3>
+              <h3 className="font-semibold">Puntuación Global</h3>
             </div>
             <p className="text-3xl font-bold">{overallScore.score}/100</p>
             <p className="text-sm opacity-90">{overallScore.label}</p>
@@ -74,7 +74,7 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
             tint="rgba(255, 255, 255, 0.8)"
             className="p-6"
           >
-            <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Key Insights</h3>
+            <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Conclusiones Clave</h3>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-[var(--green)] rounded-full mt-2 flex-shrink-0"></div>
@@ -92,7 +92,7 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats }) => 
             tint="rgba(255, 255, 255, 0.8)"
             className="p-6"
           >
-            <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Recommendations</h3>
+            <h3 className="text-xl font-bold text-[var(--blue-dark)] mb-4">Recomendaciones</h3>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
                 <div className="w-2 h-2 bg-[var(--blue)] rounded-full mt-2 flex-shrink-0"></div>

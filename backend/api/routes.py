@@ -14,15 +14,20 @@ from .models import (
     PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedRoutesResponse,
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, RouteResponse, FeatureResponse,
-    CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse
+    CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
+    StationResponse, StationListResponse, TrafficResponse, TrafficCount
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
     validate_network_exists, build_bbox_condition, check_database_health
 )
-from backend.database.city_io import (
+from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
-    count_routes, count_features, get_nodes, get_edges, get_features
+    count_routes, count_features, get_nodes, get_edges, get_features,
+    get_stations, has_traffic, get_edge_traffic, get_latest_traffic_month,
+    get_city_details, get_city_bounds,
+    get_paginated_nodes, get_paginated_edges, get_paginated_routes,
+    get_paginated_features, get_paginated_stations
 )
 
 logger = logging.getLogger(__name__)
@@ -38,9 +43,11 @@ async def list_networks(conn=Depends(get_db_connection)):
         
         cities = []
         for row in networks_data:
-            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, 
+            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, angle,
              population, budget, coverage, cycling_network, 
-             min_lat, max_lat, min_lon, max_lon) = row
+             min_lat, max_lat, min_lon, max_lon,
+             infra, traffic, accidents, topo, inter, stations, forum,
+             mayor, mayor_party, service_name, stations_count, monthly_trips) = row
             
             bounds = None
             if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
@@ -50,6 +57,18 @@ async def list_networks(conn=Depends(get_db_connection)):
                     "min_lon": min_lon,
                     "max_lon": max_lon
                 }
+
+            has_traffic_data = has_traffic(conn, city_id)
+
+            available_modes = {
+                "infrastructure": bool(infra),
+                "traffic": bool(has_traffic_data),
+                "accidents": bool(accidents),
+                "terrain": bool(topo),
+                "intersections": bool(inter),
+                "stations": bool(stations),
+                "forum": bool(forum)
+            }
 
             cities.append(CityResponse(
                 id=city_id,
@@ -62,7 +81,13 @@ async def list_networks(conn=Depends(get_db_connection)):
                 budget=budget,
                 coverage=coverage,
                 cycling_network=cycling_network,
-                bounds=bounds
+                mayor=mayor,
+                mayor_party=mayor_party,
+                service_name=service_name,
+                stations_count=int(stations_count) if stations_count is not None else None,
+                monthly_trips=int(monthly_trips) if monthly_trips is not None else None,
+                bounds=bounds,
+                available_modes=available_modes
             ))
         
         return CityListResponse(
@@ -81,30 +106,47 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
     try:
         validate_network_exists(conn, city_id)
         
-        # Get city info
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, name, description, center_lat, center_lon, radius
-                FROM cities WHERE id = %s
-            """, (city_id,))
-            result = cur.fetchone()
-            
-            if not result:
-                raise HTTPException(status_code=404, detail="City not found")
-            
-            city = CityResponse(
-                id=result[0],
-                name=result[1],
-                description=result[2],
-                center_lat=result[3],
-                center_lon=result[4],
-                radius=result[5]
-            )
-            
-            return CityDetailResponse(
-                data=city,
-                message="City retrieved successfully"
-            )
+        city_dict = get_city_details(conn, city_id)
+        if not city_dict:
+            raise HTTPException(status_code=404, detail="City not found")
+        
+        bounds_dict = get_city_bounds(conn, city_id)
+        has_traffic_data = has_traffic(conn, city_id)
+        
+        available_modes = {
+            "infrastructure": bool(city_dict.get("infrastructure")),
+            "traffic": bool(has_traffic_data),
+            "accidents": bool(city_dict.get("accidents")),
+            "terrain": bool(city_dict.get("topography")),
+            "intersections": bool(city_dict.get("intersections")),
+            "stations": bool(city_dict.get("stations")),
+            "forum": bool(city_dict.get("forum"))
+        }
+
+        city = CityResponse(
+            id=city_dict["id"],
+            name=city_dict["name"],
+            description=city_dict.get("description"),
+            center_lat=city_dict["center_lat"],
+            center_lon=city_dict["center_lon"],
+            radius=city_dict["radius"],
+            population=city_dict.get("population"),
+            budget=city_dict.get("budget"),
+            coverage=city_dict.get("coverage"),
+            cycling_network=city_dict.get("cycling_network"),
+            mayor=city_dict.get("mayor"),
+            mayor_party=city_dict.get("mayor_party"),
+            service_name=city_dict.get("service_name"),
+            stations_count=city_dict.get("stations_count"),
+            monthly_trips=city_dict.get("monthly_trips"),
+            bounds=bounds_dict,
+            available_modes=available_modes
+        )
+        
+        return CityDetailResponse(
+            data=city,
+            message="City retrieved successfully"
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -118,40 +160,18 @@ async def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
     try:
         validate_network_exists(conn, city_id)
         
-        # Get city name
-        with conn.cursor() as cur:
-            cur.execute("SELECT name FROM cities WHERE id = %s", (city_id,))
-            city_name = cur.fetchone()[0]
+        city_dict = get_city_details(conn, city_id)
         
-        # Get counts
         nodes_count = count_nodes(conn, city_id)
         edges_count = count_edges(conn, city_id)
         routes_count = count_routes(conn, city_id)
         features_count = count_features(conn, city_id)
         
-        # Get bounds
-        bounds = None
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT 
-                    MIN(lat) as min_lat, MAX(lat) as max_lat,
-                    MIN(lon) as min_lon, MAX(lon) as max_lon
-                FROM nodes 
-                WHERE city_id = %s
-            """, (city_id,))
-            bounds_result = cur.fetchone()
-            
-            if bounds_result and all(b is not None for b in bounds_result):
-                bounds = {
-                    "min_lat": bounds_result[0],
-                    "max_lat": bounds_result[1],
-                    "min_lon": bounds_result[2],
-                    "max_lon": bounds_result[3]
-                }
+        bounds = get_city_bounds(conn, city_id)
         
         stats = NetworkStats(
             city_id=city_id,
-            city_name=city_name,
+            city_name=city_dict["name"] if city_dict else "Unknown",
             nodes_count=nodes_count,
             edges_count=edges_count,
             routes_count=routes_count,
@@ -182,51 +202,16 @@ async def get_network_nodes(
     """Get city nodes with pagination and optional bounding box filtering."""
     try:
         validate_network_exists(conn, city_id)
-        
-        # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
-        # Build query
-        conditions = ["city_id = %s"]
-        params = [city_id]
+        offset = (page - 1) * per_page
+        nodes_data, total = get_paginated_nodes(
+            conn, city_id, bbox=bbox_coords, limit=per_page, offset=offset
+        )
         
-        if bbox_coords:
-            bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geom")
-            conditions.append(bbox_condition)
-            params.extend(bbox_params)
+        _, _, total_pages = calculate_pagination(page, per_page, total)
         
-        where_clause = " AND ".join(conditions)
-        
-        # Get total count
-        with conn.cursor() as cur:
-            count_query = f"SELECT COUNT(*) FROM nodes WHERE {where_clause}"
-            cur.execute(count_query, params)
-            total = cur.fetchone()[0]
-        
-        # Calculate pagination
-        offset, limit, total_pages = calculate_pagination(page, per_page, total)
-        
-        # Get nodes
-        with conn.cursor() as cur:
-            query = f"""
-                SELECT id, lat, lon, street_count
-                FROM nodes
-                WHERE {where_clause}
-                ORDER BY id
-                LIMIT %s OFFSET %s
-            """
-            cur.execute(query, params + [limit, offset])
-            nodes_data = cur.fetchall()
-        
-        nodes = [
-            NodeResponse(
-                id=row[0],
-                lat=row[1],
-                lon=row[2],
-                street_count=row[3]
-            )
-            for row in nodes_data
-        ]
+        nodes = [NodeResponse(**row) for row in nodes_data]
         
         return PaginatedNodesResponse(
             data=nodes,
@@ -256,69 +241,16 @@ async def get_network_edges(
     """Get city edges with pagination and filtering."""
     try:
         validate_network_exists(conn, city_id)
-        
-        # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
-        # Build query
-        conditions = ["city_id = %s"]
-        params = [city_id]
+        offset = (page - 1) * per_page
+        edges_data, total = get_paginated_edges(
+            conn, city_id, highway=highway, bbox=bbox_coords, limit=per_page, offset=offset
+        )
         
-        if highway:
-            conditions.append("highway = %s")
-            params.append(highway)
+        _, _, total_pages = calculate_pagination(page, per_page, total)
         
-        if bbox_coords:
-            bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geom")
-            conditions.append(bbox_condition)
-            params.extend(bbox_params)
-        
-        where_clause = " AND ".join(conditions)
-        
-        # Get total count
-        with conn.cursor() as cur:
-            count_query = f"SELECT COUNT(*) FROM edges WHERE {where_clause}"
-            cur.execute(count_query, params)
-            total = cur.fetchone()[0]
-        
-        # Calculate pagination
-        offset, limit, total_pages = calculate_pagination(page, per_page, total)
-        
-        # Get edges
-        with conn.cursor() as cur:
-            query = f"""
-                SELECT 
-                    id, osmid, u, v, k, ST_AsText(geom),
-                    highway, name, length, width,
-                    maxspeed, lanes, oneway, tunnel, bridge
-                FROM edges
-                WHERE {where_clause}
-                ORDER BY id
-                LIMIT %s OFFSET %s
-            """
-            cur.execute(query, params + [limit, offset])
-            edges_data = cur.fetchall()
-        
-        edges = [
-            EdgeResponse(
-                id=row[0],
-                osmid=row[1],
-                u=row[2],
-                v=row[3],
-                k=row[4],
-                geometry=row[5],
-                highway=row[6],
-                name=row[7],
-                length=row[8],
-                width=row[9],
-                maxspeed=row[10],
-                lanes=row[11],
-                oneway=row[12],
-                tunnel=row[13],
-                bridge=row[14]
-            )
-            for row in edges_data
-        ]
+        edges = [EdgeResponse(**row) for row in edges_data]
         
         return PaginatedEdgesResponse(
             data=edges,
@@ -350,61 +282,15 @@ async def get_network_routes(
     try:
         validate_network_exists(conn, city_id)
         
-        # Build query
-        conditions = ["city_id = %s"]
-        params = [city_id]
+        offset = (page - 1) * per_page
+        routes_data, total = get_paginated_routes(
+            conn, city_id, strategy=strategy, min_duration=min_duration,
+            max_duration=max_duration, limit=per_page, offset=offset
+        )
         
-        if strategy:
-            conditions.append("strategy = %s")
-            params.append(strategy)
+        _, _, total_pages = calculate_pagination(page, per_page, total)
         
-        if min_duration is not None:
-            conditions.append("trip_minutes >= %s")
-            params.append(min_duration)
-        
-        if max_duration is not None:
-            conditions.append("trip_minutes <= %s")
-            params.append(max_duration)
-        
-        where_clause = " AND ".join(conditions)
-        
-        # Get total count
-        with conn.cursor() as cur:
-            count_query = f"SELECT COUNT(*) FROM routes WHERE {where_clause}"
-            cur.execute(count_query, params)
-            total = cur.fetchone()[0]
-        
-        # Calculate pagination
-        offset, limit, total_pages = calculate_pagination(page, per_page, total)
-        
-        # Get routes
-        with conn.cursor() as cur:
-            query = f"""
-                SELECT 
-                    id, id_trip, origin_node, dest_node, strategy,
-                    trip_minutes, datetime_unlock, id_bike, created_at
-                FROM routes
-                WHERE {where_clause}
-                ORDER BY id
-                LIMIT %s OFFSET %s
-            """
-            cur.execute(query, params + [limit, offset])
-            routes_data = cur.fetchall()
-        
-        routes = [
-            RouteResponse(
-                id=row[0],
-                id_trip=row[1],
-                origin_node=row[2],
-                dest_node=row[3],
-                strategy=row[4],
-                trip_minutes=row[5],
-                datetime_unlock=row[6],
-                id_bike=row[7],
-                created_at=row[8]
-            )
-            for row in routes_data
-        ]
+        routes = [RouteResponse(**row) for row in routes_data]
         
         return PaginatedRoutesResponse(
             data=routes,
@@ -434,52 +320,21 @@ async def get_network_features(
     """Get city features with pagination and filtering."""
     try:
         validate_network_exists(conn, city_id)
-        
-        # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
-        # Build query
-        conditions = ["city_id = %s"]
-        params = [city_id]
+        offset = (page - 1) * per_page
+        features_data, total = get_paginated_features(
+            conn, city_id, feature_type=feature_type, bbox=bbox_coords, limit=per_page, offset=offset
+        )
         
-        if feature_type:
-            conditions.append("feature_type = %s")
-            params.append(feature_type)
-        
-        if bbox_coords:
-            bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geometry")
-            conditions.append(bbox_condition)
-            params.extend(bbox_params)
-        
-        where_clause = " AND ".join(conditions)
-        
-        # Get total count
-        with conn.cursor() as cur:
-            count_query = f"SELECT COUNT(*) FROM features WHERE {where_clause}"
-            cur.execute(count_query, params)
-            total = cur.fetchone()[0]
-        
-        # Calculate pagination
-        offset, limit, total_pages = calculate_pagination(page, per_page, total)
-        
-        # Get features
-        with conn.cursor() as cur:
-            query = f"""
-                SELECT id, feature_type, ST_AsText(geometry), tags
-                FROM features
-                WHERE {where_clause}
-                ORDER BY id
-                LIMIT %s OFFSET %s
-            """
-            cur.execute(query, params + [limit, offset])
-            features_data = cur.fetchall()
+        _, _, total_pages = calculate_pagination(page, per_page, total)
         
         features = [
             FeatureResponse(
-                id=row[0],
-                feature_type=row[1],
-                geometry=row[2],
-                tags=row[3]  # PostgreSQL JSONB is already converted to dict by psycopg2
+                id=row["id"],
+                feature_type=row["feature_type"],
+                geometry=row["geometry"],
+                tags=row["tags"]
             )
             for row in features_data
         ]
@@ -512,48 +367,24 @@ async def get_network_edges_geojson(
     try:
         validate_network_exists(conn, city_id)
 
-        # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
 
-        # Build query
-        conditions = ["city_id = %s"]
-        params = [city_id]
-
-        if highway:
-            conditions.append("highway = %s")
-            params.append(highway)
-
-        if bbox_coords:
-            bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geom")
-            conditions.append(bbox_condition)
-            params.extend(bbox_params)
-
-        where_clause = " AND ".join(conditions)
-
-        # Get edges with geometry
-        with conn.cursor() as cur:
-            query = f"""
-                SELECT ST_AsText(geom), highway, name, length, oneway
-                FROM edges
-                WHERE {where_clause}
-                ORDER BY id
-                LIMIT %s
-            """
-            cur.execute(query, params + [limit])
-            edges_data = cur.fetchall()
+        edges_data, _ = get_paginated_edges(
+            conn, city_id, highway=highway, bbox=bbox_coords, limit=limit, offset=0
+        )
 
         # Convert to GeoJSON
         geojson_features = []
-        for geometry_wkt, hw, name, length, oneway in edges_data:
+        for edge in edges_data:
             try:
-                geom = wkt.loads(geometry_wkt)
+                geom = wkt.loads(edge["geometry"])
                 geojson_geom = mapping(geom)
 
                 properties = {
-                    "highway": hw,
-                    "name": name,
-                    "length": length,
-                    "oneway": oneway
+                    "highway": edge["highway"],
+                    "name": edge["name"],
+                    "length": edge["length"],
+                    "oneway": edge["oneway"]
                 }
 
                 geojson_features.append(GeoJSONFeature(
@@ -591,47 +422,25 @@ async def get_network_features_geojson(
     try:
         validate_network_exists(conn, city_id)
         
-        # Parse bounding box
         bbox_coords = parse_bbox(bbox) if bbox else None
         
-        # Build query
-        conditions = ["city_id = %s"]
-        params = [city_id]
-        
-        if feature_type:
-            conditions.append("feature_type = %s")
-            params.append(feature_type)
-        
-        if bbox_coords:
-            bbox_condition, bbox_params = build_bbox_condition(bbox_coords, "geometry")
-            conditions.append(bbox_condition)
-            params.extend(bbox_params)
-        
-        where_clause = " AND ".join(conditions)
-        
-        # Get features
-        with conn.cursor() as cur:
-            query = f"""
-                SELECT feature_type, ST_AsText(geometry), tags
-                FROM features
-                WHERE {where_clause}
-                ORDER BY id
-                LIMIT %s
-            """
-            cur.execute(query, params + [limit])
-            features_data = cur.fetchall()
+        features_data, _ = get_paginated_features(
+            conn, city_id, feature_type=feature_type, bbox=bbox_coords, limit=limit, offset=0
+        )
         
         # Convert to GeoJSON
         geojson_features = []
-        for feature_type, geometry_wkt, tags in features_data:
+        for feature in features_data:
             try:
                 # Parse geometry
-                geom = wkt.loads(geometry_wkt)
+                geom = wkt.loads(feature["geometry"])
                 geojson_geom = mapping(geom)
                 
                 # Parse tags (PostgreSQL JSONB is already a dict)
-                properties = tags if tags else {}
-                properties["feature_type"] = feature_type
+                properties: Dict[str, Any] = {}
+                if feature["tags"]:
+                    properties.update(feature["tags"])
+                properties["feature_type"] = feature["feature_type"]
                 
                 geojson_features.append(GeoJSONFeature(
                     geometry=geojson_geom,
@@ -654,6 +463,70 @@ async def get_network_features_geojson(
     except Exception as e:
         logger.error(f"Error getting GeoJSON features for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON features")
+
+
+# Station endpoints
+@router.get("/cities/{city_id}/stations", response_model=StationListResponse)
+async def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
+    """Get all stations for a city."""
+    try:
+        stations_data, _ = get_paginated_stations(conn, city_id, limit=10000, offset=0)
+        
+        stations = [StationResponse(**row) for row in stations_data]
+        
+        return StationListResponse(
+            data=stations,
+            count=len(stations),
+            message="Stations retrieved successfully"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting stations for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve stations")
+
+
+# Traffic endpoint
+@router.get("/cities/{city_id}/traffic", response_model=TrafficResponse)
+async def get_city_traffic(
+    city_id: int,
+    month: Optional[str] = Query(None, description="Month filter YYYY-MM (defaults to latest)"),
+    conn=Depends(get_db_connection)
+):
+    """Get trip counts per road segment for a city, optionally filtered by month."""
+    try:
+        validate_network_exists(conn, city_id)
+
+        # Resolve month parameter
+        from datetime import date
+        month_date: Optional[date] = None
+        if month:
+            try:
+                month_date = date.fromisoformat(month + "-01")
+            except ValueError:
+                from fastapi import HTTPException
+                raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
+        else:
+            # Default to latest month available
+            month_date = get_latest_traffic_month(conn, city_id)
+
+        rows = get_edge_traffic(conn, city_id, month=month_date)
+
+        traffic_data = [
+            TrafficCount(edge_id=row[0], trip_count=row[1], month=row[2])
+            for row in rows
+        ]
+
+        return TrafficResponse(
+            data=traffic_data,
+            count=len(traffic_data),
+            message=f"Traffic data retrieved successfully" + (f" for {month_date}" if month_date else "")
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting traffic for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve traffic data")
 
 
 # Health check with database validation

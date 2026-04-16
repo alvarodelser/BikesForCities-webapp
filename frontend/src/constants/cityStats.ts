@@ -9,7 +9,7 @@ import {
   Clock,
   Users
 } from 'lucide-react';
-import { formatDistance, formatPopulation } from '../utils/formatters';
+import { formatDistance } from '../utils/formatters';
 
 export interface StatItem {
   label: string;
@@ -36,135 +36,135 @@ export interface ModeStats {
 
 export const getModeStats = (selectedMode: string, city: CityData): ModeStats => {
   switch (selectedMode) {
+    case 'infrastructure':
+      return {
+        stats: [
+          { label: 'Longitud de red', value: `${formatDistance(city.cyclingNetwork)} km`, trend: 'up', icon: BarChart3 },
+          { label: 'Puntuación de conectividad', value: '78%', trend: 'up', icon: Target },
+          { label: 'Extensiones planificadas', value: `${formatDistance(12)} km`, trend: 'up', icon: TrendingUp },
+          { label: 'Densidad de red', value: '2,3 km/km²', trend: 'neutral', icon: Activity }
+        ],
+        insights: {
+          primary: 'La conectividad de la red es mayor en zonas residenciales',
+          secondary: 'Las extensiones planificadas mejorarán la conectividad en un 20%'
+        },
+        recommendations: {
+          primary: 'Priorizar conexiones hacia barrios con menor cobertura',
+          secondary: 'Mejorar las medidas de seguridad en las rutas existentes'
+        },
+        overallScore: {
+          score: 75,
+          label: 'Buena Red'
+        }
+      };
+
     case 'traffic':
       return {
         stats: [
-          { label: 'Average Congestion', value: 'Medium', trend: 'up', icon: Activity },
-          { label: 'Peak Traffic Hours', value: '7-9 AM', trend: 'neutral', icon: Clock },
-          { label: 'Average Speed', value: '25 km/h', trend: 'down', icon: TrendingDown },
-          { label: 'Traffic Incidents', value: '12/day', trend: 'down', icon: Target }
+          { label: 'Congestión media', value: 'Media', trend: 'up', icon: Activity },
+          { label: 'Horas punta de tráfico', value: '7-9 h', trend: 'neutral', icon: Clock },
+          { label: 'Velocidad media', value: '25 km/h', trend: 'down', icon: TrendingDown },
+          { label: 'Incidentes de tráfico', value: '12/día', trend: 'down', icon: Target }
         ],
         insights: {
-          primary: 'Traffic congestion peaks during morning rush hours (7-9 AM)',
-          secondary: 'Average speed has decreased by 5% due to increased cycling'
+          primary: 'La congestión alcanza su máximo durante las horas punta matinales (7-9 h)',
+          secondary: 'La velocidad media ha descendido un 5% por el aumento del ciclismo'
         },
         recommendations: {
-          primary: 'Implement dedicated cycling lanes to reduce congestion',
-          secondary: 'Optimize traffic light timing for cyclists'
+          primary: 'Implementar carriles bici para reducir la congestión',
+          secondary: 'Optimizar la sincronización semafórica para ciclistas'
         },
         overallScore: {
           score: 78,
-          label: 'Good Performance'
+          label: 'Buen Desempeño'
         }
       };
 
     case 'stations':
       return {
         stats: [
-          { label: 'Total Stations', value: '45', trend: 'up', icon: Users },
-          { label: 'Available Bikes', value: '320', trend: 'neutral', icon: BarChart3 },
-          { label: 'Utilization Rate', value: '78%', trend: 'up', icon: TrendingUp },
-          { label: 'Coverage Area', value: '85%', trend: 'up', icon: PieChart }
+          { label: 'Total de estaciones', value: '45', trend: 'up', icon: Users },
+          { label: 'Bicis disponibles', value: '320', trend: 'neutral', icon: BarChart3 },
+          { label: 'Tasa de uso', value: '78%', trend: 'up', icon: TrendingUp },
+          { label: 'Área de cobertura', value: '85%', trend: 'up', icon: PieChart }
         ],
         insights: {
-          primary: 'Bike station utilization is highest in the city center',
-          secondary: 'Station coverage is expanding to suburban areas'
+          primary: 'El uso de las estaciones es mayor en el centro de la ciudad',
+          secondary: 'La cobertura se está expandiendo hacia zonas periféricas'
         },
         recommendations: {
-          primary: 'Add more stations in high-demand areas',
-          secondary: 'Improve bike availability during peak hours'
+          primary: 'Añadir más estaciones en zonas de alta demanda',
+          secondary: 'Mejorar la disponibilidad de bicis en horas punta'
         },
         overallScore: {
           score: 82,
-          label: 'Excellent Coverage'
+          label: 'Excelente Cobertura'
         }
       };
 
-    case 'network':
+    case 'terrain':
       return {
         stats: [
-          { label: 'Network Length', value: `${formatDistance(city.cyclingNetwork)} km`, trend: 'up', icon: BarChart3 },
-          { label: 'Connectivity Score', value: '78%', trend: 'up', icon: Target },
-          { label: 'Planned Extensions', value: `${formatDistance(12)} km`, trend: 'up', icon: TrendingUp },
-          { label: 'Network Density', value: '2.3 km/km²', trend: 'neutral', icon: Activity }
+          { label: 'Altitud media', value: '650 m', trend: 'neutral', icon: BarChart3 },
+          { label: 'Pendiente máxima', value: '8%', trend: 'neutral', icon: TrendingUp },
+          { label: 'Nivel de dificultad', value: 'Moderado', trend: 'neutral', icon: Target },
+          { label: 'Rutas llanas', value: '65%', trend: 'up', icon: PieChart }
         ],
         insights: {
-          primary: 'Network connectivity is strongest in residential areas',
-          secondary: 'Planned extensions will improve connectivity by 20%'
+          primary: 'La mayoría de rutas ciclistas siguen los contornos naturales del terreno',
+          secondary: 'Los cambios de altitud crean corredores ciclistas naturales'
         },
         recommendations: {
-          primary: 'Prioritize connections to underserved neighborhoods',
-          secondary: 'Enhance safety features on existing routes'
-        },
-        overallScore: {
-          score: 75,
-          label: 'Good Network'
-        }
-      };
-
-    case 'topography':
-      return {
-        stats: [
-          { label: 'Average Elevation', value: '650 m', trend: 'neutral', icon: BarChart3 },
-          { label: 'Max Gradient', value: '8%', trend: 'neutral', icon: TrendingUp },
-          { label: 'Difficulty Level', value: 'Moderate', trend: 'neutral', icon: Target },
-          { label: 'Flat Routes', value: '65%', trend: 'up', icon: PieChart }
-        ],
-        insights: {
-          primary: 'Most cycling routes follow natural terrain contours',
-          secondary: 'Elevation changes create natural cycling corridors'
-        },
-        recommendations: {
-          primary: 'Develop more flat routes for accessibility',
-          secondary: 'Install bike-friendly infrastructure on steep sections'
+          primary: 'Desarrollar más rutas llanas para mayor accesibilidad',
+          secondary: 'Instalar infraestructura ciclista adaptada en tramos empinados'
         },
         overallScore: {
           score: 70,
-          label: 'Moderate Terrain'
+          label: 'Terreno Moderado'
         }
       };
 
-    case 'usage':
+    case 'intersections':
       return {
         stats: [
-          { label: 'Daily Riders', value: '12,500', trend: 'up', icon: Users },
-          { label: 'Peak Usage Time', value: '6-8 PM', trend: 'neutral', icon: Clock },
-          { label: 'Growth Rate', value: '15%', trend: 'up', icon: TrendingUp },
-          { label: 'User Satisfaction', value: '4.2/5', trend: 'up', icon: Target }
+          { label: 'Total de cruces', value: '1.240', trend: 'neutral', icon: Activity },
+          { label: 'Cruces adaptados', value: '68%', trend: 'up', icon: TrendingUp },
+          { label: 'Tiempo medio de espera', value: '22 s', trend: 'down', icon: Clock },
+          { label: 'Puntos de conflicto', value: '34', trend: 'down', icon: Target }
         ],
         insights: {
-          primary: 'Cycling adoption has increased 15% year-over-year',
-          secondary: 'Peak usage occurs during evening commute hours'
+          primary: 'El 68% de las intersecciones cuentan con adaptaciones para ciclistas',
+          secondary: 'Los tiempos de espera en semáforos han mejorado en zonas céntricas'
         },
         recommendations: {
-          primary: 'Expand infrastructure to accommodate growing demand',
-          secondary: 'Develop incentive programs to encourage cycling'
+          primary: 'Priorizar la señalización ciclista en cruces conflictivos',
+          secondary: 'Implementar semáforos con fases específicas para bicicletas'
         },
         overallScore: {
-          score: 85,
-          label: 'High Adoption'
+          score: 72,
+          label: 'Mejora Continua'
         }
       };
 
-    case 'demographics':
+    case 'accidents':
       return {
         stats: [
-          { label: 'Population Density', value: `${formatPopulation(5200)}/km²`, trend: 'neutral', icon: Users },
-          { label: 'Age Distribution', value: '25-45', trend: 'neutral', icon: BarChart3 },
-          { label: 'Car Ownership', value: '65%', trend: 'down', icon: TrendingDown },
-          { label: 'Cycling Adoption', value: '23%', trend: 'up', icon: TrendingUp }
+          { label: 'Accidentes anuales', value: '180', trend: 'down', icon: TrendingDown },
+          { label: 'Puntos negros', value: '8', trend: 'down', icon: Target },
+          { label: 'Accidentes graves', value: '12', trend: 'down', icon: Activity },
+          { label: 'Reducción interanual', value: '7%', trend: 'up', icon: TrendingUp }
         ],
         insights: {
-          primary: 'Young professionals (25-45) are the primary users',
-          secondary: 'Car ownership correlates inversely with cycling adoption'
+          primary: 'La siniestralidad ha disminuido un 7% respecto al año anterior',
+          secondary: 'Los puntos negros se concentran en grandes avenidas sin carril bici'
         },
         recommendations: {
-          primary: 'Target marketing to increase adoption in all age groups',
-          secondary: 'Create age-specific cycling programs and facilities'
+          primary: 'Instalar carril bici protegido en los puntos de mayor siniestralidad',
+          secondary: 'Ampliar la iluminación nocturna en zonas de riesgo'
         },
         overallScore: {
-          score: 68,
-          label: 'Growing Interest'
+          score: 65,
+          label: 'Requiere Atención'
         }
       };
 
@@ -181,7 +181,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
         },
         overallScore: {
           score: 0,
-          label: 'No Data'
+          label: 'Sin datos'
         }
       };
   }
@@ -201,4 +201,4 @@ export const getTrendIcon = (trend: string) => {
     case 'down': return TrendingDown;
     default: return Activity;
   }
-}; 
+};

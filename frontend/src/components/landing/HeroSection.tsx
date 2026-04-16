@@ -14,14 +14,14 @@ const HeroSection: React.FC = () => {
   };
 
   return (
-    <section 
+    <section
       className="w-full flex items-center justify-center px-6 relative"
       style={{
         backgroundColor: 'var(--cream)',
       }}
     >
       {/* Background texture extending upward to cover navbar */}
-      <div 
+      <div
         className="absolute pointer-events-none"
         style={{
           backgroundImage: `url(${backgroundTexture})`,
@@ -35,8 +35,8 @@ const HeroSection: React.FC = () => {
           opacity: 0.07
         }}
       />
-      
-      <div className="relative w-full z-10">
+
+      <div className="relative w-full z-10 pt-[88px]">
         {/* Title */}
         <h1
           className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent 
@@ -46,29 +46,22 @@ const HeroSection: React.FC = () => {
         </h1>
 
         {/* Image */}
-        <div 
-          className="h-[400px] bg-cover bg-center rounded-sm mx-[50px] lg:mx-[100px] py-[30px] gap-[20px] lg:gap-[120px]"
-          style={{
-            backgroundImage: `url(${landingHeroImage})`,
-            backgroundPosition: 'center center'
-          }}
-        ></div>
 
         {/* Introduction */}
         <div className="flex items-start justify-between mx-[50px] lg:mx-[100px] py-[30px] gap-[20px] lg:gap-[120px]">
           {/* Left side - Motivational phrase */}
           <div className="flex-1">
             <h1 className="text-3xl md:text-5xl font-heading font-bold bg-gradient-to-r from-[var(--blue-dark)] via-[var(--green-dark)] via-[var(--green)] to-[var(--blue)] bg-clip-text text-transparent leading-tight mb-6 tracking-tighter">
-              <span className="block text-6xl lg:text-8xl tracking-tight">Movilidad sostenible</span>
-              <span className="block text-4xl lg:text-5xl tracking-tight flex items-center gap-3 leading-[1.2]">
+              <span className="block text-6xl lg:text-4xl tracking-tight">Movilidad sostenible</span>
+              <span className="block text-4xl lg:text-3xl tracking-tight flex items-center gap-3 leading-[1.2]">
                 en la era digital
-                <CircleChevronDown 
+                <CircleChevronDown
                   onClick={scrollToNextSection}
                   className="text-[var(--green)] cursor-pointer 
                     transition-all duration-300 
                     hover:scale-110 hover:text-[var(--green-dark)] 
-                    animate-bounce" 
-                  size={32} 
+                    animate-bounce"
+                  size={32}
                 />
               </span>
             </h1>
@@ -77,10 +70,10 @@ const HeroSection: React.FC = () => {
           {/* Right side - Description and Feature cards */}
           <div className="flex-1">
             <div className="space-y-4">
-              <GlassCard 
+              <GlassCard
                 surface="glass"
-                interactive 
-                tint="rgba(255, 255, 255, 0.15)" 
+                interactive
+                tint="rgba(255, 255, 255, 0.15)"
                 blurStrength="md"
                 shadow="lg"
                 size="md"
@@ -106,11 +99,11 @@ const HeroSection: React.FC = () => {
                   </div>
                 </div>
               </GlassCard>
-              
-              <GlassCard 
+
+              <GlassCard
                 surface="glass"
-                interactive 
-                tint="rgba(255, 255, 255, 0.15)" 
+                interactive
+                tint="rgba(255, 255, 255, 0.15)"
                 blurStrength="md"
                 shadow="lg"
                 size="md"
@@ -137,10 +130,10 @@ const HeroSection: React.FC = () => {
                   </div>
                 </div>
               </GlassCard>
-              <GlassCard 
+              <GlassCard
                 surface="glass"
-                interactive 
-                tint="rgba(255, 255, 255, 0.15)" 
+                interactive
+                tint="rgba(255, 255, 255, 0.15)"
                 blurStrength="md"
                 shadow="lg"
                 size="md"
@@ -158,7 +151,7 @@ const HeroSection: React.FC = () => {
                     className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1"> 
+                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
                       Planifica con visión de futuro
                     </h3>
                     <p>
