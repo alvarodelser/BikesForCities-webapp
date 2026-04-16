@@ -132,14 +132,24 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
             mmap = load_master_map()
             res = mmap.get(sid)
         return res
+        
+    cu_raw = rec.get("geolocation_unlock")
+    cl_raw = rec.get("geolocation_lock")
+    cu_str, cl_str = None, None
+    if pd.notna(cu_raw) and isinstance(cu_raw, str): cu_str = cu_raw.replace("'", '"')
+    if pd.notna(cl_raw) and isinstance(cl_raw, str): cl_str = cl_raw.replace("'", '"')
     
-    su = rec.get("idunplug_station", rec.get("station_unlock", rec.get("idunplug_base", rec.get("estacion_origen"))))
-    sl = rec.get("idplug_station", rec.get("station_lock", rec.get("idplug_base", rec.get("estacion_destino"))))
-    if pd.isna(su) or pd.isna(sl): return None
-    
-    cu, cl = _coords(su), _coords(sl)
-    if not cu or not cl: return None
-    if None in cu or None in cl: return None
+    if not cu_str or not cl_str:
+        su = rec.get("idunplug_station", rec.get("station_unlock", rec.get("idunplug_base", rec.get("estacion_origen"))))
+        sl = rec.get("idplug_station", rec.get("station_lock", rec.get("idplug_base", rec.get("estacion_destino"))))
+        if pd.isna(su) or pd.isna(sl): return None
+        
+        cu, cl = _coords(su), _coords(sl)
+        if not cu or not cl: return None
+        if None in cu or None in cl: return None
+        
+        if not cu_str: cu_str = json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]})
+        if not cl_str: cl_str = json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]})
     
     tid = rec.get("_id", rec.get("idtrip", rec.get("trip_id")))
     if not tid and "_id" in rec and isinstance(rec["_id"], dict):
@@ -153,9 +163,9 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
     
     return {
         "idTrip": tid, "idBike": bid, "trip_minutes": float(dur)/60.0 if dur else None,
-        "unlock_date": udt, "lock_date": rec.get("lock_date", rec.get("datetime_lock", rec.get("fecha_destino"))),
-        "geolocation_unlock": json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]}),
-        "geolocation_lock": json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]}),
+        "unlock_date": udt, "lock_date": rec.get("lock_date", rec.get("datetime_lock", rec.get("fecha_destino", rec.get("fecha_origen")))),
+        "geolocation_unlock": cu_str,
+        "geolocation_lock": cl_str,
     }
 
 def _extract_stations_from_json(content: str) -> dict:
@@ -276,8 +286,8 @@ def _load_csv(path: Path) -> pd.DataFrame:
     import math
     expected = {"geolocation_unlock", "geolocation_lock", "idTrip", "_id", "idBike", "trip_minutes", "unlock_date", "lock_date"}
     df = pd.read_csv(path, sep=";", usecols=lambda c: c in expected)
-    if "idTrip" not in df.columns:
-        df["idTrip"] = df["_id"] if "_id" in df.columns else [f"{path.stem}_{i}" for i in range(len(df))]
+    if "idTrip" not in df.columns or df["idTrip"].isnull().all():
+        df["idTrip"] = df["_id"] if "_id" in df.columns and not df["_id"].isnull().all() else [f"{path.stem}_{i}" for i in range(len(df))]
     df.dropna(subset=["geolocation_unlock", "geolocation_lock", "idTrip", "unlock_date"], inplace=True)
     df = df[df["geolocation_unlock"] != df["geolocation_lock"]]
     def _p(x):
