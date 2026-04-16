@@ -96,52 +96,85 @@ def _detect_month(filename: str) -> Optional[int]:
     
     parts = stem.split("_")
     for p in parts:
-        if p.isdigit() and 1 <= int(p) <= 12: return int(p)
-        if p in months_map: return months_map[p]
+import os
+
+MASTER_MAP_PATH = Path("data/Madrid/master_station_map.json")
+
+def load_master_map():
+    if MASTER_MAP_PATH.exists():
+        try:
+            with open(MASTER_MAP_PATH, "r") as f: return json.load(f)
+        except: pass
+    return {}
+
+def save_master_map(m):
+    MASTER_MAP_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(MASTER_MAP_PATH, "w") as f: json.dump(m, f)
 
 def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
-    def _coords(station_id):
-        return station_map.get(str(station_id)) or station_map.get(int(station_id))
+    # Normalise keys for easier lookup
+    rec = {k.lower().strip(): v for k, v in record.items()}
     
-    su = record.get("idunplug_station")
-    sl = record.get("idplug_station")
+    def _coords(station_id):
+        if pd.isna(station_id): return None
+        try:
+            # Handle float representations of IDs in CSVs (e.g. 1.0 -> 1)
+            sid = str(int(float(station_id)))
+        except:
+            sid = str(station_id)
+            
+        res = station_map.get(sid)
+        if not res:
+            mmap = load_master_map()
+            res = mmap.get(sid)
+        return res
+    
+    su = rec.get("idunplug_station", rec.get("station_unlock", rec.get("idunplug_base", rec.get("estacion_origen"))))
+    sl = rec.get("idplug_station", rec.get("station_lock", rec.get("idplug_base", rec.get("estacion_destino"))))
     if pd.isna(su) or pd.isna(sl): return None
     
     cu, cl = _coords(su), _coords(sl)
     if not cu or not cl: return None
     if None in cu or None in cl: return None
     
-    tid = record.get("_id", record.get("idTrip"))
-    if not tid and "_id" in record and isinstance(record["_id"], dict):
-        tid = record["_id"].get("$oid")
+    tid = rec.get("_id", rec.get("idtrip", rec.get("trip_id")))
+    if not tid and "_id" in rec and isinstance(rec["_id"], dict):
+        tid = rec["_id"].get("$oid")
         
-    bid = record.get("idplug_base") or record.get("idunplug_base") or record.get("idBike")
-    dur = record.get("travel_time", record.get("trip_minutes"))
+    bid = rec.get("idplug_base") or rec.get("idunplug_base") or rec.get("idbike")
+    dur = rec.get("travel_time", rec.get("trip_minutes", rec.get("tiempo_viaje")))
     
-    udt = record.get("unplug_hourTime", record.get("fecha"))
+    udt = rec.get("unplug_hourtime", rec.get("fecha", rec.get("unlock_date", rec.get("fecha_origen"))))
     if isinstance(udt, dict): udt = udt.get("$date")
     
     return {
         "idTrip": tid, "idBike": bid, "trip_minutes": float(dur)/60.0 if dur else None,
-        "unlock_date": udt, "lock_date": record.get("lock_date", record.get("datetime_lock")),
+        "unlock_date": udt, "lock_date": rec.get("lock_date", rec.get("datetime_lock", rec.get("fecha_destino"))),
         "geolocation_unlock": json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]}),
         "geolocation_lock": json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]}),
     }
+
 def _extract_stations_from_json(content: str) -> dict:
     """Parses a BiciMAD station JSON dump and returns a map of {id: [lon, lat]}"""
     station_map = {}
     try:
         data = json.loads(content)
         records = data.get("data", data.get("stations", data)) if isinstance(data, dict) else data
-        for rec in records:
-            s_id = str(rec.get("id", rec.get("id_station", rec.get("_id", ""))))
-            geom = rec.get("geometry", {})
+        for k in records:
+            s_id = str(k.get("id", k.get("id_station", k.get("_id", ""))))
+            geom = k.get("geometry", {})
             if isinstance(geom, dict) and "coordinates" in geom:
                 station_map[s_id] = [float(geom["coordinates"][0]), float(geom["coordinates"][1])]
-            elif "latitude" in rec and "longitude" in rec:
-                station_map[s_id] = [float(rec["longitude"]), float(rec["latitude"])]
+            elif "latitude" in k and "longitude" in k:
+                station_map[s_id] = [float(k["longitude"]), float(k["latitude"])]
     except Exception:
         pass
+    
+    if station_map:
+        mmap = load_master_map()
+        mmap.update(station_map)
+        save_master_map(mmap)
+        
     return station_map
 
 
@@ -149,7 +182,6 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
     written = 0
     members = sorted(zf.namelist())
     
-    # Pre-process: look for station metadata files FIRST to build the coordinate map for this year
     for member in members:
         if "__MACOSX" in member: continue
         if member.lower().endswith(".zip") and "station" in member.lower():
@@ -179,15 +211,16 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
 
         is_json, is_csv = member.lower().endswith(".json"), member.lower().endswith(".csv")
         if not (is_json or is_csv): continue
-        if "station" in member.lower(): continue # Already parsed for metadata
+        if "station" in member.lower(): continue
         
         month = _detect_month(member) or _detect_month(str(Path(member).parent))
         if month is None:
-            print(f"     ⚠️  No month detected for {member}")
             continue
             
         csv_path = DATA_DIR / f"trips_{year_short}_{month:02d}.csv"
-        if csv_path.exists() and not force: continue
+        if csv_path.exists():
+            if not force: continue
+            else: csv_path.unlink() # Delete the zombie csv so we don't accidentally preserve error-filled versions
 
         print(f"     📂 Processing {member}...")
         try:
@@ -201,12 +234,17 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                         recs = [json.loads(l) for l in content.splitlines() if l.strip()]
                     
                     rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
-                    if not rows and recs:
-                        print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())[:10]}")
                 else:
-                    df = pd.read_csv(f, sep=None, engine="python", on_bad_lines="skip")
+                    df = pd.read_csv(f, sep=";", engine="python", on_bad_lines="skip")
+                    if len(df.columns) < 2:
+                        # Fallback to comma if semicolon fails
+                        f.seek(0)
+                        df = pd.read_csv(f, sep=",", engine="python", on_bad_lines="skip")
                     recs = df.to_dict("records")
                     rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
+
+                if not rows and recs:
+                    print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())[:10]}")
 
                 if rows:
                     pd.DataFrame(rows).to_csv(csv_path, sep=";", index=False)
@@ -359,7 +397,7 @@ def main():
             done_files.clear()
             details["done_files"] = []
         
-        years = args.years or sorted(HISTORICAL_URLS.keys())
+        years = args.years or sorted(HISTORICAL_URLS.keys(), reverse=True)
         for year in years:
             ensure_data_present(year, force=args.force)
 
