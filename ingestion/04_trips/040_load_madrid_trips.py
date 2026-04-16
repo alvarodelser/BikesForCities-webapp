@@ -98,6 +98,35 @@ def _detect_month(filename: str) -> Optional[int]:
     for p in parts:
         if p.isdigit() and 1 <= int(p) <= 12: return int(p)
         if p in months_map: return months_map[p]
+
+def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
+    def _coords(station_id):
+        return station_map.get(str(station_id)) or station_map.get(int(station_id))
+    
+    su = record.get("idunplug_station")
+    sl = record.get("idplug_station")
+    if pd.isna(su) or pd.isna(sl): return None
+    
+    cu, cl = _coords(su), _coords(sl)
+    if not cu or not cl: return None
+    if None in cu or None in cl: return None
+    
+    tid = record.get("_id", record.get("idTrip"))
+    if not tid and "_id" in record and isinstance(record["_id"], dict):
+        tid = record["_id"].get("$oid")
+        
+    bid = record.get("idplug_base") or record.get("idunplug_base") or record.get("idBike")
+    dur = record.get("travel_time", record.get("trip_minutes"))
+    
+    udt = record.get("unplug_hourTime", record.get("fecha"))
+    if isinstance(udt, dict): udt = udt.get("$date")
+    
+    return {
+        "idTrip": tid, "idBike": bid, "trip_minutes": float(dur)/60.0 if dur else None,
+        "unlock_date": udt, "lock_date": record.get("lock_date", record.get("datetime_lock")),
+        "geolocation_unlock": json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]}),
+        "geolocation_lock": json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]}),
+    }
 def _extract_stations_from_json(content: str) -> dict:
     """Parses a BiciMAD station JSON dump and returns a map of {id: [lon, lat]}"""
     station_map = {}
