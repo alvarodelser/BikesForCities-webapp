@@ -202,6 +202,7 @@ def ensure_data_present(year: int, force: bool = False) -> int:
 
 
 def _load_csv(path: Path) -> pd.DataFrame:
+    import math
     expected = {"geolocation_unlock", "geolocation_lock", "idTrip", "_id", "idBike", "trip_minutes", "unlock_date", "lock_date"}
     df = pd.read_csv(path, sep=";", usecols=lambda c: c in expected)
     if "idTrip" not in df.columns:
@@ -211,15 +212,19 @@ def _load_csv(path: Path) -> pd.DataFrame:
     def _p(x):
         try: 
             pts = ast.literal_eval(x)["coordinates"]
-            if pts[0] is None or pts[1] is None: return None
-            return [float(pts[0]), float(pts[1])]
         except: 
             try:
                 pts = json.loads(x)["coordinates"]
-                if pts[0] is None or pts[1] is None: return None
-                return [float(pts[0]), float(pts[1])]
             except:
                 return None
+                
+        if pts[0] is None or pts[1] is None: return None
+        try:
+            f0, f1 = float(pts[0]), float(pts[1])
+            if math.isnan(f0) or math.isnan(f1): return None
+            return [f0, f1]
+        except:
+            return None
             
     df["geolocation_unlock"] = df["geolocation_unlock"].apply(_p)
     df["geolocation_lock"] = df["geolocation_lock"].apply(_p)
