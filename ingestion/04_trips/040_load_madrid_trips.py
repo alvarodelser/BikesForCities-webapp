@@ -96,8 +96,12 @@ def _detect_month(filename: str) -> Optional[int]:
     
     parts = stem.split("_")
     for p in parts:
-import os
+        if p.isdigit() and 1 <= int(p) <= 12: return int(p)
+        if p in months_map: return months_map[p]
+        
+    return None
 
+import os
 MASTER_MAP_PATH = Path("data/Madrid/master_station_map.json")
 
 def load_master_map():
