@@ -176,8 +176,8 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                         print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())[:10]}")
                 else:
                     df = pd.read_csv(f, sep=None, engine="python", on_bad_lines="skip")
-                    df.to_csv(csv_path, sep=";", index=False)
-                    written += 1; print(f"     ✅ Created {csv_path.name} (CSV copy)"); continue
+                    recs = df.to_dict("records")
+                    rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
 
                 if rows:
                     pd.DataFrame(rows).to_csv(csv_path, sep=";", index=False)
