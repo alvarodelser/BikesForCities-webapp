@@ -27,7 +27,7 @@ from psycopg2.extras import execute_values
 import numpy as np
 
 # Add project root to python path to import backend
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.database.db_io import connect_db, get_ingestion_status, upsert_ingestion_status, get_city_id_by_name  # noqa: E402
 from backend.database.db_io.stations import (

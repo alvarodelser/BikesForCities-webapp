@@ -10,7 +10,7 @@ import pandas as pd
 from SPARQLWrapper import SPARQLWrapper, JSON
 
 # Add project root to python path to import backend
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status
 

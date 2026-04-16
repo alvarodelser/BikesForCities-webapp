@@ -11,7 +11,7 @@ from typing import Tuple
 
 from dotenv import load_dotenv
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities,
     get_skellam_readings_diffs, get_station_merge_map, get_citybikes_network_id,

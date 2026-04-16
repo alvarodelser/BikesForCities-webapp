@@ -9,7 +9,7 @@ import sys
 from dotenv import load_dotenv
 
 # Add project root to python path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.processing import load_graph, extract_nodes, extract_edges
 from backend.processing.feature_ops import extract_features_for_network, FEATURE_TYPES, CALCULATED_FEATURES

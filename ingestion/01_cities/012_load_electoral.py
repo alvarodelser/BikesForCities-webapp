@@ -11,7 +11,7 @@ import pandas as pd
 from pathlib import Path
 from dotenv import load_dotenv
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status
 
 # Current latest election: May 2023

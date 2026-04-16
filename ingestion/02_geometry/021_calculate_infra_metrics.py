@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 
-sys.path.append(str(Path(__file__).resolve().parents[1]))
+sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io.connection import connect_db
 from backend.database.db_io.cities import get_all_cities, upsert_ingestion_status
 from backend.database.db_io.metrics import calculate_osm_metrics
