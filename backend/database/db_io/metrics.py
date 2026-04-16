@@ -35,7 +35,12 @@ def get_skellam_readings_diffs(conn, city_id: int, start: dt.datetime, end: dt.d
 def get_station_merge_map(conn, city_id: int) -> dict:
     """Retrieve map of station ID to its merged representative ID."""
     with conn.cursor() as cur:
-        cur.execute("SELECT station_id, COALESCE(merged_into_id, station_id) FROM stations WHERE city_id = %s", (city_id,))
+        cur.execute("""
+            SELECT s1.station_id, COALESCE(s2.station_id, s1.station_id) 
+            FROM stations s1
+            LEFT JOIN stations s2 ON s1.merged_into_id = s2.id
+            WHERE s1.city_id = %s
+        """, (city_id,))
         return {row[0]: row[1] for row in cur.fetchall()}
 
 
