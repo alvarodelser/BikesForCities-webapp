@@ -101,26 +101,46 @@ def _detect_month(filename: str) -> Optional[int]:
     return None
 
 
-def _trips_from_json_record(record: dict) -> Optional[dict]:
+def _build_station_map(conn, city_id: int) -> dict:
+    """Creates a dictionary mapping BiciMAD's internal uid to [lon, lat] from our CityBikes database."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT extra->>'uid', lon, lat FROM stations WHERE city_id = %s AND extra->>'uid' IS NOT NULL", (city_id,))
+        return {str(row[0]): [float(row[1]), float(row[2])] for row in cur.fetchall()}
+
+
+def _trips_from_json_record(record: dict, station_map: dict = None) -> Optional[dict]:
     try:
+        station_map = station_map or {}
         # Schema agnostic mapping
         tid = str(record.get("_id", record.get("idTrip", record.get("trip_id", ""))))
+        # Support MongoDB OID dict
+        if isinstance(record.get("_id"), dict): tid = str(record.get("_id").get("$oid", ""))
+
         bid = record.get("idBike", record.get("bike_id", record.get("idbike", "")))
         dur = record.get("travel_time", record.get("duration", record.get("total_duration_ms")))
-        if dur and dur > 100000: dur /= 1000.0 # ms to s
+        if dur and float(dur) > 100000.0: dur = float(dur) / 1000.0 # ms to s
 
         udt = record.get("unplug_hourTime", record.get("unlock_date", record.get("unplug_date")))
+        if isinstance(udt, dict): udt = udt.get("$date", "")
+        
         gu = record.get("geolocation_unlock", record.get("unlock_station_location", record.get("unlock_location")))
         gl = record.get("geolocation_lock", record.get("lock_station_location", record.get("lock_location")))
 
+        # Fallback to DB station mappings if coordinates are completely missing (e.g., 2017-2018 datasets)
+        if gu is None or gl is None:
+            id_u = str(record.get("idunplug_station", record.get("unlock_station_name", "")))
+            id_l = str(record.get("idplug_station", record.get("lock_station_name", "")))
+            if id_u in station_map: gu = station_map[id_u]
+            if id_l in station_map: gl = station_map[id_l]
+
         if not tid or gu is None or gl is None: return None
-        if isinstance(udt, dict): udt = udt.get("$date", "")
 
         def _coords(g):
             if isinstance(g, dict):
                 if "coordinates" in g: return g["coordinates"]
                 if "lon" in g and "lat" in g: return [g["lon"], g["lat"]]
-            return g if isinstance(g, list) else [None, None]
+                if "$numberDouble" in str(g): return [0.0, 0.0]
+            return g if isinstance(g, list) and len(g) >= 2 else [None, None]
 
         cu, cl = _coords(gu), _coords(gl)
         if None in cu or None in cl: return None
@@ -128,13 +148,14 @@ def _trips_from_json_record(record: dict) -> Optional[dict]:
         return {
             "idTrip": tid, "idBike": bid, "trip_minutes": float(dur)/60.0 if dur else None,
             "unlock_date": udt, "lock_date": record.get("lock_date", record.get("datetime_lock")),
-            "geolocation_unlock": json.dumps({"type": "Point", "coordinates": list(cu)}),
-            "geolocation_lock": json.dumps({"type": "Point", "coordinates": list(cl)}),
+            "geolocation_unlock": json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]}),
+            "geolocation_lock": json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]}),
         }
-    except: return None
+    except Exception as e:
+        return None
 
 
-def _process_archive(zf: zipfile.ZipFile, year_short: str, force: bool = False) -> int:
+def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, force: bool = False) -> int:
     written = 0
     for member in sorted(zf.namelist()):
         if "__MACOSX" in member: continue
@@ -144,12 +165,13 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, force: bool = False) 
             try:
                 with zf.open(member) as nf:
                     with zipfile.ZipFile(io.BytesIO(nf.read())) as nzf:
-                        written += _process_archive(nzf, year_short, force)
+                        written += _process_archive(nzf, year_short, station_map, force)
             except Exception as e: print(f"       ❌ Failed nested ZIP {member}: {e}")
             continue
 
         is_json, is_csv = member.lower().endswith(".json"), member.lower().endswith(".csv")
         if not (is_json or is_csv): continue
+        if "station" in member.lower(): continue # Ignore the metadata files
         
         month = _detect_month(member) or _detect_month(str(Path(member).parent))
         if month is None:
@@ -170,7 +192,7 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, force: bool = False) 
                     except:
                         recs = [json.loads(l) for l in content.splitlines() if l.strip()]
                     
-                    rows = [r for r in [_trips_from_json_record(rc) for rc in recs] if r]
+                    rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
                     if not rows and recs:
                         print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())}")
                 else:
@@ -185,7 +207,7 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, force: bool = False) 
     return written
 
 
-def ensure_data_present(year: int, force: bool = False) -> int:
+def ensure_data_present(conn, year: int, city_id: int, force: bool = False) -> int:
     url = HISTORICAL_URLS.get(year)
     if not url: return 0
     year_short = str(year)[2:]
@@ -193,8 +215,9 @@ def ensure_data_present(year: int, force: bool = False) -> int:
 
     print(f"\n📦 Fetching BiciMAD {year} dataset...")
     raw = _download(url, f"BiciMAD {year}")
+    station_map = _build_station_map(conn, city_id)
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
-        return _process_archive(zf, year_short, force)
+        return _process_archive(zf, year_short, station_map, force)
 
 
 def _load_csv(path: Path) -> pd.DataFrame:
@@ -274,7 +297,7 @@ def main():
         done_files = set(details.get("done_files", []))
 
         years = args.years or sorted(HISTORICAL_URLS.keys())
-        for year in years: ensure_data_present(year, force=args.force)
+        for year in years: ensure_data_present(conn, year, city_id, force=args.force)
 
         def on_file_done(fn):
             done_files.add(fn); details["done_files"] = list(done_files)
