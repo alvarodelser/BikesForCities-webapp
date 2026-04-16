@@ -209,10 +209,23 @@ def _load_csv(path: Path) -> pd.DataFrame:
     df.dropna(subset=["geolocation_unlock", "geolocation_lock", "idTrip", "unlock_date"], inplace=True)
     df = df[df["geolocation_unlock"] != df["geolocation_lock"]]
     def _p(x):
-        try: return ast.literal_eval(x)["coordinates"]
-        except: return json.loads(x)["coordinates"]
+        try: 
+            pts = ast.literal_eval(x)["coordinates"]
+            if pts[0] is None or pts[1] is None: return None
+            return [float(pts[0]), float(pts[1])]
+        except: 
+            try:
+                pts = json.loads(x)["coordinates"]
+                if pts[0] is None or pts[1] is None: return None
+                return [float(pts[0]), float(pts[1])]
+            except:
+                return None
+            
     df["geolocation_unlock"] = df["geolocation_unlock"].apply(_p)
     df["geolocation_lock"] = df["geolocation_lock"].apply(_p)
+    
+    # Drop rows where parsing resulted in None (missing coordinates)
+    df.dropna(subset=["geolocation_unlock", "geolocation_lock"], inplace=True)
     return df.reset_index(drop=True)
 
 
@@ -220,10 +233,13 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph) -> in
     from backend.database.db_io.routes import put_routes
     import osmnx as ox
     
+    if len(df) == 0:
+        return 0
+        
     rows_inserted = 0
     batch = []
     
-    # We can use osmnx vectorized nearest nodes for incredible speed boost
+    # Extract coordinates directly into pure float lists
     lons_u, lats_u = zip(*df["geolocation_unlock"].tolist())
     lons_l, lats_l = zip(*df["geolocation_lock"].tolist())
     
@@ -265,7 +281,7 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph) -> in
     return rows_inserted
 
 
-def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False) -> int:
+def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False, force: bool = False) -> int:
     from backend.processing.city_ops import build_graph
     
     csv_files = list_trip_csvs("Madrid")
@@ -276,7 +292,7 @@ def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_f
     graph = build_graph(conn, city_id)
     
     for f in csv_files:
-        if f.name in done_files: continue
+        if f.name in done_files and not force: continue
         print(f"\n📂 Ingesting {f.name}")
         df = _load_csv(f)
         _insert_trips(conn, city_id, df, f.name, graph)
@@ -291,7 +307,7 @@ def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Unified Madrid trip downloader and loader")
     parser.add_argument("--years", nargs="+", type=int, choices=sorted(HISTORICAL_URLS.keys()), help="Years to download")
-    parser.add_argument("--force", action="store_true", help="Force re-download")
+    parser.add_argument("--force", action="store_true", help="Force re-download and re-ingest")
     parser.add_argument("--single-file", action="store_true", help="Process only one file")
     args = parser.parse_args()
 
@@ -305,6 +321,10 @@ def main():
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
         
+        if args.force:
+            done_files.clear()
+            details["done_files"] = []
+        
         years = args.years or sorted(HISTORICAL_URLS.keys())
         for year in years:
             ensure_data_present(year, force=args.force)
@@ -315,7 +335,7 @@ def main():
             done_files.add(fn); details["done_files"] = list(done_files)
             upsert_ingestion_status(conn, city_id, dtype, "RUNNING", details=details); conn.commit()
 
-        n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file)
+        n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file, force=args.force)
         upsert_ingestion_status(conn, city_id, dtype, "SUCCESS", details=details)
         print(f"\n🏁 Finished! {n} files ingested.")
     except Exception as e:
