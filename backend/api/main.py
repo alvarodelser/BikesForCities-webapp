@@ -18,19 +18,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+import os
+
+env = os.getenv("ENVIRONMENT", "development")
+root_path = "/b4c_api" if env == "production" else ""
+
 # Create FastAPI app
 app = FastAPI(
     title="Bikes for Cities API",
     description="REST API for bike-sharing city analysis and visualization",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    root_path=root_path
 )
 
-import os
-
 # Add CORS middleware
-env = os.getenv("ENVIRONMENT", "development")
 
 if env == "production":
     # Restrict to strictly your Vercel instance
