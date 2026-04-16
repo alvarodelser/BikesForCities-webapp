@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  db:
+  b4c_database:
     image: postgis/postgis:14-3.3
     container_name: postgis_container
     networks:
@@ -14,23 +14,23 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - pgdata:/var/lib/postgresql/data
 
-  backend:
+  b4c_backend_api:
     build:
       context: .
       dockerfile: backend/Dockerfile
     container_name: bikes_backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
-      - db
+      - b4c_database
     environment:
       # Database connection (connects to the db service)
-      - POSTGRES_HOST=db
+      - POSTGRES_HOST=b4c_database
       - POSTGRES_PORT=5432
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -46,16 +46,16 @@ services:
       - ./logs:/app/logs
     command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
 
-  martin:
+  b4c_tile_server:
     image: ghcr.io/maplibre/martin:main
     container_name: bikes_martin
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
-      - db
+      - b4c_database
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD_URL_ENCODED}@db:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@b4c_database:5432/${POSTGRES_DB}
     command: --listen-addresses=0.0.0.0:3000
   # frontend:
   #   build:
@@ -67,7 +67,7 @@ services:
   #   volumes:
   #       - ./frontend:/app
   #   depends_on:
-  #     - backend
+  #     - b4c_backend_api
   #   environment:
   #     - REACT_APP_API_URL=http://localhost:8000
   #   command: npm run dev
