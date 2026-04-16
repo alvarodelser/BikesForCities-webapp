@@ -78,14 +78,55 @@ def _download(url: str, desc: str) -> bytes:
     return buf.getvalue()
 
 
+def _detect_month(filename: str) -> Optional[int]:
+    """
+    Tries to find a month (1-12) in the filename using Various patterns.
+    """
+    stem = Path(filename).stem.lower().replace("-", "_")
+    
+    # 1. Look for YYYYMM pattern
+    import re
+    yyyymm_match = re.search(r"20\d{2}(\d{2})", stem)
+    if yyyymm_match:
+        m = int(yyyymm_match.group(1))
+        if 1 <= m <= 12:
+            return m
+            
+    # 2. Look for Month names in Spanish/English
+    months_map = {
+        "enero": 1, "january": 1, "01": 1,
+        "febrero": 2, "february": 2, "02": 2,
+        "marzo": 3, "march": 3, "03": 3,
+        "abril": 4, "april": 4, "04": 4,
+        "mayo": 5, "may": 5, "05": 5,
+        "junio": 6, "june": 6, "06": 6,
+        "julio": 7, "july": 7, "07": 7,
+        "agosto": 8, "august": 8, "08": 8,
+        "septiembre": 9, "september": 9, "09": 9,
+        "octubre": 10, "october": 10, "10": 10,
+        "noviembre": 11, "november": 11, "11": 11,
+        "diciembre": 12, "december": 12, "12": 12
+    }
+    
+    parts = stem.split("_")
+    for p in parts:
+        if p.isdigit():
+            m = int(p)
+            if 1 <= m <= 12: return m
+        if p in months_map:
+            return months_map[p]
+            
+    return None
+
 def _trips_from_json_record(record: dict) -> Optional[dict]:
     try:
-        trip_id = str(record.get("_id", ""))
-        bike_id = record.get("idBike", "")
-        minutes = record.get("travel_time")
-        unlock_dt = record.get("unplug_hourTime")
-        geo_u = record.get("geolocation_unlock")
-        geo_l = record.get("geolocation_lock")
+        # Support both new and old schemas
+        trip_id = str(record.get("_id", record.get("idTrip", "")))
+        bike_id = record.get("idBike", record.get("bike_id", ""))
+        minutes = record.get("travel_time", record.get("duration"))
+        unlock_dt = record.get("unplug_hourTime", record.get("unlock_date"))
+        geo_u = record.get("geolocation_unlock", record.get("unlock_station_location"))
+        geo_l = record.get("geolocation_lock", record.get("lock_station_location"))
 
         if not trip_id or geo_u is None or geo_l is None:
             return None
@@ -94,7 +135,11 @@ def _trips_from_json_record(record: dict) -> Optional[dict]:
             unlock_dt = unlock_dt.get("$date", "")
 
         def _coords(g):
-            if isinstance(g, dict): return g.get("coordinates", [None, None])
+            if isinstance(g, dict): 
+                # Support GeoJSON Point
+                if "coordinates" in g: return g["coordinates"]
+                # Support {$numberDouble: "..."}
+                return [g.get("lon"), g.get("lat")]
             if isinstance(g, list): return g
             return [None, None]
 
@@ -108,7 +153,7 @@ def _trips_from_json_record(record: dict) -> Optional[dict]:
             "idBike": bike_id,
             "trip_minutes": float(minutes) / 60.0 if minutes is not None else None,
             "unlock_date": unlock_dt,
-            "lock_date": None,
+            "lock_date": record.get("lock_date"),
             "geolocation_unlock": json.dumps({"type": "Point", "coordinates": list(coords_u)}),
             "geolocation_lock": json.dumps({"type": "Point", "coordinates": list(coords_l)}),
         }
@@ -131,25 +176,47 @@ def ensure_data_present(year: int, force: bool = False) -> int:
     zf = zipfile.ZipFile(io.BytesIO(raw))
 
     json_members = [m for m in zf.namelist() if m.lower().endswith(".json") and "__MACOSX" not in m]
+    if not json_members:
+        print(f"  ⚠️  No JSON files found in {year} zip. Contents: {zf.namelist()[:5]}...")
+        return 0
+
     written = 0
     for member in sorted(json_members):
-        stem = Path(member).stem
-        month: Optional[int] = None
-        for part in stem.replace("-", "_").split("_"):
-            if part.isdigit() and 1 <= int(part) <= 12:
-                month = int(part); break
-        
-        if month is None: continue
+        month = _detect_month(member)
+        if month is None:
+            print(f"  ⚠️  Could not detect month from file: {member} - skipping.")
+            continue
+            
         csv_path = DATA_DIR / f"trips_{year_short}_{month:02d}.csv"
         if csv_path.exists() and not force: continue
 
-        data = json.loads(zf.read(member))
-        records = data.get("data", data.get("trips", data)) if isinstance(data, dict) else data
-        rows = [r for r in [_trips_from_json_record(rec) for rec in records] if r is not None]
-        if rows:
-            pd.DataFrame(rows).to_csv(csv_path, sep=";", index=False)
-            written += 1
-            print(f"   ✅ Extracted {csv_path.name}")
+        print(f"   📂 Extracting {member}...")
+        try:
+            member_data = zf.read(member).decode("utf-8", errors="replace")
+            # Try parsing as standard JSON
+            try:
+                data = json.loads(member_data)
+                records = data.get("data", data.get("trips", data)) if isinstance(data, dict) else data
+            except json.JSONDecodeError:
+                # Fallback: Try parsing as JSONL (JSON lines)
+                print(f"     💡 Standard JSON failed, attempting JSONL parsing...")
+                records = []
+                for line in member_data.splitlines():
+                    if line.strip():
+                        try:
+                            records.append(json.loads(line))
+                        except Exception:
+                            continue
+
+            rows = [r for r in [_trips_from_json_record(rec) for rec in records] if r is not None]
+            if rows:
+                pd.DataFrame(rows).to_csv(csv_path, sep=";", index=False)
+                written += 1
+                print(f"   ✅ Created {csv_path.name} ({len(rows):,} trips)")
+            else:
+                print(f"   ⚠️  No valid trips found in {member}")
+        except Exception as e:
+            print(f"   ❌ Error processing {member}: {e}")
     
     return written
 
