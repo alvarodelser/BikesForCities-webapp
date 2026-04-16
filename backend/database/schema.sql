@@ -205,8 +205,11 @@ CREATE TABLE IF NOT EXISTS stations (
     extra JSONB,
     first_seen TIMESTAMPTZ,
     last_seen TIMESTAMPTZ,
+    merged_into_id INTEGER REFERENCES stations(id) ON DELETE SET NULL,
+    reach_coverage DOUBLE PRECISION,
     UNIQUE (citybikes_network_id, station_id)
 );
+CREATE INDEX IF NOT EXISTS idx_stations_merged_into ON stations(merged_into_id);
 
 -- Historical station readings (CityBikes monthly parquet)
 CREATE TABLE IF NOT EXISTS station_readings (

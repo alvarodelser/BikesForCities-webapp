@@ -85,7 +85,7 @@ def get_nearby_unmerged_station(conn, city_id: int, sid: str, lon: float, lat: f
     """Find a nearby station to merge into."""
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT station_id 
+            SELECT id 
             FROM stations 
             WHERE city_id = %s 
               AND station_id != %s
