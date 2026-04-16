@@ -14,7 +14,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:4000:5432"
     volumes:
       - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - pgdata:/var/lib/postgresql/data
@@ -25,7 +25,7 @@ services:
       dockerfile: backend/Dockerfile
     container_name: bikes_backend
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:4001:8000"
     depends_on:
       - b4c_database
     environment:
@@ -51,7 +51,7 @@ services:
     container_name: bikes_martin
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:4002:3000"
     depends_on:
       - b4c_database
     environment:
