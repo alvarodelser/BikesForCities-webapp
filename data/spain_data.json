@@ -1,0 +1,200 @@
+{
+    "Madrid": {
+        "name": "Madrid",
+        "modes": [
+            "infrastructure",
+            "traffic",
+            "stations"
+        ],
+        "longitude": -3.695152,
+        "latitude": 40.440087,
+        "angle": 0,
+        "population": 6642000,
+        "raster": "north_spain",
+        "citybikes_network_id": "bicimad",
+        "wikidata_id": "Q2807"
+    },
+    "Barcelona": {
+        "name": "Barcelona",
+        "modes": [
+            "infrastructure",
+            "stations"
+        ],
+        "longitude": 2.18074,
+        "latitude": 41.396466,
+        "angle": -45,
+        "population": 5566000,
+        "raster": "north_spain",
+        "citybikes_network_id": "bicing",
+        "wikidata_id": "Q1492"
+    },
+    "Sevilla": {
+        "name": "Sevilla",
+        "modes": [
+            "infrastructure",
+            "stations"
+        ],
+        "longitude": -5.977224,
+        "latitude": 37.385035,
+        "angle": 0,
+        "population": 688000,
+        "raster": "south_spain",
+        "citybikes_network_id": "sevici",
+        "wikidata_id": "Q8717"
+    },
+    "Bilbao": {
+        "name": "Bilbao",
+        "longitude": -2.928968,
+        "latitude": 43.260315,
+        "angle": 45,
+        "population": 345000,
+        "raster": "north_spain",
+        "wikidata_id": "Q8692"
+    },
+    "Alicante": {
+        "name": "Alicante",
+        "longitude": -0.484954,
+        "latitude": 38.350403,
+        "angle": -45,
+        "population": 334000,
+        "raster": "south_spain",
+        "wikidata_id": "Q11959"
+    },
+    "Valencia": {
+        "name": "Valencia",
+        "longitude": -0.376543,
+        "latitude": 39.474362,
+        "angle": 45,
+        "population": 798000,
+        "raster": "south_spain",
+        "citybikes_network_id": "valenbisi",
+        "wikidata_id": "Q8818"
+    },
+    "Malaga": {
+        "name": "Malaga",
+        "longitude": -4.422254,
+        "latitude": 36.72317,
+        "angle": -45,
+        "population": 580000,
+        "raster": "south_spain",
+        "wikidata_id": "Q8851"
+    },
+    "Las Palmas": {
+        "name": "Las Palmas",
+        "longitude": -15.431551,
+        "latitude": 28.126855,
+        "angle": 0,
+        "population": 382000,
+        "raster": "canary_spain",
+        "wikidata_id": "Q11969"
+    },
+    "Zaragoza": {
+        "name": "Zaragoza",
+        "longitude": -0.887712,
+        "latitude": 41.648822,
+        "angle": -45,
+        "population": 675000,
+        "raster": "north_spain",
+        "citybikes_network_id": "bizi-zaragoza",
+        "wikidata_id": "Q10305"
+    },
+    "Murcia": {
+        "name": "Murcia",
+        "longitude": -1.130654,
+        "latitude": 37.99224,
+        "angle": 15,
+        "population": 460000,
+        "raster": "south_spain",
+        "wikidata_id": "Q12213"
+    },
+    "Palma": {
+        "name": "Palma",
+        "longitude": 2.648983,
+        "latitude": 39.589581,
+        "angle": 90,
+        "population": 420000,
+        "raster": "balear_spain",
+        "wikidata_id": "Q1706"
+    },
+    "Cordoba": {
+        "name": "Cordoba",
+        "longitude": -4.779151,
+        "latitude": 37.884727,
+        "angle": 90,
+        "population": 325000,
+        "raster": "south_spain",
+        "wikidata_id": "Q5818"
+    },
+    "Valladolid": {
+        "name": "Valladolid",
+        "longitude": -4.724532,
+        "latitude": 41.652778,
+        "angle": -30,
+        "population": 300000,
+        "raster": "north_spain",
+        "wikidata_id": "Q8302"
+    },
+    "Vigo": {
+        "name": "Vigo",
+        "longitude": -8.72472,
+        "latitude": 42.240599,
+        "angle": -30,
+        "population": 300000,
+        "raster": "north_spain",
+        "wikidata_id": "Q8745"
+    },
+    "Gijon": {
+        "name": "Gijon",
+        "longitude": -5.664174,
+        "latitude": 43.532201,
+        "angle": 90,
+        "population": 270000,
+        "raster": "north_spain",
+        "wikidata_id": "Q12273"
+    },
+    "A Coruña": {
+        "name": "A Coruña",
+        "longitude": -8.40756,
+        "latitude": 43.362343,
+        "angle": 30,
+        "population": 245000,
+        "raster": "north_spain",
+        "wikidata_id": "Q8366"
+    },
+    "Vitoria": {
+        "name": "Vitoria",
+        "longitude": -2.67295,
+        "latitude": 42.846718,
+        "angle": -70,
+        "population": 250000,
+        "raster": "north_spain",
+        "wikidata_id": "Q14318"
+    },
+    "Granada": {
+        "name": "Granada",
+        "longitude": -3.598557,
+        "latitude": 37.176487,
+        "angle": 15,
+        "population": 235000,
+        "raster": "south_spain",
+        "wikidata_id": "Q8810"
+    },
+    "Elche": {
+        "name": "Elche",
+        "longitude": -0.701071,
+        "latitude": 38.269932,
+        "angle": 90,
+        "population": 230000,
+        "raster": "south_spain",
+        "wikidata_id": "Q10509"
+    },
+    "Toledo": {
+        "name": "Toledo",
+        "longitude": -4.016358,
+        "latitude": 39.862058,
+        "angle": 0,
+        "population": 87000,
+        "raster": "south_spain",
+        "wikidata_id": "Q5836"
+    }
+}

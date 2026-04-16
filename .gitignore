@@ -181,6 +181,8 @@ frontend/*.local
 
 # Application data
 data/
+!data/spain_data.json
+!data/spain-provinces.geojson
 cache/
 logs/
 
