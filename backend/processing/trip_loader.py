@@ -28,7 +28,7 @@ def _load_city_data() -> dict[str, dict]:
 
     global _CITY_CACHE  # noqa: PLW0603 – intentional module-level cache
     if _CITY_CACHE is None:
-        json_path = PROJECT_ROOT / "Data" / "spain_data.json"
+        json_path = PROJECT_ROOT / "data" / "spain_data.json"
         with open(json_path) as fh:
             _CITY_CACHE = json.load(fh)
     return _CITY_CACHE
