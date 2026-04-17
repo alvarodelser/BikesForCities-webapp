@@ -25,7 +25,7 @@ export default function TrafficLayer() {
 
     // Data fetch: reload on city change
     useEffect(() => {
-        if (!map || !city) return;
+        if (!map || !city || !city.id) return;
         let cancelled = false;
 
         fetchTraffic(city.id).then(trafficData => {

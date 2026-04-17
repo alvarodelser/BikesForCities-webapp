@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
 import CityCompareTable from '../components/compare/CityCompareTable';
-import { BarChart2, Map } from 'lucide-react';
+import { BarChart2 } from 'lucide-react';
 import type { CityData } from '../constants/cities';
 
 const ComparePage: React.FC = () => {

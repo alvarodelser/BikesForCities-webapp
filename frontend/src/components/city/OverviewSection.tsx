@@ -1,6 +1,5 @@
 import React from 'react';
 import type { CityData } from '../../constants/cities';
-import landingHeroImage from '../../assets/outline.png';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';

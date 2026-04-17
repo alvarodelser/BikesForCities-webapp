@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 

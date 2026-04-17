@@ -372,7 +372,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
 
     // --- Reach: load & render ---
     const loadReach = useCallback((stationId: string, infoContainer?: HTMLElement) => {
-        if (!map || !city) return;
+        if (!map || !city || !city.id) return;
         if (reachAbortRef.current) reachAbortRef.current.abort();
         const controller = new AbortController();
         reachAbortRef.current = controller;

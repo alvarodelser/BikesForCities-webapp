@@ -343,7 +343,6 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current || !scrollRef.current) return;
     const deltaX = e.pageX - startX.current;
-    const scrollRatio = scrollMetrics.width / scrollMetrics.client;
     // The visual movement of the thumb corresponds to the scroll progress
     // Track width is fixed at max-w-sm (approx 384px) effectively.
     // However, let's use a simpler approach: calculate % of track moved.

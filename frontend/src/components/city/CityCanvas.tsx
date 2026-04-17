@@ -24,41 +24,6 @@ interface CityCanvasProps {
     onThresholdsChange?: (thresholds: { q5: number; q50: number; q95: number; max: number; min: number }) => void;
 }
 
-// Helper to interpolate between two hex colors
-const interpolateColor = (color1: string, color2: string, factor: number) => {
-    const r1 = parseInt(color1.substring(1, 3), 16);
-    const g1 = parseInt(color1.substring(3, 5), 16);
-    const b1 = parseInt(color1.substring(5, 7), 16);
-
-    const r2 = parseInt(color2.substring(1, 3), 16);
-    const g2 = parseInt(color2.substring(3, 5), 16);
-    const b2 = parseInt(color2.substring(5, 7), 16);
-
-    const r = Math.round(r1 + factor * (r2 - r1));
-    const g = Math.round(g1 + factor * (g2 - g1));
-    const b = Math.round(b1 + factor * (b2 - b1));
-
-    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-};
-
-// Helper for popup color matching MapLibre logic
-const getMetricColor = (val: number, q5: number, q50: number, q95: number, metric: 'trips' | 'downtime') => {
-    if (val < q5) return '#A0AEC0';
-    if (val > q95) return metric === 'trips' ? '#042F2E' : '#450A0A';
-    
-    const colors = metric === 'trips' 
-        ? ['#D1FAE5', '#34D399', '#065F46'] 
-        : ['#FEE2E2', '#EF4444', '#7F1D1D'];
-
-    if (val < q50) {
-        const factor = (val - q5) / (q50 - q5 || 1);
-        return interpolateColor(colors[0], colors[1], Math.max(0, Math.min(1, factor)));
-    } else {
-        const factor = (val - q50) / (q95 - q50 || 1);
-        return interpolateColor(colors[1], colors[2], Math.max(0, Math.min(1, factor)));
-    }
-};
-
 const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({ 
     city, 
     selectedMode, 

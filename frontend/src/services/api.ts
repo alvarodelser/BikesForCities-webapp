@@ -41,6 +41,7 @@ export interface StationData {
   citybikes_network_id: string;
   estimated_monthly_trips: number | null;
   downtime_minutes: number | null;
+  reach_coverage?: number;
   extra?: any;
 }
 
@@ -88,11 +89,18 @@ export const fetchTraffic = async (cityId: number): Promise<TrafficCount[]> => {
   return result.data;
 };
 
+export interface StationReachData extends GeoJSON.FeatureCollection {
+  polygon?: GeoJSON.Feature;
+  circle?: GeoJSON.Feature;
+  edges: GeoJSON.FeatureCollection;
+  coverage: number;
+}
+
 export const fetchStationReach = async (
   cityId: number,
   stationId: string,
   maxDistance: number = 1000
-): Promise<GeoJSON.FeatureCollection> => {
+): Promise<StationReachData> => {
   const response = await fetch(
     `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/reach?max_distance=${maxDistance}`
   );

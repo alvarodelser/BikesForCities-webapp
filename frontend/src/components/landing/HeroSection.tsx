@@ -1,6 +1,5 @@
 import React from 'react';
 import { FileText, Map, Building2, CircleChevronDown } from 'lucide-react';
-import landingHeroImage from '../../assets/landing_hero.jpg';
 import backgroundTexture from '../../assets/background2.svg';
 import GlassCard from '../ui/GlassCard';
 import IconContainer from '../ui/IconContainer';

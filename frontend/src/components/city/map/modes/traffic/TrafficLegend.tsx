@@ -1,4 +1,3 @@
-import React from 'react';
 import { useThresholds } from '../../ThresholdsContext';
 
 export default function TrafficLegend() {
