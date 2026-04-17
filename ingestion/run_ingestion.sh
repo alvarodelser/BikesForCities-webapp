@@ -32,35 +32,35 @@ fi
 
 # 1. Cities & Metadata
 echo -e "\n${GREEN}--- Phase 1: Cities & Metadata ---${NC}"
-python3 01_cities/010_load_cities.py
-python3 01_cities/011_load_wikidata.py
-python3 01_cities/012_load_electoral.py
+python3 ingestion/01_cities/010_load_cities.py
+python3 ingestion/01_cities/011_load_wikidata.py
+python3 ingestion/01_cities/012_load_electoral.py
 
 # 2. Geometry & Infrastructure
 echo -e "\n${GREEN}--- Phase 2: Geometry & Infrastructure ---${NC}"
-python3 02_geometry/020_load_osm.py
-python3 02_geometry/021_calculate_infra_metrics.py
+python3 ingestion/02_geometry/020_load_osm.py
+python3 ingestion/02_geometry/021_calculate_infra_metrics.py
 
 # 3. Stations & Accessibility
 echo -e "\n${GREEN}--- Phase 3: Stations & Accessibility ---${NC}"
-python3 03_stations/030_load_stations.py
-python3 03_stations/031_calculate_traffic.py
-python3 03_stations/032_calculate_reach.py
+python3 ingestion/03_stations/030_load_stations.py
+python3 ingestion/03_stations/031_calculate_traffic.py
+python3 ingestion/03_stations/032_calculate_reach.py
 
 # 4. Trips & Traffic
 echo -e "\n${GREEN}--- Phase 4: Trips & Traffic ---${NC}"
 # Only run Madrid trips if the directory exists
 if [ -d "data/Madrid" ]; then
     echo -e "${YELLOW}Processing Madrid trips...${NC}"
-    python3 04_trips/040_load_madrid_trips.py
+    python3 ingestion/04_trips/040_load_madrid_trips.py
 fi
-python3 04_trips/041_generate_trips.py
-python3 04_trips/042_calculate_routes.py
+python3 ingestion/04_trips/041_generate_trips.py
+python3 ingestion/04_trips/042_calculate_routes.py
 
 # 5. Accidents
 if [ -f "05_accidents/050_load_madrid_accidents.py" ]; then
     echo -e "\n${GREEN}--- Phase 5: Accidents ---${NC}"
-    python3 05_accidents/050_load_madrid_accidents.py
+    python3 ingestion/05_accidents/050_load_madrid_accidents.py
 fi
 
 echo -e "\n${BLUE}======================================================${NC}"

@@ -269,11 +269,11 @@ def main():
     conn = connect_db()
     city_id = get_or_create_city(conn, "Madrid")
     
-    PROCESS_NAME = "050_load_madrid_accidents_Madrid"
+    PROCESS_NAME = "050_load_madrid_accidents"
     upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id)
-    
+
     try:
-        status_obj = get_ingestion_status(conn, PROCESS_NAME)
+        status_obj = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id)
         details = (status_obj.get("details") or {}) if status_obj else {}
         processed_years = details.setdefault("processed_years", [])
         

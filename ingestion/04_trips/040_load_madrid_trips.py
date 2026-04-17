@@ -33,7 +33,6 @@ from backend.database.db_io import (
     upsert_ingestion_status,
     get_ingestion_status,
 )
-from backend.processing.trip_loader import list_trip_csvs
 
 BATCH_SIZE = 5_000
 

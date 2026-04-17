@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   b4c_database:
-    image: postgis/postgis:14-3.3
+    image: postgis/postgis:14-3.4
     container_name: b4c_database
     networks:
       default:
