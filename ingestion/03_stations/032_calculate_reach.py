@@ -45,13 +45,13 @@ def main():
     print(f"📡 Computing station reachability for {len(cities)} cities…\n")
 
     for city_id, name, *_rest in cities:
-        missing = check_prerequisites(conn, [f"020_load_osm_{name}", f"030_load_stations_{name}"])
+        missing = check_prerequisites(conn, ["020_load_osm", "030_load_stations"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
             continue
 
-        pname = f"032_calculate_reach_{name}"
-        status_obj = get_ingestion_status(conn, pname)
+        pname = "032_calculate_reach"
+        status_obj = get_ingestion_status(conn, pname, city_id=city_id)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping {name}: reach coverage already computed. Use --force to override.")
             continue

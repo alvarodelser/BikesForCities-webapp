@@ -142,18 +142,18 @@ def main():
             print(f"⏭️  Skipping '{city_name}' (No wikidata_id in DB)")
             continue
 
-        missing = check_prerequisites(conn, [f"010_load_cities_{city_name}"])
+        missing = check_prerequisites(conn, ["010_load_cities"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
             continue
 
-        pname = f"011_load_wikidata_{city_name}"
-        status_obj = get_ingestion_status(conn, pname)
+        pname = "011_load_wikidata"
+        status_obj = get_ingestion_status(conn, pname, city_id=city_id)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping '{city_name}': Wikidata already ingested. Use --force to override.")
             continue
             
-        upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
+        upsert_ingestion_status(conn, "011_load_wikidata", "RUNNING", city_id=city_id)
         try:
             print(f"▶️  Fetching data for '{city_name}' ({wikidata_id})...")
             basics = get_city_basics(wikidata_id)
@@ -187,12 +187,12 @@ def main():
                 print(f"  ✔ Pop: {pop_str} | Website: {w_str}")
                 print(f"  ✔ Current Mayor: {mayor_current} ({party_current}) | Loaded {len(df_mayors)} historical records.")
                 updated_count += 1
-                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
+                upsert_ingestion_status(conn, "011_load_wikidata", "SUCCESS", city_id=city_id)
             else:
                 print(f"  ❌ No matching Wikidata municipality entry found for {wikidata_id}.")
-                upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
+                upsert_ingestion_status(conn, "011_load_wikidata", "FAILED", city_id=city_id)
         except Exception as e:
-            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
+            upsert_ingestion_status(conn, "011_load_wikidata", "FAILED", city_id=city_id)
             print(f"  ❌ Error fetching Wikidata for {city_name}: {e}")
             
     print(f"\n🏁 Finished updating {updated_count} cities with Wikidata info.")

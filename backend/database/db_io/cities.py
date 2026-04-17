@@ -215,15 +215,22 @@ def get_city_bounds(conn, city_id: int) -> Optional[dict]:
 # Ingestion status
 # ---------------------------------------------------------------------------
 
-def get_ingestion_status(conn, process_name: str) -> Optional[dict]:
+def get_ingestion_status(
+    conn,
+    process_name: str,
+    city_id: Optional[int] = None,
+    time_period: Optional[str] = None,
+) -> Optional[dict]:
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT updated_at, status, details, city_id, time_period
             FROM ingestion_status
             WHERE process_name = %s
+              AND city_id IS NOT DISTINCT FROM %s
+              AND time_period IS NOT DISTINCT FROM %s
             """,
-            (process_name,),
+            (process_name, city_id, time_period),
         )
         row = cur.fetchone()
         if row:
@@ -251,20 +258,19 @@ def upsert_ingestion_status(
             """
             INSERT INTO ingestion_status (process_name, city_id, time_period, updated_at, status, details)
             VALUES (%s, %s, %s, NOW(), %s, %s)
-            ON CONFLICT (process_name) DO UPDATE SET
-                updated_at  = NOW(),
-                status      = EXCLUDED.status,
-                details     = COALESCE(EXCLUDED.details, ingestion_status.details),
-                city_id     = COALESCE(EXCLUDED.city_id, ingestion_status.city_id),
-                time_period = COALESCE(EXCLUDED.time_period, ingestion_status.time_period)
+            ON CONFLICT (process_name, COALESCE(city_id, 0), COALESCE(time_period, ''))
+            DO UPDATE SET
+                updated_at = NOW(),
+                status     = EXCLUDED.status,
+                details    = COALESCE(EXCLUDED.details, ingestion_status.details)
             """,
             (process_name, city_id, time_period, status, details_json),
         )
 
 
-def check_prerequisites(conn, pnames: list) -> list:
-    """Returns names from pnames that are not SUCCESS in ingestion_status."""
-    return [p for p in pnames if (get_ingestion_status(conn, p) or {}).get("status") != "SUCCESS"]
+def check_prerequisites(conn, pnames: list, city_id: Optional[int] = None) -> list:
+    """Returns names from pnames that are not SUCCESS in ingestion_status for the given city."""
+    return [p for p in pnames if (get_ingestion_status(conn, p, city_id=city_id) or {}).get("status") != "SUCCESS"]
 
 
 # ---------------------------------------------------------------------------

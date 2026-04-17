@@ -195,8 +195,8 @@ def generate_for_city(conn, city_id: int, city_name: str,
     node_cache: dict[str, int | None] = {}
     all_route_rows = []
 
-    pname = f"041_generate_trips_{city_name}"
-    status_obj = get_ingestion_status(conn, pname)
+    pname = "041_generate_trips"
+    status_obj = get_ingestion_status(conn, pname, city_id=city_id)
     details = (status_obj.get("details") or {}) if status_obj else {}
     processed_months = details.setdefault("processed_months", [])
 
@@ -400,19 +400,19 @@ def main() -> None:
 
     for city_row in target:
         city_id, city_name = city_row[0], city_row[1]
-        missing = check_prerequisites(conn, [f"030_load_stations_{city_name}"])
+        missing = check_prerequisites(conn, ["030_load_stations"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
             continue
 
-        upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "RUNNING", city_id=city_id)
+        upsert_ingestion_status(conn, "041_generate_trips", "RUNNING", city_id=city_id)
         try:
             generate_for_city(conn, city_id, city_name, hist_edges, hist_probs, force=args.force)
             if not conn.closed:
-                upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "SUCCESS", city_id=city_id)
+                upsert_ingestion_status(conn, "041_generate_trips", "SUCCESS", city_id=city_id)
         except Exception as e:
             if not conn.closed:
-                upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "FAILED", city_id=city_id)
+                upsert_ingestion_status(conn, "041_generate_trips", "FAILED", city_id=city_id)
             print(f"❌ Error generating trips for {city_name}: {e}")
 
     print("\n🏁 Finished synthetic trip generation.")

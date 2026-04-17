@@ -41,13 +41,13 @@ def main():
     for city_row in target_cities:
         city_id, name, _, _, center_lat, center_lon, _, angle, *rest = city_row
 
-        missing = check_prerequisites(conn, [f"020_load_osm_{name}"])
+        missing = check_prerequisites(conn, ["020_load_osm"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
             continue
 
-        pname = f"021_calculate_infra_metrics_{name}"
-        status_obj = get_ingestion_status(conn, pname)
+        pname = "021_calculate_infra_metrics"
+        status_obj = get_ingestion_status(conn, pname, city_id=city_id)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping {name}: infrastructure coverage already computed. Use --force to override.")
             continue

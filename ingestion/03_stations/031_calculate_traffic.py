@@ -274,15 +274,15 @@ def main():
     print(f"📊 Calculating monthly cross-domain metrics for {len(cities)} cities...\n")
 
     for city_id, name, _, _, center_lat, center_lon, _, angle, *rest in cities:
-        missing = check_prerequisites(conn, [f"030_load_stations_{name}"])
+        missing = check_prerequisites(conn, ["030_load_stations"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
             continue
 
-        pname = f"031_calculate_traffic_{name}"
+        pname = "031_calculate_traffic"
         upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
-            status_obj = get_ingestion_status(conn, pname)
+            status_obj = get_ingestion_status(conn, pname, city_id=city_id)
             details = status_obj.get("details", {}) if status_obj else {}
             processed_months = details.setdefault("processed_months", [])
 

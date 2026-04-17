@@ -56,7 +56,7 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
         
     print(f"\n🚀 Processing optimized routes for {city_name} (ID: {city_id}) with {num_workers} workers...")
     
-    pname = f"042_calculate_routes_{city_name}"
+    pname = "042_calculate_routes"
     upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
     try:
         if force:
@@ -148,6 +148,7 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
         upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
 
     except Exception as e:
+        conn.rollback()
         upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
         print(f"❌ Error processing routes or traffic for {city_name}: {e}")
 
@@ -180,7 +181,7 @@ def main():
         target_cities = cities
 
     for city_id, name, *_ in target_cities:
-        missing = check_prerequisites(conn, [f"041_generate_trips_{name}"])
+        missing = check_prerequisites(conn, ["041_generate_trips"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
             continue

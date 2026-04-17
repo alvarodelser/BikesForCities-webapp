@@ -59,13 +59,13 @@ def main():
             print(f"❌ Missing geographic data for {city_name}, skipping.")
             continue
 
-        missing = check_prerequisites(conn, [f"010_load_cities_{city_name}"])
+        missing = check_prerequisites(conn, ["010_load_cities"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
             continue
 
-        pname = f"020_load_osm_{city_name}"
-        status = get_ingestion_status(conn, pname)
+        pname = "020_load_osm"
+        status = get_ingestion_status(conn, pname, city_id=city_id)
         if status and status.get("status") == "SUCCESS" and not args.force:
             updated_at = status.get("updated_at")
             if updated_at:

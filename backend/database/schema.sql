@@ -27,13 +27,16 @@ CREATE TABLE IF NOT EXISTS city_modes (
 );
 
 CREATE TABLE IF NOT EXISTS ingestion_status (
-    process_name TEXT PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
+    process_name TEXT NOT NULL,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     time_period TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     status TEXT NOT NULL,
     details JSONB
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ingestion_status
+    ON ingestion_status (process_name, COALESCE(city_id, 0), COALESCE(time_period, ''));
 
 
 CREATE TABLE IF NOT EXISTS historical_mayors (
@@ -181,7 +184,8 @@ CREATE TABLE IF NOT EXISTS route_nodes ( -- Separate table for efficient queries
 CREATE TABLE IF NOT EXISTS route_edges ( -- Separate table for efficient queries
     id SERIAL PRIMARY KEY,
     route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
-    edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE
+    edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE,
+    edge_order INTEGER
 );
 
 -- OSM Features table

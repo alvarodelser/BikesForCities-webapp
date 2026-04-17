@@ -409,8 +409,8 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph) -> in
 
 def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False, force: bool = False) -> int:
     from backend.processing.city_ops import build_graph
-    
-    csv_files = list_trip_csvs("Madrid")
+
+    csv_files = sorted(DATA_DIR.glob("trips_*.csv"))
     processed = 0
     if not csv_files: return processed
     
@@ -440,10 +440,10 @@ def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = connect_db()
     city_id = get_or_create_city(conn, "Madrid")
-    PROCESS_NAME = "040_load_madrid_trips_Madrid"
+    PROCESS_NAME = "040_load_madrid_trips"
 
     try:
-        status_obj = get_ingestion_status(conn, PROCESS_NAME)
+        status_obj = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id)
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
         

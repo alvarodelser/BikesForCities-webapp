@@ -351,16 +351,16 @@ def main() -> None:
             if args.no_history:
                 continue
 
-            missing = check_prerequisites(conn, [f"010_load_cities_{city_name}"])
+            missing = check_prerequisites(conn, ["010_load_cities"], city_id=city_id)
             if missing:
                 print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
                 continue
 
-            pname = f"030_load_stations_{city_name}"
+            pname = "030_load_stations"
             upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
             try:
                 # Load status to track ingested months
-                status_obj = get_ingestion_status(conn, pname)
+                status_obj = get_ingestion_status(conn, pname, city_id=city_id)
                 details = status_obj.get("details", {}) if status_obj else {}
                 ingested_months = details.get("months", [])
                 
