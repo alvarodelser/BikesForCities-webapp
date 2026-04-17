@@ -13,7 +13,7 @@ from SPARQLWrapper import SPARQLWrapper, JSON
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status, get_ingestion_status
+from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status, get_ingestion_status, check_prerequisites
 
 def query_wikidata(sparql_query):
     sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
@@ -141,7 +141,12 @@ def main():
         if not wikidata_id:
             print(f"⏭️  Skipping '{city_name}' (No wikidata_id in DB)")
             continue
-            
+
+        missing = check_prerequisites(conn, [f"010_load_cities_{city_name}"])
+        if missing:
+            print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
+            continue
+
         pname = f"011_load_wikidata_{city_name}"
         status_obj = get_ingestion_status(conn, pname)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:

@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io.connection import connect_db
-from backend.database.db_io.cities import get_all_cities, upsert_ingestion_status, get_ingestion_status
+from backend.database.db_io.cities import get_all_cities, upsert_ingestion_status, get_ingestion_status, check_prerequisites
 from backend.database.db_io.metrics import calculate_osm_metrics
 
 def main():
@@ -40,7 +40,12 @@ def main():
 
     for city_row in target_cities:
         city_id, name, _, _, center_lat, center_lon, _, angle, *rest = city_row
-        
+
+        missing = check_prerequisites(conn, [f"020_load_osm_{name}"])
+        if missing:
+            print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
+            continue
+
         pname = f"021_calculate_infra_metrics_{name}"
         status_obj = get_ingestion_status(conn, pname)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:

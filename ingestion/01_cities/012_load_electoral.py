@@ -13,7 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status, get_ingestion_status
+from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status, get_ingestion_status, check_prerequisites
 
 # Current latest election: May 2023
 ELECTION_YEAR = 2023
@@ -171,6 +171,15 @@ def main():
             if not (status_obj and status_obj.get("status") == "SUCCESS"):
                 cities_to_process.append((cid, name))
                 
+    checked = []
+    for cid, name in cities_to_process:
+        missing = check_prerequisites(conn, [f"010_load_cities_{name}"])
+        if missing:
+            print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
+        else:
+            checked.append((cid, name))
+    cities_to_process = checked
+
     if not cities_to_process:
         print("⏭️  Skipping electoral data: All cities already successfully ingested. Use --force to override.")
         conn.commit()
@@ -194,6 +203,7 @@ def main():
         
         # Upsert to DB grouping by City
         for city_id, group in df_results.groupby('city_id'):
+            city_name = next(name for cid, name in cities_to_process if cid == city_id)
             pname = f"012_load_electoral_{city_name}_{ELECTION_YEAR}"
             upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=str(ELECTION_YEAR))
             print(f"  • Upserting {len(group)} parties for {city_name}...")

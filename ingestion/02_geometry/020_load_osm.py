@@ -18,7 +18,7 @@ from backend.database.db_io import (
     connect_db, get_all_cities, get_city_center,
     get_nodes, get_edges, put_nodes, put_edges,
     put_features, count_features,
-    get_ingestion_status, upsert_ingestion_status
+    get_ingestion_status, upsert_ingestion_status, check_prerequisites
 )
 from datetime import datetime, timezone
 import osmnx as ox
@@ -57,6 +57,11 @@ def main():
         center = get_city_center(conn, city_id)
         if not center:
             print(f"❌ Missing geographic data for {city_name}, skipping.")
+            continue
+
+        missing = check_prerequisites(conn, [f"010_load_cities_{city_name}"])
+        if missing:
+            print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
             continue
 
         pname = f"020_load_osm_{city_name}"

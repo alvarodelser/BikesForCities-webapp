@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities,
-    compute_all_reach_coverages, update_station_reach_coverage, get_ingestion_status
+    compute_all_reach_coverages, update_station_reach_coverage, get_ingestion_status, check_prerequisites
 )
 from backend.database.db_io.cities import upsert_ingestion_status
 
@@ -45,6 +45,11 @@ def main():
     print(f"📡 Computing station reachability for {len(cities)} cities…\n")
 
     for city_id, name, *_rest in cities:
+        missing = check_prerequisites(conn, [f"020_load_osm_{name}", f"030_load_stations_{name}"])
+        if missing:
+            print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
+            continue
+
         pname = f"032_calculate_reach_{name}"
         status_obj = get_ingestion_status(conn, pname)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:

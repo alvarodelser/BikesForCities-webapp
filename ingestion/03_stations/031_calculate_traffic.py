@@ -19,7 +19,7 @@ from backend.database.db_io import (
     upsert_station_monthly, upsert_estimated_trips_interval, get_city_months_with_station_data,
     calculate_osm_metrics, get_total_active_stations, upsert_city_metrics
 )
-from backend.database.db_io.cities import upsert_ingestion_status, get_ingestion_status
+from backend.database.db_io.cities import upsert_ingestion_status, get_ingestion_status, check_prerequisites
 
 def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, period_end: dt.datetime) -> Tuple[float, float]:
     from scipy.special import ive
@@ -274,6 +274,11 @@ def main():
     print(f"📊 Calculating monthly cross-domain metrics for {len(cities)} cities...\n")
 
     for city_id, name, _, _, center_lat, center_lon, _, angle, *rest in cities:
+        missing = check_prerequisites(conn, [f"030_load_stations_{name}"])
+        if missing:
+            print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
+            continue
+
         pname = f"031_calculate_traffic_{name}"
         upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:

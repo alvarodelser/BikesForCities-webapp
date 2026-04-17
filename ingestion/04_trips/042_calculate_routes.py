@@ -24,7 +24,8 @@ from backend.database.db_io import (
     mark_routes_processed,
     upsert_edge_traffic_for_city,
     count_unprocessed_routes,
-    upsert_ingestion_status
+    upsert_ingestion_status,
+    check_prerequisites
 )
 from backend.processing.city_ops import build_graph
 from backend.processing.route_strategy import shortest_path
@@ -179,6 +180,11 @@ def main():
         target_cities = cities
 
     for city_id, name, *_ in target_cities:
+        missing = check_prerequisites(conn, [f"041_generate_trips_{name}"])
+        if missing:
+            print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
+            continue
+
         process_city_routes(conn, city_id, name, batch_size=args.batch,
                             num_workers=args.workers, max_distance=args.max_distance, force=args.force)
 

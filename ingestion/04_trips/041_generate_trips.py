@@ -36,6 +36,7 @@ from backend.database.db_io import (
     get_all_cities,
     upsert_ingestion_status,
     get_ingestion_status,
+    check_prerequisites,
     get_station_monthly_flow,
     get_city_months_with_station_data,
 )
@@ -399,6 +400,11 @@ def main() -> None:
 
     for city_row in target:
         city_id, city_name = city_row[0], city_row[1]
+        missing = check_prerequisites(conn, [f"030_load_stations_{city_name}"])
+        if missing:
+            print(f"⚠️  Skipping '{city_name}': prerequisites not met: {missing}")
+            continue
+
         upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "RUNNING", city_id=city_id)
         try:
             generate_for_city(conn, city_id, city_name, hist_edges, hist_probs, force=args.force)
