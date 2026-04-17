@@ -194,7 +194,8 @@ def generate_for_city(conn, city_id: int, city_name: str,
     node_cache: dict[str, int | None] = {}
     all_route_rows = []
 
-    status_obj = get_ingestion_status(conn, city_id, "synthetic trips")
+    pname = f"041_generate_trips_{city_name}"
+    status_obj = get_ingestion_status(conn, pname)
     details = (status_obj.get("details") or {}) if status_obj else {}
     processed_months = details.setdefault("processed_months", [])
 
@@ -336,12 +337,12 @@ def generate_for_city(conn, city_id: int, city_name: str,
                 # Now record the success in ingestion_status
                 processed_months.append(month_str)
                 details["processed_months"] = processed_months
-                upsert_ingestion_status(conn, city_id, "synthetic trips", "SUCCESS", details)
+                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, details=details)
             except Exception as e:
                 # If the server closed the connection (OperationalError), rollback won't work
                 if not conn.closed:
                     conn.rollback()
-                upsert_ingestion_status(conn, city_id, "synthetic trips", "FAILED_MONTH", details)
+                upsert_ingestion_status(conn, pname, "FAILED_MONTH", city_id=city_id, details=details)
                 print(f"❌ Failed to process month {month_str}: {e}")
             
             all_route_rows.clear()
@@ -398,14 +399,14 @@ def main() -> None:
 
     for city_row in target:
         city_id, city_name = city_row[0], city_row[1]
-        upsert_ingestion_status(conn, city_id, "synthetic trips", "RUNNING")
+        upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "RUNNING", city_id=city_id)
         try:
             generate_for_city(conn, city_id, city_name, hist_edges, hist_probs, force=args.force)
             if not conn.closed:
-                upsert_ingestion_status(conn, city_id, "synthetic trips", "SUCCESS")
+                upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "SUCCESS", city_id=city_id)
         except Exception as e:
             if not conn.closed:
-                upsert_ingestion_status(conn, city_id, "synthetic trips", "FAILED")
+                upsert_ingestion_status(conn, f"041_generate_trips_{city_name}", "FAILED", city_id=city_id)
             print(f"❌ Error generating trips for {city_name}: {e}")
 
     print("\n🏁 Finished synthetic trip generation.")

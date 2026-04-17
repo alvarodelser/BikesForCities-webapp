@@ -52,7 +52,30 @@ HISTORICAL_URLS: dict[int, str] = {
 }
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data" / "Madrid"
+DATA_DIR = PROJECT_ROOT / "data" / "bicimad_trips"
+SOURCES_FILE = DATA_DIR / "sources.json"
+
+def _load_sources() -> dict[int, str]:
+    if SOURCES_FILE.exists():
+        with open(SOURCES_FILE) as f:
+            raw = json.load(f)
+        return {int(k): v for k, v in raw.items()}
+    # fallback defaults (also written to disk on first run)
+    defaults = {
+        2017: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-3-bicimad-viajes-estaciones/download/900034-3-bicimad-viajes-estaciones.zip",
+        2018: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-2-bicimad-viajes-estaciones/download/900034-2-bicimad-viajes-estaciones.zip",
+        2019: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-4-bicimad-viajes-estaciones/download/900034-4-bicimad-viajes-estaciones.zip",
+        2020: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-9-bicimad-viajes-estaciones/download/900034-9-bicimad-viajes-estaciones.zip",
+        2021: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-1-bicimad-viajes-estaciones/download/900034-1-bicimad-viajes-estaciones.zip",
+        2022: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-5-bicimad-viajes-estaciones/download/900034-5-bicimad-viajes-estaciones.zip",
+        2023: "https://datos.madrid.es/dataset/900034-0-bicimad-viajes-estaciones/resource/900034-0-bicimad-viajes-estaciones/download/900034-0-bicimad-viajes-estaciones.zip",
+    }
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(SOURCES_FILE, "w") as f:
+        json.dump({str(k): v for k, v in defaults.items()}, f, indent=2)
+    return defaults
+
+HISTORICAL_URLS: dict[int, str] = _load_sources()
 
 
 def _download(url: str, desc: str) -> bytes:
@@ -102,7 +125,7 @@ def _detect_month(filename: str) -> Optional[int]:
     return None
 
 import os
-MASTER_MAP_PATH = Path("data/Madrid/master_station_map.json")
+MASTER_MAP_PATH = DATA_DIR / "master_station_map.json"
 
 def load_master_map():
     if MASTER_MAP_PATH.exists():
@@ -268,15 +291,32 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
 
 
 def ensure_data_present(year: int, force: bool = False) -> int:
+    """Download and extract BiciMAD data for a year if not already present locally.
+    
+    --force never re-downloads raw ZIPs; it only re-extracts already-downloaded data.
+    To force a fresh download, delete the raw cache file manually.
+    """
     url = HISTORICAL_URLS.get(year)
     if not url: return 0
     year_short = str(year)[2:]
-    if list(DATA_DIR.glob(f"trips_{year_short}_*.csv")) and not force: return 0
+    
+    # Raw ZIP cache path – never re-downloaded if present
+    raw_cache = DATA_DIR / "raw" / f"bicimad_{year}.zip"
+    raw_cache.parent.mkdir(parents=True, exist_ok=True)
+    
+    # If CSVs already exist and we're not forcing re-extract, skip entirely
+    if list(DATA_DIR.glob(f"trips_{year_short}_*.csv")) and not force:
+        return 0
 
     print(f"\n📦 Fetching BiciMAD {year} dataset...")
-    raw = _download(url, f"BiciMAD {year}")
+    if raw_cache.exists():
+        print(f"   📂 Using cached raw ZIP: {raw_cache.name}")
+        raw = raw_cache.read_bytes()
+    else:
+        raw = _download(url, f"BiciMAD {year}")
+        raw_cache.write_bytes(raw)
+        print(f"   💾 Saved raw ZIP to {raw_cache.name}")
     
-    # We build the station map entirely from within the BiciMAD zip files, not the DB
     station_map = {}
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         return _process_archive(zf, year_short, station_map, force)
@@ -400,10 +440,10 @@ def main():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = connect_db()
     city_id = get_or_create_city(conn, "Madrid")
-    dtype = "madrid trips"
+    PROCESS_NAME = "040_load_madrid_trips_Madrid"
 
     try:
-        status_obj = get_ingestion_status(conn, city_id, dtype)
+        status_obj = get_ingestion_status(conn, PROCESS_NAME)
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
         
@@ -419,13 +459,13 @@ def main():
         
         def on_file_done(fn):
             done_files.add(fn); details["done_files"] = list(done_files)
-            upsert_ingestion_status(conn, city_id, dtype, "RUNNING", details=details); conn.commit()
+            upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id, details=details); conn.commit()
 
         n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file, force=args.force)
-        upsert_ingestion_status(conn, city_id, dtype, "SUCCESS", details=details)
+        upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, details=details)
         print(f"\n🏁 Finished! {n} files ingested.")
     except Exception as e:
-        upsert_ingestion_status(conn, city_id, dtype, "FAILED")
+        upsert_ingestion_status(conn, PROCESS_NAME, "FAILED", city_id=city_id)
         print(f"❌ {e}")
         raise
     finally:

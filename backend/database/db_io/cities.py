@@ -215,37 +215,50 @@ def get_city_bounds(conn, city_id: int) -> Optional[dict]:
 # Ingestion status
 # ---------------------------------------------------------------------------
 
-def get_ingestion_status(conn, city_id: int, data_type: str) -> Optional[dict]:
+def get_ingestion_status(conn, process_name: str) -> Optional[dict]:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT updated_at, status, details
+            SELECT updated_at, status, details, city_id, time_period
             FROM ingestion_status
-            WHERE city_id = %s AND data_type = %s
+            WHERE process_name = %s
             """,
-            (city_id, data_type),
+            (process_name,),
         )
         row = cur.fetchone()
         if row:
-            return {"updated_at": row[0], "status": row[1], "details": row[2] or {}}
+            return {
+                "updated_at": row[0],
+                "status": row[1],
+                "details": row[2] or {},
+                "city_id": row[3],
+                "time_period": row[4]
+            }
         return None
 
 
 def upsert_ingestion_status(
-    conn, city_id: int, data_type: str, status: str, details: Optional[dict] = None
+    conn,
+    process_name: str,
+    status: str,
+    city_id: Optional[int] = None,
+    time_period: Optional[str] = None,
+    details: Optional[dict] = None
 ):
     details_json = json.dumps(details) if details else None
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO ingestion_status (city_id, data_type, updated_at, status, details)
-            VALUES (%s, %s, NOW(), %s, %s)
-            ON CONFLICT (city_id, data_type) DO UPDATE SET
-                updated_at = NOW(),
-                status     = EXCLUDED.status,
-                details    = COALESCE(EXCLUDED.details, ingestion_status.details)
+            INSERT INTO ingestion_status (process_name, city_id, time_period, updated_at, status, details)
+            VALUES (%s, %s, %s, NOW(), %s, %s)
+            ON CONFLICT (process_name) DO UPDATE SET
+                updated_at  = NOW(),
+                status      = EXCLUDED.status,
+                details     = COALESCE(EXCLUDED.details, ingestion_status.details),
+                city_id     = COALESCE(EXCLUDED.city_id, ingestion_status.city_id),
+                time_period = COALESCE(EXCLUDED.time_period, ingestion_status.time_period)
             """,
-            (city_id, data_type, status, details_json),
+            (process_name, city_id, time_period, status, details_json),
         )
 
 

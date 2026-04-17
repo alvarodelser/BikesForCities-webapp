@@ -59,7 +59,7 @@ def main():
         }
         
         put_city_modes(conn, city_id, modes_dict)
-        upsert_ingestion_status(conn, city_id, "initial load", "SUCCESS")
+        upsert_ingestion_status(conn, f"010_load_cities_{city_info['name']}", "SUCCESS", city_id=city_id)
         print(f"✅ Loaded {city_key} (ID: {city_id}, WD: {city_info.get('wikidata_id', 'None')}) with modes: {modes_list}")
         loaded_count += 1
         

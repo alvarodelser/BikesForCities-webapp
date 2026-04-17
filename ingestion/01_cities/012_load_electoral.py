@@ -166,7 +166,8 @@ def main():
         cities_to_process = all_cities
     else:
         for cid, name in all_cities:
-            status_obj = get_ingestion_status(conn, cid, "electoral data")
+            pname = f"012_load_electoral_{name}_{ELECTION_YEAR}"
+            status_obj = get_ingestion_status(conn, pname)
             if not (status_obj and status_obj.get("status") == "SUCCESS"):
                 cities_to_process.append((cid, name))
                 
@@ -193,11 +194,11 @@ def main():
         
         # Upsert to DB grouping by City
         for city_id, group in df_results.groupby('city_id'):
-            upsert_ingestion_status(conn, city_id, "electoral data", "RUNNING")
-            city_name = next(name for cid, name in cities_to_process if cid == city_id)
+            pname = f"012_load_electoral_{city_name}_{ELECTION_YEAR}"
+            upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=str(ELECTION_YEAR))
             print(f"  • Upserting {len(group)} parties for {city_name}...")
             put_city_elections(conn, city_id, group)
-            upsert_ingestion_status(conn, city_id, "electoral data", "SUCCESS")
+            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=str(ELECTION_YEAR))
             
         if not df_candidates.empty:
             print(f"✔ Prepared {len(df_candidates)} candidates.")
@@ -209,8 +210,9 @@ def main():
         print("\n🏁 Spanish Municipal Electoral Ingestion complete.")
     except Exception as e:
         print(f"❌ Error during electoral ingestion: {e}")
-        for city_id, _ in cities_to_process:
-            upsert_ingestion_status(conn, city_id, "electoral data", "FAILED")
+        for city_id, name in cities_to_process:
+            pname = f"012_load_electoral_{name}_{ELECTION_YEAR}"
+            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id, time_period=str(ELECTION_YEAR))
     finally:
         conn.commit()
         conn.close()

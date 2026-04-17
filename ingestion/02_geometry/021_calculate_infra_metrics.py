@@ -41,12 +41,13 @@ def main():
     for city_row in target_cities:
         city_id, name, _, _, center_lat, center_lon, _, angle, *rest = city_row
         
-        status_obj = get_ingestion_status(conn, city_id, "infrastructure coverage")
+        pname = f"021_calculate_infra_metrics_{name}"
+        status_obj = get_ingestion_status(conn, pname)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping {name}: infrastructure coverage already computed. Use --force to override.")
             continue
             
-        upsert_ingestion_status(conn, city_id, "infrastructure coverage", "RUNNING")
+        upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
             total_km, coverage = calculate_osm_metrics(conn, city_id, center_lat, center_lon, angle)
             
@@ -71,9 +72,9 @@ def main():
             cov_str = f"{coverage*100:.1f}%" if coverage is not None else "N/A"
             print(f"  ✔ {name} | coverage: {cov_str} | bike lanes: {total_km:.1f}km")
             
-            upsert_ingestion_status(conn, city_id, "infrastructure coverage", "SUCCESS")
+            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:
-            upsert_ingestion_status(conn, city_id, "infrastructure coverage", "FAILED")
+            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
             print(f"❌ Error calculating infrastructure for {name}: {e}")
 
     print("\n🏁 Finished calculating infrastructure coverage.")

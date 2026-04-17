@@ -274,9 +274,10 @@ def main():
     print(f"📊 Calculating monthly cross-domain metrics for {len(cities)} cities...\n")
 
     for city_id, name, _, _, center_lat, center_lon, _, angle, *rest in cities:
-        upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "RUNNING")
+        pname = f"031_calculate_traffic_{name}"
+        upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
-            status_obj = get_ingestion_status(conn, city_id, "compute est. traffic, station downtime")
+            status_obj = get_ingestion_status(conn, pname)
             details = status_obj.get("details", {}) if status_obj else {}
             processed_months = details.setdefault("processed_months", [])
 
@@ -305,9 +306,9 @@ def main():
                      processed_months.append(month_str)
                      
             details["processed_months"] = processed_months
-            upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "SUCCESS", details=details)
+            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, details=details)
         except Exception as e:
-            upsert_ingestion_status(conn, city_id, "compute est. traffic, station downtime", "FAILED")
+            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
             print(f"❌ Error calculating metrics for {name}: {e}")
 
     print("\n🏁 Finished calculating all metrics.")

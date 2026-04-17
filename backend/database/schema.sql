@@ -27,12 +27,12 @@ CREATE TABLE IF NOT EXISTS city_modes (
 );
 
 CREATE TABLE IF NOT EXISTS ingestion_status (
+    process_name TEXT PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
-    data_type TEXT NOT NULL,
+    time_period TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     status TEXT NOT NULL,
-    details JSONB,
-    PRIMARY KEY (city_id, data_type)
+    details JSONB
 );
 
 

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import json
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -58,7 +59,29 @@ ACCIDENT_URLS: dict[int, str] = {
 }
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = PROJECT_ROOT / "data" / "Madrid" / "accidents"
+DATA_DIR = PROJECT_ROOT / "data" / "madrid_accidents"
+SOURCES_FILE = DATA_DIR / "sources.json"
+
+def _load_sources() -> dict[int, str]:
+    if SOURCES_FILE.exists():
+        with open(SOURCES_FILE) as f:
+            raw = json.load(f)
+        return {int(k): v for k, v in raw.items()}
+    defaults = {
+        2019: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-11-accidentes-trafico-detalle-csv/download/300228-11-accidentes-trafico-detalle-csv.csv",
+        2020: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-8-accidentes-trafico-detalle-csv/download/300228-8-accidentes-trafico-detalle-csv.csv",
+        2021: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-33-accidentes-trafico-detalle-csv/download/300228-33-accidentes-trafico-detalle-csv.csv",
+        2022: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-5-accidentes-trafico-detalle-csv/download/300228-5-accidentes-trafico-detalle-csv.csv",
+        2023: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-3-accidentes-trafico-detalle-csv/download/300228-3-accidentes-trafico-detalle-csv.csv",
+        2024: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-2-accidentes-trafico-detalle-csv/download/300228-2-accidentes-trafico-detalle-csv.csv",
+        2025: "https://datos.madrid.es/dataset/300228-0-accidentes-trafico-detalle/resource/300228-1-accidentes-trafico-detalle-csv/download/300228-1-accidentes-trafico-detalle-csv.csv",
+    }
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(SOURCES_FILE, "w") as f:
+        json.dump({str(k): v for k, v in defaults.items()}, f, indent=2)
+    return defaults
+
+ACCIDENT_URLS: dict[int, str] = _load_sources()
 
 # ETRS89 / UTM zone 30N (Madrid) -> WGS 4326
 transformer = Transformer.from_crs("EPSG:25830", "EPSG:4326", always_xy=True)
@@ -79,14 +102,17 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
     url = ACCIDENT_URLS.get(year)
     if not url: return 0
 
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     out_file = DATA_DIR / f"accidents_{year}.csv"
-    if out_file.exists() and not force:
-        print(f"   ⏭️  Accidents for {year} already downloaded.")
+    
+    # Raw files are never re-downloaded by --force; delete manually to refresh
+    if out_file.exists():
+        print(f"   📦 Using cached {out_file.name}")
         raw = out_file.read_bytes()
     else:
         raw = _download_csv(url, f"Accidents {year}")
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
         out_file.write_bytes(raw)
+        print(f"   💾 Saved to {out_file.name}")
 
     # Try common separators
     for sep in (";", ","):
@@ -243,11 +269,11 @@ def main():
     conn = connect_db()
     city_id = get_or_create_city(conn, "Madrid")
     
-    data_type = "madrid accidents"
-    upsert_ingestion_status(conn, city_id, data_type, "RUNNING")
+    PROCESS_NAME = "050_load_madrid_accidents_Madrid"
+    upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id)
     
     try:
-        status_obj = get_ingestion_status(conn, city_id, data_type)
+        status_obj = get_ingestion_status(conn, PROCESS_NAME)
         details = (status_obj.get("details") or {}) if status_obj else {}
         processed_years = details.setdefault("processed_years", [])
         
@@ -269,11 +295,11 @@ def main():
         details["processed_years"] = processed_years
         details["total_accidents"] = total
         
-        upsert_ingestion_status(conn, city_id, data_type, "SUCCESS", details=details)
+        upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, details=details)
         print(f"\n🏁 Finished! {total:,} accidents ingested for Madrid.")
         
     except Exception as exc:
-        upsert_ingestion_status(conn, city_id, data_type, "FAILED")
+        upsert_ingestion_status(conn, PROCESS_NAME, "FAILED", city_id=city_id)
         print(f"❌ Error: {exc}")
         raise
     finally:

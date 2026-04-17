@@ -45,17 +45,18 @@ def main():
     print(f"📡 Computing station reachability for {len(cities)} cities…\n")
 
     for city_id, name, *_rest in cities:
-        status_obj = get_ingestion_status(conn, city_id, "compute reach coverage")
+        pname = f"032_calculate_reach_{name}"
+        status_obj = get_ingestion_status(conn, pname)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping {name}: reach coverage already computed. Use --force to override.")
             continue
             
-        upsert_ingestion_status(conn, city_id, "compute reach coverage", "RUNNING")
+        upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
             coverages = compute_all_reach_coverages(conn, city_id, MAX_DISTANCE)
             if not coverages:
                 print(f"⏭️  {name}: no stations or edges — skipped")
-                upsert_ingestion_status(conn, city_id, "compute reach coverage", "SKIPPED")
+                upsert_ingestion_status(conn, pname, "SKIPPED", city_id=city_id)
                 continue
 
             update_station_reach_coverage(conn, city_id, coverages)
@@ -68,9 +69,9 @@ def main():
                 f"avg coverage {avg:.1f}% | "
                 f"min {min(vals):.1f}% | max {max(vals):.1f}%"
             )
-            upsert_ingestion_status(conn, city_id, "compute reach coverage", "SUCCESS")
+            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:
-            upsert_ingestion_status(conn, city_id, "compute reach coverage", "FAILED")
+            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
             print(f"❌ Error for {name}: {e}")
             import traceback
             traceback.print_exc()

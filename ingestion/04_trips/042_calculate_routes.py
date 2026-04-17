@@ -55,13 +55,14 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
         
     print(f"\n🚀 Processing optimized routes for {city_name} (ID: {city_id}) with {num_workers} workers...")
     
-    upsert_ingestion_status(conn, city_id, "calculate madrid traffic details:shortest", "RUNNING")
-    upsert_ingestion_status(conn, city_id, "compute est. traffic", "RUNNING")
+    pname = f"042_calculate_routes_{city_name}"
+    upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
     try:
         if force:
-            print(f"   ⚠️  Force mode: Re-evaluating ALL routes for {city_name}...")
+            print(f"   ⚠️  Force mode: Resetting processed flag for all routes in {city_name}...")
             with conn.cursor() as cur:
-                cur.execute("UPDATE routes SET processed = FALSE, origin_node = NULL, dest_node = NULL WHERE city_id = %s AND strategy = 'shortest'", (city_id,))
+                # Only reset the processed flag, never clear origin/dest nodes
+                cur.execute("UPDATE routes SET processed = FALSE WHERE city_id = %s AND strategy = 'shortest'", (city_id,))
             conn.commit()
 
         graph: nx.MultiDiGraph | None = None
@@ -143,12 +144,10 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
         print(f"   🧠 Unique Paths Computed: {total_unique_paths_computed:,}")
         print(f"   📉 Computation Savings: {savings:.1f}%")
 
-        upsert_ingestion_status(conn, city_id, "calculate madrid traffic details:shortest", "SUCCESS")
-        upsert_ingestion_status(conn, city_id, "compute est. traffic", "SUCCESS")
+        upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
 
     except Exception as e:
-        upsert_ingestion_status(conn, city_id, "calculate madrid traffic details:shortest", "FAILED")
-        upsert_ingestion_status(conn, city_id, "compute est. traffic", "FAILED")
+        upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
         print(f"❌ Error processing routes or traffic for {city_name}: {e}")
 
 def main():

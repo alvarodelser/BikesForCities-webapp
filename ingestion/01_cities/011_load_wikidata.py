@@ -142,12 +142,13 @@ def main():
             print(f"⏭️  Skipping '{city_name}' (No wikidata_id in DB)")
             continue
             
-        status_obj = get_ingestion_status(conn, city_id, "wikidata population website and mayors")
+        pname = f"011_load_wikidata_{city_name}"
+        status_obj = get_ingestion_status(conn, pname)
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping '{city_name}': Wikidata already ingested. Use --force to override.")
             continue
             
-        upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "RUNNING")
+        upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
             print(f"▶️  Fetching data for '{city_name}' ({wikidata_id})...")
             basics = get_city_basics(wikidata_id)
@@ -181,12 +182,12 @@ def main():
                 print(f"  ✔ Pop: {pop_str} | Website: {w_str}")
                 print(f"  ✔ Current Mayor: {mayor_current} ({party_current}) | Loaded {len(df_mayors)} historical records.")
                 updated_count += 1
-                upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "SUCCESS")
+                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
             else:
                 print(f"  ❌ No matching Wikidata municipality entry found for {wikidata_id}.")
-                upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "FAILED")
+                upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
         except Exception as e:
-            upsert_ingestion_status(conn, city_id, "wikidata population website and mayors", "FAILED")
+            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
             print(f"  ❌ Error fetching Wikidata for {city_name}: {e}")
             
     print(f"\n🏁 Finished updating {updated_count} cities with Wikidata info.")

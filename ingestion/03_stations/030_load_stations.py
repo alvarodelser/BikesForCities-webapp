@@ -351,10 +351,11 @@ def main() -> None:
             if args.no_history:
                 continue
 
-            upsert_ingestion_status(conn, city_id, "citibikes stations", "RUNNING")
+            pname = f"030_load_stations_{city_name}"
+            upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
             try:
                 # Load status to track ingested months
-                status_obj = get_ingestion_status(conn, city_id, "citibikes stations")
+                status_obj = get_ingestion_status(conn, pname)
                 details = status_obj.get("details", {}) if status_obj else {}
                 ingested_months = details.get("months", [])
                 
@@ -379,10 +380,10 @@ def main() -> None:
                         ingested_months.append(yyyymm)
                         
                 details["months"] = ingested_months
-                upsert_ingestion_status(conn, city_id, "citibikes stations", "SUCCESS")
+                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
                 print(f"✅ Upserted ingestion status for {city_name}.")
             except Exception as e:
-                upsert_ingestion_status(conn, city_id, "citibikes stations", "FAILED")
+                upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
                 print(f"❌ Error processing stations for {city_name}: {e}")
     finally:
         conn.commit()

@@ -21,6 +21,9 @@ from backend.database.db_io import (
     get_ingestion_status, upsert_ingestion_status
 )
 from datetime import datetime, timezone
+import osmnx as ox
+ox.settings.cache_folder = str(Path(__file__).resolve().parents[2] / "data" / "osm_cache")
+ox.settings.use_cache = True
 
 def main():
     parser = argparse.ArgumentParser(description="Load OSM network and features")
@@ -56,7 +59,8 @@ def main():
             print(f"❌ Missing geographic data for {city_name}, skipping.")
             continue
 
-        status = get_ingestion_status(conn, city_id, "osm geometry")
+        pname = f"020_load_osm_{city_name}"
+        status = get_ingestion_status(conn, pname)
         if status and status.get("status") == "SUCCESS" and not args.force:
             updated_at = status.get("updated_at")
             if updated_at:
@@ -68,7 +72,7 @@ def main():
             
         center_lat, center_lon, radius = center
         
-        upsert_ingestion_status(conn, city_id, "osm geometry", "RUNNING")
+        upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
             print(f"▶️  Downloading graph for '{city_name}' …", end=" ", flush=True)
             start_dl = time.perf_counter()
@@ -107,9 +111,9 @@ def main():
 
                     
             print(f"✅ Finished updating {city_name}")
-            upsert_ingestion_status(conn, city_id, "osm geometry", "SUCCESS")
+            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:
-            upsert_ingestion_status(conn, city_id, "osm geometry", "FAILED")
+            upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
             print(f"❌ Error processing OSM Data for {city_name}: {e}")
                     
     conn.commit()
