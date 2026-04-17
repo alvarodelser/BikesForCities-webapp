@@ -262,6 +262,11 @@ def upsert_ingestion_status(
         )
 
 
+def check_prerequisites(conn, pnames: list) -> list:
+    """Returns names from pnames that are not SUCCESS in ingestion_status."""
+    return [p for p in pnames if (get_ingestion_status(conn, p) or {}).get("status") != "SUCCESS"]
+
+
 # ---------------------------------------------------------------------------
 # Historical mayors
 # ---------------------------------------------------------------------------

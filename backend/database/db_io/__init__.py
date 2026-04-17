@@ -20,6 +20,7 @@ from .cities import (
     get_city_bounds,
     get_ingestion_status,
     upsert_ingestion_status,
+    check_prerequisites,
     put_historical_mayors,
     put_city_elections,
     put_city_councilors,
@@ -105,7 +106,7 @@ __all__ = [
     "get_all_cities", "get_city_center",
     "city_exists", "get_city_id_by_name", "get_city_details", "get_city_bounds",
     "get_or_create_city", "put_city_modes", "get_city_modes", "update_city_wikidata",
-    "get_ingestion_status", "upsert_ingestion_status",
+    "get_ingestion_status", "upsert_ingestion_status", "check_prerequisites",
     "put_historical_mayors", "put_city_elections", "put_city_councilors",
     "put_city_budgets", "get_city_budgets",
     # graph
