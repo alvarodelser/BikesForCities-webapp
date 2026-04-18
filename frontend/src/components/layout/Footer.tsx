@@ -44,7 +44,7 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="w-full bg-[var(--blue-dark)] py-16 px-6">
+    <footer className="w-full bg-[var(--blue-dark)] py-[var(--space-section-y)] px-[var(--space-gutter)]">
       <style>{`
         @keyframes particle-out {
           0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -54,7 +54,7 @@ const Footer: React.FC = () => {
           animation: particle-out 0.8s ease-out forwards;
         }
       `}</style>
-      <div className="max-w-6xl mx-auto">
+      <div className="mx-auto w-full max-w-[var(--container-max)]">
         {/* Main footer content */}
         <div 
           className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl p-8 relative overflow-hidden group"
@@ -135,7 +135,7 @@ const Footer: React.FC = () => {
         {/* Copyright Section */}
         <div className="mt-8 text-center">
           <div 
-            className="inline-flex items-center gap-2 bg-white/5 backdrop-blur-sm px-6 py-3 rounded-full border border-white/10"
+            className="inline-flex flex-wrap items-center gap-2 bg-white/5 backdrop-blur-sm px-6 py-3 rounded-full border border-white/10"
             style={{
               boxShadow: 'inset 1px 1px 2px rgba(0,0,0,0.1), inset -1px -1px 2px rgba(255,255,255,0.05)'
             }}
