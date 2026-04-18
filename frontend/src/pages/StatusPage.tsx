@@ -28,7 +28,7 @@ const MODE_META: { key: string; Icon: React.FC<{ size?: number; color?: string }
   { key: 'forum',          Icon: MessageSquare,  label: 'Forum'          },
 ];
 
-function fmt(n: number) { return n.toLocaleString('es-ES'); }
+function fmt(n: number | undefined | null) { return (n ?? 0).toLocaleString('es-ES'); }
 
 // ─── Small components ────────────────────────────────────────────────────────
 
