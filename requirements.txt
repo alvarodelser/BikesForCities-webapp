@@ -18,3 +18,4 @@ geojson-pydantic
 pyarrow
 SPARQLWrapper
 requests
+leuvenmapmatching
