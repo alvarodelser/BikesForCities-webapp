@@ -63,7 +63,7 @@ function Badge({ color, children }: { color: 'green' | 'blue'; children: React.R
 function CityTable({ cities }: { cities: SystemStatus['cities'] }) {
   const allFeatTypes = useMemo(() => {
     const known = ['bike_lane', 'building'];
-    const found = new Set(cities.flatMap(c => Object.keys(c.features)));
+    const found = new Set(cities.flatMap(c => Object.keys(c.features ?? {})));
     return [...known.filter(k => found.has(k)), ...([...found].filter(k => !known.includes(k)).sort())];
   }, [cities]);
 
@@ -86,7 +86,7 @@ function CityTable({ cities }: { cities: SystemStatus['cities'] }) {
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1">
                   {MODE_META.map(({ key, Icon, label }) => {
-                    const on = city.available_modes[key];
+                    const on = city.available_modes?.[key];
                     return (
                       <span key={key} title={label}>
                         <Icon size={14} color={on ? 'var(--green-dark)' : '#cbd5e1'} />
@@ -102,7 +102,7 @@ function CityTable({ cities }: { cities: SystemStatus['cities'] }) {
               <td className="px-4 py-3" style={{ color: 'color-mix(in srgb,var(--black) 70%,transparent)' }}>{fmt(city.monthly_trips)}</td>
               {allFeatTypes.map(ft => (
                 <td key={ft} className="px-4 py-3" style={{ color: 'color-mix(in srgb,var(--black) 70%,transparent)' }}>
-                  {fmt(city.features[ft] ?? 0)}
+                  {fmt(city.features?.[ft] ?? 0)}
                 </td>
               ))}
             </tr>
