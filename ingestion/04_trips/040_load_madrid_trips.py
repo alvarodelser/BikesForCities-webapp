@@ -368,8 +368,8 @@ def _build_leuven_map(graph):
     try:
         m = InMemMap("bicimad", use_rtree=True, index_edges=True)
     except Exception:
-        print("     ⚠️  rtree unavailable, falling back to linear search (slower)")
-        m = InMemMap("bicimad", use_rtree=False, index_edges=True)
+        print("     ⚠️  rtree unavailable — map matching disabled (install libspatialindex + rtree to enable)")
+        return None
     for node_id, data in graph.nodes(data=True):
         m.add_node(node_id, (data['y'], data['x']))  # (lat, lon)
     for u, v in graph.edges():
@@ -487,6 +487,7 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
         unlock_date = row["unlock_date"]
         id_bike = int(row["idBike"]) if pd.notna(row["idBike"]) else None
         lock_date = row.get("lock_date")
+        if pd.isna(lock_date): lock_date = None
 
         # Snap start/end to nearest nodes and validate distance (used for shortest route)
         nu, nl = nodes_u[idx], nodes_l[idx]
@@ -600,6 +601,7 @@ def main():
         upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, details=details)
         print(f"\n🏁 Finished! {n} files ingested.")
     except Exception as e:
+        conn.rollback()
         upsert_ingestion_status(conn, PROCESS_NAME, "FAILED", city_id=city_id)
         print(f"❌ {e}")
         raise
