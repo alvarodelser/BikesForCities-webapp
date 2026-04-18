@@ -35,4 +35,14 @@
     --cream-dark: #F9E9DC;
     --white: #FFFFFF;
     --black: #1E1E1E;
+
+    /* ========== BREAKPOINTS ========== */
+    --breakpoint-3xl: 1920px;
+
+    /* ========== LAYOUT CONTAINERS & SPACING ========== */
+    --container-reading: 72ch;
+    --container-data:    100%;
+    --container-max:     1440px;
+    --space-section-y:   clamp(2rem, 4vw, 5rem);
+    --space-gutter:      clamp(1rem, 4vw, 6rem);
   }  
