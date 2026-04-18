@@ -7,26 +7,25 @@ interface SpinnerProps {
 
 /**
  * Custom Bicycle & Parachute loading spinner.
- * Replaces the basic CSS circle with an inline SVG animation.
+ * Includes parachute sway, bike sway, and wheel spinning.
  */
 const Spinner: React.FC<SpinnerProps> = ({ className, style }) => {
-  // We keep your default fallback classes so it doesn't break existing layouts
   const finalClassName = className !== undefined
     ? className
-    : `w-16 h-16 text-[var(--green)]`; // Text color can be used to set the stroke if configured!
+    : `w-16 h-16 text-[var(--green)]`;
 
   return (
     <div className={finalClassName} style={style}>
       <svg
         xmlns="http://www.w3.org/2000/svg"
-        viewBox="30 80 150 180" // Cropped the viewBox so there is less empty space
+        viewBox="30 80 150 180"
         shapeRendering="geometricPrecision"
         textRendering="geometricPrecision"
         className="w-full h-full"
       >
         <style>
           {`
-            /* 1. Wheel Spin Animation */
+            /* 1. Wheel Spin Animation (Using stroke dashes) */
             @keyframes wheel-spin {
               from { stroke-dashoffset: 80; }
               to { stroke-dashoffset: 0; }
@@ -41,26 +40,38 @@ const Spinner: React.FC<SpinnerProps> = ({ className, style }) => {
               to { transform: rotate(6deg); }
             }
             .bike-parachute {
-              transform-origin: 104px 98px; /* Anchor point where strings meet bike */
+              transform-origin: 104px 98px; /* Anchor point */
               animation: parachute-sway 2.5s ease-in-out infinite alternate;
+            }
+
+            /* 3. Bike Sway Animation (Counter-swing for realism) */
+            @keyframes bike-sway {
+              from { transform: rotate(3deg); }
+              to { transform: rotate(-3deg); }
+            }
+            .bike-swing-wrapper {
+              transform-origin: 104px 98px; /* Swings from the same top anchor */
+              animation: bike-sway 2.5s ease-in-out infinite alternate;
             }
           `}
         </style>
 
-        {/* --- BIKE & WHEELS --- */}
-        <g transform="matrix(0.996553 -0.082957 0.082957 0.996553 -12.723291 9.166306)">
-          {/* Back Wheel */}
-          <circle className="bike-wheel" r="24.600996" transform="translate(64.557037 238.465775)" fill="none" stroke="#2012e9" strokeWidth="4.35695" strokeLinecap="round" strokeDashoffset="20" strokeDasharray="60,20" />
-          {/* Front Wheel */}
-          <circle className="bike-wheel" r="24.600996" transform="translate(145.865021 197.435364)" fill="none" stroke="#2012e9" strokeWidth="4.35695" strokeLinecap="round" strokeDashoffset="20" strokeDasharray="60,20" />
+        {/* --- BIKE & WHEELS (Wrapped for rotation) --- */}
+        <g className="bike-swing-wrapper">
+          <g transform="matrix(0.996553 -0.082957 0.082957 0.996553 -12.723291 9.166306)">
+            {/* Back Wheel */}
+            <circle className="bike-wheel" r="24.600996" transform="translate(64.557037 238.465775)" fill="none" stroke="#2012e9" strokeWidth="4.35695" strokeLinecap="round" strokeDashoffset="20" strokeDasharray="60,20" />
+            {/* Front Wheel */}
+            <circle className="bike-wheel" r="24.600996" transform="translate(145.865021 197.435364)" fill="none" stroke="#2012e9" strokeWidth="4.35695" strokeLinecap="round" strokeDashoffset="20" strokeDasharray="60,20" />
 
-          {/* Bike Frame */}
-          <path d="M63.992394,236.01901l10.163498-41.40685l39.148288-20.32699l10.91635,11.6692c0,0,9.78707,10.1635,21.45627,9.78707" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinecap="round" />
-          <path d="M69.262357,189.71863l34.254753,34.63118l13.1749-47.80609" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinejoin="round" />
-          <path d="M63.615969,236.77186l39.524711-12.04563" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinecap="round" />
-          <path d="M105.39924,166.19201l9.03422,9.22244" fill="none" stroke="#2012e9" strokeWidth="4.99999" />
-          <path d="M89.589352,163.74524l12.045618-5.8346c0,0,7.34031-.75285,4.51712,9.59887" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinecap="round" />
-          <path d="M67.577205,191.59815c0,0-.802156-.48538-1.61192-.27233-2.356359.61997-3.60956.9261-3.60956.9261s-6.338853,1.48972-1.91585-2.55686s13.15138-9.85765,13.15138-9.85765s4.00102-.73716,1.717443,1.48218c-5.839803,5.67553-4.269645,6.64389-4.269645,6.64389l-3.461848,3.63467Z" fill="#2012e9" strokeWidth="4.99999" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Bike Frame */}
+            <path d="M63.992394,236.01901l10.163498-41.40685l39.148288-20.32699l10.91635,11.6692c0,0,9.78707,10.1635,21.45627,9.78707" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinecap="round" />
+            <path d="M69.262357,189.71863l34.254753,34.63118l13.1749-47.80609" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinejoin="round" />
+            <path d="M63.615969,236.77186l39.524711-12.04563" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinecap="round" />
+            <path d="M105.39924,166.19201l9.03422,9.22244" fill="none" stroke="#2012e9" strokeWidth="4.99999" />
+            <path d="M89.589352,163.74524l12.045618-5.8346c0,0,7.34031-.75285,4.51712,9.59887" fill="none" stroke="#2012e9" strokeWidth="4.99999" strokeLinecap="round" />
+            <path d="M67.577205,191.59815c0,0-.802156-.48538-1.61192-.27233-2.356359.61997-3.60956.9261-3.60956.9261s-6.338853,1.48972-1.91585-2.55686s13.15138-9.85765,13.15138-9.85765s4.00102-.73716,1.717443,1.48218c-5.839803,5.67553-4.269645,6.64389-4.269645,6.64389l-3.461848,3.63467Z" fill="#2012e9" strokeWidth="4.99999" strokeLinecap="round" strokeLinejoin="round" />
+          </g>
         </g>
 
         {/* --- PARACHUTE & STRINGS --- */}
