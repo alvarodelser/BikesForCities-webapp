@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Users, GitBranch, Map, MessageSquare, Share2, BookOpen, ChevronDown,
+  Share2, BookOpen, ChevronDown, Lightbulb, Activity, MessageCircle, MapPin, Megaphone
 } from 'lucide-react';
 
 /* ─────────────────────────── data ─────────────────────────── */
@@ -30,36 +30,44 @@ const FAQ_ITEMS = [
 
 const INVOLVEMENT_ITEMS = [
   {
-    icon: Map,
+    icon: Lightbulb,
+    label: 'Imagina',
+    color: 'var(--green-dark)',
+    bg: 'rgba(2,122,118,0.12)',
+    description:
+      'Comienza fijándote en tu barrio: qué cosas pueden mejorar, cuáles no fucionan bien. Tu información es valiosa y cuanto más te fijas, más ideas se te ocurren.',
+  },
+  {
+    icon: Activity,
+    label: 'Analiza',
+    color: 'var(--blue)',
+    bg: 'rgba(58,108,127,0.12)',
+    description:
+      'Echa un ojo a nuestras métricas y modelos: ¿se corresponde con la realidad? ¿cómo se compara tu ciudad con otras?.',
+  },
+  {
+    icon: MessageCircle,
+    label: 'Comenta',
+    color: 'var(--orange)',
+    bg: 'rgba(255,127,80,0.12)',
+    description:
+      'Participa en nuestro foro, conoce las últimas noticia, comenta tus conclusiones. Construir una comunidad comienza por un mensaje.',
+  },
+  {
+    icon: MapPin,
     label: 'Mapea',
     color: 'var(--green-dark)',
     bg: 'rgba(2,122,118,0.12)',
     description:
-      'Contribuye a OpenStreetMap trazando carriles bici, aparcamientos y señales en tu ciudad. Cada trazo mejora nuestros análisis automáticamente.',
-  },
-  {
-    icon: GitBranch,
-    label: 'Contribuye',
-    color: 'var(--blue)',
-    bg: 'rgba(58,108,127,0.12)',
-    description:
-      'El código es abierto y está en GitHub. Acepta retos abiertos, mejora la API o añade visualizaciones nuevas. Cualquier pull request es bienvenido.',
-  },
-  {
-    icon: MessageSquare,
-    label: 'Opina',
-    color: 'var(--orange)',
-    bg: 'rgba(255,127,80,0.12)',
-    description:
-      'Comparte tu experiencia ciclista con GIS abierto. Tus comentarios sobre qué datos faltan dirigen nuestras próximas iteraciones.',
+      'Puedes registrar tus rutas habituales, marcar puntos de conflicto sobre el mapa. Una observación se puede pasar por alto, cientos, no.',
   },
   {
     icon: Share2,
-    label: 'Difunde',
+    label: 'Comparte',
     color: 'var(--yellow)',
     bg: 'rgba(244,162,76,0.12)',
     description:
-      'Menciona el proyecto en redes, blogs o en tu ayuntamiento. Cuanta más visibilidad tenga, más ciudades podremos incorporar.',
+      'Menciona el proyecto en redes, blogs o en tu ayuntamiento. Cuanta más seamos, más ciudades podemos cambiar.',
   },
   {
     icon: BookOpen,
@@ -67,15 +75,15 @@ const INVOLVEMENT_ITEMS = [
     color: 'var(--red)',
     bg: 'rgba(175,71,73,0.12)',
     description:
-      'Consulta nuestra documentación y tutoriales para entender cómo analizar datos de movilidad con Python, QGIS o directamente desde la API.',
+      'Consulta nuestra bibloteca de artículos para conocer los últimos avances en movilidad sostenible.',
   },
   {
-    icon: Users,
-    label: 'Únete',
+    icon: Megaphone,
+    label: 'Involucra',
     color: 'var(--green)',
     bg: 'rgba(123,164,146,0.12)',
     description:
-      'Forma parte de la comunidad de activistas y técnicos que trabajan por ciudades más amigables con la bici. Organizamos meetups online cada mes.',
+      'Participa políticamente para lograr los objetivos',
   },
 ];
 
@@ -203,7 +211,7 @@ function OrbitCarousel({
       setDisplayAngle(prev => {
         const delta = targetRef.current - prev;
         // Smoother LERP: 0.001 factor for a less aggressive response
-        if (Math.abs(delta) < 0.001) return targetRef.current;
+        if (Math.abs(delta) < 0.01) return targetRef.current;
 
         rafRef.current = requestAnimationFrame(animate);
         return prev + delta * 0.001;
