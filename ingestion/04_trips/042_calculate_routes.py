@@ -52,7 +52,7 @@ def compute_path_worker(args):
 def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 500,
                         num_workers: int | None = None, max_distance: float = 150.0, force: bool = False):
     if num_workers is None:
-        num_workers = os.cpu_count() or 4
+        num_workers = min(os.cpu_count() or 4, 16)
         
     print(f"\n🚀 Processing optimized routes for {city_name} (ID: {city_id}) with {num_workers} workers...")
     
@@ -86,10 +86,15 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
             edge_id_map = get_edge_id_map(conn, city_id)
             print(f"   📊 Loaded {len(edge_id_map):,} edges.")
             
+            import sys as _sys, time as _time
+            print("   ⏳ Spawning worker pool...", flush=True); _t0 = _time.time()
             with ProcessPoolExecutor(max_workers=num_workers, initializer=init_worker, initargs=(graph,)) as executor:
+                print(f"   ✅ Worker pool ready in {_time.time()-_t0:.1f}s", flush=True)
                 while True:
                     # Get groups of routes sharing same (origin, dest, strategy)
+                    print("   ⏳ Fetching route groups from DB...", flush=True); _t1 = _time.time()
                     groups = get_unprocessed_route_groups(conn, city_id, limit=batch_size)
+                    print(f"   ✅ Fetched {len(groups)} groups in {_time.time()-_t1:.1f}s", flush=True)
                     if not groups:
                         break
                         

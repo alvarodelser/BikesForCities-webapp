@@ -162,14 +162,36 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
     if pd.notna(cl_raw) and isinstance(cl_raw, str): cl_str = cl_raw.replace("'", '"')
     
     if not cu_str or not cl_str:
+        # Try track field first (GPS route array): track[0]=unlock, track[-1]=lock
+        track = rec.get("track")
+        if track and isinstance(track, list) and len(track) >= 2:
+            def _pt_from_track(pt):
+                try:
+                    if isinstance(pt, dict):
+                        geom = pt.get("geometry", pt)
+                        coords = geom.get("coordinates") if isinstance(geom, dict) else None
+                        if coords and len(coords) >= 2:
+                            return [float(coords[0]), float(coords[1])]
+                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                        return [float(pt[0]), float(pt[1])]
+                except Exception:
+                    pass
+                return None
+            pu = _pt_from_track(track[0])
+            pl = _pt_from_track(track[-1])
+            if pu and pl:
+                if not cu_str: cu_str = json.dumps({"type": "Point", "coordinates": pu})
+                if not cl_str: cl_str = json.dumps({"type": "Point", "coordinates": pl})
+
+    if not cu_str or not cl_str:
         su = rec.get("idunplug_station", rec.get("station_unlock", rec.get("idunplug_base", rec.get("estacion_origen"))))
         sl = rec.get("idplug_station", rec.get("station_lock", rec.get("idplug_base", rec.get("estacion_destino"))))
         if pd.isna(su) or pd.isna(sl): return None
-        
+
         cu, cl = _coords(su), _coords(sl)
         if not cu or not cl: return None
         if None in cu or None in cl: return None
-        
+
         if not cu_str: cu_str = json.dumps({"type": "Point", "coordinates": [float(cu[0]), float(cu[1])]})
         if not cl_str: cl_str = json.dumps({"type": "Point", "coordinates": [float(cl[0]), float(cl[1])]})
     
@@ -197,12 +219,25 @@ def _extract_stations_from_json(content: str) -> dict:
         data = json.loads(content)
         records = data.get("data", data.get("stations", data)) if isinstance(data, dict) else data
         for k in records:
+            if not isinstance(k, dict): continue
             s_id = str(k.get("id", k.get("id_station", k.get("_id", ""))))
+            coords = None
             geom = k.get("geometry", {})
             if isinstance(geom, dict) and "coordinates" in geom:
-                station_map[s_id] = [float(geom["coordinates"][0]), float(geom["coordinates"][1])]
+                coords = [float(geom["coordinates"][0]), float(geom["coordinates"][1])]
             elif "latitude" in k and "longitude" in k:
-                station_map[s_id] = [float(k["longitude"]), float(k["latitude"])]
+                coords = [float(k["longitude"]), float(k["latitude"])]
+            # BiciMAD format where coordinates are nested inside a 'stations' sub-document
+            if coords is None:
+                nested = k.get("stations", {})
+                if isinstance(nested, dict):
+                    geom2 = nested.get("geometry", {})
+                    if isinstance(geom2, dict) and "coordinates" in geom2:
+                        coords = [float(geom2["coordinates"][0]), float(geom2["coordinates"][1])]
+                    elif "latitude" in nested and "longitude" in nested:
+                        coords = [float(nested["longitude"]), float(nested["latitude"])]
+            if coords and s_id:
+                station_map[s_id] = coords
     except Exception:
         pass
     
@@ -218,9 +253,11 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
     written = 0
     members = sorted(zf.namelist())
     
+    # First pass: extract station coordinates from ALL JSON files (station files may not have
+    # "station" in their filename, e.g. 202101.json contains station data for 2021)
     for member in members:
         if "__MACOSX" in member: continue
-        if member.lower().endswith(".zip") and "station" in member.lower():
+        if member.lower().endswith(".zip"):
             try:
                 with zf.open(member) as nf:
                     with zipfile.ZipFile(io.BytesIO(nf.read())) as nzf:
@@ -229,7 +266,7 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                                 content = nzf.read(sub_member).decode("utf-8", errors="replace")
                                 station_map.update(_extract_stations_from_json(content))
             except Exception: pass
-        elif member.lower().endswith(".json") and "station" in member.lower():
+        elif member.lower().endswith(".json"):
             content = zf.read(member).decode("utf-8", errors="replace")
             station_map.update(_extract_stations_from_json(content))
 
@@ -268,14 +305,20 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                         recs = data.get("data", data.get("trips", data)) if isinstance(data, dict) else data
                     except:
                         recs = [json.loads(l) for l in content.splitlines() if l.strip()]
-                    
+
+                    # Skip files that are station records, not trip records
+                    if isinstance(recs, list) and recs and isinstance(recs[0], dict):
+                        first_keys = set(recs[0].keys())
+                        trip_indicators = {'geolocation_unlock', 'geolocation_lock', 'idunplug_station', 'idplug_station', 'travel_time', 'trip_minutes'}
+                        if 'stations' in first_keys and not first_keys & trip_indicators:
+                            continue
+
                     rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
                 else:
-                    df = pd.read_csv(f, sep=";", engine="python", on_bad_lines="skip")
+                    csv_content = f.read()
+                    df = pd.read_csv(io.BytesIO(csv_content), sep=";", engine="python", on_bad_lines="skip")
                     if len(df.columns) < 2:
-                        # Fallback to comma if semicolon fails
-                        f.seek(0)
-                        df = pd.read_csv(f, sep=",", engine="python", on_bad_lines="skip")
+                        df = pd.read_csv(io.BytesIO(csv_content), sep=",", engine="python", on_bad_lines="skip")
                     recs = df.to_dict("records")
                     rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
 
