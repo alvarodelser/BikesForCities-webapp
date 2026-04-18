@@ -6,6 +6,7 @@ and parses the fixed-width DAT files to extract parties, votes, and councilors f
 import sys
 import os
 import argparse
+import unicodedata
 import requests
 import zipfile
 import pandas as pd
@@ -38,6 +39,10 @@ def download_and_extract(url, extract_to):
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
 
+def normalize(s: str) -> str:
+    """Lowercase and strip accents for fuzzy city name matching."""
+    return unicodedata.normalize('NFKD', s.lower()).encode('ascii', 'ignore').decode()
+
 def parse_elections(data_dir, cities):
     """
     cities is a list of tuples: (city_id, name)
@@ -53,16 +58,19 @@ def parse_elections(data_dir, cities):
             
     print("🔍 Parsing municipalities (05042305.DAT)...")
     code_to_city_id = {}
-    city_names_db = {name.lower(): cid for cid, name in cities}
-    
+    city_names_db = {normalize(name): cid for cid, name in cities}
+
     with open(muni_file, 'r', encoding='iso-8859-1') as f:
         for line in f:
             prov = line[11:13]
             muni = line[13:16]
             name = line[18:118].strip()
-            # Try to match the name (e.g. Madrid, Barcelona) to our DB exactly
-            if name.lower() in city_names_db:
-                code_to_city_id[(prov, muni)] = city_names_db[name.lower()]
+            # DAT uses bilingual names like "ALACANT/ALICANTE" or "VALÈNCIA/VALENCIA"
+            for part in normalize(name).split('/'):
+                part = part.strip()
+                if part in city_names_db:
+                    code_to_city_id[(prov, muni)] = city_names_db[part]
+                    break
 
     print(f"✔ Matched {len(code_to_city_id)} target cities in the electoral dataset.")
     if not code_to_city_id:
@@ -194,8 +202,6 @@ def main():
 
         if df_results.empty:
             print("❌ No results parsed. Exiting.")
-            conn.commit()
-            conn.close()
             return
             
         print(f"✔ Prepared {len(df_results)} electoral rows.")
