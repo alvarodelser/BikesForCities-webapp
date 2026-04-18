@@ -50,14 +50,24 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
         total = cur.fetchone()[0]
         
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
-        # Paginated fetch
         query = """
-            SELECT 
-                id, station_id, name, lat, lon, citybikes_network_id,
-                extra, estimated_monthly_trips, downtime_minutes, reach_coverage
-            FROM stations
-            WHERE city_id = %s AND merged_into_id IS NULL
-            ORDER BY id
+            SELECT
+                s.id, s.station_id, s.name, s.lat, s.lon, s.citybikes_network_id,
+                s.extra, s.reach_coverage,
+                sm.estimated_trips  AS estimated_monthly_trips,
+                sm.downtime_minutes
+            FROM stations s
+            LEFT JOIN LATERAL (
+                SELECT estimated_trips, downtime_minutes
+                FROM station_monthly
+                WHERE city_id = s.city_id
+                  AND citybikes_network_id = s.citybikes_network_id
+                  AND station_id = s.station_id
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) sm ON TRUE
+            WHERE s.city_id = %s AND s.merged_into_id IS NULL
+            ORDER BY s.id
             LIMIT %s OFFSET %s
         """
         cur.execute(query, (city_id, limit, offset))
