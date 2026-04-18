@@ -32,10 +32,10 @@ const Navbar: React.FC<NavbarProps> = () => {
   const [burgerOpen, setBurgerOpen] = useState(false);
   const [mobileCitiesOpen, setMobileCitiesOpen] = useState(false);
 
-  const navRef = useRef<HTMLDivElement>(null);
-  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchCities().then(data => setCities(data)).catch(console.error);
   }, []);
 
@@ -138,73 +138,68 @@ const Navbar: React.FC<NavbarProps> = () => {
           {/* Expanded menu panel */}
           <div
             className={`w-full transition-all duration-500 ease-in-out overflow-hidden
-              ${burgerOpen ? 'max-h-[600px] opacity-100 border-t border-black/5' : 'max-h-0 opacity-0'}
+              ${burgerOpen ? 'max-h-[calc(100vh-80px)] opacity-100 border-t border-black/5' : 'max-h-0 opacity-0'}
             `}
           >
             <div className="flex flex-col px-4 pb-4 pt-2 gap-1">
-              {/* Inicio */}
-              <Link
-                to="/"
-                onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
-                className={`flex items-center font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors
-                  ${location.pathname === '/' ? 'text-[var(--green)]' : ''}
-                `}
-              >
-                Inicio
-              </Link>
-
-              {/* Ciudades ▾ */}
-              <button
-                onClick={() => setMobileCitiesOpen(prev => !prev)}
-                className={`flex items-center gap-1 font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors cursor-pointer w-full text-left
-                  ${mobileCitiesOpen ? 'text-[var(--green)]' : 'text-black'}
-                `}
-              >
-                Ciudades
-                {mobileCitiesOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </button>
-
-              {/* Cities sublist */}
-              <div
-                className={`transition-all duration-500 ease-in-out overflow-hidden
-                  ${mobileCitiesOpen ? 'max-h-[240px] opacity-100' : 'max-h-0 opacity-0'}
-                `}
-              >
-                <div className="overflow-y-auto max-h-[240px] flex flex-col pl-4 gap-0.5 py-1">
-                  {cities.map((city) => (
+              {(() => {
+                const renderMobileLink = (link: { name: string; to: string }) => {
+                  const isActive = location.pathname === link.to;
+                  return (
                     <Link
-                      key={city.path}
-                      to={currentMode ? `${city.path}?mode=${currentMode}` : city.path}
+                      key={link.to}
+                      to={link.to}
                       onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
-                      className="flex items-center font-[500] text-sm min-h-[36px] px-3 rounded-xl hover:bg-black/5 transition-colors"
+                      className={`flex items-center font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors
+                        ${isActive ? 'text-[var(--green)]' : ''}
+                      `}
                     >
-                      {city.name}
+                      {link.name}
                     </Link>
-                  ))}
-                </div>
-              </div>
+                  );
+                };
 
-              {/* Compara */}
-              <Link
-                to="/compare"
-                onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
-                className={`flex items-center font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors
-                  ${location.pathname === '/compare' ? 'text-[var(--green)]' : ''}
-                `}
-              >
-                Compara
-              </Link>
+                return (
+                  <>
+                    {/* Inicio (first navLink) */}
+                    {navLinks.slice(0, 1).map(renderMobileLink)}
 
-              {/* Acerca de */}
-              <Link
-                to="/about"
-                onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
-                className={`flex items-center font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors
-                  ${location.pathname === '/about' ? 'text-[var(--green)]' : ''}
-                `}
-              >
-                Acerca de
-              </Link>
+                    {/* Ciudades ▾ */}
+                    <button
+                      onClick={() => setMobileCitiesOpen(prev => !prev)}
+                      className={`flex items-center gap-1 font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors cursor-pointer w-full text-left
+                        ${mobileCitiesOpen ? 'text-[var(--green)]' : 'text-black'}
+                      `}
+                    >
+                      Ciudades
+                      {mobileCitiesOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
+
+                    {/* Cities sublist */}
+                    <div
+                      className={`transition-all duration-500 ease-in-out overflow-hidden
+                        ${mobileCitiesOpen ? 'max-h-[240px] opacity-100' : 'max-h-0 opacity-0'}
+                      `}
+                    >
+                      <div className="overflow-y-auto max-h-[240px] flex flex-col pl-4 gap-0.5 py-1">
+                        {cities.map((city) => (
+                          <Link
+                            key={city.path}
+                            to={currentMode ? `${city.path}?mode=${currentMode}` : city.path}
+                            onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
+                            className="flex items-center font-[500] text-sm min-h-[36px] px-3 rounded-xl hover:bg-black/5 transition-colors"
+                          >
+                            {city.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Compara, Acerca de, … (remaining navLinks) */}
+                    {navLinks.slice(1).map(renderMobileLink)}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </nav>
