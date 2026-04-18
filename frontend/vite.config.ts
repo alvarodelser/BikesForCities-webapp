@@ -24,7 +24,18 @@ export default defineConfig({
     exclude: ['src/**/*.stories.{js,jsx,ts,tsx}', 'node_modules/**'],
     // Only include Storybook tests in development/test environments
     ...(process.env.NODE_ENV !== 'production' && {
-      projects: [{
+      projects: [
+        {
+          extends: true,
+          test: {
+            name: 'unit',
+            environment: 'jsdom',
+            include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+            exclude: ['src/**/*.stories.{js,jsx,ts,tsx}', 'node_modules/**'],
+            setupFiles: ['./src/tests/setup.ts'],
+          },
+        },
+        {
         extends: true,
         plugins: [
         // The plugin will run tests for the stories defined in your Storybook config
