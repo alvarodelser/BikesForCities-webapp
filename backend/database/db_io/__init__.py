@@ -45,6 +45,7 @@ from .graph import (
 
 from .routes import (
     put_routes,
+    put_map_matched_routes,
     put_route_edges,
     put_route_edges_with_order,
     get_routes_without_edges,
@@ -115,7 +116,7 @@ __all__ = [
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
     # routes
-    "put_routes", "put_route_edges", "put_route_edges_with_order",
+    "put_routes", "put_map_matched_routes", "put_route_edges", "put_route_edges_with_order",
     "get_routes_without_edges", "get_unprocessed_route_groups",
     "mark_routes_processed", "count_routes",
     "get_paginated_routes", "get_route_stats", "count_unprocessed_routes",

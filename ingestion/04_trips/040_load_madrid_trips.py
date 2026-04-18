@@ -161,27 +161,24 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
     if pd.notna(cu_raw) and isinstance(cu_raw, str): cu_str = cu_raw.replace("'", '"')
     if pd.notna(cl_raw) and isinstance(cl_raw, str): cl_str = cl_raw.replace("'", '"')
     
-    if not cu_str or not cl_str:
-        # Try track field first (GPS route array): track[0]=unlock, track[-1]=lock
-        track = rec.get("track")
-        if track and isinstance(track, list) and len(track) >= 2:
-            def _pt_from_track(pt):
-                try:
-                    if isinstance(pt, dict):
-                        geom = pt.get("geometry", pt)
-                        coords = geom.get("coordinates") if isinstance(geom, dict) else None
-                        if coords and len(coords) >= 2:
-                            return [float(coords[0]), float(coords[1])]
-                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
-                        return [float(pt[0]), float(pt[1])]
-                except Exception:
-                    pass
-                return None
-            pu = _pt_from_track(track[0])
-            pl = _pt_from_track(track[-1])
-            if pu and pl:
-                if not cu_str: cu_str = json.dumps({"type": "Point", "coordinates": pu})
-                if not cl_str: cl_str = json.dumps({"type": "Point", "coordinates": pl})
+    # Track is a GeoJSON FeatureCollection; features stored in descending secondsfromstart order
+    track_raw = rec.get("track")
+    track_coords = None
+    if isinstance(track_raw, dict):
+        features = track_raw.get("features") or []
+        if len(features) >= 2:
+            sorted_feats = sorted(features, key=lambda f: f.get("properties", {}).get("secondsfromstart", 0))
+            def _coord_from_feat(feat):
+                c = (feat.get("geometry") or {}).get("coordinates") or []
+                return [float(c[0]), float(c[1])] if len(c) >= 2 else None
+            pts = [p for p in (_coord_from_feat(f) for f in sorted_feats) if p]
+            if len(pts) >= 2:
+                if not cu_str:
+                    cu_str = json.dumps({"type": "Point", "coordinates": pts[0]})
+                if not cl_str:
+                    cl_str = json.dumps({"type": "Point", "coordinates": pts[-1]})
+                if len(pts) >= 3:
+                    track_coords = pts
 
     if not cu_str or not cl_str:
         su = rec.get("idunplug_station", rec.get("station_unlock", rec.get("idunplug_base", rec.get("estacion_origen"))))
@@ -210,6 +207,7 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
         "unlock_date": udt, "lock_date": rec.get("lock_date", rec.get("datetime_lock", rec.get("fecha_destino", rec.get("fecha_origen")))),
         "geolocation_unlock": cu_str,
         "geolocation_lock": cl_str,
+        "track_coords": json.dumps(track_coords) if track_coords else None,
     }
 
 def _extract_stations_from_json(content: str) -> dict:
@@ -364,9 +362,40 @@ def ensure_data_present(year: int, force: bool = False) -> int:
         return _process_archive(zf, year_short, station_map, force)
 
 
+def _build_leuven_map(graph):
+    from leuvenmapmatching.map.inmem import InMemMap
+    print("     🗺️  Building leuven InMemMap from OSM graph...")
+    m = InMemMap("bicimad", use_rtree=True, index_edges=True)
+    for node_id, data in graph.nodes(data=True):
+        m.add_node(node_id, (data['y'], data['x']))  # (lat, lon)
+    for u, v in graph.edges():
+        m.add_edge(u, v)
+    m.purge()
+    print(f"     ✅ InMemMap ready ({graph.number_of_nodes():,} nodes, {graph.number_of_edges():,} edges)")
+    return m
+
+
+def _map_match(leuven_map, track_coords) -> Optional[list]:
+    from leuvenmapmatching.matcher.distance import DistanceMatcher
+    try:
+        path = [(lat, lon) for lon, lat in track_coords]
+        matcher = DistanceMatcher(
+            leuven_map,
+            max_dist=100,
+            obs_noise=50,
+            min_prob_norm=0.001,
+            non_emitting_states=True,
+        )
+        matcher.match(path)
+        nodes = matcher.path_pred_onlynodes
+        return list(nodes) if len(nodes) >= 2 else None
+    except Exception:
+        return None
+
+
 def _load_csv(path: Path) -> pd.DataFrame:
     import math
-    expected = {"geolocation_unlock", "geolocation_lock", "idTrip", "_id", "idBike", "trip_minutes", "unlock_date", "lock_date"}
+    expected = {"geolocation_unlock", "geolocation_lock", "idTrip", "_id", "idBike", "trip_minutes", "unlock_date", "lock_date", "track_coords"}
     df = pd.read_csv(path, sep=";", usecols=lambda c: c in expected)
     if "idTrip" not in df.columns or df["idTrip"].isnull().all():
         df["idTrip"] = df["_id"] if "_id" in df.columns and not df["_id"].isnull().all() else [f"{path.stem}_{i}" for i in range(len(df))]
@@ -394,76 +423,136 @@ def _load_csv(path: Path) -> pd.DataFrame:
     
     # Drop rows where parsing resulted in None (missing coordinates)
     df.dropna(subset=["geolocation_unlock", "geolocation_lock"], inplace=True)
+    if "track_coords" in df.columns:
+        def _parse_tc(x):
+            if pd.isna(x): return None
+            try: return json.loads(x)
+            except: return None
+        df["track_coords"] = df["track_coords"].apply(_parse_tc)
     return df.reset_index(drop=True)
 
 
-def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph) -> int:
-    from backend.database.db_io.routes import put_routes
+def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
+                  leuven_map=None, edge_id_map=None) -> int:
+    from backend.database.db_io.routes import put_routes, put_map_matched_routes, put_route_edges_with_order
     import osmnx as ox
-    
+
     if len(df) == 0:
         return 0
-        
+
     rows_inserted = 0
-    batch = []
-    
-    # Extract coordinates directly into pure float lists
+    shortest_batch: list = []   # strategy="shortest", processed=False
+    mm_route_batch: list = []   # strategy="map_matched", processed=True
+    mm_edges: dict[int, list] = {}  # mm_route_batch index → [(edge_id, order)]
+
     lons_u, lats_u = zip(*df["geolocation_unlock"].tolist())
     lons_l, lats_l = zip(*df["geolocation_lock"].tolist())
-    
+
     print(f"     🗺️  Snapping {len(df):,} trips to graph nodes...")
     nodes_u = ox.distance.nearest_nodes(graph, X=lons_u, Y=lats_u)
     nodes_l = ox.distance.nearest_nodes(graph, X=lons_l, Y=lats_l)
 
+    has_tracks = "track_coords" in df.columns
+
+    def _flush():
+        nonlocal rows_inserted
+        n = len(shortest_batch)
+        if shortest_batch:
+            put_routes(conn, shortest_batch)
+        if mm_route_batch:
+            id_map = put_map_matched_routes(conn, mm_route_batch)
+            if mm_edges and edge_id_map:
+                edge_tuples = []
+                for b_idx, edge_seq in mm_edges.items():
+                    route_id = id_map.get(mm_route_batch[b_idx][1])
+                    if route_id:
+                        for edge_id, order in edge_seq:
+                            edge_tuples.append((route_id, edge_id, order))
+                if edge_tuples:
+                    put_route_edges_with_order(conn, edge_tuples)
+        rows_inserted += n
+        shortest_batch.clear()
+        mm_route_batch.clear()
+        mm_edges.clear()
+
     pbar = tqdm(range(len(df)), desc=f"Inserting {fname}", unit="trips")
     for idx in pbar:
         row = df.iloc[idx]
+        trip_id = str(row["idTrip"])
+        trip_minutes = float(row["trip_minutes"]) if pd.notna(row["trip_minutes"]) else None
+        unlock_date = row["unlock_date"]
+        id_bike = int(row["idBike"]) if pd.notna(row["idBike"]) else None
+        lock_date = row.get("lock_date")
+
+        # Snap start/end to nearest nodes and validate distance (used for shortest route)
         nu, nl = nodes_u[idx], nodes_l[idx]
-        
-        # Verify distance (optional safety mechanism)
         gu = (graph.nodes[nu]['x'], graph.nodes[nu]['y'])
         gl = (graph.nodes[nl]['x'], graph.nodes[nl]['y'])
         d1 = ox.distance.great_circle(lats_u[idx], lons_u[idx], gu[1], gu[0])
         d2 = ox.distance.great_circle(lats_l[idx], lons_l[idx], gl[1], gl[0])
         if d1 > 150.0 or d2 > 150.0:
             continue
-            
-        batch.append((
-            city_id, str(row["idTrip"]), int(nu), int(nl), "shortest",
-            float(row["trip_minutes"]) if pd.notna(row["trip_minutes"]) else None,
-            row["unlock_date"], int(row["idBike"]) if pd.notna(row["idBike"]) else None,
-            row.get("lock_date")
+
+        # Always add the shortest route (processed=False, edges computed by 042)
+        shortest_batch.append((
+            city_id, trip_id, int(nu), int(nl), "shortest",
+            trip_minutes, unlock_date, id_bike, lock_date,
         ))
-        
-        if len(batch) >= BATCH_SIZE:
-            put_routes(conn, batch)
-            rows_inserted += len(batch)
-            batch.clear()
+
+        # For trips with a GPS track, also add a map_matched route (processed=True, edges now)
+        track_coords = row["track_coords"] if has_tracks else None
+        if track_coords and isinstance(track_coords, list) and len(track_coords) >= 3 and leuven_map:
+            matched_nodes = _map_match(leuven_map, track_coords)
+            if matched_nodes:
+                mm_idx = len(mm_route_batch)
+                mm_route_batch.append((
+                    city_id, trip_id,
+                    int(matched_nodes[0]), int(matched_nodes[-1]),
+                    "map_matched", trip_minutes, unlock_date, id_bike, lock_date,
+                ))
+                if edge_id_map:
+                    edge_seq = []
+                    for i in range(len(matched_nodes) - 1):
+                        eid = edge_id_map.get((matched_nodes[i], matched_nodes[i + 1]))
+                        if eid:
+                            edge_seq.append((eid, i))
+                    if edge_seq:
+                        mm_edges[mm_idx] = edge_seq
+
+        if len(shortest_batch) >= BATCH_SIZE:
+            _flush()
             pbar.set_postfix({"inserted": f"{rows_inserted:,}"})
-            
-    if batch:
-        put_routes(conn, batch)
-        rows_inserted += len(batch)
-        
+
+    if shortest_batch:
+        _flush()
+
     pbar.close()
     return rows_inserted
 
 
 def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False, force: bool = False) -> int:
     from backend.processing.city_ops import build_graph
+    from backend.database.db_io.graph import get_edge_id_map
 
     csv_files = sorted(DATA_DIR.glob("trips_*.csv"))
     processed = 0
     if not csv_files: return processed
-    
-    print(f"\n🌐 Loading OSM Graph for Madrid to snap coordinates to nodes...")
+
+    print(f"\n🌐 Loading OSM Graph for Madrid...")
     graph = build_graph(conn, city_id)
-    
+
+    print(f"   📐 Building leuven map for GPS track matching...")
+    leuven_map = _build_leuven_map(graph)
+
+    print(f"   🗃️  Loading edge ID map...")
+    edge_id_map = get_edge_id_map(conn, city_id)
+    print(f"   ✅ Loaded {len(edge_id_map):,} edges.")
+
     for f in csv_files:
         if f.name in done_files and not force: continue
         print(f"\n📂 Ingesting {f.name}")
         df = _load_csv(f)
-        _insert_trips(conn, city_id, df, f.name, graph)
+        _insert_trips(conn, city_id, df, f.name, graph, leuven_map, edge_id_map)
         on_file_done(f.name)
         processed += 1
         conn.commit()

@@ -23,10 +23,31 @@ def put_routes(conn, routes: List[Tuple]) -> dict:
                 datetime_lock, processed
             )
             VALUES %s
-            ON CONFLICT (id_trip) DO UPDATE SET id_trip = EXCLUDED.id_trip
+            ON CONFLICT (id_trip, strategy) DO UPDATE SET id_trip = EXCLUDED.id_trip
             RETURNING id, id_trip
             """,
             [(*r, False) for r in routes],
+            fetch=True,
+        )
+    return {id_trip: route_id for route_id, id_trip in result}
+
+
+def put_map_matched_routes(conn, routes: List[Tuple]) -> dict:
+    """Insert map-matched routes with processed=True. Same tuple layout as put_routes."""
+    with conn.cursor() as cur:
+        result = execute_values(
+            cur,
+            """
+            INSERT INTO routes (
+                city_id, id_trip, origin_node, dest_node, strategy,
+                trip_minutes, datetime_unlock, id_bike,
+                datetime_lock, processed
+            )
+            VALUES %s
+            ON CONFLICT (id_trip, strategy) DO UPDATE SET id_trip = EXCLUDED.id_trip
+            RETURNING id, id_trip
+            """,
+            [(*r, True) for r in routes],
             fetch=True,
         )
     return {id_trip: route_id for route_id, id_trip in result}

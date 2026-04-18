@@ -161,16 +161,17 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE TABLE IF NOT EXISTS routes (
     id SERIAL PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
-    id_trip TEXT UNIQUE NOT NULL,
+    id_trip TEXT NOT NULL,
     origin_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
     dest_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
-    strategy TEXT NOT NULL,              -- e.g., 'shortest', 'fastest', 'scenic'
+    strategy TEXT NOT NULL,              -- e.g., 'shortest', 'map_matched'
     trip_minutes DOUBLE PRECISION,
     datetime_unlock TIMESTAMP,
     datetime_lock TIMESTAMP,
     id_bike BIGINT,
     processed BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW()   -- optional audit
+    created_at TIMESTAMP DEFAULT NOW(),
+    UNIQUE (id_trip, strategy)
 );
 
 
