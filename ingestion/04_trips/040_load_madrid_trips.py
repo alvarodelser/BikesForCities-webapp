@@ -35,6 +35,7 @@ from backend.database.db_io import (
 )
 
 BATCH_SIZE = 5_000
+TRACK_SAMPLE_INTERVAL_S = 120  # minimum seconds between consecutive sampled GPS points
 
 # ---------------------------------------------------------------------------
 # Dataset URLs (historical 2017–2023)
@@ -171,7 +172,17 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
             def _coord_from_feat(feat):
                 c = (feat.get("geometry") or {}).get("coordinates") or []
                 return [float(c[0]), float(c[1])] if len(c) >= 2 else None
-            pts = [p for p in (_coord_from_feat(f) for f in sorted_feats) if p]
+            pts, last_t = [], None
+            for feat in sorted_feats:
+                t = feat.get("properties", {}).get("secondsfromstart", 0)
+                p = _coord_from_feat(feat)
+                if p and (last_t is None or t - last_t >= TRACK_SAMPLE_INTERVAL_S):
+                    pts.append(p)
+                    last_t = t
+            # Always include the last point for destination accuracy
+            last_p = _coord_from_feat(sorted_feats[-1])
+            if last_p and (not pts or pts[-1] != last_p):
+                pts.append(last_p)
             if len(pts) >= 2:
                 if not cu_str:
                     cu_str = json.dumps({"type": "Point", "coordinates": pts[0]})
@@ -397,6 +408,35 @@ def _map_match(leuven_map, track_coords) -> Optional[list]:
         return None
 
 
+def _serialize_graph_for_leuven(graph) -> tuple:
+    nodes = [(nid, d['y'], d['x']) for nid, d in graph.nodes(data=True)]
+    edges = list(graph.edges())
+    return nodes, edges
+
+
+_leuven_worker_map = None
+
+def _init_match_worker(graph_data):
+    global _leuven_worker_map
+    from leuvenmapmatching.map.inmem import InMemMap
+    nodes, edges = graph_data
+    try:
+        m = InMemMap("bicimad", use_rtree=True, index_edges=True)
+    except Exception:
+        m = InMemMap("bicimad", use_rtree=False, index_edges=True)
+    for node_id, lat, lon in nodes:
+        m.add_node(node_id, (lat, lon))
+    for u, v in edges:
+        m.add_edge(u, v)
+    m.purge()
+    _leuven_worker_map = m
+
+def _match_worker_fn(track_coords):
+    if _leuven_worker_map is None or not track_coords:
+        return None
+    return _map_match(_leuven_worker_map, track_coords)
+
+
 def _load_csv(path: Path) -> pd.DataFrame:
     import math
     expected = {"geolocation_unlock", "geolocation_lock", "idTrip", "_id", "idBike", "trip_minutes", "unlock_date", "lock_date", "track_coords"}
@@ -437,17 +477,14 @@ def _load_csv(path: Path) -> pd.DataFrame:
 
 
 def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
-                  leuven_map=None, edge_id_map=None) -> int:
+                  leuven_map=None, graph_data=None, edge_id_map=None,
+                  num_workers: int = 4) -> int:
+    from concurrent.futures import ProcessPoolExecutor
     from backend.database.db_io.routes import put_routes, put_map_matched_routes, put_route_edges_with_order
     import osmnx as ox
 
     if len(df) == 0:
         return 0
-
-    rows_inserted = 0
-    shortest_batch: list = []   # strategy="shortest", processed=False
-    mm_route_batch: list = []   # strategy="map_matched", processed=True
-    mm_edges: dict[int, list] = {}  # mm_route_batch index → [(edge_id, order)]
 
     lons_u, lats_u = zip(*df["geolocation_unlock"].tolist())
     lons_l, lats_l = zip(*df["geolocation_lock"].tolist())
@@ -457,6 +494,37 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
     nodes_l = ox.distance.nearest_nodes(graph, X=lons_l, Y=lats_l)
 
     has_tracks = "track_coords" in df.columns
+
+    # Phase 1: parallel map matching (only when rtree/leuven is available)
+    matched_nodes_map: dict[int, list] = {}
+    if has_tracks and leuven_map is not None and graph_data is not None:
+        track_items = [
+            (idx, df.iloc[idx]["track_coords"])
+            for idx in range(len(df))
+            if isinstance(df.iloc[idx]["track_coords"], list)
+            and len(df.iloc[idx]["track_coords"]) >= 3
+        ]
+        if track_items:
+            print(f"     🔀 Map-matching {len(track_items):,} GPS tracks ({num_workers} workers)...")
+            coords_list = [tc for _, tc in track_items]
+            with ProcessPoolExecutor(
+                max_workers=num_workers,
+                initializer=_init_match_worker,
+                initargs=(graph_data,),
+            ) as ex:
+                results = list(tqdm(
+                    ex.map(_match_worker_fn, coords_list, chunksize=200),
+                    total=len(coords_list), desc="     Matching", unit="trips",
+                ))
+            for (df_idx, _), nodes in zip(track_items, results):
+                if nodes:
+                    matched_nodes_map[df_idx] = nodes
+
+    # Phase 2: serial DB insertion
+    rows_inserted = 0
+    shortest_batch: list = []
+    mm_route_batch: list = []
+    mm_edges: dict[int, list] = {}
 
     def _flush():
         nonlocal rows_inserted
@@ -489,7 +557,6 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
         lock_date = row.get("lock_date")
         if pd.isna(lock_date): lock_date = None
 
-        # Snap start/end to nearest nodes and validate distance (used for shortest route)
         nu, nl = nodes_u[idx], nodes_l[idx]
         gu = (graph.nodes[nu]['x'], graph.nodes[nu]['y'])
         gl = (graph.nodes[nl]['x'], graph.nodes[nl]['y'])
@@ -498,31 +565,28 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
         if d1 > 150.0 or d2 > 150.0:
             continue
 
-        # Always add the shortest route (processed=False, edges computed by 042)
         shortest_batch.append((
             city_id, trip_id, int(nu), int(nl), "shortest",
             trip_minutes, unlock_date, id_bike, lock_date,
         ))
 
-        # For trips with a GPS track, also add a map_matched route (processed=True, edges now)
-        track_coords = row["track_coords"] if has_tracks else None
-        if track_coords and isinstance(track_coords, list) and len(track_coords) >= 3 and leuven_map:
-            matched_nodes = _map_match(leuven_map, track_coords)
-            if matched_nodes:
-                mm_idx = len(mm_route_batch)
-                mm_route_batch.append((
-                    city_id, trip_id,
-                    int(matched_nodes[0]), int(matched_nodes[-1]),
-                    "map_matched", trip_minutes, unlock_date, id_bike, lock_date,
-                ))
-                if edge_id_map:
-                    edge_seq = []
-                    for i in range(len(matched_nodes) - 1):
-                        eid = edge_id_map.get((matched_nodes[i], matched_nodes[i + 1]))
-                        if eid:
-                            edge_seq.append((eid, i))
-                    if edge_seq:
-                        mm_edges[mm_idx] = edge_seq
+        matched_nodes = matched_nodes_map.get(idx)
+        if matched_nodes:
+            mm_idx = len(mm_route_batch)
+            mm_route_batch.append((
+                city_id, trip_id,
+                int(matched_nodes[0]), int(matched_nodes[-1]),
+                "map_matched", trip_minutes, unlock_date, id_bike, lock_date,
+            ))
+            if edge_id_map:
+                edge_seq = [
+                    (eid, i)
+                    for i in range(len(matched_nodes) - 1)
+                    for eid in [edge_id_map.get((matched_nodes[i], matched_nodes[i + 1]))]
+                    if eid
+                ]
+                if edge_seq:
+                    mm_edges[mm_idx] = edge_seq
 
         if len(shortest_batch) >= BATCH_SIZE:
             _flush()
@@ -535,7 +599,9 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
     return rows_inserted
 
 
-def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_file: bool = False, force: bool = False) -> int:
+def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done,
+                single_file: bool = False, force: bool = False,
+                num_workers: int = 4) -> int:
     from backend.processing.city_ops import build_graph
     from backend.database.db_io.graph import get_edge_id_map
 
@@ -548,6 +614,7 @@ def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_f
 
     print(f"   📐 Building leuven map for GPS track matching...")
     leuven_map = _build_leuven_map(graph)
+    graph_data = _serialize_graph_for_leuven(graph) if leuven_map is not None else None
 
     print(f"   🗃️  Loading edge ID map...")
     edge_id_map = get_edge_id_map(conn, city_id)
@@ -557,7 +624,7 @@ def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done, single_f
         if f.name in done_files and not force: continue
         print(f"\n📂 Ingesting {f.name}")
         df = _load_csv(f)
-        _insert_trips(conn, city_id, df, f.name, graph, leuven_map, edge_id_map)
+        _insert_trips(conn, city_id, df, f.name, graph, leuven_map, graph_data, edge_id_map, num_workers)
         on_file_done(f.name)
         processed += 1
         conn.commit()
@@ -571,6 +638,7 @@ def main():
     parser.add_argument("--years", nargs="+", type=int, choices=sorted(HISTORICAL_URLS.keys()), help="Years to download")
     parser.add_argument("--force", action="store_true", help="Force re-download and re-ingest")
     parser.add_argument("--single-file", action="store_true", help="Process only one file")
+    parser.add_argument("--workers", type=int, default=4, help="Parallel workers for GPS map matching")
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -597,7 +665,7 @@ def main():
             done_files.add(fn); details["done_files"] = list(done_files)
             upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id, details=details); conn.commit()
 
-        n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file, force=args.force)
+        n = ingest_csvs(conn, city_id, done_files, on_file_done, single_file=args.single_file, force=args.force, num_workers=args.workers)
         upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, details=details)
         print(f"\n🏁 Finished! {n} files ingested.")
     except Exception as e:
