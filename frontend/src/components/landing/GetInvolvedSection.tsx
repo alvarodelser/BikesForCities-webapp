@@ -8,23 +8,23 @@ import {
 const FAQ_ITEMS = [
   {
     q: '¿Qué es Bikes for Cities?',
-    a: 'Bikes for Cities es una plataforma de datos abiertos que analiza la infraestructura ciclista de las ciudades españolas, combinando datos de OpenStreetMap, GBFS y estadísticas municipales.',
+    a: 'Bikes for Cities es una plataforma de datos abiertos y participación ciudadana que analiza la infraestructura ciclista de las ciudades españolas, combinando datos de OpenStreetMap, GBFS y estadísticas municipales.',
   },
   {
-    q: '¿De dónde provienen los datos?',
-    a: 'Utilizamos fuentes abiertas: OpenStreetMap para la red ciclista, sistemas públicos de bicicleta compartida (GBFS), y datos del Instituto Nacional de Estadística.',
+    q: '¿Por dónde empiezo?',
+    a: 'Puedes empezar por buscar tu ciudad en el mapa. Tenemos disponibles varios mapas con sus métricas. También puedes consultar cómo está posicionada en los rankings.',
   },
   {
-    q: '¿Con qué frecuencia se actualizan?',
-    a: 'Los datos de carril bici se actualizan mensualmente desde OSM. Los datos de estaciones de bicicletas compartidas se sincronizan cada hora.',
+    q: 'Me encantaría utilizar la bicicleta pero me da miedo.',
+    a: 'Nuestro objetivo es que todo el mundo pueda desplazarse sin miedo. Creemos que avanzamos a pasos agigantados en esa dirección y hemos de conseguir que la infraestructura ciclista siga el ritmo.',
   },
   {
-    q: '¿Puedo usar los datos en mi proyecto?',
-    a: 'Sí. Los datos derivados de OSM se publican bajo licencia ODbL. Los análisis y visualizaciones propias del proyecto están bajo CC BY 4.0.',
+    q: '¿Cómo puedo contribuir?',
+    a: 'Puedes contribuir de muchas formas: desde compartir tus rutas habituales, participar en el foro, o comprometerte activamente en tu ciudad.',
   },
   {
-    q: '¿Cómo puedo reportar un error en los datos?',
-    a: 'Puedes abrir un issue en nuestro repositorio de GitHub o contactarnos directamente a través del formulario de la web.',
+    q: '¿Cuándo va a estar disponible mi ciudad?',
+    a: 'Estamos trabajando para incluir más ciudades españolas. Puedes dejarnos un comentario en el foro o incluir a tu ayuntamiento en las conversaciones.',
   },
 ];
 
