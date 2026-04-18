@@ -33,13 +33,7 @@ export function useViewport(): Viewport {
     if (typeof window === 'undefined' || !window.matchMedia) return;
     const desktopMQ = window.matchMedia(DESKTOP_Q);
     const ultraMQ = window.matchMedia(ULTRA_Q);
-    const update = () =>
-      setTier(
-        tierFrom(
-          window.matchMedia(DESKTOP_Q).matches,
-          window.matchMedia(ULTRA_Q).matches,
-        ),
-      );
+    const update = () => setTier(tierFrom(desktopMQ.matches, ultraMQ.matches));
     desktopMQ.addEventListener('change', update);
     ultraMQ.addEventListener('change', update);
     update();

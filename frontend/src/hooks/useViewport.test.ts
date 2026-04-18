@@ -7,20 +7,23 @@ type Listener = (e: MediaQueryListEvent) => void;
 function mockMatchMedia(initial: Record<string, boolean>) {
   const listeners: Record<string, Set<Listener>> = {};
   const state = { ...initial };
-  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
-    matches: state[query] ?? false,
-    media: query,
-    onchange: null,
-    addEventListener: (_e: string, l: Listener) => {
-      (listeners[query] ??= new Set()).add(l);
-    },
-    removeEventListener: (_e: string, l: Listener) => {
-      listeners[query]?.delete(l);
-    },
-    addListener: () => {},
-    removeListener: () => {},
-    dispatchEvent: () => true,
-  }));
+  window.matchMedia = vi.fn().mockImplementation((query: string) => {
+    const mql = {
+      get matches() { return state[query] ?? false; },
+      media: query,
+      onchange: null,
+      addEventListener: (_e: string, l: Listener) => {
+        (listeners[query] ??= new Set()).add(l);
+      },
+      removeEventListener: (_e: string, l: Listener) => {
+        listeners[query]?.delete(l);
+      },
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => true,
+    };
+    return mql;
+  });
   return {
     set(query: string, matches: boolean) {
       state[query] = matches;
@@ -63,5 +66,13 @@ describe('useViewport', () => {
     expect(result.current.tier).toBe('mobile');
     act(() => mm.set('(min-width: 768px)', true));
     expect(result.current.tier).toBe('desktop');
+  });
+
+  it('removes listeners on unmount', () => {
+    const mm = mockMatchMedia({ '(min-width: 768px)': false, '(min-width: 1920px)': false });
+    const { result, unmount } = renderHook(() => useViewport());
+    unmount();
+    act(() => mm.set('(min-width: 768px)', true));
+    expect(result.current.tier).toBe('mobile');
   });
 });
