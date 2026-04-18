@@ -321,10 +321,10 @@ const GetInvolvedSection: React.FC = () => {
   return (
     <section
       id="get-involved"
-      className="w-full px-6 py-20"
+      className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)]"
       style={{ background: 'var(--cream)' }}
     >
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[var(--container-reading)] mx-auto">
         {/* Section title */}
         <h2
           className="text-5xl lg:text-6xl font-heading font-bold mb-12 tracking-tight"
