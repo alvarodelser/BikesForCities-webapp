@@ -65,6 +65,10 @@ export interface SystemStatusCity {
   nodes: number;
   edges: number;
   routes: number;
+  stations_count: number;
+  monthly_trips: number;
+  available_modes: Record<string, boolean>;
+  features: Record<string, number>;
 }
 
 export interface IngestionRow {
@@ -74,10 +78,19 @@ export interface IngestionRow {
   updated_at: string | null;
 }
 
+export interface TimePeriodRow {
+  city: string;
+  process_name: string;
+  status: string;
+  time_period: string;
+  updated_at: string | null;
+}
+
 export interface SystemStatus {
   generated_at: string;
   cities: SystemStatusCity[];
   ingestion: IngestionRow[];
+  ingestion_time_periods: TimePeriodRow[];
 }
 
 export const fetchSystemStatus = async (): Promise<SystemStatus> => {

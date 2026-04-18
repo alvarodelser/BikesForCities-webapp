@@ -628,6 +628,14 @@ async def get_system_status(conn=Depends(get_db_connection)):
     try:
         import datetime
         cities_data = get_all_cities(conn)
+
+        # Feature counts by type per city in one query
+        with conn.cursor() as cur:
+            cur.execute("SELECT city_id, feature_type, COUNT(*) FROM features GROUP BY city_id, feature_type")
+            feature_map: dict = {}
+            for cid, ft, cnt in cur.fetchall():
+                feature_map.setdefault(cid, {})[ft] = int(cnt)
+
         city_stats = []
         for row in cities_data:
             city_id, name = row[0], row[1]
@@ -637,26 +645,46 @@ async def get_system_status(conn=Depends(get_db_connection)):
                 "nodes": count_nodes(conn, city_id),
                 "edges": count_edges(conn, city_id),
                 "routes": count_routes(conn, city_id),
+                "stations_count": int(row[26]) if row[26] is not None else 0,
+                "monthly_trips": int(row[27]) if row[27] is not None else 0,
+                "available_modes": {
+                    "infrastructure": bool(row[16]),
+                    "traffic": bool(row[17]),
+                    "accidents": bool(row[18]),
+                    "terrain": bool(row[19]),
+                    "intersections": bool(row[20]),
+                    "stations": bool(row[21]),
+                    "forum": bool(row[22]),
+                },
+                "features": feature_map.get(city_id, {}),
             })
 
         with conn.cursor() as cur:
-            cur.execute(
-                """
+            cur.execute("""
                 SELECT c.name, i.process_name, i.status, i.updated_at
                 FROM ingestion_status i
                 JOIN cities c ON c.id = i.city_id
                 WHERE i.time_period IS NULL
                 ORDER BY c.name, i.process_name
-                """
-            )
+            """)
             ingestion_rows = [
-                {
-                    "city": row[0],
-                    "process_name": row[1],
-                    "status": row[2],
-                    "updated_at": row[3].isoformat() if row[3] else None,
-                }
-                for row in cur.fetchall()
+                {"city": r[0], "process_name": r[1], "status": r[2],
+                 "updated_at": r[3].isoformat() if r[3] else None}
+                for r in cur.fetchall()
+            ]
+
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT c.name, i.process_name, i.status, i.time_period, i.updated_at
+                FROM ingestion_status i
+                JOIN cities c ON c.id = i.city_id
+                WHERE i.time_period IS NOT NULL
+                ORDER BY c.name, i.process_name, i.time_period
+            """)
+            time_period_rows = [
+                {"city": r[0], "process_name": r[1], "status": r[2],
+                 "time_period": r[3], "updated_at": r[4].isoformat() if r[4] else None}
+                for r in cur.fetchall()
             ]
 
         return {
@@ -664,6 +692,7 @@ async def get_system_status(conn=Depends(get_db_connection)):
                 "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "cities": city_stats,
                 "ingestion": ingestion_rows,
+                "ingestion_time_periods": time_period_rows,
             }
         }
     except Exception as e:
