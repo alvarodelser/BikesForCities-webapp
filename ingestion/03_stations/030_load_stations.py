@@ -359,17 +359,14 @@ def main() -> None:
             pname = "030_load_stations"
             upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
             try:
-                # Load status to track ingested months
-                status_obj = get_ingestion_status(conn, pname, city_id=city_id)
-                details = status_obj.get("details", {}) if status_obj else {}
-                ingested_months = details.get("months", [])
-                
                 now = dt.datetime.now(tz=dt.timezone.utc)
                 for year, month in _iter_months(args.start, now):
                     yyyymm = f"{year}{month:02d}"
-                    if yyyymm in ingested_months and _db_month_has_data(conn, network_id, year, month) and not args.force:
+                    month_status = get_ingestion_status(conn, pname, city_id=city_id, time_period=yyyymm)
+                    if month_status and month_status.get("status") == "SUCCESS" and not args.force:
                         continue
-                        
+
+                    upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=yyyymm)
                     inserted = _ingest_parquet_month(
                         conn,
                         city_id=city_id,
@@ -380,11 +377,8 @@ def main() -> None:
                     )
                     if inserted > 0:
                         print(f"📈 Inserted {inserted:,} readings for {year}{month:02d}.", flush=True)
-                    
-                    if yyyymm not in ingested_months:
-                        ingested_months.append(yyyymm)
-                        
-                details["months"] = ingested_months
+                    upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=yyyymm)
+
                 upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
                 print(f"✅ Upserted ingestion status for {city_name}.")
             except Exception as e:

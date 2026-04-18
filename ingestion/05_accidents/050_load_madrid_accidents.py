@@ -273,29 +273,23 @@ def main():
     upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id)
 
     try:
-        status_obj = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id)
-        details = (status_obj.get("details") or {}) if status_obj else {}
-        processed_years = details.setdefault("processed_years", [])
-        
         years = args.years or sorted(ACCIDENT_URLS.keys())
-        total = details.get("total_accidents", 0)
-        
+        total = 0
+
         for year in years:
-            if year in processed_years and not args.force:
+            year_str = str(year)
+            year_status = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id, time_period=year_str)
+            if year_status and year_status.get("status") == "SUCCESS" and not args.force:
                 print(f"\n🚜 Skipping year {year}: already processed. Use --force to override.")
                 continue
 
+            upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id, time_period=year_str)
             print(f"\n🚜 Processing accidents for year {year}...")
             n = process_accidents_year(conn, city_id, year, force=args.force)
             total += n
-            
-            if year not in processed_years:
-                processed_years.append(year)
-                
-        details["processed_years"] = processed_years
-        details["total_accidents"] = total
-        
-        upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, details=details)
+            upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, time_period=year_str)
+
+        upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id)
         print(f"\n🏁 Finished! {total:,} accidents ingested for Madrid.")
         
     except Exception as exc:

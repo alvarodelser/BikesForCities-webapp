@@ -62,9 +62,10 @@ def _get_all_ingestion_statuses(conn) -> list[tuple]:
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT c.name, i.data_type, i.status, i.updated_at
+            SELECT c.name, i.process_name, i.status, i.updated_at
             FROM ingestion_status i
             JOIN cities c ON c.id = i.city_id
+            WHERE i.time_period IS NULL
             ORDER BY i.updated_at DESC
             """
         )

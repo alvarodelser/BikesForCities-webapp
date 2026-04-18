@@ -78,29 +78,28 @@ def test_update_city_wikidata(transactional_db):
 
 def test_ingestion_status_upsert_and_get(transactional_db):
     city_id = get_or_create_city(transactional_db, name="IngestionTestCity")
-    
+
     upsert_ingestion_status(
         transactional_db,
-        city_id,
-        data_type="osm_network",
-        status="RUNNING",
+        "020_load_osm",
+        "RUNNING",
+        city_id=city_id,
         details={"step": "nodes"}
     )
-    
-    status = get_ingestion_status(transactional_db, city_id, "osm_network")
+
+    status = get_ingestion_status(transactional_db, "020_load_osm", city_id=city_id)
     assert status is not None
     assert status["status"] == "RUNNING"
     assert status["details"]["step"] == "nodes"
-    
-    # Upsert again to test conflict
+
     upsert_ingestion_status(
         transactional_db,
-        city_id,
-        data_type="osm_network",
-        status="SUCCESS",
+        "020_load_osm",
+        "SUCCESS",
+        city_id=city_id,
         details={"step": "done"}
     )
-    status2 = get_ingestion_status(transactional_db, city_id, "osm_network")
+    status2 = get_ingestion_status(transactional_db, "020_load_osm", city_id=city_id)
     assert status2["status"] == "SUCCESS"
     assert status2["details"]["step"] == "done"
 

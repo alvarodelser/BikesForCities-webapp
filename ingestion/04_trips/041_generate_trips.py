@@ -196,17 +196,15 @@ def generate_for_city(conn, city_id: int, city_name: str,
     all_route_rows = []
 
     pname = "041_generate_trips"
-    status_obj = get_ingestion_status(conn, pname, city_id=city_id)
-    details = (status_obj.get("details") or {}) if status_obj else {}
-    processed_months = details.setdefault("processed_months", [])
 
     for month in months:
         month_str = month.strftime("%Y-%m-%d")
-        if month_str in processed_months and not force:
+        month_status = get_ingestion_status(conn, pname, city_id=city_id, time_period=month_str)
+        if month_status and month_status.get("status") == "SUCCESS" and not force:
             print(f"     ⏭️  Skipping {month}: station-based synthetic trips already in ingestion_status.")
             continue
 
-        if force and month_str in processed_months:
+        if force and month_status and month_status.get("status") == "SUCCESS":
             print(f"     ⚠️  Force mode: Deleting existing synthetic trips for {month}...")
             with conn.cursor() as cur:
                 cur.execute("""
@@ -217,8 +215,6 @@ def generate_for_city(conn, city_id: int, city_name: str,
                       AND EXTRACT(MONTH FROM datetime_unlock) = %s
                 """, (city_id, month.year, month.month))
             conn.commit()
-            # Remove from processed_months to safely track it again
-            processed_months.remove(month_str)
 
         flow_rows = get_station_monthly_flow(conn, city_id, month)
         # flow_rows: (station_id, network_id, lat, lon, inbound, outbound)
@@ -333,17 +329,13 @@ def generate_for_city(conn, city_id: int, city_name: str,
                     for i in range(0, len(all_route_rows), BATCH_SIZE):
                         batch = all_route_rows[i:i+BATCH_SIZE]
                         put_routes(conn, batch)
-                
-                # Transaction implicitly commits here.
-                # Now record the success in ingestion_status
-                processed_months.append(month_str)
-                details["processed_months"] = processed_months
-                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, details=details)
+
+                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=month_str)
             except Exception as e:
                 # If the server closed the connection (OperationalError), rollback won't work
                 if not conn.closed:
                     conn.rollback()
-                upsert_ingestion_status(conn, pname, "FAILED_MONTH", city_id=city_id, details=details)
+                upsert_ingestion_status(conn, pname, "FAILED_MONTH", city_id=city_id, time_period=month_str)
                 print(f"❌ Failed to process month {month_str}: {e}")
             
             all_route_rows.clear()

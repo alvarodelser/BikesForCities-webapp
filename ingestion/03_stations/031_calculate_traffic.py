@@ -282,10 +282,6 @@ def main():
         pname = "031_calculate_traffic"
         upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
-            status_obj = get_ingestion_status(conn, pname, city_id=city_id)
-            details = status_obj.get("details", {}) if status_obj else {}
-            processed_months = details.setdefault("processed_months", [])
-
             months = get_city_months_with_station_data(conn, city_id)
             if not months:
                 months = [month_start(dt.datetime.now(dt.timezone.utc))]
@@ -296,22 +292,21 @@ def main():
             for m in months:
                 metric_month = month_start(m)
                 month_str = metric_month.strftime("%Y-%m-%d")
-                
-                if month_str in processed_months and not args.force:
-                     print(f"   ⏭️  Skipping {metric_month:%Y-%m}: est. traffic already computed.")
-                     continue
-                     
+
+                month_status = get_ingestion_status(conn, pname, city_id=city_id, time_period=month_str)
+                if month_status and month_status.get("status") == "SUCCESS" and not args.force:
+                    print(f"   ⏭️  Skipping {metric_month:%Y-%m}: est. traffic already computed.")
+                    continue
+
+                upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=month_str)
                 est_trips, total_stations, downtime = calculate_monthly_metrics(conn, city_id, metric_month, center_lat, center_lon, angle)
 
                 print(
                     f"   ✔ {metric_month:%Y-%m} | est trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f} min/day"
                 )
-                
-                if month_str not in processed_months:
-                     processed_months.append(month_str)
-                     
-            details["processed_months"] = processed_months
-            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, details=details)
+                upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=month_str)
+
+            upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:
             upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
             print(f"❌ Error calculating metrics for {name}: {e}")
