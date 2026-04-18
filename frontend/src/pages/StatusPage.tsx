@@ -187,7 +187,7 @@ function monthDiff(a: Date, b: Date) {
   return (b.getFullYear() - a.getFullYear()) * 12 + (b.getMonth() - a.getMonth());
 }
 
-function TemporalChart({ rows }: { rows: TimePeriodRow[] }) {
+function TemporalChart({ rows = [] }: { rows?: TimePeriodRow[] }) {
   const ROW_H = 22, CITY_H = 30, CITY_GAP = 10;
   const ML = 270, MR = 24, MT = 28, MB = 36;
   const SVG_W = 920;
@@ -273,8 +273,8 @@ function TemporalChart({ rows }: { rows: TimePeriodRow[] }) {
         {cityY.map(({ city, y, rowCount }) => (
           <g key={city}>
             <rect x={0} y={y - 2} width={SVG_W} height={CITY_H + rowCount * ROW_H + 4}
-                  fill="color-mix(in srgb,var(--green-light) 12%,white)" rx={6} />
-            <text x={8} y={y + CITY_H - 8} fontSize={12} fontWeight={700} fill="var(--green-dark)">{city}</text>
+                  style={{ fill: '#f0faf7' }} rx={6} />
+            <text x={8} y={y + CITY_H - 8} fontSize={12} fontWeight={700} style={{ fill: '#015a57' }}>{city}</text>
           </g>
         ))}
 
@@ -322,7 +322,7 @@ function TemporalChart({ rows }: { rows: TimePeriodRow[] }) {
 
 // ─── Ingestion table ──────────────────────────────────────────────────────────
 
-function IngestionTable({ rows }: { rows: SystemStatus['ingestion'] }) {
+function IngestionTable({ rows = [] }: { rows?: SystemStatus['ingestion'] }) {
   const [cityFilter, setCityFilter] = useState('');
   const [procFilter, setProcFilter] = useState('');
 
@@ -422,8 +422,9 @@ const StatusPage: React.FC = () => {
   );
 
   const generatedAt = new Date(status.generated_at).toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
-  const failedCount  = status.ingestion.filter(r => r.status.startsWith('FAILED')).length;
-  const runningCount = status.ingestion.filter(r => r.status === 'RUNNING').length;
+  const ingestion = status.ingestion ?? [];
+  const failedCount  = ingestion.filter(r => r.status.startsWith('FAILED')).length;
+  const runningCount = ingestion.filter(r => r.status === 'RUNNING').length;
 
   const totalNodes  = status.cities.reduce((s, c) => s + c.nodes, 0);
   const totalEdges  = status.cities.reduce((s, c) => s + c.edges, 0);
@@ -502,7 +503,7 @@ const StatusPage: React.FC = () => {
         <section className="pb-12">
           <Badge color="green">Ingesta</Badge>
           <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--black)' }}>Estado de la ingesta</h2>
-          <IngestionTable rows={status.ingestion} />
+          <IngestionTable rows={ingestion} />
         </section>
 
       </div>

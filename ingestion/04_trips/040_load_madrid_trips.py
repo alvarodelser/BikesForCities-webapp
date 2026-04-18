@@ -365,7 +365,11 @@ def ensure_data_present(year: int, force: bool = False) -> int:
 def _build_leuven_map(graph):
     from leuvenmapmatching.map.inmem import InMemMap
     print("     🗺️  Building leuven InMemMap from OSM graph...")
-    m = InMemMap("bicimad", use_rtree=True, index_edges=True)
+    try:
+        m = InMemMap("bicimad", use_rtree=True, index_edges=True)
+    except Exception:
+        print("     ⚠️  rtree unavailable, falling back to linear search (slower)")
+        m = InMemMap("bicimad", use_rtree=False, index_edges=True)
     for node_id, data in graph.nodes(data=True):
         m.add_node(node_id, (data['y'], data['x']))  # (lat, lon)
     for u, v in graph.edges():

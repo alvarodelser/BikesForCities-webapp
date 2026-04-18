@@ -66,8 +66,8 @@ def parse_elections(data_dir, cities):
 
     print(f"✔ Matched {len(code_to_city_id)} target cities in the electoral dataset.")
     if not code_to_city_id:
-        print("❌ No cities matched! Ensure the names in DB match exactly.")
-        return []
+        print("❌ No cities matched! DB names:", list(city_names_db.keys()))
+        return pd.DataFrame(), pd.DataFrame()
 
     print("🔍 Parsing political parties (03042305.DAT)...")
     party_map = {}
@@ -191,7 +191,7 @@ def main():
         
         print("\n▶️  Processing raw DAT files into analytical format...")
         df_results, df_candidates = parse_elections(data_dir, cities_to_process)
-        
+
         if df_results.empty:
             print("❌ No results parsed. Exiting.")
             conn.commit()
