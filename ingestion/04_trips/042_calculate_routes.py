@@ -106,7 +106,17 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
                     
                     route_edges_batch = []
                     all_processed_route_ids = []
-            
+                    FLUSH_EVERY = 50_000  # flush to DB every N route_edge rows
+
+                    def flush_batch():
+                        if route_edges_batch:
+                            put_route_edges_with_order(conn, route_edges_batch)
+                            route_edges_batch.clear()
+                        if all_processed_route_ids:
+                            mark_routes_processed(conn, all_processed_route_ids)
+                            conn.commit()
+                            all_processed_route_ids.clear()
+
                     pbar = tqdm(zip(groups, results), total=len(groups), desc=f"   Processing batch (Total Trips: {total_trips_processed:,})", unit="pairs")
                     for (origin_node, dest_node, strategy, count, route_ids), path in pbar:
                         if path:
@@ -117,7 +127,7 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
                                 edge_id = edge_id_map.get((u, v))
                                 if edge_id:
                                     edge_sequence.append((edge_id, i))
-                            
+
                             # Assign this sequence to all route_ids in the group
                             for rid in route_ids:
                                 for edge_id, order in edge_sequence:
@@ -126,14 +136,14 @@ def process_city_routes(conn, city_id: int, city_name: str, batch_size: int = 50
                         else:
                             # Mark as processed if no path found (to avoid infinite loops)
                             all_processed_route_ids.extend(route_ids)
-                    
-                    # Save batch results
-                    if route_edges_batch:
-                        put_route_edges_with_order(conn, route_edges_batch)
-                    
-                    if all_processed_route_ids:
-                        mark_routes_processed(conn, all_processed_route_ids)
-                        total_trips_processed += len(all_processed_route_ids)
+
+                        if len(route_edges_batch) >= FLUSH_EVERY:
+                            total_trips_processed += len(all_processed_route_ids)
+                            flush_batch()
+
+                    # Flush remaining
+                    total_trips_processed += len(all_processed_route_ids)
+                    flush_batch()
                         
                     if len(groups) < batch_size:
                         break
