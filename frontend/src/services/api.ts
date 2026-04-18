@@ -59,6 +59,34 @@ export interface HourlyAvailability {
   avg_bikes: number;
 }
 
+export interface SystemStatusCity {
+  id: number;
+  name: string;
+  nodes: number;
+  edges: number;
+  routes: number;
+}
+
+export interface IngestionRow {
+  city: string;
+  process_name: string;
+  status: string;
+  updated_at: string | null;
+}
+
+export interface SystemStatus {
+  generated_at: string;
+  cities: SystemStatusCity[];
+  ingestion: IngestionRow[];
+}
+
+export const fetchSystemStatus = async (): Promise<SystemStatus> => {
+  const response = await fetch(`${API_BASE_URL}/status`);
+  if (!response.ok) throw new Error('Failed to fetch system status');
+  const result = await response.json();
+  return result.data;
+};
+
 export const fetchStationHourlyAvailability = async (
   cityId: number,
   stationId: string,

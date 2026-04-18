@@ -5,6 +5,7 @@ import CityPage from "./pages/CityPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import ComparePage from "./pages/ComparePage";
 import AboutPage from "./pages/AboutPage";
+import StatusPage from "./pages/StatusPage";
 
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -19,6 +20,7 @@ function App() {
         <Route path="*" element={<NotFoundPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/status" element={<StatusPage />} />
       </Routes>
       <Footer />
     </>

@@ -92,10 +92,9 @@ def get_unprocessed_route_groups(conn, city_id: int, limit: int = 1000) -> List[
 def mark_routes_processed(conn, route_ids: List[int]):
     """Mark a list of routes as processed."""
     with conn.cursor() as cur:
-        execute_values(
-            cur,
+        cur.execute(
             "UPDATE routes SET processed = TRUE WHERE id = ANY(%s)",
-            ([route_ids],),
+            (route_ids,),
         )
 
 

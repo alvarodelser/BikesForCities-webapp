@@ -621,6 +621,56 @@ async def get_city_traffic(
         raise HTTPException(status_code=500, detail="Failed to retrieve traffic data")
 
 
+# Status endpoint
+@router.get("/status")
+async def get_system_status(conn=Depends(get_db_connection)):
+    """System status: city stats + ingestion pipeline overview."""
+    try:
+        import datetime
+        cities_data = get_all_cities(conn)
+        city_stats = []
+        for row in cities_data:
+            city_id, name = row[0], row[1]
+            city_stats.append({
+                "id": city_id,
+                "name": name,
+                "nodes": count_nodes(conn, city_id),
+                "edges": count_edges(conn, city_id),
+                "routes": count_routes(conn, city_id),
+            })
+
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT c.name, i.process_name, i.status, i.updated_at
+                FROM ingestion_status i
+                JOIN cities c ON c.id = i.city_id
+                WHERE i.time_period IS NULL
+                ORDER BY c.name, i.process_name
+                """
+            )
+            ingestion_rows = [
+                {
+                    "city": row[0],
+                    "process_name": row[1],
+                    "status": row[2],
+                    "updated_at": row[3].isoformat() if row[3] else None,
+                }
+                for row in cur.fetchall()
+            ]
+
+        return {
+            "data": {
+                "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "cities": city_stats,
+                "ingestion": ingestion_rows,
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting system status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve system status")
+
+
 # Health check with database validation
 @router.get("/health/detailed")
 async def detailed_health_check(conn=Depends(get_db_connection)):
