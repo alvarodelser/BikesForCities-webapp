@@ -3,7 +3,7 @@ API routes for Bikes for Cities application.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 import logging
 import json
 from shapely import wkt
@@ -627,7 +627,7 @@ async def get_city_traffic(
 async def get_edge_routes(
     city_id: int,
     edge_id: int,
-    mode: str = Query("traces", description="Visualisation mode: traces or heatmap"),
+    mode: Literal["traces", "heatmap"] = Query("traces", description="Visualisation mode: traces or heatmap"),
     limit: int = Query(500, ge=1, le=1000, description="Max routes to return"),
     conn=Depends(get_db_connection),
 ):
@@ -665,9 +665,8 @@ async def get_edge_routes(
             count = len(rows)
         else:
             geom_strings = get_edge_route_traces(conn, city_id, edge_id, limit=limit)
-            import json as _json
             features = [
-                {"type": "Feature", "geometry": _json.loads(g), "properties": {}}
+                {"type": "Feature", "geometry": json.loads(g), "properties": {}}
                 for g in geom_strings
             ]
             count = len(features)
