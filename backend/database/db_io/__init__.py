@@ -83,6 +83,11 @@ from .traffic import (
     has_traffic,
 )
 
+from .edge_routes import (
+    get_edge_route_traces,
+    get_edge_route_od,
+)
+
 from .metrics import (
     get_skellam_readings_diffs,
     get_station_merge_map,
@@ -129,6 +134,8 @@ __all__ = [
     # traffic
     "upsert_edge_traffic", "upsert_edge_traffic_for_city",
     "get_edge_traffic", "get_latest_traffic_month", "has_traffic",
+    # edge routes
+    "get_edge_route_traces", "get_edge_route_od",
     # metrics
     "get_skellam_readings_diffs", "get_station_merge_map", "get_citybikes_network_id",
     "update_station_metrics", "upsert_station_monthly", "get_station_monthly_flow",
