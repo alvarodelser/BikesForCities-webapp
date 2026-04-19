@@ -23,14 +23,22 @@ interface LayoutProps {
 function DesktopLayout({ cities, onNavigate }: LayoutProps) {
   const [selected, setSelected] = useState<CityData | null>(null);
 
-  // Stable ref for SideCardTail — only .current changes, object identity is fixed
-  const pinRefs = useRef<Record<string, SVGGElement | null>>({});
-  const targetRef = useRef<Element | null>(null);
+  // One ref object per city, created lazily
+  const targetRefs = useRef<Record<string, { current: Element | null }>>({});
 
-  // Keep targetRef.current in sync with the selected pin
-  useEffect(() => {
-    targetRef.current = selected ? (pinRefs.current[selected.name] ?? null) : null;
-  }, [selected]);
+  function getTargetRef(cityName: string) {
+    if (!targetRefs.current[cityName]) {
+      targetRefs.current[cityName] = { current: null };
+    }
+    return targetRefs.current[cityName];
+  }
+
+  // Dummy stable ref for when nothing is selected
+  const emptyRef = useRef<Element | null>(null);
+
+  const selectedTargetRef = selected
+    ? getTargetRef(selected.name)
+    : emptyRef;
 
   // Outside-click dismissal: clear selected when clicking empty section area
   // Pin clicks have role="button" on a <g> element; SideCardTail wraps in data-sidecard-root
@@ -75,14 +83,15 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
           onCityNavigate={onNavigate}
           selectedCity={selected?.name ?? null}
           cities={cities}
-          registerPinRef={(cityName, el) => {
-            pinRefs.current[cityName] = el;
+          registerPinRef={(name, el) => {
+            const ref = getTargetRef(name);
+            ref.current = el;
           }}
         />
       </div>
 
       {/* Side card tail — renders null internally when isMobile */}
-      <SideCardTail targetRef={targetRef} visible={!!selected}>
+      <SideCardTail targetRef={selectedTargetRef} visible={!!selected}>
         <div data-sidecard-root>
           {selected && (
             <CityCard
