@@ -143,9 +143,14 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                 layout: { visibility: 'none' },
                 filter: ['==', ['get', 'city_id'], city.id as number],
                 paint: {
-                    'line-width': 3,
+                    'line-width': [
+                        'case',
+                        ['==', ['feature-state', 'selected'], true], 5,
+                        3,
+                    ],
                     'line-color': [
                         'case',
+                        ['==', ['feature-state', 'selected'], true], '#f0c040',
                         ['!=', ['feature-state', 'trip_count'], null],
                         [
                             'interpolate', ['linear'], ['feature-state', 'trip_count'],
