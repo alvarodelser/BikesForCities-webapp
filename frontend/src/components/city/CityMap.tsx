@@ -10,6 +10,7 @@ import { MapContext, type MapContextValue } from './map/MapContext';
 import maplibregl from 'maplibre-gl';
 import { useCallback } from 'react';
 import { useMapState } from '../../hooks/useMapState';
+import { useViewport } from '../../hooks/useViewport';
 
 interface CityMapProps {
     city: CityData;
@@ -49,6 +50,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
     const colorScheme = getColorScheme(selectedColor);
     const modeLabel = modeLabels[mode] || mode;
+    const { isMobile } = useViewport();
 
     // --- Control callbacks (moved from CityCanvas) ---
     const zoomIn = useCallback(() => mapInstance?.zoomIn(), [mapInstance]);
@@ -94,7 +96,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
         <MapContext.Provider value={contextValue}>
             <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
                 <div
-                    className="w-full h-screen relative overflow-hidden map-section-bg"
+                    className={`w-full relative overflow-hidden map-section-bg ${isMobile ? 'h-[65vh]' : 'h-screen'}`}
                     style={{
                         '--mode-primary':   colorScheme.primary,
                         '--mode-secondary': colorScheme.secondary,
@@ -141,10 +143,17 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
                                 </div>
                             </div>
 
-                            {/* MapControls reads map instance from MapContext */}
-                            <MapControls colorScheme={colorScheme} />
+                            {/* MapControls reads map instance from MapContext — hidden on mobile (rendered separately at bottom-right) */}
+                            {!isMobile && <MapControls colorScheme={colorScheme} />}
                         </div>
                     </div>
+
+                    {/* Mobile: vertical MapControls floating at bottom-right */}
+                    {isMobile && (
+                        <div className="absolute bottom-4 right-3 z-20">
+                            <MapControls colorScheme={colorScheme} vertical />
+                        </div>
+                    )}
 
                     {/* Map canvas */}
                     <div className="absolute inset-0 z-10 pt-24 pb-4 px-4">
