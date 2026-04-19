@@ -15,7 +15,8 @@ from .models import (
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, RouteResponse, FeatureResponse,
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
-    StationResponse, StationListResponse, TrafficResponse, TrafficCount
+    StationResponse, StationListResponse, TrafficResponse, TrafficCount,
+    EdgeRoutesResponse
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
@@ -28,7 +29,8 @@ from backend.database.db_io import (
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_routes,
     get_paginated_features, get_paginated_stations,
-    get_station_hourly_availability, get_station_reachability
+    get_station_hourly_availability, get_station_reachability,
+    get_edge_route_traces, get_edge_route_od
 )
 
 logger = logging.getLogger(__name__)
@@ -619,6 +621,72 @@ async def get_city_traffic(
     except Exception as e:
         logger.error(f"Error getting traffic for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve traffic data")
+
+
+@router.get("/cities/{city_id}/edges/{edge_id}/routes", response_model=EdgeRoutesResponse)
+async def get_edge_routes(
+    city_id: int,
+    edge_id: int,
+    mode: str = Query("traces", description="Visualisation mode: traces or heatmap"),
+    limit: int = Query(500, ge=1, le=1000, description="Max routes to return"),
+    conn=Depends(get_db_connection),
+):
+    """Return routes passing through a specific edge as GeoJSON.
+
+    mode=traces  → FeatureCollection of LineString geometries (one per route).
+    mode=heatmap → FeatureCollection of Point geometries (origin + dest per route).
+    """
+    try:
+        validate_network_exists(conn, city_id)
+
+        # Verify the edge belongs to this city
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM edges WHERE id = %s AND city_id = %s",
+                (edge_id, city_id),
+            )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Edge not found in this city")
+
+        if mode == "heatmap":
+            rows = get_edge_route_od(conn, city_id, edge_id, limit=limit)
+            features = []
+            for row in rows:
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [row["origin_lon"], row["origin_lat"]]},
+                    "properties": {"kind": "origin"},
+                })
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [row["dest_lon"], row["dest_lat"]]},
+                    "properties": {"kind": "destination"},
+                })
+            count = len(rows)
+        else:
+            geom_strings = get_edge_route_traces(conn, city_id, edge_id, limit=limit)
+            import json as _json
+            features = [
+                {"type": "Feature", "geometry": _json.loads(g), "properties": {}}
+                for g in geom_strings
+            ]
+            count = len(features)
+
+        feature_collection = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+
+        return EdgeRoutesResponse(
+            data=feature_collection,
+            count=count,
+            message=f"{count} routes found for edge {edge_id}",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting routes for edge {edge_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve edge routes")
 
 
 # Status endpoint
