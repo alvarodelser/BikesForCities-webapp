@@ -3,9 +3,11 @@ import { useSearchParams } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { getModeStats } from '../../constants/cityStats';
 import { useMapState } from '../../hooks/useMapState';
+import { useViewport } from '../../hooks/useViewport';
 import MapFilters from './MapFilters';
 import CityMap from './CityMap';
 import CityStats from './CityStats';
+import DualPanel from './DualPanel';
 
 const modeNames: Record<string, string> = {
     'infrastructure': 'Infraestructura',
@@ -31,6 +33,7 @@ interface MapSectionProps {
 
 const MapSection: React.FC<MapSectionProps> = ({ city }) => {
     const { mode, setMode } = useMapState();
+    const { isUltrawide } = useViewport();
     const [,setSearchParams] = useSearchParams();
 
     const isModeAvailable = (m: string | null): boolean => {
@@ -60,18 +63,38 @@ const MapSection: React.FC<MapSectionProps> = ({ city }) => {
     const title    = `Estadísticas de ${modeName}`;
     const subtitle = `Análisis detallado de datos de ${modeName.toLowerCase()} en ${city.name}`;
 
+    const filters = (
+        <MapFilters
+            city={city}
+            selectedMode={mode}
+            onModeChange={(newMode) => setMode(newMode)}
+            isModeAvailable={isModeAvailable}
+        />
+    );
+    const map   = <CityMap city={city} selectedColor={selectedColor} />;
+    const stats = <CityStats title={title} subtitle={subtitle} modeStats={modeStats} />;
+
+    if (!isUltrawide) {
+        return (
+            <div className="w-full">
+                {filters}
+                {map}
+                {stats}
+            </div>
+        );
+    }
+
     return (
         <div className="w-full">
-            <MapFilters
-                city={city}
-                selectedMode={mode}
-                onModeChange={(newMode) => setMode(newMode)}
-                isModeAvailable={isModeAvailable}
-            />
-
-            <CityMap city={city} selectedColor={selectedColor} />
-
-            <CityStats title={title} subtitle={subtitle} modeStats={modeStats} />
+            <DualPanel>
+                <DualPanel.Left>
+                    {filters}
+                    {stats}
+                </DualPanel.Left>
+                <DualPanel.Right>
+                    {map}
+                </DualPanel.Right>
+            </DualPanel>
         </div>
     );
 };
