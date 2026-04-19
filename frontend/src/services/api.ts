@@ -165,3 +165,23 @@ export const fetchStationReach = async (
   const result = await response.json();
   return result.data;
 };
+
+export interface EdgeRoutesResult {
+  count: number;
+  data: GeoJSON.FeatureCollection;
+}
+
+export const fetchEdgeRoutes = async (
+  cityId: number,
+  edgeId: number,
+  mode: 'traces' | 'heatmap'
+): Promise<EdgeRoutesResult> => {
+  const response = await fetch(
+    `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?mode=${mode}`
+  );
+  if (!response.ok) {
+    throw new Error('Failed to fetch edge routes');
+  }
+  const result = await response.json();
+  return result.data;
+};
