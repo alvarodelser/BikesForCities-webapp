@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import type { CityData } from '../../constants/cities';
 import ErrorState from '../ui/ErrorState';
@@ -100,31 +100,48 @@ const loadSpainGeoJSON = async () => {
 // ─── Pin Component ────────────────────────────────────────────────────────────
 
 interface PinProps {
+  cityName: string;
   city: CityData;
   x: number;
   y: number;
   isActive: boolean;
   isHovered: boolean;
   isMobile: boolean;
-  onClick: () => void;
-  onHover: (hovered: boolean) => void;
-  pinRef?: (el: SVGGElement | null) => void;
+  onClick: (cityName: string) => void;
+  onHover: (cityName: string, hovered: boolean) => void;
+  registerPinRef?: (cityName: string, el: SVGGElement | null) => void;
 }
 
-function Pin({ city, x, y, isActive, isHovered, isMobile, onClick, onHover, pinRef }: PinProps) {
+const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover, registerPinRef }: PinProps) {
   const haloR = isMobile ? 10 : 12;
   const ringR = isMobile ? 5 : 6;
   const coreR = isMobile ? 2.5 : 3;
   const scale = isActive ? 1.25 : 1;
 
+  // Stable ref callback — only fires on mount/unmount, not on re-render
+  const handleRef = useCallback((el: SVGGElement | null) => {
+    registerPinRef?.(cityName, el);
+  }, [cityName, registerPinRef]);
+
   return (
     <g
-      ref={pinRef}
+      ref={handleRef}
       transform={`translate(${x},${y})`}
-      className="cursor-pointer"
-      onClick={onClick}
-      onMouseEnter={() => onHover(true)}
-      onMouseLeave={() => onHover(false)}
+      className="cursor-pointer focus:outline-none"
+      role="button"
+      tabIndex={0}
+      aria-label={city.name}
+      onClick={() => onClick(cityName)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(cityName);
+        }
+      }}
+      onMouseEnter={() => onHover(cityName, true)}
+      onMouseLeave={() => onHover(cityName, false)}
+      onFocus={() => onHover(cityName, true)}
+      onBlur={() => onHover(cityName, false)}
     >
       <circle
         r={haloR * scale}
@@ -157,7 +174,7 @@ function Pin({ city, x, y, isActive, isHovered, isMobile, onClick, onHover, pinR
       )}
     </g>
   );
-}
+});
 
 // ─── SpainMap Component ───────────────────────────────────────────────────────
 
@@ -187,10 +204,13 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
 
   const { isMobile } = useViewport();
 
-  // ResizeObserver to track actual rendered size
-  useEffect(() => {
+  // ResizeObserver to track actual rendered size — useLayoutEffect fires before paint to avoid
+  // a flash from fallback size → measured size
+  useLayoutEffect(() => {
     if (!rootRef.current) return;
     const el = rootRef.current;
+    // Fire initial measurement synchronously before paint
+    setSize({ width: el.clientWidth, height: el.clientHeight });
     const ro = new ResizeObserver(() => {
       setSize({ width: el.clientWidth, height: el.clientHeight });
     });
@@ -233,28 +253,6 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
 
     const path = d3.geoPath().projection(projection);
 
-    // Add defs (gradient) — append fresh each time
-    svg.selectAll('defs').remove();
-    const defs = svg.append('defs');
-
-    const gradient = defs
-      .append('linearGradient')
-      .attr('id', 'map-gradient')
-      .attr('x1', '0%')
-      .attr('y1', '0%')
-      .attr('x2', '100%')
-      .attr('y2', '100%');
-
-    gradient
-      .append('stop')
-      .attr('offset', '0%')
-      .style('stop-color', '#BFDDCE');
-
-    gradient
-      .append('stop')
-      .attr('offset', '100%')
-      .style('stop-color', '#FBF6EF');
-
     // Base map group — all D3-drawn content lives here
     const g = svg.append('g').attr('class', 'map-base');
 
@@ -278,13 +276,22 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .style('opacity', 1.0);
   }, [geoData, projection]);
 
-  // Root div sizing: if legacy props provided use them as inline style; otherwise fill parent
-  const rootStyle: React.CSSProperties =
-    widthProp != null && heightProp != null
-      ? { width: widthProp, height: heightProp }
-      : {};
+  // Stable per-component handlers so React.memo on Pin can bail out for non-hovered pins
+  const handlePinClick = useCallback((cityName: string) => {
+    onCityClick?.(cityName);
+  }, [onCityClick]);
 
-  const rootClassName = `relative ${className ?? (widthProp != null ? '' : 'w-full h-full')}`;
+  const handlePinHover = useCallback((cityName: string, hovered: boolean) => {
+    setHoveredCity(hovered ? cityName : null);
+  }, []);
+
+  // Root div sizing: if legacy props provided use them as inline style; otherwise fill parent
+  const hasLegacyDimensions = widthProp != null && heightProp != null;
+  const rootStyle: React.CSSProperties = hasLegacyDimensions
+    ? { width: widthProp, height: heightProp }
+    : {};
+
+  const rootClassName = `relative ${className ?? (hasLegacyDimensions ? '' : 'w-full h-full')}`;
 
   if (error) {
     return (
@@ -308,6 +315,14 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         viewBox={`0 0 ${size.width} ${size.height}`}
         style={{ overflow: 'visible' }}
       >
+        {/* Static gradient defs — React-owned, D3 no longer touches defs */}
+        <defs>
+          <linearGradient id="map-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#BFDDCE" />
+            <stop offset="100%" stopColor="#FBF6EF" />
+          </linearGradient>
+        </defs>
+
         {/* g.map-base is managed by D3 (see useEffect above) */}
 
         {/* City Pins — inside SVG, sibling to g.map-base, not affected by D3 cleanup */}
@@ -325,15 +340,16 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
             return (
               <Pin
                 key={city.name}
+                cityName={city.name}
                 city={city.cityData}
                 x={p[0]}
                 y={p[1]}
                 isActive={isActive}
                 isHovered={isHovered}
                 isMobile={isMobile}
-                onClick={() => onCityClick?.(city.name)}
-                onHover={hovered => setHoveredCity(hovered ? city.name : null)}
-                pinRef={registerPinRef ? el => registerPinRef(city.name, el) : undefined}
+                onClick={handlePinClick}
+                onHover={handlePinHover}
+                registerPinRef={registerPinRef}
               />
             );
           })}
