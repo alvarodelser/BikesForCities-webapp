@@ -1,43 +1,196 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { fetchCities } from '../../services/api';
+import { useViewport } from '../../hooks/useViewport';
 import SpainMap from './SpainMap';
 import ScrollableCityCards from '../ui/ScrollableCityCards';
 import WaveBackground from '../ui/WaveBackground';
+import SideCardTail from './SideCardTail';
+import CityCard from '../ui/CityCard';
 import ErrorState from '../ui/ErrorState';
 import Spinner from '../ui/Spinner';
 
+// ─── Shared layout props ──────────────────────────────────────────────────────
+
+interface LayoutProps {
+  cities: CityData[];
+  onNavigate: (cityName: string) => void;
+}
+
+// ─── Desktop Layout ───────────────────────────────────────────────────────────
+
+function DesktopLayout({ cities, onNavigate }: LayoutProps) {
+  const [selected, setSelected] = useState<CityData | null>(null);
+
+  // Stable ref for SideCardTail — only .current changes, object identity is fixed
+  const pinRefs = useRef<Record<string, SVGGElement | null>>({});
+  const targetRef = useRef<Element | null>(null);
+
+  // Keep targetRef.current in sync with the selected pin
+  useEffect(() => {
+    targetRef.current = selected ? (pinRefs.current[selected.name] ?? null) : null;
+  }, [selected]);
+
+  // Outside-click dismissal: clear selected when clicking empty section area
+  // Pin clicks have role="button" on a <g> element; SideCardTail wraps in data-sidecard-root
+  function handleSectionClick(e: React.MouseEvent) {
+    if (!selected) return;
+    const target = e.target as Element;
+    if (target.closest('g[role="button"]')) return; // pin click
+    if (target.closest('[data-sidecard-root]')) return; // card click
+    setSelected(null);
+  }
+
+  const handleCityClick = (cityName: string) => {
+    const city = cities.find(c => c.name === cityName) ?? null;
+    setSelected(city);
+  };
+
+  return (
+    <section
+      className="relative w-full h-[80vh] px-[var(--space-gutter)] py-[var(--space-section-y)]"
+      onClick={handleSectionClick}
+    >
+      {/* Wave Background — desktop quality with existing tuning props */}
+      <WaveBackground
+        quality="high"
+        color={0x3A6C7F}
+        specularColor={0x7BA492}
+        shininess={8}
+        waveHeight={20}
+        waveSpeed={0.5}
+        zoom={5}
+        cameraFov={90}
+        cameraY={300}
+        cameraZ={100}
+        targetY={-50}
+        className="absolute inset-0 w-full h-full -z-10 pointer-events-auto"
+      />
+
+      {/* Spain Map fills the section */}
+      <div className="relative z-10 h-full w-full">
+        <SpainMap
+          onCityClick={handleCityClick}
+          onCityNavigate={onNavigate}
+          selectedCity={selected?.name ?? null}
+          cities={cities}
+          registerPinRef={(cityName, el) => {
+            pinRefs.current[cityName] = el;
+          }}
+        />
+      </div>
+
+      {/* Side card tail — renders null internally when isMobile */}
+      <SideCardTail targetRef={targetRef} visible={!!selected}>
+        <div data-sidecard-root>
+          {selected && (
+            <CityCard
+              city={selected}
+              position={0}
+              onCityNavigate={onNavigate}
+            />
+          )}
+        </div>
+      </SideCardTail>
+
+      {/* Hint when nothing is selected */}
+      {!selected && (
+        <div className="pointer-events-none absolute bottom-8 left-1/2 -translate-x-1/2 rounded-full bg-white/70 px-4 py-2 text-sm">
+          Haz clic en una ciudad para ver detalles
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Mobile Layout ────────────────────────────────────────────────────────────
+
+function MobileLayout({ cities, onNavigate }: LayoutProps) {
+  const [selected, setSelected] = useState<CityData | null>(cities[0] ?? null);
+
+  const handleCityClick = (cityName: string) => {
+    const city = cities.find(c => c.name === cityName) ?? null;
+    setSelected(city);
+  };
+
+  const handleCitySelect = (cityName: string) => {
+    const city = cities.find(c => c.name === cityName) ?? null;
+    setSelected(city);
+  };
+
+  return (
+    <section className="flex flex-col w-full min-h-[85vh]">
+      {/* Map: 40vh */}
+      <div className="relative h-[40vh] w-full overflow-hidden">
+        <WaveBackground
+          quality="low"
+          color={0x3A6C7F}
+          specularColor={0x7BA492}
+          shininess={8}
+          waveHeight={20}
+          waveSpeed={0.5}
+          zoom={5}
+          cameraFov={90}
+          cameraY={300}
+          cameraZ={100}
+          targetY={-50}
+          className="absolute inset-0 w-full h-full -z-10 pointer-events-auto"
+        />
+        <div className="relative z-10 h-full w-full">
+          <SpainMap
+            onCityClick={handleCityClick}
+            onCityNavigate={onNavigate}
+            selectedCity={selected?.name ?? null}
+            cities={cities}
+          />
+        </div>
+      </div>
+
+      {/* Carousel: 45vh */}
+      <div className="h-[45vh] w-full">
+        <ScrollableCityCards
+          cities={cities}
+          selectedCity={selected?.name ?? null}
+          onCitySelect={handleCitySelect}
+          onCityNavigate={onNavigate}
+        />
+      </div>
+    </section>
+  );
+}
+
+// ─── MapSelector (top-level) ──────────────────────────────────────────────────
+
 const MapSelector: React.FC = () => {
-  const [selectedCity, setSelectedCity] = useState<string | null>(null);
-  const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const [cities, setCities] = useState<CityData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { isMobile } = useViewport();
   const navigate = useNavigate();
 
-  React.useEffect(() => {
-    fetchCities().then(data => {
-      if (data && data.length > 0) {
-        setCities(data);
-      } else {
-        setError("No se encontraron datos de ciudades en la base de datos. Por favor, ejecuta los scripts de ingesta.");
-      }
-      setLoading(false);
-    }).catch(err => {
-      console.error(err);
-      setError("No se puede conectar con la base de datos. Asegúrate de que Docker esté en ejecución.");
-      setLoading(false);
-    });
+  useEffect(() => {
+    fetchCities()
+      .then(data => {
+        if (data && data.length > 0) {
+          setCities(data);
+        } else {
+          setError(
+            'No se encontraron datos de ciudades en la base de datos. Por favor, ejecuta los scripts de ingesta.',
+          );
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setError(
+          'No se puede conectar con la base de datos. Asegúrate de que Docker esté en ejecución.',
+        );
+        setLoading(false);
+      });
   }, []);
 
-  const handleCitySelect = (cityName: string) => {
-    setSelectedCity(cityName);
-    setExpandedCity(cityName); // Expand the pin when city is selected
-  };
-
   const handleCityNavigate = (cityName: string) => {
-    // Find the city data to get the path
     const city = cities.find(c => c.name === cityName);
     if (city) {
       navigate(city.path);
@@ -52,71 +205,18 @@ const MapSelector: React.FC = () => {
     );
   }
 
-  return (
-    <div 
-      id="map-selector" 
-      className="relative w-full min-h-screen flex flex-col items-center overflow-hidden"
-      style={{ height: '120vh' }} // More height for the container
-    >
-      {/* Wave Background - Full coverage behind all elements */}
-      <WaveBackground 
-        color={0x3A6C7F} // Deep blue-teal base color
-        specularColor={0x7BA492} // Green-teal specular highlights
-        shininess={8}
-        waveHeight={20}
-        waveSpeed={0.5}
-        zoom={5}
-        // Camera positioning for full coverage
-        cameraFov={90}
-        cameraY={300}
-        cameraZ={100}
-        targetY={-50}
-        className="absolute inset-0 w-full h-full -z-10 pointer-events-auto"
-      />
-
-      {/* D3.js Spain Map with Coordinate System - Positioned 1/3 up */}
-      <div 
-        className="absolute z-10 flex items-center justify-center w-full"
-        style={{ 
-          top: '-8%', // Position 1/3 from top
-          height: '70%'   // Give it good height for the map
-        }}
-      >
-        <SpainMap
-          width={900}
-          height={700}
-          onCityClick={handleCitySelect}
-          onCityNavigate={handleCityNavigate}
-          selectedCity={selectedCity}
-          expandedCity={expandedCity}
-          cities={cities}
-          className=""
-        />
+  if (error) {
+    return (
+      <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[var(--blue-dark)]">
+        <ErrorState title="Error de Conexión" message={error} showRetry={true} />
       </div>
+    );
+  }
 
-      
-
-      {/* Scrollable City Cards */}
-      <div className="absolute left-0 right-0 z-20 w-full mx-0 px-4" style={{ bottom: '1vh' }}>
-        <ScrollableCityCards 
-          cities={cities}
-          selectedCity={selectedCity} 
-          onCitySelect={handleCitySelect}
-          onCityNavigate={handleCityNavigate}
-        />
-      </div>
-
-      {/* Error Overlay */}
-      {error && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center text-center bg-black/40 backdrop-blur-sm">
-          <ErrorState 
-            title="Error de Conexión" 
-            message={error} 
-            showRetry={true} 
-          />
-        </div>
-      )}
-    </div>
+  return isMobile ? (
+    <MobileLayout cities={cities} onNavigate={handleCityNavigate} />
+  ) : (
+    <DesktopLayout cities={cities} onNavigate={handleCityNavigate} />
   );
 };
 
