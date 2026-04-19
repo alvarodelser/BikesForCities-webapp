@@ -1,9 +1,10 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { ColumnGroupPicker } from './ColumnGroupPicker';
+import type { ColumnGroup } from './CityCompareTable';
 import { Network, Activity, Users } from 'lucide-react';
 
-const mockGroups = [
+const mockGroups: ColumnGroup[] = [
   { id: 'Infraestructura', label: 'Infraestructura', icon: Network },
   { id: 'Servicio Bici', label: 'Servicio Bici', icon: Activity },
   { id: 'Ayuntamiento', label: 'Ayuntamiento', icon: Users },

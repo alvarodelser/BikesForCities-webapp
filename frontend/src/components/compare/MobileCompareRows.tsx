@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router';
-import type { CityData, Column } from './CityCompareTable';
+import type { CityData } from '../../constants/cities';
+import type { Column } from './CityCompareTable';
 
 interface MobileCompareRowsProps {
   cities: CityData[];

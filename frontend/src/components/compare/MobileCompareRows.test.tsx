@@ -1,7 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { MobileCompareRows } from './MobileCompareRows';
-import type { CityData, Column } from './CityCompareTable';
+import type { CityData } from '../../constants/cities';
+import type { Column } from './CityCompareTable';
 import { BrowserRouter } from 'react-router';
 
 const mockCities: CityData[] = [
@@ -16,6 +17,8 @@ const mockCities: CityData[] = [
     service_name: 'Bicing',
     mayor: 'Ada Colau',
     mayor_party: 'PSC',
+    geoCoords: { longitude: 2.1729, latitude: 41.3851 },
+    budget: 5000000,
     available_modes: { infrastructure: true },
   },
 ];
@@ -26,14 +29,14 @@ const mockColumns: Column[] = [
     label: 'Población',
     align: 'right',
     group: 'Base',
-    render: (city) => city.population.toString(),
+    render: (city: CityData) => city.population.toString(),
   },
   {
     key: 'coverage',
     label: 'Cobertura',
     align: 'right',
     group: 'Infraestructura',
-    render: (city) => `${city.coverage}%`,
+    render: (city: CityData) => `${city.coverage}%`,
   },
 ];
 

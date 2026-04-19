@@ -11,6 +11,8 @@ import {
 import { GlassCard } from '../ui/GlassCard';
 import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
+import { ColumnGroupPicker } from './ColumnGroupPicker';
+import { MobileCompareRows } from './MobileCompareRows';
 import { 
   ArrowUpDown, 
   ArrowUp, 
@@ -29,7 +31,7 @@ import {
 
 type GroupId = 'Infraestructura' | 'Servicio Bici' | 'Ayuntamiento';
 
-interface ColumnGroup {
+export interface ColumnGroup {
   id: GroupId;
   label: string;
   icon: any;
@@ -38,7 +40,7 @@ interface ColumnGroup {
 type SortKey = keyof Pick<CityData, 'name' | 'population' | 'cyclingNetwork' | 'coverage' | 'stations_count' | 'monthly_trips'> | 'service_name';
 type SortDir = 'asc' | 'desc';
 
-interface Column {
+export interface Column {
   key: SortKey | 'model' | 'mayor' | 'mayor_party';
   label: string;
   render: (city: CityData, isSelected: boolean, selectionIndex: number) => React.ReactNode;
@@ -386,71 +388,28 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
     return [...baseCols, ...groupCols];
   }, [activeGroups]);
 
+  const sorted = sortCities(cities, sortKey, sortDir);
+
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
   if (error) return <ErrorState title="Error" message={error} />;
 
   if (isMobile) {
     return (
-      <div className="flex flex-col gap-3">
-        {cities.map((city) => {
-          const selectionIndex = selectedCityPaths.indexOf(city.path);
-          const isSelected = selectionIndex !== -1;
-          const bg = isSelected
-            ? (selectionIndex === 0 ? 'rgba(225, 172, 85, 0.45)' : 'rgba(175, 71, 73, 0.45)')
-            : 'rgba(255,255,255,0.04)';
-          const stats: { label: string; value: string }[] = [
-            { label: 'Población', value: formatPopulation(city.population) },
-            { label: 'Cobertura', value: `${formatPercentage(city.coverage)}%` },
-            { label: 'Red', value: `${formatDistance(city.cyclingNetwork)} km` },
-            { label: 'Estaciones', value: (city.stations_count && city.stations_count > 0) ? formatPopulation(city.stations_count) : '—' },
-          ];
-          return (
-            <button
-              key={city.path}
-              type="button"
-              onClick={() => onToggleCity(city)}
-              style={{ backgroundColor: bg }}
-              className="w-full text-left rounded-lg border border-white/10 p-4 transition-colors"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold text-white text-base">{city.name}</span>
-                {isSelected && (
-                  <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/20 text-white">
-                    Seleccionada
-                  </span>
-                )}
-              </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 mb-3">
-                {stats.map((s) => (
-                  <div key={s.label} className="shrink-0 rounded bg-white/[0.06] px-3 py-2 text-xs">
-                    <div className="text-white/50">{s.label}</div>
-                    <div className="font-bold text-white tabular-nums">{s.value}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center gap-1">
-                {DATA_MODES
-                  .filter((mode) => city.available_modes?.[mode.id] !== false)
-                  .map((mode) => (
-                    <Link
-                      key={mode.id}
-                      to={`${city.path}?mode=${mode.id}`}
-                      title={`Ver mapa de ${mode.name}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1.5 rounded-md bg-white/5"
-                    >
-                      <mode.icon size={12} className={`${mode.color} opacity-70`} />
-                    </Link>
-                  ))}
-              </div>
-            </button>
-          );
-        })}
+      <div className="flex flex-col gap-4">
+        <ColumnGroupPicker
+          groups={GROUPS}
+          expanded={expandedGroups}
+          onToggle={toggleGroup}
+        />
+        <MobileCompareRows
+          cities={sorted}
+          selectedCityPaths={selectedCityPaths}
+          onToggleCity={onToggleCity}
+          visibleColumns={visibleColumns}
+        />
       </div>
     );
   }
-
-  const sorted = sortCities(cities, sortKey, sortDir);
 
   // Calculate proportional thumb metrics
   const hasOverflow = scrollMetrics.width > scrollMetrics.client;
