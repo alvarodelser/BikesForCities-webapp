@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '../config/api';
 import type { CityData } from '../constants/cities';
+import type * as GeoJSON from 'geojson';
 
 export const fetchCities = async (): Promise<CityData[]> => {
   const response = await fetch(`${API_BASE_URL}/cities`);
@@ -128,6 +129,19 @@ export const fetchTraffic = async (cityId: number): Promise<TrafficCount[]> => {
   }
   const result = await response.json();
   return result.data;
+};
+
+export const fetchEdgeRoutes = async (
+  cityId: number,
+  edgeId: number,
+  mode: 'traces' | 'heatmap' = 'traces',
+  limit: number = 500,
+): Promise<{ data: GeoJSON.FeatureCollection; count: number }> => {
+  const response = await fetch(
+    `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?mode=${mode}&limit=${limit}`
+  );
+  if (!response.ok) throw new Error('Failed to fetch edge routes');
+  return await response.json();
 };
 
 export interface StationReachData extends GeoJSON.FeatureCollection {
