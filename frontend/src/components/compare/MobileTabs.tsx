@@ -41,7 +41,7 @@ function MobileTabs({ defaultTab, children }: MobileTabsProps) {
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
   return (
     <div>
-      <div role="tablist" className="flex border-b border-black/10">
+      <div role="tablist" className="flex gap-2 px-3 py-3 border-b border-black/10">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -51,7 +51,14 @@ function MobileTabs({ defaultTab, children }: MobileTabsProps) {
               setActive(t.id);
               history.replaceState(null, '', `#tab=${t.id}`);
             }}
-            className={`flex-1 px-3 py-2 text-sm font-semibold ${t.id === current.id ? 'border-b-2 border-[#3a6c7f] text-[#3a6c7f]' : 'text-black/60'}`}
+            className={`
+              px-4 py-2 text-sm font-semibold rounded-full transition-all duration-200
+              ${
+                t.id === current.id
+                  ? 'bg-white text-[var(--blue)] shadow-sm'
+                  : 'bg-[var(--blue)] text-white hover:opacity-90'
+              }
+            `}
           >
             {t.label}
           </button>
