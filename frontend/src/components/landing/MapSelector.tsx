@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { fetchCities } from '../../services/api';
@@ -50,10 +50,17 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
     setSelected(null);
   }
 
-  const handleCityClick = (cityName: string) => {
+  const handleCityClick = useCallback((cityName: string) => {
     const city = cities.find(c => c.name === cityName) ?? null;
     setSelected(city);
-  };
+  }, [cities]);
+
+  const handleRegisterPinRef = useCallback((name: string, el: SVGGElement | null) => {
+    if (!targetRefs.current[name]) {
+      targetRefs.current[name] = { current: null };
+    }
+    targetRefs.current[name].current = el;
+  }, []);
 
   return (
     <section
@@ -83,10 +90,7 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
           onCityNavigate={onNavigate}
           selectedCity={selected?.name ?? null}
           cities={cities}
-          registerPinRef={(name, el) => {
-            const ref = getTargetRef(name);
-            ref.current = el;
-          }}
+          registerPinRef={handleRegisterPinRef}
         />
       </div>
 
@@ -118,15 +122,10 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
 function MobileLayout({ cities, onNavigate }: LayoutProps) {
   const [selected, setSelected] = useState<CityData | null>(cities[0] ?? null);
 
-  const handleCityClick = (cityName: string) => {
+  const handleCityClick = useCallback((cityName: string) => {
     const city = cities.find(c => c.name === cityName) ?? null;
     setSelected(city);
-  };
-
-  const handleCitySelect = (cityName: string) => {
-    const city = cities.find(c => c.name === cityName) ?? null;
-    setSelected(city);
-  };
+  }, [cities]);
 
   return (
     <section className="flex flex-col w-full min-h-[85vh]">
@@ -161,7 +160,7 @@ function MobileLayout({ cities, onNavigate }: LayoutProps) {
         <ScrollableCityCards
           cities={cities}
           selectedCity={selected?.name ?? null}
-          onCitySelect={handleCitySelect}
+          onCitySelect={handleCityClick}
           onCityNavigate={onNavigate}
         />
       </div>
