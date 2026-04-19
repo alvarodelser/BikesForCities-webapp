@@ -102,7 +102,7 @@ const Navbar: React.FC<NavbarProps> = () => {
   // ── Mobile layout ──────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div className="fixed left-0 right-0 z-[2000] flex justify-center w-full pointer-events-none top-6 px-4">
+      <div className="absolute left-0 right-0 z-[2000] flex justify-center w-full pointer-events-none top-6 px-4">
         <nav
           ref={navRef}
           className="pointer-events-auto backdrop-blur-md shadow-lg transition-all duration-500 ease-in-out flex flex-col items-center overflow-hidden border w-full bg-[var(--cream)]/85 border-black/5 rounded-[32px] max-w-[800px]"
@@ -116,7 +116,7 @@ const Navbar: React.FC<NavbarProps> = () => {
               className="flex items-center shrink-0 group"
             >
               <B4CLogo
-                className="object-contain transition-all duration-500 text-black group-hover:text-[var(--green)] h-[28px]"
+                className="object-contain transition-all duration-500 text-[var(--green-dark)] group-hover:text-[var(--green)] h-[28px]"
               />
             </Link>
 
@@ -129,7 +129,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                   return !prev;
                 });
               }}
-              className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-black/5 transition-colors cursor-pointer"
+              className="flex items-center justify-center w-11 h-11 rounded-full hover:bg-black/5 transition-colors cursor-pointer text-[var(--green-dark)]"
             >
               {burgerOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
@@ -151,7 +151,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                       to={link.to}
                       onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
                       className={`flex items-center font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors
-                        ${isActive ? 'text-[var(--green)]' : ''}
+                        text-[var(--green-dark)]
                       `}
                     >
                       {link.name}
@@ -168,7 +168,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                     <button
                       onClick={() => setMobileCitiesOpen(prev => !prev)}
                       className={`flex items-center gap-1 font-[800] text-base min-h-[44px] px-3 rounded-2xl hover:bg-black/5 transition-colors cursor-pointer w-full text-left
-                        ${mobileCitiesOpen ? 'text-[var(--green)]' : 'text-black'}
+                        text-[var(--green-dark)]
                       `}
                     >
                       Ciudades
@@ -187,7 +187,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                             key={city.path}
                             to={currentMode ? `${city.path}?mode=${currentMode}` : city.path}
                             onClick={() => { setBurgerOpen(false); setMobileCitiesOpen(false); }}
-                            className="flex items-center font-[500] text-sm min-h-[36px] px-3 rounded-xl hover:bg-black/5 transition-colors"
+                            className="flex items-center font-[500] text-sm min-h-[36px] px-3 rounded-xl hover:bg-black/5 transition-colors text-[var(--green-dark)]"
                           >
                             {city.name}
                           </Link>
@@ -234,7 +234,7 @@ const Navbar: React.FC<NavbarProps> = () => {
           {/* Left: Logo */}
           <Link to="/" onClick={() => setShowCities(false)} className="flex items-center shrink-0 group">
             <B4CLogo
-              className={`object-contain transition-all duration-500 text-black group-hover:text-[var(--green)] ${scrolled ? 'h-[28px]' : 'h-[34px]'}`}
+              className={`object-contain transition-all duration-500 text-[var(--green-dark)] group-hover:text-[var(--green)] ${scrolled ? 'h-[28px]' : 'h-[34px]'}`}
             />
           </Link>
 
@@ -243,14 +243,14 @@ const Navbar: React.FC<NavbarProps> = () => {
             <Link
               to="/"
               onClick={() => setShowCities(false)}
-              className={`font-[800] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${location.pathname === '/' ? 'text-[var(--green)]' : ''}`}
+              className={`font-[800] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} text-[var(--green-dark)]`}
             >
               Inicio
             </Link>
 
             <Link
               onClick={() => setShowCities(!showCities)}
-              className={`font-[800] flex items-center gap-[2px] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${showCities ? 'text-[var(--green)]' : ''}`}
+              className={`font-[800] flex items-center gap-[2px] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} text-[var(--green-dark)]`}
             >
               Ciudades
               {showCities ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
@@ -263,7 +263,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                   key={link.to}
                   to={link.to}
                   onClick={() => setShowCities(false)}
-                  className={`font-[800] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} ${isActive ? 'text-[var(--green)]' : ''}`}
+                   className={`font-[800] transition-all duration-500 ${scrolled ? 'text-sm' : 'text-base'} text-[var(--green-dark)]`}
                 >
                   {link.name}
                 </Link>
@@ -285,7 +285,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                   key={city.path}
                   to={currentMode ? `${city.path}?mode=${currentMode}` : city.path}
                   onClick={() => setShowCities(false)}
-                  className="text-xs font-[500] whitespace-nowrap snap-start px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors"
+                  className="text-xs font-[500] whitespace-nowrap snap-start px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors text-[var(--green-dark)]"
                 >
                   {city.name}
                 </Link>

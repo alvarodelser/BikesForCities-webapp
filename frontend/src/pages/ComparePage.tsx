@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { GlassCard } from '../components/ui/GlassCard';
 import CityCompareTable from '../components/compare/CityCompareTable';
+import MobileTabs from '../components/compare/MobileTabs';
 import { BarChart2 } from 'lucide-react';
 import type { CityData } from '../constants/cities';
 
@@ -38,7 +39,7 @@ const ComparePage: React.FC = () => {
             background: 'radial-gradient(ellipse 70% 50% at 50% 40%, rgba(146,190,201,0.15) 0%, transparent 70%)',
           }}
         />
-        <div className="relative z-10 max-w-2xl">
+        <div className="relative z-10 max-w-[var(--container-reading)] mx-auto">
           <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--green-light)]/70 mb-4">
             Análisis comparativo
           </p>
@@ -64,144 +65,152 @@ const ComparePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ── Graphs section (blue glass) ───────────────────────────────────── */}
-      <section className="py-16 px-6" style={{ backgroundColor: 'rgba(0,56,73,0.6)' }}>
-        <div className="max-w-5xl mx-auto">
-          <h2
-            className="text-2xl font-bold text-white mb-8"
-            style={{ fontFamily: 'var(--heading)' }}
-          >
-            Visión general
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            <GlassCard
-              surface="inset"
-              depth="md"
-              size="lg"
-              className="flex flex-col items-center justify-center gap-3 min-h-[220px]"
-            >
-              <BarChart2 size={36} className="text-white/20" />
-              <p className="text-white/30 text-sm font-medium">Gráfico próximamente</p>
-            </GlassCard>
-
-            <GlassCard
-              surface="inset"
-              depth="md"
-              size="lg"
-              className="flex flex-col items-center justify-center gap-3 min-h-[220px]"
-            >
-              <BarChart2 size={36} className="text-white/20" />
-              <p className="text-white/30 text-sm font-medium">Gráfico próximamente</p>
-            </GlassCard>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Comparison table ──────────────────────────────────────────────── */}
-      <section className="py-16 px-6" style={{ backgroundColor: 'var(--blue-dark)' }}>
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-8">
-            <h2
-              className="text-2xl font-bold text-white mb-2"
-              style={{ fontFamily: 'var(--heading)' }}
-            >
-              Todas las ciudades
-            </h2>
-            <p className="text-white/40 text-sm">
-              Selecciona hasta dos ciudades para compararlas en detalle. Haz clic en una fila para seleccionar.
-            </p>
-          </div>
-          <CityCompareTable 
-            selectedCityPaths={selectedPaths}
-            onToggleCity={toggleCity}
-          />
-        </div>
-      </section>
-
-      {/* ── Individual city detail (placeholder) ─────────────────────────── */}
-      <section
-        className="py-16 px-6"
-        style={{ backgroundColor: 'rgba(0,56,73,0.4)' }}
-      >
-        <div className="max-w-5xl mx-auto">
-          <h2
-            className="text-2xl font-bold text-white mb-2"
-            style={{ fontFamily: 'var(--heading)' }}
-          >
-            Comparación detallada
-          </h2>
-          <p className="text-white/40 text-sm mb-8">
-            Aquí puedes ver los mapas y estadísticas en paralelo de las ciudades seleccionadas.
-          </p>
-          <div className="grid md:grid-cols-2 gap-6">
-            {[0, 1].map((idx) => {
-              const city = selectedCities[idx];
-              const gradient = idx === 0 
-                ? 'linear-gradient(135deg, rgba(225, 172, 85, 0.9), rgba(225, 172, 85, 0.4))'
-                : 'linear-gradient(135deg, rgba(175, 71, 73, 0.9), rgba(175, 71, 73, 0.4))';
-              
-              return (
+      <MobileTabs defaultTab="graphs">
+        <MobileTabs.Tab id="graphs" label="Gráficos">
+          {/* ── Graphs section (blue glass) ───────────────────────────────────── */}
+          <section className="py-16 px-6" style={{ backgroundColor: 'rgba(0,56,73,0.6)' }}>
+            <div className="max-w-[var(--container-max)] 3xl:max-w-none mx-auto">
+              <h2
+                className="text-2xl font-bold text-white mb-8"
+                style={{ fontFamily: 'var(--heading)' }}
+              >
+                Visión general
+              </h2>
+              <div className="grid md:grid-cols-2 gap-6">
                 <GlassCard
-                  key={idx}
-                  surface="glass"
-                  tint="rgba(255, 255, 255, 0.05)"
-                  blurStrength="lg"
-                  shadow="lg"
-                  className={`
-                    ${city ? 'min-h-[400px]' : 'min-h-[150px]'} 
-                    flex flex-col p-0 overflow-hidden relative transition-all duration-500 ease-in-out
-                  `}
+                  surface="inset"
+                  depth="md"
+                  size="lg"
+                  className="flex flex-col items-center justify-center gap-3 min-h-[220px]"
                 >
-                  {/* Backdrop Gradient (only if city selected) */}
-                  {city && (
-                    <div 
-                      className="absolute inset-0 z-0 opacity-80 animate-in fade-in duration-700"
-                      style={{ background: gradient }}
-                    />
-                  )}
-                  
-                  {/* Content Overlay */}
-                  <div className="relative z-10 flex flex-col h-full">
-                    {/* Header */}
-                    <div 
-                      className="px-6 py-4 flex items-center justify-between border-b border-white/10"
-                      style={{ backgroundColor: city ? 'rgba(0,0,0,0.1)' : 'transparent' }}
-                    >
-                      <h3 className={`text-xl font-bold tracking-tight transition-colors ${city ? 'text-white' : 'text-white/20'}`}>
-                        {city ? city.name : `Ciudad ${idx + 1}`}
-                      </h3>
-                      {city && (
-                        <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/20 text-white font-medium">
-                          Seleccionada
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Content Body */}
-                    <div className={`flex-1 flex flex-col items-center justify-center p-8 text-center ${city ? 'bg-black/5' : 'bg-transparent'}`}>
-                      {city ? (
-                        <div className="space-y-6 w-full animate-in zoom-in-95 duration-500">
-                          <div className="aspect-video w-full rounded-xl bg-white/10 border border-white/10 flex items-center justify-center relative overflow-hidden group">
-                             <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:opacity-100 transition-opacity opacity-0" />
-                             <span className="text-white/60 font-medium z-10">Mapa de {city.name} (próximamente)</span>
-                          </div>
-                          <div className="h-32 w-full rounded-xl bg-white/10 border border-white/10 flex items-center justify-center">
-                            <span className="text-white/60 font-medium">Gráfico de {city.name} (próximamente)</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                           <p className="text-white/20 text-xs uppercase tracking-widest font-bold">Sin selección</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <BarChart2 size={36} className="text-white/20" />
+                  <p className="text-white/30 text-sm font-medium">Gráfico próximamente</p>
                 </GlassCard>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+
+                <GlassCard
+                  surface="inset"
+                  depth="md"
+                  size="lg"
+                  className="flex flex-col items-center justify-center gap-3 min-h-[220px]"
+                >
+                  <BarChart2 size={36} className="text-white/20" />
+                  <p className="text-white/30 text-sm font-medium">Gráfico próximamente</p>
+                </GlassCard>
+              </div>
+            </div>
+          </section>
+        </MobileTabs.Tab>
+
+        <MobileTabs.Tab id="table" label="Tabla">
+          {/* ── Comparison table ──────────────────────────────────────────────── */}
+          <section className="py-16 px-6" style={{ backgroundColor: 'var(--blue-dark)' }}>
+            <div className="max-w-[var(--container-max)] 3xl:max-w-none mx-auto">
+              <div className="mb-8">
+                <h2
+                  className="text-2xl font-bold text-white mb-2"
+                  style={{ fontFamily: 'var(--heading)' }}
+                >
+                  Todas las ciudades
+                </h2>
+                <p className="text-white/40 text-sm">
+                  Selecciona hasta dos ciudades para compararlas en detalle. Haz clic en una fila para seleccionar.
+                </p>
+              </div>
+              <CityCompareTable
+                selectedCityPaths={selectedPaths}
+                onToggleCity={toggleCity}
+              />
+            </div>
+          </section>
+        </MobileTabs.Tab>
+
+        <MobileTabs.Tab id="detail" label="Detalle">
+          {/* ── Individual city detail (placeholder) ─────────────────────────── */}
+          <section
+            className="py-16 px-6"
+            style={{ backgroundColor: 'rgba(0,56,73,0.4)' }}
+          >
+            <div className="max-w-[var(--container-max)] 3xl:max-w-none mx-auto">
+              <h2
+                className="text-2xl font-bold text-white mb-2"
+                style={{ fontFamily: 'var(--heading)' }}
+              >
+                Comparación detallada
+              </h2>
+              <p className="text-white/40 text-sm mb-8">
+                Aquí puedes ver los mapas y estadísticas en paralelo de las ciudades seleccionadas.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 3xl:grid-cols-3 gap-6">
+                {[0, 1].map((idx) => {
+                  const city = selectedCities[idx];
+                  const gradient = idx === 0
+                    ? 'linear-gradient(135deg, rgba(225, 172, 85, 0.9), rgba(225, 172, 85, 0.4))'
+                    : 'linear-gradient(135deg, rgba(175, 71, 73, 0.9), rgba(175, 71, 73, 0.4))';
+
+                  return (
+                    <GlassCard
+                      key={idx}
+                      surface="glass"
+                      tint="rgba(255, 255, 255, 0.05)"
+                      blurStrength="lg"
+                      shadow="lg"
+                      className={`
+                        ${city ? 'min-h-[400px]' : 'min-h-[150px]'}
+                        flex flex-col p-0 overflow-hidden relative transition-all duration-500 ease-in-out
+                      `}
+                    >
+                      {/* Backdrop Gradient (only if city selected) */}
+                      {city && (
+                        <div
+                          className="absolute inset-0 z-0 opacity-80 animate-in fade-in duration-700"
+                          style={{ background: gradient }}
+                        />
+                      )}
+
+                      {/* Content Overlay */}
+                      <div className="relative z-10 flex flex-col h-full">
+                        {/* Header */}
+                        <div
+                          className="px-6 py-4 flex items-center justify-between border-b border-white/10"
+                          style={{ backgroundColor: city ? 'rgba(0,0,0,0.1)' : 'transparent' }}
+                        >
+                          <h3 className={`text-xl font-bold tracking-tight transition-colors ${city ? 'text-white' : 'text-white/20'}`}>
+                            {city ? city.name : `Ciudad ${idx + 1}`}
+                          </h3>
+                          {city && (
+                            <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full bg-white/20 text-white font-medium">
+                              Seleccionada
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Content Body */}
+                        <div className={`flex-1 flex flex-col items-center justify-center p-8 text-center ${city ? 'bg-black/5' : 'bg-transparent'}`}>
+                          {city ? (
+                            <div className="space-y-6 w-full animate-in zoom-in-95 duration-500">
+                              <div className="aspect-video w-full rounded-xl bg-white/10 border border-white/10 flex items-center justify-center relative overflow-hidden group">
+                                 <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent group-hover:opacity-100 transition-opacity opacity-0" />
+                                 <span className="text-white/60 font-medium z-10">Mapa de {city.name} (próximamente)</span>
+                              </div>
+                              <div className="h-32 w-full rounded-xl bg-white/10 border border-white/10 flex items-center justify-center">
+                                <span className="text-white/60 font-medium">Gráfico de {city.name} (próximamente)</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                               <p className="text-white/20 text-xs uppercase tracking-widest font-bold">Sin selección</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </GlassCard>
+                  );
+                })}
+              </div>
+            </div>
+          </section>
+        </MobileTabs.Tab>
+      </MobileTabs>
 
     </div>
   );

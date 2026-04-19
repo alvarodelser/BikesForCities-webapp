@@ -66,6 +66,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             dragRotate: false,
             scrollZoom: false,
             pitchWithRotate: false,
+            attributionControl: false,
         });
 
         mapInstance.on('load', () => {

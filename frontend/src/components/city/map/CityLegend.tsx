@@ -14,8 +14,16 @@ import { commonLegendItems } from './modes/common';
 export default function CityLegend() {
     const { mode } = useMapState();
     const { isMobile } = useViewport();
-    const [open, setOpen] = useState(false);
+    const [open, setOpen] = useState(() => {
+        const saved = localStorage.getItem('bfc_legend_open');
+        return saved !== null ? saved === 'true' : true;
+    });
     const rootRef = useRef<HTMLDivElement>(null);
+
+    // Persist state
+    useEffect(() => {
+        localStorage.setItem('bfc_legend_open', String(open));
+    }, [open]);
 
     // Close on outside click when open on mobile
     useEffect(() => {
@@ -53,42 +61,44 @@ export default function CityLegend() {
         </div>
     );
 
-    if (isMobile) {
-        return (
-            <div ref={rootRef} className="absolute bottom-3 left-3 z-20">
-                {open && (
-                    <div className="mb-2 max-h-[40vh] w-[240px] overflow-y-auto rounded-2xl bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl p-3">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-bold text-black">Leyenda</span>
-                            <button
-                                onClick={() => setOpen(false)}
-                                aria-label="Cerrar leyenda"
-                                className="p-1 rounded hover:bg-black/5"
-                            >
-                                <X className="w-4 h-4 text-black/60" />
-                            </button>
-                        </div>
-                        {legendContent}
-                    </div>
-                )}
-                <button
-                    onClick={() => setOpen(v => !v)}
-                    aria-label={open ? 'Ocultar leyenda' : 'Mostrar leyenda'}
-                    aria-expanded={open}
-                    className="h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl flex items-center justify-center"
-                >
-                    <List className="w-4 h-4 text-black/70" />
-                </button>
-            </div>
-        );
-    }
-
     return (
-        <div className="absolute bottom-4 left-4 z-20">
-            <div className="bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl rounded-2xl p-4 min-w-[200px]">
-                <h3 className="text-black font-bold mb-3 text-sm border-b border-black/5 pb-1">Leyenda</h3>
+        <div ref={rootRef} className={`absolute ${isMobile ? 'bottom-6 left-6' : 'bottom-8 left-8'} z-20`}>
+            {/* Legend Content Box */}
+            <div 
+                className={`
+                    transition-all duration-300 origin-bottom-left
+                    ${open ? 'scale-100 opacity-100 translate-y-0' : 'scale-75 opacity-0 pointer-events-none translate-y-4 absolute'}
+                    ${isMobile ? 'mb-2 max-h-[40vh] w-[240px]' : 'mb-3 min-w-[200px]'} 
+                    overflow-y-auto rounded-2xl bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl p-4
+                `}
+            >
+                <div className="flex items-center justify-between mb-3 border-b border-black/5 pb-1">
+                    <span className="text-sm font-bold text-black uppercase tracking-wider text-[11px] font-black opacity-40">Leyenda</span>
+                    <button
+                        onClick={() => setOpen(false)}
+                        aria-label="Cerrar leyenda"
+                        className="p-1 rounded hover:bg-black/5 transition-colors"
+                    >
+                        <X className="w-4 h-4 text-black/60" />
+                    </button>
+                </div>
                 {legendContent}
             </div>
+
+            {/* Toggle Button */}
+            <button
+                onClick={() => setOpen(true)}
+                aria-label="Mostrar leyenda"
+                aria-expanded={open}
+                className={`
+                    h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl flex items-center justify-center 
+                    hover:bg-white transition-all duration-300 transform 
+                    ${open ? 'scale-0 opacity-0 pointer-events-none absolute' : 'scale-100 opacity-100'}
+                    hover:scale-110
+                `}
+            >
+                <List className="w-4 h-4 text-black/70" />
+            </button>
         </div>
     );
 }

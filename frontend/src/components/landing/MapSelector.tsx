@@ -96,15 +96,14 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
 
       {/* Side card tail — renders null internally when isMobile */}
       <SideCardTail targetRef={selectedTargetRef} visible={!!selected}>
-        <div data-sidecard-root>
-          {selected && (
-            <CityCard
-              city={selected}
-              position={0}
-              onCityNavigate={onNavigate}
-            />
-          )}
-        </div>
+        {selected && (
+          <CityCard
+            city={selected}
+            position={0}
+            panel
+            onCityNavigate={onNavigate}
+          />
+        )}
       </SideCardTail>
 
       {/* Hint when nothing is selected */}
@@ -128,35 +127,35 @@ function MobileLayout({ cities, onNavigate }: LayoutProps) {
   }, [cities]);
 
   return (
-    <section className="flex flex-col w-full min-h-[85vh]">
-      {/* Map: 40vh */}
-      <div className="relative h-[40vh] w-full overflow-hidden">
-        <WaveBackground
-          quality="low"
-          color={0x3A6C7F}
-          specularColor={0x7BA492}
-          shininess={8}
-          waveHeight={20}
-          waveSpeed={0.5}
-          zoom={5}
-          cameraFov={90}
-          cameraY={300}
-          cameraZ={100}
-          targetY={-50}
-          className="absolute inset-0 w-full h-full -z-10 pointer-events-auto"
+    <section className="relative flex flex-col w-full min-h-[85vh] overflow-hidden">
+      {/* Wave Background — covers entire section on mobile */}
+      <WaveBackground
+        quality="low"
+        color={0x3A6C7F}
+        specularColor={0x7BA492}
+        shininess={8}
+        waveHeight={20}
+        waveSpeed={0.5}
+        zoom={5}
+        cameraFov={90}
+        cameraY={300}
+        cameraZ={100}
+        targetY={-50}
+        className="absolute inset-0 w-full h-full -z-10 pointer-events-auto"
+      />
+
+      {/* Map: 35vh instead of 40vh to move everything up */}
+      <div className="relative h-[35vh] w-full overflow-hidden z-10">
+        <SpainMap
+          onCityClick={handleCityClick}
+          onCityNavigate={onNavigate}
+          selectedCity={selected?.name ?? null}
+          cities={cities}
         />
-        <div className="relative z-10 h-full w-full">
-          <SpainMap
-            onCityClick={handleCityClick}
-            onCityNavigate={onNavigate}
-            selectedCity={selected?.name ?? null}
-            cities={cities}
-          />
-        </div>
       </div>
 
       {/* Carousel: 45vh */}
-      <div className="h-[45vh] w-full">
+      <div className="relative h-[45vh] w-full z-10">
         <ScrollableCityCards
           cities={cities}
           selectedCity={selected?.name ?? null}

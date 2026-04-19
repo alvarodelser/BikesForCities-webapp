@@ -189,7 +189,11 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         circle.setAttribute('stroke', '#FFFFFF');
         circle.setAttribute('stroke-width', '1');
         circle.style.cssText = 'transition: r 0.1s ease; cursor: crosshair;';
-        circle.addEventListener('mouseenter', () => { circle.setAttribute('r', '5'); tooltipText.textContent = `${d.avg_bikes.toFixed(1)} bicis`; tooltipText.style.visibility = 'visible'; });
+        circle.addEventListener('mouseenter', () => { 
+            circle.setAttribute('r', '5'); 
+            tooltipText.textContent = `${Math.round(d.avg_bikes)} bicis a las ${d.hour_of_day}:00`; 
+            tooltipText.style.visibility = 'visible'; 
+        });
         circle.addEventListener('mouseleave', () => { circle.setAttribute('r', '3.5'); tooltipText.style.visibility = 'hidden'; });
         svg.appendChild(circle);
     });

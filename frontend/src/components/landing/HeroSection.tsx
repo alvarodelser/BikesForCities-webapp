@@ -35,7 +35,7 @@ const HeroSection: React.FC = () => {
         }}
       />
 
-      <div className="relative w-full z-10 pt-[88px]">
+      <div className="relative w-full z-10 pt-32 md:pt-[88px]">
         {/* Title */}
         <h1
           className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent

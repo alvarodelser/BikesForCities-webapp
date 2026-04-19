@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useViewport } from '../../hooks/useViewport';
 import { Link } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { fetchCities } from '../../services/api';

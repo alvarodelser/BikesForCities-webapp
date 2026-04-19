@@ -224,11 +224,15 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const { width, height } = size;
     if (!width || !height) return null;
     const scale = Math.min(width, height) * 4;
+    
+    // Displace Spain to the right on mobile (approx 10% of width) for better framing
+    const xOffset = isMobile ? width * 0.12 : 0;
+    
     return d3.geoMercator()
       .center([-3.5, 40])
       .scale(scale)
-      .translate([width / 2, height / 2]);
-  }, [size]);
+      .translate([width / 2 + xOffset, height / 2]);
+  }, [size, isMobile]);
 
   // Load GeoJSON data
   useEffect(() => {
@@ -248,13 +252,11 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
 
     const svg = d3.select(svgRef.current);
 
-    // Scope cleanup to map-base group only — leaves sibling React-rendered pins untouched
-    svg.select('g.map-base').remove();
+    // Select the existing group (defined in JSX) and clear its content
+    const g = svg.select('g.map-base');
+    g.selectAll('*').remove();
 
     const path = d3.geoPath().projection(projection);
-
-    // Base map group — all D3-drawn content lives here
-    const g = svg.append('g').attr('class', 'map-base');
 
     const mergedGeometry = {
       type: 'MultiPolygon',
@@ -324,6 +326,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         </defs>
 
         {/* g.map-base is managed by D3 (see useEffect above) */}
+        <g className="map-base" />
 
         {/* City Pins — inside SVG, sibling to g.map-base, not affected by D3 cleanup */}
         {projection &&

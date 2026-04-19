@@ -3,7 +3,7 @@ import CityCard from './CityCard';
 import type { CityData } from '../../constants/cities';
 
 
-const ScrollableCityCards: React.FC<{ 
+const ScrollableCityCards: React.FC<{
   cities: CityData[];
   selectedCity: string | null;
   onCitySelect?: (cityName: string) => void;
@@ -26,18 +26,18 @@ const ScrollableCityCards: React.FC<{
   // Handle mouse wheel for horizontal scrolling
   const handleWheel = useCallback((e: WheelEvent) => {
     if (isAnimating.current) return;
-    
+
     e.preventDefault();
     const delta = e.deltaY > 0 ? 1 : -1;
-    
+
     isAnimating.current = true;
     const newIndex = Math.max(0, Math.min(cities.length - 1, focusedIndex + delta));
-    
+
     if (newIndex !== focusedIndex) {
       setFocusedIndex(newIndex);
       onCitySelect?.(cities[newIndex].name);
     }
-    
+
     setTimeout(() => {
       isAnimating.current = false;
     }, 300);
@@ -46,19 +46,19 @@ const ScrollableCityCards: React.FC<{
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (isAnimating.current) return;
-    
+
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       isAnimating.current = true;
       const newIndex = focusedIndex === 0 ? cities.length - 1 : focusedIndex - 1;
       setFocusedIndex(newIndex);
       onCitySelect?.(cities[newIndex].name);
-      
+
       setTimeout(() => {
         isAnimating.current = false;
       }, 300);
     } else if (e.key === 'ArrowRight') {
-    e.preventDefault();
+      e.preventDefault();
       isAnimating.current = true;
       const newIndex = focusedIndex === cities.length - 1 ? 0 : focusedIndex + 1;
       setFocusedIndex(newIndex);
@@ -95,12 +95,12 @@ const ScrollableCityCards: React.FC<{
   // Navigate to previous city
   const navigatePrevious = () => {
     if (isAnimating.current) return;
-    
+
     isAnimating.current = true;
     const newIndex = focusedIndex === 0 ? cities.length - 1 : focusedIndex - 1;
     setFocusedIndex(newIndex);
     onCitySelect?.(cities[newIndex].name);
-    
+
     setTimeout(() => {
       isAnimating.current = false;
     }, 300);
@@ -109,12 +109,12 @@ const ScrollableCityCards: React.FC<{
   // Navigate to next city
   const navigateNext = () => {
     if (isAnimating.current) return;
-    
+
     isAnimating.current = true;
     const newIndex = focusedIndex === cities.length - 1 ? 0 : focusedIndex + 1;
     setFocusedIndex(newIndex);
     onCitySelect?.(cities[newIndex].name);
-    
+
     setTimeout(() => {
       isAnimating.current = false;
     }, 300);
@@ -134,7 +134,7 @@ const ScrollableCityCards: React.FC<{
         </button>
 
         {/* Cards container */}
-        <div 
+        <div
           ref={containerRef}
           className="relative h-[60vh] w-full flex items-center justify-center overflow-hidden"
         >
@@ -142,19 +142,19 @@ const ScrollableCityCards: React.FC<{
             // Calculate position with wrapping for circular carousel
             let position = index - focusedIndex;
             const totalCities = cities.length;
-            
+
             // Handle wrapping: find the shortest path around the circle
             if (position > totalCities / 2) {
               position -= totalCities;
             } else if (position < -totalCities / 2) {
               position += totalCities;
             }
-            
+
             // Only render cards that are reasonably close to center for performance
             if (Math.abs(position) > 6) return null;
-            
+
             return (
-              <CityCard 
+              <CityCard
                 key={city.name}
                 city={city}
                 position={position}

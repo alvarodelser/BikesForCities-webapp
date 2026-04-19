@@ -39,8 +39,8 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
   quality = 'high'
 }) => {
   // Quality-derived tuning values
-  const ORIGINAL_WW = 70;
-  const ORIGINAL_HH = 50;
+  const ORIGINAL_WW = 100;
+  const ORIGINAL_HH = 80;
   const ORIGINAL_WAVE_HEIGHT = waveHeight;
   const effectiveWW = quality === 'low' ? Math.floor(ORIGINAL_WW / 2) : ORIGINAL_WW;
   const effectiveHH = quality === 'low' ? Math.floor(ORIGINAL_HH / 2) : ORIGINAL_HH;
@@ -99,9 +99,13 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Camera - using configurable parameters
-    const camera = new THREE.PerspectiveCamera(cameraFov, width / height, 1, 5000);
-    const cameraPosition = new THREE.Vector3(cameraX, cameraY, cameraZ);
+    // Camera - using configurable parameters with mobile adjustments
+    const isMobile = width < 768;
+    const effectiveFov = isMobile ? cameraFov * 0.8 : cameraFov;
+    const effectiveY = isMobile ? cameraY * 0.7 : cameraY;
+    
+    const camera = new THREE.PerspectiveCamera(effectiveFov, width / height, 1, 5000);
+    const cameraPosition = new THREE.Vector3(cameraX, effectiveY, cameraZ);
     const cameraTarget = new THREE.Vector3(targetX, targetY, targetZ);
     
     camera.position.copy(cameraPosition);
@@ -306,9 +310,17 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
+    const isMobile = width < 768;
+    cameraRef.current.fov = isMobile ? cameraFov * 0.8 : cameraFov;
     cameraRef.current.aspect = width / height;
     cameraRef.current.updateProjectionMatrix();
     rendererRef.current.setSize(width, height);
+    
+    // Also update camera position reference for animation loop
+    const effectiveY = isMobile ? cameraY * 0.7 : cameraY;
+    if (cameraPositionRef.current) {
+      cameraPositionRef.current.y = effectiveY;
+    }
   };
 
   // Setup and cleanup
@@ -373,10 +385,15 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
     if (!cameraRef.current || !cameraPositionRef.current || !cameraTargetRef.current) return;
     
     const camera = cameraRef.current;
-    camera.fov = cameraFov;
+    
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const effectiveFov = isMobile ? cameraFov * 0.8 : cameraFov;
+    const effectiveY = isMobile ? cameraY * 0.7 : cameraY;
+    
+    camera.fov = effectiveFov;
     camera.updateProjectionMatrix();
     
-    const newPosition = new THREE.Vector3(cameraX, cameraY, cameraZ);
+    const newPosition = new THREE.Vector3(cameraX, effectiveY, cameraZ);
     const newTarget = new THREE.Vector3(targetX, targetY, targetZ);
     
     camera.position.copy(newPosition);

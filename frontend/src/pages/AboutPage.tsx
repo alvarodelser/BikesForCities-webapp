@@ -114,7 +114,7 @@ const AboutPage: React.FC = () => {
       className="min-h-screen"
       style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--body)' }}
     >
-      <div className="max-w-[var(--container-reading)] mx-auto px-[var(--space-gutter)] py-[var(--space-section-y)] space-y-24">
+      <div className="max-w-[var(--container-reading)] mx-auto px-[var(--space-gutter)] pt-32 pb-[var(--space-section-y)] md:py-[var(--space-section-y)] space-y-24">
 
         {/* ── Hero: text + team photo ─────────────────────────────────────── */}
         <section className="grid md:grid-cols-2 gap-12 items-center">
