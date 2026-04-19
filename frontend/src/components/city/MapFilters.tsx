@@ -1,9 +1,10 @@
 import React from 'react';
 import type { CityData } from '../../constants/cities';
-import { 
-  Car, 
-  MapPin, 
-  Network, 
+import { useViewport } from '../../hooks/useViewport';
+import {
+  Car,
+  MapPin,
+  Network,
   Mountain,
   TriangleAlert,
   CircleDot,
@@ -19,7 +20,8 @@ interface MapFiltersProps {
 interface FilterMode {
   id: string;
   name: string;
-  icon: React.ComponentType<any>;
+  shortLabel: string;
+  icon: React.ComponentType<{ className?: string }>;
   description: string;
   available: boolean;
   color: string;
@@ -29,6 +31,7 @@ const filterModes: FilterMode[] = [
   {
     id: 'infrastructure',
     name: 'Infraestructura',
+    shortLabel: 'Infra',
     icon: Network,
     description: 'Red de carriles bici y rutas ciclistas',
     available: true,
@@ -37,6 +40,7 @@ const filterModes: FilterMode[] = [
   {
     id: 'traffic',
     name: 'Tráfico',
+    shortLabel: 'Tráfico',
     icon: Car,
     description: 'Análisis de flujo de tráfico y congestión',
     available: true,
@@ -45,6 +49,7 @@ const filterModes: FilterMode[] = [
   {
     id: 'stations',
     name: 'Estaciones',
+    shortLabel: 'Est.',
     icon: MapPin,
     description: 'Estaciones de bicicletas compartidas',
     available: true,
@@ -53,6 +58,7 @@ const filterModes: FilterMode[] = [
   {
     id: 'terrain',
     name: 'Terreno',
+    shortLabel: 'Ter.',
     icon: Mountain,
     description: 'Datos de elevación y análisis del terreno',
     available: true,
@@ -61,6 +67,7 @@ const filterModes: FilterMode[] = [
   {
     id: 'intersections',
     name: 'Intersecciones',
+    shortLabel: 'Inter.',
     icon: CircleDot,
     description: 'Cruces y puntos de conflicto vial',
     available: true,
@@ -69,6 +76,7 @@ const filterModes: FilterMode[] = [
   {
     id: 'accidents',
     name: 'Accidentes',
+    shortLabel: 'Accid.',
     icon: TriangleAlert,
     description: 'Siniestralidad vial y puntos negros',
     available: true,
@@ -77,9 +85,39 @@ const filterModes: FilterMode[] = [
 ];
 
 const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange, isModeAvailable }) => {
+  const { isMobile } = useViewport();
+
+  if (isMobile) {
+    return (
+      <div className="flex gap-2 overflow-x-auto px-[var(--space-gutter)] py-2 bg-black/[0.03] border-b border-black/10">
+        {filterModes
+          .filter(mode => isModeAvailable(mode.id))
+          .map(mode => {
+            const isActive = selectedMode === mode.id;
+            return (
+              <button
+                key={mode.id}
+                onClick={() => onModeChange(mode.id)}
+                disabled={!mode.available}
+                aria-pressed={isActive}
+                className={`shrink-0 flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors ${
+                  isActive
+                    ? 'bg-[#3a6c7f] text-white border-transparent'
+                    : 'bg-white border-black/10 text-black/70'
+                }`}
+              >
+                <mode.icon className="w-3.5 h-3.5" />
+                {mode.shortLabel}
+              </button>
+            );
+          })}
+      </div>
+    );
+  }
+
   return (
-    <section className="w-full px-6 relative">
-      <div className="mx-[100px]">
+    <section className="w-full px-[var(--space-gutter)] relative">
+      <div>
         {/* Section Header */}
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-[var(--blue-dark)] mb-2">Herramientas de Análisis</h2>
