@@ -13,7 +13,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
 
   return (
     <section
-      className="w-full flex items-center justify-center px-6 relative"
+      className="w-full flex items-center justify-center px-[var(--space-gutter)] py-[var(--space-section-y)] relative"
       style={{
         backgroundColor: 'var(--cream)',
       }}
@@ -37,7 +37,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
       <div className="relative w-full z-10 mt-[80px]">
         {/* Title */}
         <h1
-          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[var(--blue-dark)] to-[var(--blue)] bg-clip-text text-transparent my-[0px] mx-[120px]"
+          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[var(--blue-dark)] to-[var(--blue)] bg-clip-text text-transparent my-[0px]"
         >
           {city.name}
         </h1>
@@ -45,7 +45,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
         {/* Image */}
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 mb-12 mx-[100px]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12 mb-12">
           <GlassCard
             surface="glass"
             interactive
