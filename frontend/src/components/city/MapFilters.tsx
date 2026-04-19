@@ -107,7 +107,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
                 }`}
               >
                 <mode.icon className="w-3.5 h-3.5" />
-                {mode.shortLabel}
+                {mode.name}
               </button>
             );
           })}

@@ -92,11 +92,12 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
         toggleBackground,
     };
 
+
     return (
         <MapContext.Provider value={contextValue}>
             <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
                 <div
-                    className={`w-full relative overflow-hidden map-section-bg ${isMobile ? 'h-[65vh]' : 'h-screen'}`}
+                    className={`w-full relative overflow-hidden map-section-bg ${isMobile ? 'h-screen' : 'h-screen'}`}
                     style={{
                         '--mode-primary': colorScheme.primary,
                         '--mode-secondary': colorScheme.secondary,
@@ -107,6 +108,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
                     <div className="absolute inset-0 map-section-bg__base" />
                     <div className="absolute inset-0 map-section-bg__radial" />
                     <div className="absolute inset-0 map-section-bg__noise" />
+
 
                     {/* Floating header */}
                     <div className="absolute top-0 left-0 right-0 z-20 p-4">
