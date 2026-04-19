@@ -26,9 +26,11 @@ def get_edge_route_traces(
                 JOIN edges e ON e.id = re.edge_id
                 JOIN routes r ON r.id = re.route_id
                 WHERE re.route_id IN (
-                    SELECT DISTINCT route_id
-                    FROM route_edges
-                    WHERE edge_id = %(edge_id)s
+                    SELECT DISTINCT re2.route_id
+                    FROM route_edges re2
+                    JOIN edges e2 ON e2.id = re2.edge_id
+                    WHERE re2.edge_id = %(edge_id)s
+                      AND e2.city_id = %(city_id)s
                 )
                 AND r.city_id = %(city_id)s
                 ORDER BY re.route_id, re.edge_order

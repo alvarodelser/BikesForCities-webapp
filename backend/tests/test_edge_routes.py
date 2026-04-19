@@ -2,7 +2,6 @@
 import pytest
 import json
 from backend.database.db_io import get_all_cities, get_edge_route_traces, get_edge_route_od
-from backend.database.db_io import get_paginated_edges
 
 
 def _get_test_edge_id(conn):
@@ -43,6 +42,8 @@ def test_get_edge_route_od_returns_pairs(db_connection):
         assert "dest_lat" in row
         assert -180 <= row["origin_lon"] <= 180
         assert -90  <= row["origin_lat"] <= 90
+        assert -180 <= row["dest_lon"] <= 180
+        assert -90  <= row["dest_lat"] <= 90
 
 
 def test_get_edge_route_traces_respects_limit(db_connection):
