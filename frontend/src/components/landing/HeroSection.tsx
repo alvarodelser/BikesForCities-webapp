@@ -74,7 +74,7 @@ const HeroSection: React.FC = () => {
           </div>
 
           {/* ── RIGHT: Smaller Feature Pills ── */}
-          <div className="lg:col-span-4 flex flex-col gap-3 lg:items-end lg:pt-4">
+          <div className="hidden lg:flex lg:col-span-4 flex-col gap-3 lg:items-end lg:pt-4">
             {FEATURES.map((feat, i) => (
               <div
                 key={i}
