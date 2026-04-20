@@ -147,9 +147,9 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
                         </div>
                     </div>
 
-                    {/* Mobile: vertical MapControls floating at bottom-right */}
+                    {/* Mobile: vertical MapControls floating at bottom-left */}
                     {isMobile && (
-                        <div className="absolute bottom-4 right-3 z-20">
+                        <div className="absolute bottom-12 left-4 z-20">
                             <MapControls colorScheme={colorScheme} vertical />
                         </div>
                     )}

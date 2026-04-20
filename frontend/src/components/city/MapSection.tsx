@@ -73,12 +73,11 @@ const MapSection: React.FC<MapSectionProps> = ({ city }) => {
         return () => observer.disconnect();
     }, [isMobile]);
 
-    // Auto-hide scroll hint after animation
+    // Stop animation after text fades
     useEffect(() => {
         if (isAnimating) {
             const timer = setTimeout(() => {
                 setIsAnimating(false);
-                setShowScrollHint(false);
             }, 1500);
             return () => clearTimeout(timer);
         }
@@ -123,14 +122,15 @@ const MapSection: React.FC<MapSectionProps> = ({ city }) => {
                         <div className="absolute inset-0 z-30 flex flex-col justify-between pointer-events-none px-4">
                             {/* Scroll up indicator */}
                             <button
-                                className={`flex justify-center pt-6 pointer-events-auto ${isAnimating ? 'animate-bounce' : ''}`}
+                                className={`flex justify-center pointer-events-auto ${isAnimating ? 'animate-bounce' : ''}`}
+                                style={{ paddingTop: '100px' }}
                                 onClick={() => {
                                     setIsAnimating(true);
                                     window.scrollBy({ top: -300, behavior: 'smooth' });
                                 }}
                                 aria-label="Scroll up"
                             >
-                                <div className="p-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/30 hover:bg-white/20 transition-colors">
+                                <div className="p-2 rounded-xl backdrop-blur-md bg-black/30 border border-white/30 hover:bg-black/40 transition-colors">
                                     <ChevronsUp className="w-6 h-6 text-white/70" />
                                 </div>
                             </button>
@@ -145,7 +145,7 @@ const MapSection: React.FC<MapSectionProps> = ({ city }) => {
                                 aria-label="Scroll down"
                             >
                                 <div className="relative flex flex-col items-center gap-2">
-                                    <div className="p-2 rounded-xl backdrop-blur-md bg-white/10 border border-white/30 hover:bg-white/20 transition-colors">
+                                    <div className="p-2 rounded-xl backdrop-blur-md bg-black/30 border border-white/30 hover:bg-black/40 transition-colors">
                                         <ChevronsDown className="w-6 h-6 text-white/70" />
                                     </div>
                                     {isAnimating && (
