@@ -13,8 +13,8 @@ const ScrollableCityCards: React.FC<{
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const isAnimating = useRef(false);
   const lastTouchX = useRef<number | null>(null);
+
   const velocity = useRef(0);
   const lastTime = useRef(0);
 

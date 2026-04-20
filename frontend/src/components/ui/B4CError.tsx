@@ -28,7 +28,9 @@ const B4CError: React.FC<B4CErrorProps> = ({ className = '', ...props }) => (
         r="24.600996"
         transform="rotate(122.5595)"
         strokeWidth="4.35695"
+        strokeDasharray="108.924 45.65"
       />
+
       <circle
         cx="-179.19919"
         cy="-42.492512"

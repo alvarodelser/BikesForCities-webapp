@@ -15,10 +15,11 @@ import type { MapMode } from '../../constants/mapModes';
 
 interface MapFiltersProps {
   city: CityData;
-  selectedMode: string;
-  onModeChange: (mode: string) => void;
-  isModeAvailable: (mode: string) => boolean;
+  selectedMode: MapMode;
+  onModeChange: (mode: MapMode) => void;
+  isModeAvailable: (mode: MapMode) => boolean;
 }
+
 
 interface FilterMode {
   id: MapMode;

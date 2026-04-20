@@ -13,7 +13,7 @@ import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
 
-import { MAP_MODES } from '../../constants/mapModes';
+import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
 const modeNames: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
@@ -112,7 +112,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const { isUltrawide } = useViewport();
     const [, setSearchParams] = useSearchParams();
 
-    const isModeAvailable = (m: string | null): boolean => {
+    const isModeAvailable = (m: MapMode | string | null): boolean => {
         if (!m) return false;
         if (m === MAP_MODES.INFRASTRUCTURE || m === MAP_MODES.TRAFFIC) return true;
         if (!modeNames[m]) return false;
