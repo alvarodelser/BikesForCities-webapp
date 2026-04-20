@@ -65,6 +65,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const popupRef    = useRef<maplibregl.Popup | null>(null);
     const stickyRef   = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
     const submodeRef  = useRef<string>(submode);
+    const trafficDataRef = useRef<Map<number, number>>(new Map());
     const routeInfoRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => { submodeRef.current = submode; }, [submode]);
@@ -111,7 +112,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     'line-width': 1.5,
                     'line-opacity': 0.28,
                 },
-            });
+            }, LAYER_ID);
         }
     }, [map, clearOverlay]);
 
@@ -182,6 +183,9 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     { trip_count: t.trip_count }
                 );
             });
+            const dataMap = new Map<number, number>();
+            trafficData.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
+            trafficDataRef.current = dataMap;
             const counts = trafficData.map(t => t.trip_count).sort((a, b) => a - b);
             if (counts.length > 0) {
                 setThresholds({
@@ -230,8 +234,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
 
             const edgeName = (feature.properties?.name as string | undefined) ?? null;
-            const state = map.getFeatureState({ source: SOURCE_ID, sourceLayer: 'edges', id: edgeId });
-            const tripCount = (state?.trip_count as number | undefined) ?? null;
+            const tripCount = trafficDataRef.current.get(edgeId) ?? null;
 
             map.setFeatureState(
                 { source: SOURCE_ID, sourceLayer: 'edges', id: edgeId },

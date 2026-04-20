@@ -141,7 +141,8 @@ export const fetchEdgeRoutes = async (
     `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?mode=${mode}&limit=${limit}`
   );
   if (!response.ok) throw new Error('Failed to fetch edge routes');
-  return await response.json();
+  const envelope = await response.json();
+  return { data: envelope.data, count: envelope.count };
 };
 
 export interface StationReachData extends GeoJSON.FeatureCollection {

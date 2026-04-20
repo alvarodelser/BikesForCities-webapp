@@ -63,9 +63,11 @@ def get_edge_route_od(
             JOIN nodes n_d ON n_d.id = r.dest_node
             WHERE r.city_id = %(city_id)s
               AND r.id IN (
-                SELECT DISTINCT route_id
-                FROM route_edges
-                WHERE edge_id = %(edge_id)s
+                SELECT DISTINCT re2.route_id
+                FROM route_edges re2
+                JOIN edges e2 ON e2.id = re2.edge_id
+                WHERE re2.edge_id = %(edge_id)s
+                  AND e2.city_id = %(city_id)s
               )
             LIMIT %(limit)s
             """,
