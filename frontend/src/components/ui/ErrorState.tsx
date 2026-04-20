@@ -1,7 +1,8 @@
 import React from 'react';
-import { AlertCircle, RefreshCw, Home } from 'lucide-react';
+import { RefreshCw, Home } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import GlassCard from './GlassCard';
+import B4CError from './B4CError';
 
 export interface ErrorStateProps {
   title?: string;
@@ -30,10 +31,10 @@ const ErrorState: React.FC<ErrorStateProps> = ({
         className="max-w-md p-8 text-center"
       >
         <div className="flex justify-center mb-6 text-[var(--red)]">
-          <AlertCircle size={48} />
+          <B4CError className="w-24 h-24" />
         </div>
         
-        <h3 className="text-2xl font-bold text-white mb-3">
+        <h3 className="text-2xl font-bold text-white mb-3 font-heading">
           {title}
         </h3>
         
