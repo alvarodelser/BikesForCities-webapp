@@ -152,10 +152,12 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             });
 
             // Edges vector source for traffic
+            // promoteId ensures MapLibre uses the feature's `id` field for setFeatureState across tile boundaries
             mapInstance.addSource('edges-source', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/edges/{z}/{x}/{y}`],
                 minzoom: 0, maxzoom: 22,
+                promoteId: 'id',
             });
             mapInstance.addLayer({
                 id: 'traffic-layer',
