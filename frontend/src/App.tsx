@@ -10,19 +10,26 @@ import StatusPage from "./pages/StatusPage";
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
 
+import { useLocation } from "react-router";
+import { useViewport } from "./hooks/useViewport";
+
 function App() {
+  const location = useLocation();
+  const { isMobile } = useViewport();
+  const isMapPage = location.pathname.startsWith('/map/');
+
   return (
     <>
       <Navbar />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/map/:cityName" element={<CityPage />} />
-        <Route path="*" element={<NotFoundPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/about" element={<AboutPage />} />
         <Route path="/status" element={<StatusPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
-      <Footer />
+      {!(isMobile && isMapPage) && <Footer />}
     </>
   );
 }
