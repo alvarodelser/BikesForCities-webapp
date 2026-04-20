@@ -114,7 +114,7 @@ const AboutPage: React.FC = () => {
       className="min-h-screen"
       style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--body)' }}
     >
-      <div className="max-w-[var(--container-reading)] mx-auto px-[var(--space-gutter)] pt-32 pb-[var(--space-section-y)] md:py-[var(--space-section-y)] space-y-24">
+      <div className="max-w-[var(--container-max)] mx-auto px-[var(--space-gutter)] pt-32 pb-[var(--space-section-y)] md:py-[var(--space-section-y)] space-y-24">
 
         {/* ── Hero: text + team photo ─────────────────────────────────────── */}
         <section className="grid md:grid-cols-2 gap-12 items-center">
@@ -130,26 +130,28 @@ const AboutPage: React.FC = () => {
               Quiénes somos
             </span>
             <h1
-              className="text-4xl md:text-5xl font-bold leading-tight mb-6"
+              className="text-4xl md:text-5xl font-bold leading-tight mb-6 max-w-2xl"
               style={{ color: 'var(--black)' }}
             >
               Datos abiertos al servicio de la bicicleta
             </h1>
-            <p className="text-base leading-relaxed mb-4" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
-              <strong>BikesForCities</strong> es un proyecto de investigación independiente que reúne,
-              procesa y visualiza datos públicos sobre movilidad ciclista en ciudades españolas.
-              Queremos que cualquier ciudadano, técnico municipal o investigador pueda entender
-              de un vistazo el estado de la red ciclista de su ciudad y compararla con otras.
-            </p>
-            <p className="text-base leading-relaxed mb-4" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
-              Combinamos datos geoespaciales de OpenStreetMap, registros de sistemas de bici
-              pública, estadísticas del INE y presupuestos municipales para construir métricas
-              comparables y reproducibles. Toda la metodología es abierta y está documentada.
-            </p>
-            <p className="text-base leading-relaxed" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
-              El equipo está formado por ingenieros y urbanistas apasionados por la movilidad
-              sostenible, convencidos de que mejores datos llevan a mejores políticas.
-            </p>
+            <div className="max-w-xl space-y-4">
+              <p className="text-base leading-relaxed" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
+                <strong>BikesForCities</strong> es un proyecto de investigación independiente que reúne,
+                procesa y visualiza datos públicos sobre movilidad ciclista en ciudades españolas.
+                Queremos que cualquier ciudadano, técnico municipal o investigador pueda entender
+                de un vistazo el estado de la red ciclista de su ciudad y compararla con otras.
+              </p>
+              <p className="text-base leading-relaxed" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
+                Combinamos datos geoespaciales de OpenStreetMap, registros de sistemas de bici
+                pública, estadísticas del INE y presupuestos municipales para construir métricas
+                comparables y reproducibles. Toda la metodología es abierta y está documentada.
+              </p>
+              <p className="text-base leading-relaxed" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
+                El equipo está formado por ingenieros y urbanistas apasionados por la movilidad
+                sostenible, convencidos de que mejores datos llevan a mejores políticas.
+              </p>
+            </div>
           </div>
 
           {/* Right: team photo placeholder */}
