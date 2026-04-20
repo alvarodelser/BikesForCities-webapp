@@ -151,7 +151,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT, above pull-up sheet */}
                     {isMobile && (
-                        <div className="absolute bottom-[130px] right-4 z-20">
+                        <div className="absolute bottom-[140px] right-4 z-20">
                             <MapControls colorScheme={colorScheme} vertical />
                         </div>
                     )}
