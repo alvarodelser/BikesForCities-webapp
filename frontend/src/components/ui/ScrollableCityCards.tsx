@@ -17,12 +17,34 @@ const ScrollableCityCards: React.FC<{
 
   const velocity = useRef(0);
   const lastTime = useRef(0);
+  const lastSelectedCityRef = useRef(selectedCity);
 
-  // Sync scrollOffset with selectedCity when it changes from props
+  // Update parent and local ref continuously when the "center" city changes during scroll
   useEffect(() => {
-    if (selectedCity && !isDragging) {
+    const total = cities.length;
+    const centerIndex = ((Math.round(scrollOffset) % total) + total) % total;
+    const currentCityName = cities[centerIndex]?.name;
+    
+    if (currentCityName && currentCityName !== lastSelectedCityRef.current) {
+      lastSelectedCityRef.current = currentCityName;
+      onCitySelect?.(currentCityName);
+    }
+  }, [scrollOffset, cities, onCitySelect]);
+
+  // Sync scrollOffset with selectedCity only when it changes from "outside" (e.g. Map click)
+  useEffect(() => {
+    // If the prop matches our internal tracking, do nothing
+    if (selectedCity === lastSelectedCityRef.current) return;
+    
+    // If we're dragging, we shouldn't allow the prop to pull us back 
+    // unless the change was really significant (e.g. map click while carousel moving)
+    if (isDragging) return;
+
+    if (selectedCity) {
+      lastSelectedCityRef.current = selectedCity;
       const cityIndex = cities.findIndex(city => city.name === selectedCity);
-      if (cityIndex !== -1 && Math.abs(scrollOffset - cityIndex) > 0.01) {
+      
+      if (cityIndex !== -1) {
         // Find shortest path for circular scroll
         let target = cityIndex;
         const total = cities.length;
@@ -38,7 +60,7 @@ const ScrollableCityCards: React.FC<{
         setScrollOffset(current + diff);
       }
     }
-  }, [selectedCity, cities, isDragging]);
+  }, [selectedCity, cities, scrollOffset, isDragging]);
 
   // Handle snapping when not dragging
   useEffect(() => {
@@ -47,28 +69,27 @@ const ScrollableCityCards: React.FC<{
         const snapped = Math.round(scrollOffset);
         if (snapped !== scrollOffset) {
           setScrollOffset(snapped);
-          // Notify parent of new selection
-          const total = cities.length;
-          const index = ((snapped % total) + total) % total;
-          onCitySelect?.(cities[index].name);
         }
-      }, 100);
+      }, 50); // Faster snap
       return () => clearTimeout(snapTimer);
     }
-  }, [scrollOffset, isDragging, cities, onCitySelect]);
+  }, [scrollOffset, isDragging]);
 
   // Handle mouse wheel for horizontal scrolling
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
     setIsDragging(true);
-    setScrollOffset(prev => prev + e.deltaY / 150); // Sensitivity
+    
+    // Support both horizontal and vertical wheel scrolling (common for trackpads)
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+    setScrollOffset(prev => prev + delta / 200); // Higher sensitivity for more fluid feel
     
     // Clear dragging state after a short silence
     const timer = (window as any)._wheelTimer;
     if (timer) clearTimeout(timer);
     (window as any)._wheelTimer = setTimeout(() => {
       setIsDragging(false);
-    }, 150);
+    }, 200); // Longer timeout to prevent premature snapping on trackpads
   }, []);
 
   // Handle keyboard navigation
@@ -100,6 +121,7 @@ const ScrollableCityCards: React.FC<{
     const cityIndex = cities.findIndex(city => city.name === cityName);
     if (cityIndex !== -1) {
       setScrollOffset(cityIndex);
+      lastSelectedCityRef.current = cityName;
       onCitySelect?.(cityName);
     }
   };
@@ -118,9 +140,9 @@ const ScrollableCityCards: React.FC<{
         {/* Previous button */}
         <button
           onClick={navigatePrevious}
-          className="absolute left-4 z-20 p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-2xl hover:bg-white/20 transition-all duration-200 hover:scale-110"
+          className="absolute left-1 z-20 p-2 md:p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-2xl hover:bg-white/20 transition-all duration-200 hover:scale-110"
         >
-          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
         </button>
@@ -142,8 +164,8 @@ const ScrollableCityCards: React.FC<{
             const deltaX = currentX - lastTouchX.current;
             const deltaTime = currentTime - lastTime.current;
             
-            // Update offset (290px is card spacing)
-            setScrollOffset(prev => prev - (deltaX / 290));
+            // Update offset
+            setScrollOffset(prev => prev - (deltaX / 250));
             
             if (deltaTime > 0) {
               velocity.current = deltaX / deltaTime;
@@ -156,9 +178,9 @@ const ScrollableCityCards: React.FC<{
             setIsDragging(false);
             lastTouchX.current = null;
             
-            // Simple momentum
-            if (Math.abs(velocity.current) > 0.5) {
-              const momentum = -velocity.current * 2;
+            // Stronger momentum for "flicking"
+            if (Math.abs(velocity.current) > 0.2) {
+              const momentum = -velocity.current * 8; // Higher multiplier
               setScrollOffset(prev => prev + momentum);
             }
           }}
