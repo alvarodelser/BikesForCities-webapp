@@ -14,7 +14,7 @@ const HeroSection: React.FC = () => {
 
   return (
     <section
-      className="w-full flex items-center justify-center px-6 relative"
+      className="w-full flex items-center justify-center px-[var(--space-gutter)] relative"
       style={{
         backgroundColor: 'var(--cream)',
       }}
@@ -35,11 +35,11 @@ const HeroSection: React.FC = () => {
         }}
       />
 
-      <div className="relative w-full z-10 pt-[88px]">
+      <div className="relative w-full z-10 pt-32 md:pt-[88px]">
         {/* Title */}
         <h1
-          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent 
-         my-[-10px] mx-[50px] lg:mx-[100px]"
+          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent
+         my-[-10px]"
         >
           Bikes for Cities
         </h1>
@@ -47,7 +47,7 @@ const HeroSection: React.FC = () => {
         {/* Image */}
 
         {/* Introduction */}
-        <div className="flex items-start justify-between mx-[50px] lg:mx-[100px] py-[30px] gap-[20px] lg:gap-[120px]">
+        <div className="flex flex-col md:flex-row items-start justify-between py-[var(--space-section-y)] gap-[20px] lg:gap-[120px]">
           {/* Left side - Motivational phrase */}
           <div className="flex-1">
             <h1 className="text-3xl md:text-5xl font-heading font-bold bg-gradient-to-r from-[var(--blue-dark)] via-[var(--green-dark)] via-[var(--green)] to-[var(--blue)] bg-clip-text text-transparent leading-tight mb-6 tracking-tighter">

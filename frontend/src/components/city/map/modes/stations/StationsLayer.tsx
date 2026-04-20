@@ -166,8 +166,8 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
     };
 
     const wrapIcon = (c: string) => `<g fill="none" stroke="#A1A1AA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${c}</g>`;
-    addTimeIcon(0,  '0:00', wrapIcon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'));
-    addTimeIcon(8,  '8:00', wrapIcon('<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
+    addTimeIcon(0,  '00:00', wrapIcon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'));
+    addTimeIcon(8,  '08:00', wrapIcon('<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
     addTimeIcon(12, '12:00', wrapIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'));
     addTimeIcon(20, '20:00', wrapIcon('<path d="M12 10V2"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m16 22-4-4-4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
 
@@ -189,7 +189,12 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         circle.setAttribute('stroke', '#FFFFFF');
         circle.setAttribute('stroke-width', '1');
         circle.style.cssText = 'transition: r 0.1s ease; cursor: crosshair;';
-        circle.addEventListener('mouseenter', () => { circle.setAttribute('r', '5'); tooltipText.textContent = `${d.avg_bikes.toFixed(1)} bicis`; tooltipText.style.visibility = 'visible'; });
+        circle.addEventListener('mouseenter', () => { 
+            circle.setAttribute('r', '5'); 
+            const hour = String(d.hour_of_day).padStart(2, '0');
+            tooltipText.textContent = `${Math.round(d.avg_bikes)} bicis a las ${hour}:00`; 
+            tooltipText.style.visibility = 'visible'; 
+        });
         circle.addEventListener('mouseleave', () => { circle.setAttribute('r', '3.5'); tooltipText.style.visibility = 'hidden'; });
         svg.appendChild(circle);
     });

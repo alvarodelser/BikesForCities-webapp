@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Users, GitBranch, Map, MessageSquare, Share2, BookOpen, ChevronDown,
+  Share2, BookOpen, ChevronDown, Lightbulb, Activity, MessageCircle, MapPin, Megaphone
 } from 'lucide-react';
 
 /* ─────────────────────────── data ─────────────────────────── */
@@ -8,58 +8,66 @@ import {
 const FAQ_ITEMS = [
   {
     q: '¿Qué es Bikes for Cities?',
-    a: 'Bikes for Cities es una plataforma de datos abiertos que analiza la infraestructura ciclista de las ciudades españolas, combinando datos de OpenStreetMap, GBFS y estadísticas municipales.',
+    a: 'Bikes for Cities es una plataforma de datos abiertos y participación ciudadana que analiza la infraestructura ciclista de las ciudades españolas, combinando datos de OpenStreetMap, GBFS y estadísticas municipales.',
   },
   {
-    q: '¿De dónde provienen los datos?',
-    a: 'Utilizamos fuentes abiertas: OpenStreetMap para la red ciclista, sistemas públicos de bicicleta compartida (GBFS), y datos del Instituto Nacional de Estadística.',
+    q: '¿Por dónde empiezo?',
+    a: 'Puedes empezar por buscar tu ciudad en el mapa. Tenemos disponibles varios mapas con sus métricas. También puedes consultar cómo está posicionada en los rankings.',
   },
   {
-    q: '¿Con qué frecuencia se actualizan?',
-    a: 'Los datos de carril bici se actualizan mensualmente desde OSM. Los datos de estaciones de bicicletas compartidas se sincronizan cada hora.',
+    q: 'Me encantaría utilizar la bicicleta pero me da miedo.',
+    a: 'Nuestro objetivo es que todo el mundo pueda desplazarse sin miedo. Creemos que avanzamos a pasos agigantados en esa dirección y hemos de conseguir que la infraestructura ciclista siga el ritmo.',
   },
   {
-    q: '¿Puedo usar los datos en mi proyecto?',
-    a: 'Sí. Los datos derivados de OSM se publican bajo licencia ODbL. Los análisis y visualizaciones propias del proyecto están bajo CC BY 4.0.',
+    q: '¿Cómo puedo contribuir?',
+    a: 'Puedes contribuir de muchas formas: desde compartir tus rutas habituales, participar en el foro, o comprometerte activamente en tu ciudad.',
   },
   {
-    q: '¿Cómo puedo reportar un error en los datos?',
-    a: 'Puedes abrir un issue en nuestro repositorio de GitHub o contactarnos directamente a través del formulario de la web.',
+    q: '¿Cuándo va a estar disponible mi ciudad?',
+    a: 'Estamos trabajando para incluir más ciudades españolas. Puedes dejarnos un comentario en el foro o incluir a tu ayuntamiento en las conversaciones.',
   },
 ];
 
 const INVOLVEMENT_ITEMS = [
   {
-    icon: Map,
+    icon: Lightbulb,
+    label: 'Imagina',
+    color: 'var(--green-dark)',
+    bg: 'rgba(2,122,118,0.12)',
+    description:
+      'Comienza fijándote en tu barrio: qué cosas pueden mejorar, cuáles no fucionan bien. Tu información es valiosa y cuanto más te fijas, más ideas se te ocurren.',
+  },
+  {
+    icon: Activity,
+    label: 'Analiza',
+    color: 'var(--blue)',
+    bg: 'rgba(58,108,127,0.12)',
+    description:
+      'Echa un ojo a nuestras métricas y modelos: ¿se corresponde con la realidad? ¿cómo se compara tu ciudad con otras?.',
+  },
+  {
+    icon: MessageCircle,
+    label: 'Comenta',
+    color: 'var(--orange)',
+    bg: 'rgba(255,127,80,0.12)',
+    description:
+      'Participa en nuestro foro, conoce las últimas noticia, comenta tus conclusiones. Construir una comunidad comienza por un mensaje.',
+  },
+  {
+    icon: MapPin,
     label: 'Mapea',
     color: 'var(--green-dark)',
     bg: 'rgba(2,122,118,0.12)',
     description:
-      'Contribuye a OpenStreetMap trazando carriles bici, aparcamientos y señales en tu ciudad. Cada trazo mejora nuestros análisis automáticamente.',
-  },
-  {
-    icon: GitBranch,
-    label: 'Contribuye',
-    color: 'var(--blue)',
-    bg: 'rgba(58,108,127,0.12)',
-    description:
-      'El código es abierto y está en GitHub. Acepta retos abiertos, mejora la API o añade visualizaciones nuevas. Cualquier pull request es bienvenido.',
-  },
-  {
-    icon: MessageSquare,
-    label: 'Opina',
-    color: 'var(--orange)',
-    bg: 'rgba(255,127,80,0.12)',
-    description:
-      'Comparte tu experiencia ciclista con GIS abierto. Tus comentarios sobre qué datos faltan dirigen nuestras próximas iteraciones.',
+      'Puedes registrar tus rutas habituales, marcar puntos de conflicto sobre el mapa. Una observación se puede pasar por alto, cientos, no.',
   },
   {
     icon: Share2,
-    label: 'Difunde',
+    label: 'Comparte',
     color: 'var(--yellow)',
     bg: 'rgba(244,162,76,0.12)',
     description:
-      'Menciona el proyecto en redes, blogs o en tu ayuntamiento. Cuanta más visibilidad tenga, más ciudades podremos incorporar.',
+      'Menciona el proyecto en redes, blogs o en tu ayuntamiento. Cuanta más seamos, más ciudades podemos cambiar.',
   },
   {
     icon: BookOpen,
@@ -67,15 +75,15 @@ const INVOLVEMENT_ITEMS = [
     color: 'var(--red)',
     bg: 'rgba(175,71,73,0.12)',
     description:
-      'Consulta nuestra documentación y tutoriales para entender cómo analizar datos de movilidad con Python, QGIS o directamente desde la API.',
+      'Consulta nuestra bibloteca de artículos para conocer los últimos avances en movilidad sostenible.',
   },
   {
-    icon: Users,
-    label: 'Únete',
+    icon: Megaphone,
+    label: 'Involucra',
     color: 'var(--green)',
     bg: 'rgba(123,164,146,0.12)',
     description:
-      'Forma parte de la comunidad de activistas y técnicos que trabajan por ciudades más amigables con la bici. Organizamos meetups online cada mes.',
+      'Participa políticamente para lograr los objetivos',
   },
 ];
 
@@ -203,7 +211,7 @@ function OrbitCarousel({
       setDisplayAngle(prev => {
         const delta = targetRef.current - prev;
         // Smoother LERP: 0.001 factor for a less aggressive response
-        if (Math.abs(delta) < 0.001) return targetRef.current;
+        if (Math.abs(delta) < 0.01) return targetRef.current;
 
         rafRef.current = requestAnimationFrame(animate);
         return prev + delta * 0.001;
@@ -313,10 +321,10 @@ const GetInvolvedSection: React.FC = () => {
   return (
     <section
       id="get-involved"
-      className="w-full px-6 py-20"
+      className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)]"
       style={{ background: 'var(--cream)' }}
     >
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-[var(--container-reading)] mx-auto">
         {/* Section title */}
         <h2
           className="text-5xl lg:text-6xl font-heading font-bold mb-12 tracking-tight"

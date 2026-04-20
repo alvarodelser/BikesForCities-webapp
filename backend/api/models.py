@@ -277,3 +277,8 @@ class TrafficResponse(BaseResponse):
     """Response model for edge traffic data."""
     data: List[TrafficCount]
     count: int
+
+class EdgeRoutesResponse(BaseResponse):
+    """Response model for routes passing through a specific edge."""
+    data: Dict[str, Any]   # GeoJSON FeatureCollection
+    count: int

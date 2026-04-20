@@ -432,7 +432,7 @@ const StatusPage: React.FC = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--body)' }}>
-      <div className="max-w-6xl mx-auto px-6 py-24 space-y-20">
+      <div className="max-w-6xl mx-auto px-6 pt-32 pb-24 md:py-24 space-y-20">
 
         {/* Header */}
         <section>

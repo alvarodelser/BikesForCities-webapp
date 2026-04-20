@@ -292,6 +292,9 @@ docker-compose.override.yml
 # PROJECT SPECIFIC
 # =============================================================================
 
+# Superpowers brainstorming sessions
+.superpowers/
+
 # Deprecated code
 deprecated_code/
 

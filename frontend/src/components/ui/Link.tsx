@@ -23,7 +23,7 @@ type LinkProps = {
         tabIndex={0}
         onClick={handleClick}
         onKeyDown={(e) => e.key === "Enter" && handleClick()}
-        className={`cursor-pointer text-black hover:text-[var(--yellow)] transition-colors duration-200 ${className}`}
+        className={`cursor-pointer hover:text-[var(--yellow)] transition-colors duration-200 ${className}`}
       >
         {children}
       </span>

@@ -478,7 +478,7 @@ def _load_csv(path: Path) -> pd.DataFrame:
 
 def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
                   leuven_map=None, graph_data=None, edge_id_map=None,
-                  num_workers: int = 4) -> int:
+                  num_workers: int = 16) -> int:
     from concurrent.futures import ProcessPoolExecutor
     from backend.database.db_io.routes import put_routes, put_map_matched_routes, put_route_edges_with_order
     import osmnx as ox
@@ -601,7 +601,7 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
 
 def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done,
                 single_file: bool = False, force: bool = False,
-                num_workers: int = 4) -> int:
+                num_workers: int = 16) -> int:
     from backend.processing.city_ops import build_graph
     from backend.database.db_io.graph import get_edge_id_map
 

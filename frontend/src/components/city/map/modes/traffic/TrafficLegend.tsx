@@ -1,16 +1,35 @@
 import { useThresholds } from '../../ThresholdsContext';
+import { useMapState } from '../../../../../hooks/useMapState';
 
 export default function TrafficLegend() {
     const { thresholds } = useThresholds();
+    const { submode, setSubmode } = useMapState();
+    const mode = submode === 'heatmap' ? 'heatmap' : 'traces';
 
     return (
         <div className="flex flex-col gap-2 w-full">
             <div className="flex flex-col gap-3 border-b border-black/5 pb-3 mb-2 font-[Archivo_Narrow]">
-                <span className="text-[11px] font-black text-black/60 uppercase tracking-widest leading-tight">
-                    Viajes por Calle
-                </span>
+                <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-black/60 uppercase tracking-widest leading-tight">
+                        Viajes por Calle
+                    </span>
+                    <div className="flex p-0.5 bg-black/5 rounded-lg">
+                        <button
+                            onClick={() => setSubmode('traces')}
+                            className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${mode === 'traces' ? 'bg-white shadow-sm text-black' : 'text-black/40 hover:text-black/60'}`}
+                        >
+                            TRAZAS
+                        </button>
+                        <button
+                            onClick={() => setSubmode('heatmap')}
+                            className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${mode === 'heatmap' ? 'bg-white shadow-sm text-black' : 'text-black/40 hover:text-black/60'}`}
+                        >
+                            CALOR
+                        </button>
+                    </div>
+                </div>
                 <span className="text-[10px] font-medium text-black/40 italic">
-                    (viajes estimados / mes)
+                    (viajes estimados / mes — clic en tramo para rutas)
                 </span>
             </div>
 

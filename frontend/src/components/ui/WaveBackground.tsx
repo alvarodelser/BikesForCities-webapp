@@ -17,6 +17,7 @@ interface WaveBackgroundProps {
   targetY?: number;
   targetZ?: number;
   className?: string;
+  quality?: 'low' | 'high';
 }
 
 const WaveBackground: React.FC<WaveBackgroundProps> = ({
@@ -34,8 +35,18 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
   targetX = 0,
   targetY = -50,
   targetZ = 0,
-  className = ''
+  className = '',
+  quality = 'high'
 }) => {
+  // Quality-derived tuning values
+  const ORIGINAL_WW = 100;
+  const ORIGINAL_HH = 80;
+  const ORIGINAL_WAVE_HEIGHT = waveHeight;
+  const effectiveWW = quality === 'low' ? Math.floor(ORIGINAL_WW / 2) : ORIGINAL_WW;
+  const effectiveHH = quality === 'low' ? Math.floor(ORIGINAL_HH / 2) : ORIGINAL_HH;
+  const effectiveWaveHeight = quality === 'low' ? ORIGINAL_WAVE_HEIGHT * 0.75 : ORIGINAL_WAVE_HEIGHT;
+  const effectivePixelRatio = quality === 'low' ? 1 : Math.min(window.devicePixelRatio ?? 1, 2);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -51,8 +62,8 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
   const cameraTargetRef = useRef<THREE.Vector3 | null>(null);
   
   // Grid dimensions - reduced for better performance and visibility
-  const ww = 70;
-  const hh = 50;
+  const ww = effectiveWW;
+  const hh = effectiveHH;
   const waveNoise = 7;
   const CELL_SIZE = 25;
 
@@ -82,15 +93,19 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
       powerPreference: "high-performance"
     });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(effectivePixelRatio);
     renderer.setClearColor(0x000000, 0); // Transparent
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Camera - using configurable parameters
-    const camera = new THREE.PerspectiveCamera(cameraFov, width / height, 1, 5000);
-    const cameraPosition = new THREE.Vector3(cameraX, cameraY, cameraZ);
+    // Camera - using configurable parameters with mobile adjustments
+    const isMobile = width < 768;
+    const effectiveFov = isMobile ? cameraFov * 0.8 : cameraFov;
+    const effectiveY = isMobile ? cameraY * 0.7 : cameraY;
+    
+    const camera = new THREE.PerspectiveCamera(effectiveFov, width / height, 1, 5000);
+    const cameraPosition = new THREE.Vector3(cameraX, effectiveY, cameraZ);
     const cameraTarget = new THREE.Vector3(targetX, targetY, targetZ);
     
     camera.position.copy(cameraPosition);
@@ -226,16 +241,16 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
       const flowZ = time * s * 0.3; // Slower flow in Z direction
       
       // Large primary waves
-      const wave1 = Math.sin((x * 0.015 - flowX) + (z * 0.01 - flowZ)) * waveHeight * 0.7;
-      
+      const wave1 = Math.sin((x * 0.015 - flowX) + (z * 0.01 - flowZ)) * effectiveWaveHeight * 0.7;
+
       // Medium waves at different angle
-      const wave2 = Math.sin((x * 0.02 - flowX * 0.8) + (z * 0.015 - flowZ * 1.2)) * waveHeight * 0.5;
-      
+      const wave2 = Math.sin((x * 0.02 - flowX * 0.8) + (z * 0.015 - flowZ * 1.2)) * effectiveWaveHeight * 0.5;
+
       // Small choppy waves
-      const wave3 = Math.sin((x * 0.035 - flowX * 1.5) + (z * 0.03 - flowZ * 0.7)) * waveHeight * 0.3;
-      
+      const wave3 = Math.sin((x * 0.035 - flowX * 1.5) + (z * 0.03 - flowZ * 0.7)) * effectiveWaveHeight * 0.3;
+
       // Surface ripples
-      const ripples = Math.sin((x * 0.08 - flowX * 2) + (z * 0.06 - flowZ * 1.8)) * waveHeight * 0.15;
+      const ripples = Math.sin((x * 0.08 - flowX * 2) + (z * 0.06 - flowZ * 1.8)) * effectiveWaveHeight * 0.15;
       
       // Mouse interaction effects
       const mouseX = (mouseRef.current.x - 0.5) * 1000; // Convert to world coordinates
@@ -255,14 +270,14 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
         const velocityMultiplier = 1 + Math.min(velocity * 8, 1.5); // Much more subtle velocity effect
         
         // Gentle concentric ripples from mouse position
-        const mouseRipple = Math.sin((distanceToMouse * 0.08) - (time * s * 3)) * waveHeight * 0.15 * smoothFalloff * velocityMultiplier;
-        
+        const mouseRipple = Math.sin((distanceToMouse * 0.08) - (time * s * 3)) * effectiveWaveHeight * 0.15 * smoothFalloff * velocityMultiplier;
+
         // Very subtle wake effect
-        const wakeEffect = Math.sin((distanceToMouse * 0.04) + (time * s * 1.5)) * waveHeight * 0.08 * smoothFalloff;
-        
+        const wakeEffect = Math.sin((distanceToMouse * 0.04) + (time * s * 1.5)) * effectiveWaveHeight * 0.08 * smoothFalloff;
+
         // Gentle directional push effect (only for faster movements)
-        const pushEffect = velocity > 0.005 ? 
-          Math.sin((distanceToMouse * 0.06) + (time * s * 2.5)) * waveHeight * 0.1 * velocity * 10 * smoothFalloff : 0;
+        const pushEffect = velocity > 0.005 ?
+          Math.sin((distanceToMouse * 0.06) + (time * s * 2.5)) * effectiveWaveHeight * 0.1 * velocity * 10 * smoothFalloff : 0;
         
         positions[i + 1] = originalY + wave1 + wave2 + wave3 + ripples + mouseRipple + wakeEffect + pushEffect;
       } else {
@@ -295,9 +310,17 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
 
+    const isMobile = width < 768;
+    cameraRef.current.fov = isMobile ? cameraFov * 0.8 : cameraFov;
     cameraRef.current.aspect = width / height;
     cameraRef.current.updateProjectionMatrix();
     rendererRef.current.setSize(width, height);
+    
+    // Also update camera position reference for animation loop
+    const effectiveY = isMobile ? cameraY * 0.7 : cameraY;
+    if (cameraPositionRef.current) {
+      cameraPositionRef.current.y = effectiveY;
+    }
   };
 
   // Setup and cleanup
@@ -362,10 +385,15 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
     if (!cameraRef.current || !cameraPositionRef.current || !cameraTargetRef.current) return;
     
     const camera = cameraRef.current;
-    camera.fov = cameraFov;
+    
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const effectiveFov = isMobile ? cameraFov * 0.8 : cameraFov;
+    const effectiveY = isMobile ? cameraY * 0.7 : cameraY;
+    
+    camera.fov = effectiveFov;
     camera.updateProjectionMatrix();
     
-    const newPosition = new THREE.Vector3(cameraX, cameraY, cameraZ);
+    const newPosition = new THREE.Vector3(cameraX, effectiveY, cameraZ);
     const newTarget = new THREE.Vector3(targetX, targetY, targetZ);
     
     camera.position.copy(newPosition);
@@ -377,15 +405,21 @@ const WaveBackground: React.FC<WaveBackgroundProps> = ({
   // Other props (waveHeight, waveSpeed, zoom) are used directly in animation loop
 
   return (
-    <div 
-      ref={containerRef} 
+    <div
       className={`absolute inset-0 ${className}`}
-      style={{ 
-        width: '100%', 
+      style={{
+        width: '100%',
         height: '100%',
         pointerEvents: 'auto' // Enable mouse interaction with waves
       }}
-    />
+    >
+      <div
+        ref={containerRef}
+        key={quality}
+        className="absolute inset-0"
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
   );
 };
 

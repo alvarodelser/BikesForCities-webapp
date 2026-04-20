@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useViewport } from '../../hooks/useViewport';
 import { Link } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { fetchCities } from '../../services/api';
@@ -10,6 +11,8 @@ import {
 import { GlassCard } from '../ui/GlassCard';
 import Spinner from '../ui/Spinner';
 import ErrorState from '../ui/ErrorState';
+import { ColumnGroupPicker } from './ColumnGroupPicker';
+import { MobileCompareRows } from './MobileCompareRows';
 import { 
   ArrowUpDown, 
   ArrowUp, 
@@ -28,7 +31,7 @@ import {
 
 type GroupId = 'Infraestructura' | 'Servicio Bici' | 'Ayuntamiento';
 
-interface ColumnGroup {
+export interface ColumnGroup {
   id: GroupId;
   label: string;
   icon: any;
@@ -37,7 +40,7 @@ interface ColumnGroup {
 type SortKey = keyof Pick<CityData, 'name' | 'population' | 'cyclingNetwork' | 'coverage' | 'stations_count' | 'monthly_trips'> | 'service_name';
 type SortDir = 'asc' | 'desc';
 
-interface Column {
+export interface Column {
   key: SortKey | 'model' | 'mayor' | 'mayor_party';
   label: string;
   render: (city: CityData, isSelected: boolean, selectionIndex: number) => React.ReactNode;
@@ -299,6 +302,7 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startScrollLeft = useRef(0);
+  const { isMobile } = useViewport();
 
   useEffect(() => {
     fetchCities().then((data) => { setCities(data); setLoading(false); }).catch(() => { setError('Error loading cities.'); setLoading(false); });
@@ -384,10 +388,28 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
     return [...baseCols, ...groupCols];
   }, [activeGroups]);
 
+  const sorted = sortCities(cities, sortKey, sortDir);
+
   if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
   if (error) return <ErrorState title="Error" message={error} />;
 
-  const sorted = sortCities(cities, sortKey, sortDir);
+  if (isMobile) {
+    return (
+      <div className="flex flex-col gap-4">
+        <ColumnGroupPicker
+          groups={GROUPS}
+          expanded={expandedGroups}
+          onToggle={toggleGroup}
+        />
+        <MobileCompareRows
+          cities={sorted}
+          selectedCityPaths={selectedCityPaths}
+          onToggleCity={onToggleCity}
+          visibleColumns={visibleColumns}
+        />
+      </div>
+    );
+  }
 
   // Calculate proportional thumb metrics
   const hasOverflow = scrollMetrics.width > scrollMetrics.client;

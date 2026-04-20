@@ -39,8 +39,8 @@ export const MODES: Record<string, ModeConfig> = {
     traffic: {
         layer:          TrafficLayer,
         legend:         TrafficLegend,
-        submodes:       [],
-        defaultSubmode: '',
+        submodes:       ['traces', 'heatmap'],
+        defaultSubmode: 'traces',
     },
     terrain: {
         layer:          TerrainLayer,
