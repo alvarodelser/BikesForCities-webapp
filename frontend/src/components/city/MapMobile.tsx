@@ -17,9 +17,9 @@ interface MapMobileProps {
   city: CityData;
 }
 
-const COLLAPSED_HEIGHT = 116; // enough room for pill + city name + hint
-const SNAP_THRESHOLD = 100;
-const CLOSE_THRESHOLD = 80;
+const COLLAPSED_HEIGHT = 75; // moved 4px down (original 116)
+const SNAP_THRESHOLD = 50;
+const CLOSE_THRESHOLD = 50;
 
 const modeColors: Record<string, string> = {
   infrastructure: 'var(--blue)',
@@ -28,6 +28,15 @@ const modeColors: Record<string, string> = {
   terrain: 'var(--orange)',
   intersections: 'var(--yellow)',
   accidents: 'var(--red)',
+};
+
+const modeShortNames: Record<string, string> = {
+  infrastructure: 'Infra',
+  traffic: 'Tráfico',
+  stations: 'Est.',
+  terrain: 'Ter.',
+  intersections: 'Inter.',
+  accidents: 'Accid.',
 };
 
 const modeNames: Record<string, string> = {
@@ -58,40 +67,52 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
   const openHeight =
     typeof window !== 'undefined'
-      ? window.innerHeight - 76 /* navbar height approx */
+      ? window.innerHeight - 90 /* navbar height approx (increased by 4px to move top down) */
       : 600;
 
   // Lock page scroll when sheet is collapsed
   useEffect(() => {
     document.documentElement.style.overflow = isOpen ? '' : 'hidden';
-    if (!isOpen) setSheetHeight(COLLAPSED_HEIGHT);
-    else setSheetHeight(openHeight);
+    if (!isOpen && !isDragging) setSheetHeight(COLLAPSED_HEIGHT);
+    else if (isOpen && !isDragging) setSheetHeight(openHeight);
     return () => {
       document.documentElement.style.overflow = '';
     };
-  }, [isOpen, openHeight]);
+  }, [isOpen, openHeight, isDragging]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
+  const onDragStart = (y: number) => {
     setIsDragging(true);
-    startYRef.current = e.touches[0].clientY;
+    startYRef.current = y;
     startHeightRef.current = sheetHeight;
   };
 
-  const onTouchMove = (e: React.TouchEvent) => {
+  const onDragMove = (y: number) => {
     if (!isDragging) return;
-    const dy = startYRef.current - e.touches[0].clientY;
+    const dy = startYRef.current - y;
+    // Allow dragging but don't snap yet
     const next = Math.max(COLLAPSED_HEIGHT, Math.min(openHeight, startHeightRef.current + dy));
     setSheetHeight(next);
   };
 
-  const onTouchEnd = () => {
+  const onDragEnd = () => {
     setIsDragging(false);
+    // Binary snap logic
     if (isOpen) {
-      if (openHeight - sheetHeight > CLOSE_THRESHOLD) setIsOpen(false);
-      else setSheetHeight(openHeight);
+      // If pulled down far enough, close it. Otherwise snap back to open.
+      if (openHeight - sheetHeight > CLOSE_THRESHOLD) {
+        setIsOpen(false);
+        setSheetHeight(COLLAPSED_HEIGHT);
+      } else {
+        setSheetHeight(openHeight);
+      }
     } else {
-      if (sheetHeight - COLLAPSED_HEIGHT > SNAP_THRESHOLD) setIsOpen(true);
-      else setSheetHeight(COLLAPSED_HEIGHT);
+      // If pulled up far enough, open it. Otherwise snap back to closed.
+      if (sheetHeight - COLLAPSED_HEIGHT > SNAP_THRESHOLD) {
+        setIsOpen(true);
+        setSheetHeight(openHeight);
+      } else {
+        setSheetHeight(COLLAPSED_HEIGHT);
+      }
     }
   };
 
@@ -133,12 +154,12 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
                     aria-pressed={isActive}
                     style={isActive ? { backgroundColor: modeColors[id], borderColor: modeColors[id] } : {}}
                     className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-200 backdrop-blur-md shadow-sm ${isActive
-                        ? 'text-white border shadow-md scale-105'
-                        : 'bg-[var(--cream)]/50 text-[var(--blue-dark)]/80 border border-white/30 hover:bg-[var(--cream)]/70'
+                      ? 'text-white border shadow-md scale-105'
+                      : 'bg-[var(--cream)]/50 text-[var(--blue-dark)]/80 border border-white/30 hover:bg-[var(--cream)]/70'
                       }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
-                    {modeNames[id]}
+                    {modeShortNames[id]}
                   </button>
                 );
               })}
@@ -154,9 +175,13 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
         {/* Drag handle area — always visible, touchable */}
         <div
           className="flex-shrink-0 cursor-grab active:cursor-grabbing"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
+          onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
+          onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
+          onTouchEnd={onDragEnd}
+          onMouseDown={(e) => onDragStart(e.clientY)}
+          onMouseMove={(e) => onDragMove(e.clientY)}
+          onMouseUp={onDragEnd}
+          onMouseLeave={() => isDragging && onDragEnd()}
         >
           {/* Pill */}
           <div className="flex justify-center pt-3 pb-2">
@@ -166,7 +191,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
           {/* City name + mode — always visible in collapsed state */}
           <div className="px-5 pb-3">
             <div className="flex items-baseline gap-2">
-              <p className="text-base font-bold text-[var(--blue-dark)] leading-tight">
+              <p className="text-xl font-bold text-[var(--blue-dark)] leading-tight">
                 {city.name}
               </p>
               <span className="text-xs font-semibold text-[var(--blue)]/70 uppercase tracking-wide">

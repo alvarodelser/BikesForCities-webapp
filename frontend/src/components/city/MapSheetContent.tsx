@@ -29,7 +29,7 @@ export const MapSheetContent: React.FC<MapSheetContentProps> = ({ city }) => {
   const subtitle = `Análisis detallado de datos de ${modeName.toLowerCase()} en ${city.name}`;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {/* Quick city stats — compact cards */}
       <div className="grid grid-cols-2 gap-3">
         {[
@@ -55,7 +55,7 @@ export const MapSheetContent: React.FC<MapSheetContentProps> = ({ city }) => {
       </div>
 
       {/* Mode-specific stats */}
-      <CityStats title={title} subtitle={subtitle} modeStats={modeStats} />
+      <CityStats title={title} subtitle={subtitle} modeStats={modeStats} compact={true} />
     </div>
   );
 };
