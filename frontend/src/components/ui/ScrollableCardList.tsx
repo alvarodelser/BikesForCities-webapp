@@ -4,9 +4,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 type Props = {
   children: React.ReactNode;
   label?: string;
+  fadeColor?: string;
 };
 
-const ScrollableCardList: React.FC<Props> = ({ children, label }) => {
+const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var(--cream)" }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -79,8 +80,30 @@ const ScrollableCardList: React.FC<Props> = ({ children, label }) => {
       
       <div className="relative flex items-center px-4">
         {/* Edge Fades - Fixed positioning */}
-        <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[var(--cream)] via-[var(--cream)]/40 to-transparent z-10 pointer-events-none opacity-0 group-hover/list:opacity-100 transition-opacity duration-300" />
-        <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[var(--cream)] via-[var(--cream)]/40 to-transparent z-10 pointer-events-none opacity-0 group-hover/list:opacity-100 transition-opacity duration-300" />
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-64 z-10 pointer-events-none transition-opacity duration-300"
+          style={{
+            background: `linear-gradient(to right, 
+              ${fadeColor} 0%, 
+              color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
+              color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
+              color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
+              transparent 100%)`,
+            opacity: canScrollLeft ? 1 : 0
+          }}
+        />
+        <div 
+          className="absolute right-0 top-0 bottom-0 w-64 z-10 pointer-events-none transition-opacity duration-300"
+          style={{
+            background: `linear-gradient(to left, 
+              ${fadeColor} 0%, 
+              color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
+              color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
+              color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
+              transparent 100%)`,
+            opacity: canScrollRight ? 1 : 0
+          }}
+        />
 
         {/* Left Arrow */}
         <button

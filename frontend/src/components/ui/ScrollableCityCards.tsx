@@ -8,10 +8,13 @@ const ScrollableCityCards: React.FC<{
   selectedCity: string | null;
   onCitySelect?: (cityName: string) => void;
   onCityNavigate?: (cityName: string) => void;
-}> = ({ cities, selectedCity, onCitySelect, onCityNavigate }) => {
+  fadeColor?: string;
+}> = ({ cities, selectedCity, onCitySelect, onCityNavigate, fadeColor = "transparent" }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const isAnimating = useRef(false);
+  const touchStartX = useRef<number | null>(null);
+  const touchEndX = useRef<number | null>(null);
 
   // Update focused index when selectedCity changes
   useEffect(() => {
@@ -136,8 +139,56 @@ const ScrollableCityCards: React.FC<{
         {/* Cards container */}
         <div
           ref={containerRef}
-          className="relative h-[60vh] w-full flex items-center justify-center overflow-hidden"
+          className="relative h-full w-full flex items-center justify-center overflow-hidden touch-pan-y"
+          onTouchStart={(e) => {
+            touchStartX.current = e.targetTouches[0].clientX;
+          }}
+          onTouchMove={(e) => {
+            touchEndX.current = e.targetTouches[0].clientX;
+          }}
+          onTouchEnd={() => {
+            if (!touchStartX.current || !touchEndX.current) return;
+            const distance = touchStartX.current - touchEndX.current;
+            const minSwipeDistance = 50;
+
+            if (Math.abs(distance) > minSwipeDistance) {
+              if (distance > 0) {
+                navigateNext();
+              } else {
+                navigatePrevious();
+              }
+            }
+            
+            touchStartX.current = null;
+            touchEndX.current = null;
+          }}
         >
+          {/* Edge Fades */}
+          <div 
+            className="absolute left-0 top-0 bottom-0 w-72 z-10 pointer-events-none transition-opacity duration-300"
+            style={{
+              background: `linear-gradient(to right, 
+                ${fadeColor} 0%, 
+                color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
+                color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
+                color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
+                transparent 100%)`,
+              opacity: fadeColor === "transparent" ? 0 : 1
+            }}
+          />
+          <div 
+            className="absolute right-0 top-0 bottom-0 w-72 z-10 pointer-events-none transition-opacity duration-300"
+            style={{
+              background: `linear-gradient(to left, 
+                ${fadeColor} 0%, 
+                color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
+                color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
+                color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
+                transparent 100%)`,
+              opacity: fadeColor === "transparent" ? 0 : 1
+            }}
+          />
+
           {cities.map((city, index) => {
             // Calculate position with wrapping for circular carousel
             let position = index - focusedIndex;

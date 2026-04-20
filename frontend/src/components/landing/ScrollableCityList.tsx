@@ -4,9 +4,10 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 type Props = {
   show: boolean;
   children: React.ReactNode;
+  fadeColor?: string;
 };
 
-const ScrollableCityList: React.FC<Props> = ({ show, children }) => {
+const ScrollableCityList: React.FC<Props> = ({ show, children, fadeColor = "var(--cream)" }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
@@ -48,8 +49,30 @@ const ScrollableCityList: React.FC<Props> = ({ show, children }) => {
     return (
       <div className="relative h-[50px] flex items-center overflow-hidden">
         {/* Fades */}
-      <div className="absolute left-[30px] top-0 h-full w-[60px] bg-gradient-to-r from-[var(--cream)] to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-[30px] top-0 h-full w-[60px] bg-gradient-to-l from-[var(--cream)] to-transparent z-10 pointer-events-none" />
+      <div 
+        className="absolute left-[30px] top-0 h-full w-[120px] z-10 pointer-events-none transition-opacity duration-300" 
+        style={{ 
+          background: `linear-gradient(to right, 
+            ${fadeColor} 0%, 
+            color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
+            color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
+            color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
+            transparent 100%)`,
+          opacity: canScrollLeft ? 1 : 0 
+        }}
+      />
+      <div 
+        className="absolute right-[30px] top-0 h-full w-[120px] z-10 pointer-events-none transition-opacity duration-300"
+        style={{ 
+          background: `linear-gradient(to left, 
+            ${fadeColor} 0%, 
+            color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
+            color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
+            color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
+            transparent 100%)`,
+          opacity: canScrollRight ? 1 : 0
+        }}
+      />
 
         {/* Left Arrow */}
         <div className="h-full flex items-center z-10">

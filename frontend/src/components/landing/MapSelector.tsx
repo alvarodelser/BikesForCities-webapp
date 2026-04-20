@@ -161,6 +161,7 @@ function MobileLayout({ cities, onNavigate }: LayoutProps) {
           selectedCity={selected?.name ?? null}
           onCitySelect={handleCityClick}
           onCityNavigate={onNavigate}
+          fadeColor="var(--blue-dark)"
         />
       </div>
     </section>
