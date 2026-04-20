@@ -144,7 +144,6 @@ const Navbar: React.FC<NavbarProps> = () => {
             <div className="flex flex-col px-4 pb-4 pt-2 gap-1">
               {(() => {
                 const renderMobileLink = (link: { name: string; to: string }) => {
-                  const isActive = location.pathname === link.to;
                   return (
                     <Link
                       key={link.to}
@@ -257,7 +256,6 @@ const Navbar: React.FC<NavbarProps> = () => {
             </Link>
 
             {navLinks.filter(l => l.name !== "Inicio").map((link) => {
-              const isActive = location.pathname === link.to;
               return (
                 <Link
                   key={link.to}
