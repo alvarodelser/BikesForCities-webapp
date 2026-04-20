@@ -10,6 +10,9 @@ import {
   CircleDot,
 } from 'lucide-react';
 
+import { MAP_MODES } from '../../constants/mapModes';
+import type { MapMode } from '../../constants/mapModes';
+
 interface MapFiltersProps {
   city: CityData;
   selectedMode: string;
@@ -18,7 +21,7 @@ interface MapFiltersProps {
 }
 
 interface FilterMode {
-  id: string;
+  id: MapMode;
   name: string;
   shortLabel: string;
   icon: React.ComponentType<{ className?: string }>;
@@ -29,7 +32,7 @@ interface FilterMode {
 
 const filterModes: FilterMode[] = [
   {
-    id: 'infrastructure',
+    id: MAP_MODES.INFRASTRUCTURE,
     name: 'Infraestructura',
     shortLabel: 'Infra',
     icon: Network,
@@ -38,7 +41,7 @@ const filterModes: FilterMode[] = [
     color: 'var(--blue)'
   },
   {
-    id: 'traffic',
+    id: MAP_MODES.TRAFFIC,
     name: 'Tráfico',
     shortLabel: 'Tráfico',
     icon: Car,
@@ -47,7 +50,7 @@ const filterModes: FilterMode[] = [
     color: 'var(--red)'
   },
   {
-    id: 'stations',
+    id: MAP_MODES.STATIONS,
     name: 'Estaciones',
     shortLabel: 'Est.',
     icon: MapPin,
@@ -56,7 +59,7 @@ const filterModes: FilterMode[] = [
     color: 'var(--green)'
   },
   {
-    id: 'terrain',
+    id: MAP_MODES.TERRAIN,
     name: 'Terreno',
     shortLabel: 'Ter.',
     icon: Mountain,
@@ -65,7 +68,7 @@ const filterModes: FilterMode[] = [
     color: 'var(--orange)'
   },
   {
-    id: 'intersections',
+    id: MAP_MODES.INTERSECTIONS,
     name: 'Intersecciones',
     shortLabel: 'Inter.',
     icon: CircleDot,
@@ -74,7 +77,7 @@ const filterModes: FilterMode[] = [
     color: 'var(--yellow)'
   },
   {
-    id: 'accidents',
+    id: MAP_MODES.ACCIDENTS,
     name: 'Accidentes',
     shortLabel: 'Accid.',
     icon: TriangleAlert,

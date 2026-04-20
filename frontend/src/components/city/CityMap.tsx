@@ -12,18 +12,20 @@ import { useCallback } from 'react';
 import { useMapState } from '../../hooks/useMapState';
 import { useViewport } from '../../hooks/useViewport';
 
+import { MAP_MODES } from '../../constants/mapModes';
+
 interface CityMapProps {
     city: CityData;
     selectedColor?: string;
 }
 
 const modeLabels: Record<string, string> = {
-    infrastructure: 'Infraestructura Ciclista',
-    stations: 'Estaciones de Bici',
-    traffic: 'Tráfico Ciclista',
-    terrain: 'Terreno',
-    intersections: 'Intersecciones',
-    accidents: 'Accidentes',
+    [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura Ciclista',
+    [MAP_MODES.STATIONS]: 'Estaciones de Bici',
+    [MAP_MODES.TRAFFIC]: 'Tráfico Ciclista',
+    [MAP_MODES.TERRAIN]: 'Terreno',
+    [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
+    [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
 const getColorScheme = (colorVar: string) => {
@@ -151,7 +153,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT, above pull-up sheet */}
                     {isMobile && (
-                        <div className="absolute bottom-[140px] right-4 z-20">
+                        <div className="absolute bottom-[150px] right-4 z-20">
                             <MapControls colorScheme={colorScheme} vertical />
                         </div>
                     )}

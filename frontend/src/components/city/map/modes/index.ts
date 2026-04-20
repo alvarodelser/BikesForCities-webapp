@@ -12,6 +12,8 @@ import IntersectionsLayer from './intersections/IntersectionsLayer';
 import IntersectionsLegend from './intersections/IntersectionsLegend';
 import type React from 'react';
 
+import { MAP_MODES } from '../../../../constants/mapModes';
+
 export interface ModeConfig {
     /** Pure-imperative MapLibre component — returns null */
     layer: React.ComponentType<{ submode: string }>;
@@ -24,37 +26,37 @@ export interface ModeConfig {
 }
 
 export const MODES: Record<string, ModeConfig> = {
-    infrastructure: {
+    [MAP_MODES.INFRASTRUCTURE]: {
         layer:          InfrastructureLayer,
         legend:         InfrastructureLegend,
         submodes:       [],
         defaultSubmode: '',
     },
-    stations: {
+    [MAP_MODES.STATIONS]: {
         layer:          StationsLayer,
         legend:         StationsLegend,
         submodes:       ['trips', 'downtime', 'reach'],
         defaultSubmode: 'trips',
     },
-    traffic: {
+    [MAP_MODES.TRAFFIC]: {
         layer:          TrafficLayer,
         legend:         TrafficLegend,
         submodes:       ['traces', 'heatmap'],
         defaultSubmode: 'traces',
     },
-    terrain: {
+    [MAP_MODES.TERRAIN]: {
         layer:          TerrainLayer,
         legend:         TerrainLegend,
         submodes:       [],
         defaultSubmode: '',
     },
-    accidents: {
+    [MAP_MODES.ACCIDENTS]: {
         layer:          AccidentsLayer,
         legend:         AccidentsLegend,
         submodes:       [],
         defaultSubmode: '',
     },
-    intersections: {
+    [MAP_MODES.INTERSECTIONS]: {
         layer:          IntersectionsLayer,
         legend:         IntersectionsLegend,
         submodes:       [],

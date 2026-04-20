@@ -7,6 +7,8 @@ import { TILE_SERVER_URL } from '../../../config/api';
 import ActiveLayer from './ActiveLayer';
 import Spinner from '../../ui/Spinner';
 
+import { MAP_MODES } from '../../../constants/mapModes';
+
 interface CityCanvasProps {
     city: CityData;
     onMapInstance: (map: maplibregl.Map | null) => void;
@@ -32,7 +34,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
     // Calculate bounds based on mode (20km for infra, 50km for others)
     const bounds = useMemo(() => {
         if (!hasValidCoords) return null;
-        const radiusKm = mode === 'infrastructure' ? 20 : 50;
+        const radiusKm = mode === MAP_MODES.INFRASTRUCTURE ? 20 : 50;
         const lat = city.geoCoords.latitude;
         const lon = city.geoCoords.longitude;
         const latDelta = radiusKm / 111.32;

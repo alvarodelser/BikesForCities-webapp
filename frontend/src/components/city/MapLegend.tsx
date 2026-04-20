@@ -1,8 +1,8 @@
-import React from 'react';
+import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
 interface MapLegendProps {
     inline?: boolean;
-    selectedMode?: string;
+    selectedMode?: MapMode | string;
     activeMetric?: 'trips' | 'downtime';
     onMetricChange?: (metric: 'trips' | 'downtime') => void;
     colorScheme?: { primary: string; secondary: string; accent: string; light: string };
@@ -125,7 +125,7 @@ const LegendItem: React.FC<{
                     <div className="flex-1 relative h-full text-[10px] font-bold text-black/60 tracking-tight">
                         {/* Max Value */}
                         <div className="absolute top-0 flex items-center h-4">
-                            <span className="opacity-40">{thresholds?.max ? Math.round(thresholds.max) : '-'} {type === 'station-usage' ? (activeMetric === 'trips' ? 'v/m' : 'min') : 'v/m'}</span>
+                            <span className="opacity-40">{thresholds?.max ? Math.round(thresholds.max) : '-'} {type === 'station-usage' ? (activeMetric === 'trips' ? 'v/m' : 'min') : 'v/m'} {type === 'station-usage' ? '' : '(max)'}</span>
                         </div>
                         
                         {/* P95 Junction */}
@@ -179,7 +179,7 @@ const LegendItem: React.FC<{
 
 const MapLegend: React.FC<MapLegendProps> = ({ 
     inline = false,
-    selectedMode = 'infrastructure',
+    selectedMode = MAP_MODES.INFRASTRUCTURE,
     activeMetric = 'trips',
     onMetricChange,
     showBikePathBuildings = true,
@@ -188,28 +188,28 @@ const MapLegend: React.FC<MapLegendProps> = ({
 }) => {
     const getItems = () => {
         switch (selectedMode) {
-            case 'stations':
+            case MAP_MODES.STATIONS:
                 return [
                     { type: 'station-usage', color: '', label: 'Frecuencia de Uso', thresholds: thresholds },
                     ...commonLegendItems
                 ];
-            case 'infrastructure':
+            case MAP_MODES.INFRASTRUCTURE:
                 return [
                     { type: 'line', color: '#00cac3', label: 'Carril Bici' },
                     { type: 'square', color: '#027A76', label: 'Edificios < 150m' },
                     ...commonLegendItems
                 ];
-            case 'traffic':
+            case MAP_MODES.TRAFFIC:
                 return [
                     { type: 'road-traffic', color: '', label: 'Intensidad de Tráfico', thresholds: thresholds },
                     ...commonLegendItems
                 ];
-            case 'terrain':
+            case MAP_MODES.TERRAIN:
                 return [
                     { type: 'square', color: '#8d6e63', label: 'Zonas de Pendiente' },
                     ...commonLegendItems
                 ];
-            case 'accidents':
+            case MAP_MODES.ACCIDENTS:
                 return [
                     { type: 'circle', color: 'var(--red)', label: 'Punto Negro' },
                     ...commonLegendItems

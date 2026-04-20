@@ -11,67 +11,76 @@ const ScrollableCityCards: React.FC<{
   fadeColor?: string;
 }> = ({ cities, selectedCity, onCitySelect, onCityNavigate, fadeColor = "transparent" }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [focusedIndex, setFocusedIndex] = useState(0);
+  const [scrollOffset, setScrollOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const isAnimating = useRef(false);
-  const touchStartX = useRef<number | null>(null);
-  const touchEndX = useRef<number | null>(null);
+  const lastTouchX = useRef<number | null>(null);
+  const velocity = useRef(0);
+  const lastTime = useRef(0);
 
-  // Update focused index when selectedCity changes
+  // Sync scrollOffset with selectedCity when it changes from props
   useEffect(() => {
-    if (selectedCity) {
+    if (selectedCity && !isDragging) {
       const cityIndex = cities.findIndex(city => city.name === selectedCity);
-      if (cityIndex !== -1 && cityIndex !== focusedIndex) {
-        setFocusedIndex(cityIndex);
+      if (cityIndex !== -1 && Math.abs(scrollOffset - cityIndex) > 0.01) {
+        // Find shortest path for circular scroll
+        let target = cityIndex;
+        const total = cities.length;
+        const current = scrollOffset;
+        
+        // Normalize current offset to [0, total)
+        const normalizedCurrent = ((current % total) + total) % total;
+        let diff = target - normalizedCurrent;
+        
+        if (diff > total / 2) diff -= total;
+        else if (diff < -total / 2) diff += total;
+        
+        setScrollOffset(current + diff);
       }
     }
-  }, [selectedCity, focusedIndex, cities]);
+  }, [selectedCity, cities, isDragging]);
+
+  // Handle snapping when not dragging
+  useEffect(() => {
+    if (!isDragging) {
+      const snapTimer = setTimeout(() => {
+        const snapped = Math.round(scrollOffset);
+        if (snapped !== scrollOffset) {
+          setScrollOffset(snapped);
+          // Notify parent of new selection
+          const total = cities.length;
+          const index = ((snapped % total) + total) % total;
+          onCitySelect?.(cities[index].name);
+        }
+      }, 100);
+      return () => clearTimeout(snapTimer);
+    }
+  }, [scrollOffset, isDragging, cities, onCitySelect]);
 
   // Handle mouse wheel for horizontal scrolling
   const handleWheel = useCallback((e: WheelEvent) => {
-    if (isAnimating.current) return;
-
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 1 : -1;
-
-    isAnimating.current = true;
-    const newIndex = Math.max(0, Math.min(cities.length - 1, focusedIndex + delta));
-
-    if (newIndex !== focusedIndex) {
-      setFocusedIndex(newIndex);
-      onCitySelect?.(cities[newIndex].name);
-    }
-
-    setTimeout(() => {
-      isAnimating.current = false;
-    }, 300);
-  }, [focusedIndex, onCitySelect, cities]);
+    setIsDragging(true);
+    setScrollOffset(prev => prev + e.deltaY / 150); // Sensitivity
+    
+    // Clear dragging state after a short silence
+    const timer = (window as any)._wheelTimer;
+    if (timer) clearTimeout(timer);
+    (window as any)._wheelTimer = setTimeout(() => {
+      setIsDragging(false);
+    }, 150);
+  }, []);
 
   // Handle keyboard navigation
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (isAnimating.current) return;
-
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      isAnimating.current = true;
-      const newIndex = focusedIndex === 0 ? cities.length - 1 : focusedIndex - 1;
-      setFocusedIndex(newIndex);
-      onCitySelect?.(cities[newIndex].name);
-
-      setTimeout(() => {
-        isAnimating.current = false;
-      }, 300);
+      setScrollOffset(prev => Math.round(prev - 1));
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
-      isAnimating.current = true;
-      const newIndex = focusedIndex === cities.length - 1 ? 0 : focusedIndex + 1;
-      setFocusedIndex(newIndex);
-      onCitySelect?.(cities[newIndex].name);
-
-      setTimeout(() => {
-        isAnimating.current = false;
-      }, 300);
+      setScrollOffset(prev => Math.round(prev + 1));
     }
-  }, [focusedIndex, onCitySelect, cities]);
+  }, []);
 
   // Add event listeners
   useEffect(() => {
@@ -90,37 +99,17 @@ const ScrollableCityCards: React.FC<{
   const selectCity = (cityName: string) => {
     const cityIndex = cities.findIndex(city => city.name === cityName);
     if (cityIndex !== -1) {
-      setFocusedIndex(cityIndex);
+      setScrollOffset(cityIndex);
       onCitySelect?.(cityName);
     }
   };
 
-  // Navigate to previous city
   const navigatePrevious = () => {
-    if (isAnimating.current) return;
-
-    isAnimating.current = true;
-    const newIndex = focusedIndex === 0 ? cities.length - 1 : focusedIndex - 1;
-    setFocusedIndex(newIndex);
-    onCitySelect?.(cities[newIndex].name);
-
-    setTimeout(() => {
-      isAnimating.current = false;
-    }, 300);
+    setScrollOffset(prev => Math.round(prev - 1));
   };
 
-  // Navigate to next city
   const navigateNext = () => {
-    if (isAnimating.current) return;
-
-    isAnimating.current = true;
-    const newIndex = focusedIndex === cities.length - 1 ? 0 : focusedIndex + 1;
-    setFocusedIndex(newIndex);
-    onCitySelect?.(cities[newIndex].name);
-
-    setTimeout(() => {
-      isAnimating.current = false;
-    }, 300);
+    setScrollOffset(prev => Math.round(prev + 1));
   };
 
   return (
@@ -139,28 +128,39 @@ const ScrollableCityCards: React.FC<{
         {/* Cards container */}
         <div
           ref={containerRef}
-          className="relative h-full w-full flex items-center justify-center overflow-hidden touch-pan-y"
+          className="relative h-full w-full flex items-center justify-center overflow-hidden touch-none"
           onTouchStart={(e) => {
-            touchStartX.current = e.targetTouches[0].clientX;
+            setIsDragging(true);
+            lastTouchX.current = e.targetTouches[0].clientX;
+            lastTime.current = Date.now();
+            velocity.current = 0;
           }}
           onTouchMove={(e) => {
-            touchEndX.current = e.targetTouches[0].clientX;
-          }}
-          onTouchEnd={() => {
-            if (!touchStartX.current || !touchEndX.current) return;
-            const distance = touchStartX.current - touchEndX.current;
-            const minSwipeDistance = 50;
-
-            if (Math.abs(distance) > minSwipeDistance) {
-              if (distance > 0) {
-                navigateNext();
-              } else {
-                navigatePrevious();
-              }
+            if (lastTouchX.current === null) return;
+            const currentX = e.targetTouches[0].clientX;
+            const currentTime = Date.now();
+            const deltaX = currentX - lastTouchX.current;
+            const deltaTime = currentTime - lastTime.current;
+            
+            // Update offset (290px is card spacing)
+            setScrollOffset(prev => prev - (deltaX / 290));
+            
+            if (deltaTime > 0) {
+              velocity.current = deltaX / deltaTime;
             }
             
-            touchStartX.current = null;
-            touchEndX.current = null;
+            lastTouchX.current = currentX;
+            lastTime.current = currentTime;
+          }}
+          onTouchEnd={() => {
+            setIsDragging(false);
+            lastTouchX.current = null;
+            
+            // Simple momentum
+            if (Math.abs(velocity.current) > 0.5) {
+              const momentum = -velocity.current * 2;
+              setScrollOffset(prev => prev + momentum);
+            }
           }}
         >
           {/* Edge Fades */}
@@ -180,16 +180,14 @@ const ScrollableCityCards: React.FC<{
           />
 
           {cities.map((city, index) => {
-            // Calculate position with wrapping for circular carousel
-            let position = index - focusedIndex;
             const totalCities = cities.length;
-
-            // Handle wrapping: find the shortest path around the circle
-            if (position > totalCities / 2) {
-              position -= totalCities;
-            } else if (position < -totalCities / 2) {
-              position += totalCities;
-            }
+            
+            // Normalize position within [-totalCities/2, totalCities/2]
+            let position = ((index - scrollOffset) % totalCities);
+            
+            // Adjust for JS modulo and wrapping
+            if (position > totalCities / 2) position -= totalCities;
+            else if (position < -totalCities / 2) position += totalCities;
 
             // Only render cards that are reasonably close to center for performance
             if (Math.abs(position) > 6) return null;
@@ -199,6 +197,7 @@ const ScrollableCityCards: React.FC<{
                 key={city.name}
                 city={city}
                 position={position}
+                isDragging={isDragging}
                 onClick={() => selectCity(city.name)}
                 onCityNavigate={onCityNavigate}
               />

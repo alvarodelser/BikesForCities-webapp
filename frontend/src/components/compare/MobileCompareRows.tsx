@@ -3,14 +3,15 @@ import { Link } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import type { Column } from './CityCompareTable';
 import { Network, Car, MapPin, Mountain, CircleDot, TriangleAlert } from 'lucide-react';
+import { MAP_MODES } from '../../constants/mapModes';
 
 const MODE_META: Record<string, { icon: React.ComponentType<{ size?: number; className?: string }>; color: string }> = {
-  infrastructure: { icon: Network,       color: 'text-blue-400'   },
-  traffic:        { icon: Car,           color: 'text-red-400'    },
-  stations:       { icon: MapPin,        color: 'text-green-400'  },
-  terrain:        { icon: Mountain,      color: 'text-orange-400' },
-  intersections:  { icon: CircleDot,    color: 'text-yellow-400' },
-  accidents:      { icon: TriangleAlert, color: 'text-red-500'    },
+  [MAP_MODES.INFRASTRUCTURE]: { icon: Network,       color: 'text-blue-400'   },
+  [MAP_MODES.TRAFFIC]:        { icon: Car,           color: 'text-red-400'    },
+  [MAP_MODES.STATIONS]:       { icon: MapPin,        color: 'text-green-400'  },
+  [MAP_MODES.TERRAIN]:        { icon: Mountain,      color: 'text-orange-400' },
+  [MAP_MODES.INTERSECTIONS]:  { icon: CircleDot,    color: 'text-yellow-400' },
+  [MAP_MODES.ACCIDENTS]:      { icon: TriangleAlert, color: 'text-red-500'    },
 };
 
 interface MobileCompareRowsProps {

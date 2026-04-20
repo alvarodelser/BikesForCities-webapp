@@ -15,6 +15,7 @@ interface CityCardProps {
   panel?: boolean;
   onClick?: () => void;
   onCityNavigate?: (cityName: string) => void;
+  isDragging?: boolean;
 }
 
 const CityCard: React.FC<CityCardProps> = ({ 
@@ -22,7 +23,8 @@ const CityCard: React.FC<CityCardProps> = ({
   position,
   panel = false,
   onClick,
-  onCityNavigate
+  onCityNavigate,
+  isDragging = false
 }) => {
   const distance = Math.abs(position);
   
@@ -121,12 +123,15 @@ const CityCard: React.FC<CityCardProps> = ({
   return (
     <div 
       onClick={onClick}
-      className="absolute top-0 flex-shrink-0 cursor-pointer select-none transition-all duration-500 ease-out transform-gpu perspective-1000"
+      className={`absolute top-[20px] flex-shrink-0 cursor-pointer select-none transform-gpu perspective-1000 ${
+        isDragging ? '' : 'transition-all duration-500 ease-out'
+      }`}
       style={{ 
-        transform: `translateX(${position * 290}px) translateY(2vh) scale(${scale})`,
+        transform: `translateX(${position * 290}px) scale(${scale})`,
         opacity: opacity,
-        zIndex: distance === 0 ? 10 : 10 - distance,
-        willChange: 'transform, opacity',
+        zIndex: distance === 0 ? 10 : 10 - Math.floor(distance),
+        filter: distance > 0.1 ? `blur(${Math.min(distance * 2, 4)}px)` : 'none',
+        willChange: 'transform, opacity, filter',
         backfaceVisibility: 'hidden',
         transformStyle: 'preserve-3d'
       }}
@@ -135,12 +140,12 @@ const CityCard: React.FC<CityCardProps> = ({
         surface="glass"
         interactive
         size="lg"
-        tint={distance === 0 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)'}
+        tint={distance < 0.5 ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.15)'}
         blurStrength="md"
         shadow="lg"
         className={`
-          w-[270px] h-[340px] flex flex-col
-          ${distance === 0 ? 'border-[var(--green)]/40 shadow-[0_0_30px_rgba(63,122,186,0.3)]' : ''}
+          w-[270px] h-[310px] flex flex-col
+          ${distance < 0.5 ? 'border-[var(--green)]/40 shadow-[0_0_30px_rgba(63,122,186,0.3)]' : ''}
         `}
       >
         

@@ -13,22 +13,24 @@ import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
 
+import { MAP_MODES } from '../../constants/mapModes';
+
 const modeNames: Record<string, string> = {
-    infrastructure: 'Infraestructura',
-    traffic: 'Tráfico',
-    stations: 'Estaciones',
-    terrain: 'Terreno',
-    intersections: 'Intersecciones',
-    accidents: 'Accidentes',
+    [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
+    [MAP_MODES.TRAFFIC]: 'Tráfico',
+    [MAP_MODES.STATIONS]: 'Estaciones',
+    [MAP_MODES.TERRAIN]: 'Terreno',
+    [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
+    [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
 const modeColors: Record<string, string> = {
-    infrastructure: 'var(--blue)',
-    traffic: 'var(--red)',
-    stations: 'var(--green)',
-    terrain: 'var(--orange)',
-    intersections: 'var(--yellow)',
-    accidents: 'var(--red)',
+    [MAP_MODES.INFRASTRUCTURE]: 'var(--blue)',
+    [MAP_MODES.TRAFFIC]: 'var(--red)',
+    [MAP_MODES.STATIONS]: 'var(--green)',
+    [MAP_MODES.TERRAIN]: 'var(--orange)',
+    [MAP_MODES.INTERSECTIONS]: 'var(--yellow)',
+    [MAP_MODES.ACCIDENTS]: 'var(--red)',
 };
 
 interface MapDesktopProps {
@@ -112,10 +114,10 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
 
     const isModeAvailable = (m: string | null): boolean => {
         if (!m) return false;
-        if (m === 'infrastructure' || m === 'traffic') return true;
+        if (m === MAP_MODES.INFRASTRUCTURE || m === MAP_MODES.TRAFFIC) return true;
         if (!modeNames[m]) return false;
         if (city.available_modes) return city.available_modes[m] === true;
-        if (m === 'stations') return (city.stations_count || 0) > 0;
+        if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
         return false;
     };
 
@@ -125,7 +127,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
             setSearchParams(
                 prev => {
                     const next = new URLSearchParams(prev);
-                    next.set('mode', 'infrastructure');
+                    next.set('mode', MAP_MODES.INFRASTRUCTURE);
                     next.delete('submode');
                     return next;
                 },

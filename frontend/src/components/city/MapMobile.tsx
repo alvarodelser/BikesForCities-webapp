@@ -13,6 +13,8 @@ import {
   CircleDot,
 } from 'lucide-react';
 
+import { MAP_MODES } from '../../constants/mapModes';
+
 interface MapMobileProps {
   city: CityData;
 }
@@ -22,39 +24,39 @@ const SNAP_THRESHOLD = 50;
 const CLOSE_THRESHOLD = 50;
 
 const modeColors: Record<string, string> = {
-  infrastructure: 'var(--blue)',
-  traffic: 'var(--red)',
-  stations: 'var(--green)',
-  terrain: 'var(--orange)',
-  intersections: 'var(--yellow)',
-  accidents: 'var(--red)',
+  [MAP_MODES.INFRASTRUCTURE]: 'var(--blue)',
+  [MAP_MODES.TRAFFIC]: 'var(--red)',
+  [MAP_MODES.STATIONS]: 'var(--green)',
+  [MAP_MODES.TERRAIN]: 'var(--orange)',
+  [MAP_MODES.INTERSECTIONS]: 'var(--yellow)',
+  [MAP_MODES.ACCIDENTS]: 'var(--red)',
 };
 
 const modeShortNames: Record<string, string> = {
-  infrastructure: 'Infra',
-  traffic: 'Tráfico',
-  stations: 'Est.',
-  terrain: 'Ter.',
-  intersections: 'Inter.',
-  accidents: 'Accid.',
+  [MAP_MODES.INFRASTRUCTURE]: 'Infra',
+  [MAP_MODES.TRAFFIC]: 'Tráfico',
+  [MAP_MODES.STATIONS]: 'Est.',
+  [MAP_MODES.TERRAIN]: 'Ter.',
+  [MAP_MODES.INTERSECTIONS]: 'Inter.',
+  [MAP_MODES.ACCIDENTS]: 'Accid.',
 };
 
 const modeNames: Record<string, string> = {
-  infrastructure: 'Infraestructura',
-  traffic: 'Tráfico',
-  stations: 'Estaciones',
-  terrain: 'Terreno',
-  intersections: 'Intersecciones',
-  accidents: 'Accidentes',
+  [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
+  [MAP_MODES.TRAFFIC]: 'Tráfico',
+  [MAP_MODES.STATIONS]: 'Estaciones',
+  [MAP_MODES.TERRAIN]: 'Terreno',
+  [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
+  [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
 const modeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  infrastructure: Network,
-  traffic: Car,
-  stations: MapPin,
-  terrain: Mountain,
-  intersections: CircleDot,
-  accidents: TriangleAlert,
+  [MAP_MODES.INFRASTRUCTURE]: Network,
+  [MAP_MODES.TRAFFIC]: Car,
+  [MAP_MODES.STATIONS]: MapPin,
+  [MAP_MODES.TERRAIN]: Mountain,
+  [MAP_MODES.INTERSECTIONS]: CircleDot,
+  [MAP_MODES.ACCIDENTS]: TriangleAlert,
 };
 
 export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
@@ -89,15 +91,26 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const onDragMove = (y: number) => {
     if (!isDragging) return;
     const dy = startYRef.current - y;
-    // Allow dragging slightly ABOVE openHeight for the snap-to-close gesture
-    const next = Math.max(COLLAPSED_HEIGHT, Math.min(openHeight + 50, startHeightRef.current + dy));
-    setSheetHeight(next);
+    const next = startHeightRef.current + dy;
+
+    // Direct trigger while dragging: Pulled UP significantly when already open? -> SNAP Minimize
+    if (isOpen && next > openHeight + 45) {
+      setIsDragging(false);
+      setIsOpen(false);
+      setSheetHeight(COLLAPSED_HEIGHT);
+      return;
+    }
+
+    // Allow dragging slightly ABOVE openHeight for visual feedback
+    setSheetHeight(Math.max(COLLAPSED_HEIGHT, Math.min(openHeight + 50, next)));
   };
 
   const onDragEnd = () => {
+    if (!isDragging) return; // already snap-closed by move trigger
     setIsDragging(false);
-    // Pulled UP even more when already open? -> Minimize (Dismiss to map)
-    if (isOpen && sheetHeight > openHeight + 10) {
+    
+    // Release trigger: Pulled UP above threshold? -> Minimize
+    if (isOpen && sheetHeight > openHeight + 15) {
       setIsOpen(false);
       setSheetHeight(COLLAPSED_HEIGHT);
       return;
@@ -125,10 +138,10 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
   const isModeAvailable = (m: string | null): boolean => {
     if (!m) return false;
-    if (m === 'infrastructure' || m === 'traffic') return true;
+    if (m === MAP_MODES.INFRASTRUCTURE || m === MAP_MODES.TRAFFIC) return true;
     if (!modeNames[m]) return false;
     if (city.available_modes) return city.available_modes[m] === true;
-    if (m === 'stations') return (city.stations_count || 0) > 0;
+    if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
     return false;
   };
 
@@ -149,7 +162,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
         {/* Filter pills — aligned with navbar logo (px-10 = 40px) */}
         <div className="pointer-events-auto px-10 pt-2.5">
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {(['infrastructure', 'traffic', 'stations', 'terrain', 'intersections', 'accidents'] as const)
+            {Object.values(MAP_MODES)
               .filter(id => isModeAvailable(id))
               .map(id => {
                 const isActive = mode === id;

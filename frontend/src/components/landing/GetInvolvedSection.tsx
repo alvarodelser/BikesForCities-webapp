@@ -102,8 +102,9 @@ function FaqAccordion() {
           style={{
             background: open === i ? 'rgba(2,122,118,0.07)' : 'rgba(255,255,255,0.55)',
             border: `1.5px solid ${open === i ? 'rgba(2,122,118,0.35)' : 'rgba(0,0,0,0.07)'}`,
-            backdropFilter: 'blur(8px)',
-            transition: 'background 0.3s, border-color 0.3s',
+            // Reduced backdrop-filter complexity for better mobile performance
+            backdropFilter: open === i ? 'blur(4px)' : 'none',
+            transition: 'background 0.3s, border-color 0.3s, backdrop-filter 0.3s',
           }}
         >
           <button
@@ -213,11 +214,13 @@ function OrbitCarousel({
     const animate = () => {
       setDisplayAngle(prev => {
         const delta = targetRef.current - prev;
-        // Smoother LERP: 0.001 factor for a less aggressive response
-        if (Math.abs(delta) < 0.01) return targetRef.current;
+        
+        // Stop animation if we are close enough to the target
+        if (Math.abs(delta) < 0.001) return targetRef.current;
 
         rafRef.current = requestAnimationFrame(animate);
-        return prev + delta * 0.001;
+        // Significantly increased factor from 0.001 to 0.08 for snappy, premium feel
+        return prev + delta * 0.08;
       });
     };
 
@@ -255,18 +258,15 @@ function OrbitCarousel({
             onClick={() => onSelect(index)}
             style={{
               position: 'absolute',
-              left: cx,
-              top: cy,
+              left: 0,
+              top: 0,
               width: iconD,
               height: iconD,
-              // When selected, scale it up significantly (1.5x)
-              transform: `scale(${isSelected ? 1.5 : scale})`,
-              opacity: isSelected ? 1 : opacity,
+              // Use translate3d for GPU acceleration and avoid layout reflows
+              transform: `translate3d(${cx}px, ${cy}px, 0)`,
               zIndex: isSelected ? 1000 : Math.round((z + 1) * 100),
               cursor: 'pointer',
-              // We remove transitions on left/top to let requestAnimationFrame handle trajectory
-              // but keep them on scale/opacity/rotation for extra smoothness
-              transition: 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease',
+              willChange: 'transform',
             }}
           >
             <div
@@ -284,7 +284,10 @@ function OrbitCarousel({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
-                transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                // Only transition selection-related properties, not the orbit itself
+                transform: `scale(${isSelected ? 1.5 : scale})`,
+                opacity: isSelected ? 1 : opacity,
+                transition: 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease, background 0.4s, border-color 0.4s',
               }}
             >
               <Icon

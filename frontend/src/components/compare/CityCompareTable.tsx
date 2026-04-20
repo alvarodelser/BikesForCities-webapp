@@ -27,6 +27,8 @@ import {
   Activity
 } from 'lucide-react';
 
+import { MAP_MODES, type MapMode } from '../../constants/mapModes';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type GroupId = 'Infraestructura' | 'Servicio Bici' | 'Ayuntamiento';
@@ -61,13 +63,13 @@ const GROUPS: ColumnGroup[] = [
   { id: 'Ayuntamiento', label: 'Ayuntamiento', icon: Users },
 ];
 
-const DATA_MODES = [
-  { id: 'infrastructure', name: 'Infraestructura', icon: Network, color: 'text-blue-400' },
-  { id: 'traffic', name: 'Tráfico', icon: Car, color: 'text-red-400' },
-  { id: 'stations', name: 'Estaciones', icon: MapPin, color: 'text-green-400' },
-  { id: 'terrain', name: 'Terreno', icon: Mountain, color: 'text-orange-400' },
-  { id: 'intersections', name: 'Intersecciones', icon: CircleDot, color: 'text-yellow-400' },
-  { id: 'accidents', name: 'Accidentes', icon: TriangleAlert, color: 'text-red-500' },
+const DATA_MODES: { id: MapMode; name: string; icon: any; color: string }[] = [
+  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', icon: Network, color: 'text-blue-400' },
+  { id: MAP_MODES.TRAFFIC, name: 'Tráfico', icon: Car, color: 'text-red-400' },
+  { id: MAP_MODES.STATIONS, name: 'Estaciones', icon: MapPin, color: 'text-green-400' },
+  { id: MAP_MODES.TERRAIN, name: 'Terreno', icon: Mountain, color: 'text-orange-400' },
+  { id: MAP_MODES.INTERSECTIONS, name: 'Intersecciones', icon: CircleDot, color: 'text-yellow-400' },
+  { id: MAP_MODES.ACCIDENTS, name: 'Accidentes', icon: TriangleAlert, color: 'text-red-500' },
 ];
 
 // ─── Column definitions ───────────────────────────────────────────────────────

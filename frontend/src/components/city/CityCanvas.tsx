@@ -8,6 +8,8 @@ import Spinner from '../ui/Spinner';
 import { fetchStations, fetchTraffic } from '../../services/api';
 import type { StationData, TrafficCount } from '../../services/api';
 
+import { MAP_MODES, type MapMode } from '../../constants/mapModes';
+
 export interface CityCanvasHandle {
     zoomIn: () => void;
     zoomOut: () => void;
@@ -17,7 +19,7 @@ export interface CityCanvasHandle {
 
 interface CityCanvasProps {
     city: CityData;
-    selectedMode: string;
+    selectedMode: MapMode | string;
     activeMetric: 'trips' | 'downtime';
     colorScheme: { primary: string; secondary: string; accent: string; light: string };
     showBikePathBuildings?: boolean;
@@ -101,7 +103,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
 
     useEffect(() => {
         const loadTraffic = async () => {
-            if (!city.id || selectedMode !== 'traffic') return;
+            if (!city.id || selectedMode !== MAP_MODES.TRAFFIC) return;
             try {
                 const data = await fetchTraffic(city.id);
                 setTrafficData(data);
@@ -114,19 +116,19 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
 
     // Visibility logic manager
     const updateVisibility = (m: maplibregl.Map, mode: string, showBuildings: boolean) => {
-        const stationsVisibility = mode === 'stations' ? 'visible' : 'none';
-        const infraVisibility = mode === 'infrastructure' ? 'visible' : 'none';
+        const stationsVisibility = mode === MAP_MODES.STATIONS ? 'visible' : 'none';
+        const infraVisibility = mode === MAP_MODES.INFRASTRUCTURE ? 'visible' : 'none';
 
         if (m.getLayer('stations-layer')) m.setLayoutProperty('stations-layer', 'visibility', stationsVisibility);
         if (m.getLayer('bike-paths-layer')) m.setLayoutProperty('bike-paths-layer', 'visibility', infraVisibility);
         
-        const trafficVisibility = mode === 'traffic' ? 'visible' : 'none';
+        const trafficVisibility = mode === MAP_MODES.TRAFFIC ? 'visible' : 'none';
         if (m.getLayer('traffic-layer')) m.setLayoutProperty('traffic-layer', 'visibility', trafficVisibility);
 
         // Update buildings highlight color
         const buildingsLayerId = 'bike-path-buildings-layer';
         if (m.getLayer(buildingsLayerId)) {
-            const targetColor = (mode === 'infrastructure' && showBuildings) ? '#027A76' : '#ead5c5';
+            const targetColor = (mode === MAP_MODES.INFRASTRUCTURE && showBuildings) ? '#027A76' : '#ead5c5';
             m.setPaintProperty(buildingsLayerId, 'fill-color', targetColor);
         }
     };
@@ -213,7 +215,7 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
         });
 
         // Calculate thresholds for legend if in traffic mode
-        if (selectedMode === 'traffic' && onThresholdsChange) {
+        if (selectedMode === MAP_MODES.TRAFFIC && onThresholdsChange) {
             const counts = trafficData.map(t => t.trip_count).sort((a, b) => a - b);
             if (counts.length > 0) {
                 const q5 = counts[Math.floor(counts.length * 0.05)];

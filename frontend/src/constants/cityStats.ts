@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import { formatDistance } from '../utils/formatters';
 
+import { MAP_MODES, type MapMode } from './mapModes';
+
 export interface StatItem {
   label: string;
   value: string | number;
@@ -34,9 +36,9 @@ export interface ModeStats {
   };
 }
 
-export const getModeStats = (selectedMode: string, city: CityData): ModeStats => {
+export const getModeStats = (selectedMode: MapMode | string, city: CityData): ModeStats => {
   switch (selectedMode) {
-    case 'infrastructure':
+    case MAP_MODES.INFRASTRUCTURE:
       return {
         stats: [
           { label: 'Longitud de red', value: `${formatDistance(city.cyclingNetwork)} km`, trend: 'up', icon: BarChart3 },
@@ -58,7 +60,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
         }
       };
 
-    case 'traffic':
+    case MAP_MODES.TRAFFIC:
       return {
         stats: [
           { label: 'Congestión media', value: 'Media', trend: 'up', icon: Activity },
@@ -80,7 +82,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
         }
       };
 
-    case 'stations':
+    case MAP_MODES.STATIONS:
       return {
         stats: [
           { label: 'Total de estaciones', value: '45', trend: 'up', icon: Users },
@@ -102,7 +104,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
         }
       };
 
-    case 'terrain':
+    case MAP_MODES.TERRAIN:
       return {
         stats: [
           { label: 'Altitud media', value: '650 m', trend: 'neutral', icon: BarChart3 },
@@ -124,7 +126,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
         }
       };
 
-    case 'intersections':
+    case MAP_MODES.INTERSECTIONS:
       return {
         stats: [
           { label: 'Total de cruces', value: '1.240', trend: 'neutral', icon: Activity },
@@ -146,7 +148,7 @@ export const getModeStats = (selectedMode: string, city: CityData): ModeStats =>
         }
       };
 
-    case 'accidents':
+    case MAP_MODES.ACCIDENTS:
       return {
         stats: [
           { label: 'Accidentes anuales', value: '180', trend: 'down', icon: TrendingDown },

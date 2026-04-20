@@ -5,6 +5,8 @@ import type { CityData } from '../../constants/cities';
 import type { Column } from './CityCompareTable';
 import { BrowserRouter } from 'react-router';
 
+import { MAP_MODES } from '../../constants/mapModes';
+
 const mockCities: CityData[] = [
   {
     path: '/barcelona',
@@ -19,7 +21,7 @@ const mockCities: CityData[] = [
     mayor_party: 'PSC',
     geoCoords: { longitude: 2.1729, latitude: 41.3851 },
     budget: 5000000,
-    available_modes: { infrastructure: true },
+    available_modes: { [MAP_MODES.INFRASTRUCTURE]: true },
   },
 ];
 

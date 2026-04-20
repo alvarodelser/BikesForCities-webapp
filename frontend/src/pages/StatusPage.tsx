@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { fetchSystemStatus, type SystemStatus, type TimePeriodRow } from '../services/api';
 
+import { MAP_MODES } from '../constants/mapModes';
+
 // ─── Palette & helpers ───────────────────────────────────────────────────────
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; dot: string; fill: string }> = {
@@ -19,13 +21,13 @@ const defaultStyle = STATUS_STYLE.SKIPPED;
 const CITY_COLORS = ['#027A76','#3A6C7F','#7BA492','#F4A24C','#AF4749','#92BEC9','#FF7F50'];
 
 const MODE_META: { key: string; Icon: React.FC<{ size?: number; color?: string }>; label: string }[] = [
-  { key: 'infrastructure', Icon: Route,          label: 'Infrastructure' },
-  { key: 'traffic',        Icon: TrendingUp,     label: 'Traffic'        },
-  { key: 'accidents',      Icon: AlertTriangle,  label: 'Accidents'      },
-  { key: 'terrain',        Icon: Mountain,       label: 'Terrain'        },
-  { key: 'intersections',  Icon: Crosshair,      label: 'Intersections'  },
-  { key: 'stations',       Icon: Bike,           label: 'Stations'       },
-  { key: 'forum',          Icon: MessageSquare,  label: 'Forum'          },
+  { key: MAP_MODES.INFRASTRUCTURE, Icon: Route,          label: 'Infrastructure' },
+  { key: MAP_MODES.TRAFFIC,        Icon: TrendingUp,     label: 'Traffic'        },
+  { key: MAP_MODES.ACCIDENTS,      Icon: AlertTriangle,  label: 'Accidents'      },
+  { key: MAP_MODES.TERRAIN,        Icon: Mountain,       label: 'Terrain'        },
+  { key: MAP_MODES.INTERSECTIONS,  Icon: Crosshair,      label: 'Intersections'  },
+  { key: MAP_MODES.STATIONS,       Icon: Bike,           label: 'Stations'       },
+  { key: 'forum',                  Icon: MessageSquare,  label: 'Forum'          },
 ];
 
 function fmt(n: number | undefined | null) { return (n ?? 0).toLocaleString('es-ES'); }

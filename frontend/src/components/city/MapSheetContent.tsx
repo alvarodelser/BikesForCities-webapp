@@ -7,17 +7,19 @@ import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
 
+import { MAP_MODES } from '../../constants/mapModes';
+
 interface MapSheetContentProps {
   city: CityData;
 }
 
 const modeNames: Record<string, string> = {
-  infrastructure: 'Infraestructura',
-  traffic:        'Tráfico',
-  stations:       'Estaciones',
-  terrain:        'Terreno',
-  intersections:  'Intersecciones',
-  accidents:      'Accidentes',
+  [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
+  [MAP_MODES.TRAFFIC]:        'Tráfico',
+  [MAP_MODES.STATIONS]:       'Estaciones',
+  [MAP_MODES.TERRAIN]:        'Terreno',
+  [MAP_MODES.INTERSECTIONS]:  'Intersecciones',
+  [MAP_MODES.ACCIDENTS]:      'Accidentes',
 };
 
 export const MapSheetContent: React.FC<MapSheetContentProps> = ({ city }) => {

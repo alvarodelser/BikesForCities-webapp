@@ -1,11 +1,12 @@
-import { useParams, useSearchParams } from 'react-router';
 import { useCallback } from 'react';
+import { useParams, useSearchParams } from 'react-router';
+import { MAP_MODES, type MapMode } from '../constants/mapModes';
 
 export interface MapState {
     cityName: string;
-    mode: string;
+    mode: MapMode;
     submode: string;
-    setMode: (newMode: string, newSubmode?: string) => void;
+    setMode: (newMode: MapMode, newSubmode?: string) => void;
     setSubmode: (newSubmode: string) => void;
 }
 
@@ -18,10 +19,10 @@ export function useMapState(): MapState {
     const { cityName = '' } = useParams<{ cityName: string }>();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    const mode    = searchParams.get('mode')    ?? 'infrastructure';
+    const mode    = (searchParams.get('mode') as MapMode) ?? MAP_MODES.INFRASTRUCTURE;
     const submode = searchParams.get('submode') ?? '';
 
-    const setMode = useCallback((newMode: string, newSubmode?: string) => {
+    const setMode = useCallback((newMode: MapMode, newSubmode?: string) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('mode', newMode);
