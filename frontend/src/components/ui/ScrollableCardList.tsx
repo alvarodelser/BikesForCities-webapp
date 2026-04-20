@@ -78,29 +78,19 @@ const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var
         <h3 className="text-xl font-bold text-[var(--black)] mb-6 px-4">{label}</h3>
       )}
       
-      <div className="relative flex items-center px-4">
+      <div className="relative flex items-center">
         {/* Edge Fades - Fixed positioning */}
         <div 
-          className="absolute left-0 top-0 bottom-0 w-64 z-10 pointer-events-none transition-opacity duration-300"
+          className="absolute left-0 top-0 bottom-0 w-[40px] z-10 pointer-events-none transition-opacity duration-300"
           style={{
-            background: `linear-gradient(to right, 
-              ${fadeColor} 0%, 
-              color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
-              color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
-              color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
-              transparent 100%)`,
+            background: `linear-gradient(to right, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
             opacity: canScrollLeft ? 1 : 0
           }}
         />
         <div 
-          className="absolute right-0 top-0 bottom-0 w-64 z-10 pointer-events-none transition-opacity duration-300"
+          className="absolute right-0 top-0 bottom-0 w-[40px] z-10 pointer-events-none transition-opacity duration-300"
           style={{
-            background: `linear-gradient(to left, 
-              ${fadeColor} 0%, 
-              color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
-              color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
-              color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
-              transparent 100%)`,
+            background: `linear-gradient(to left, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
             opacity: canScrollRight ? 1 : 0
           }}
         />
@@ -124,7 +114,7 @@ const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var
           onMouseUp={handleMouseUp}
           onMouseMove={handleMouseMove}
           className={`
-            flex gap-6 overflow-x-auto no-scrollbar py-4 px-2 select-none
+            flex gap-6 overflow-x-auto no-scrollbar py-4 px-4 select-none
             ${isDragging ? "cursor-grabbing" : "cursor-grab"}
           `}
           style={{ 

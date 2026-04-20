@@ -124,8 +124,8 @@ const ScrollableCityCards: React.FC<{
   };
 
   return (
-    <div className="w-full py-8 overflow-hidden">
-      <div className="relative flex items-center justify-center">
+    <div className="w-full h-full py-2 overflow-hidden">
+      <div className="relative h-full flex items-center justify-center">
         {/* Previous button */}
         <button
           onClick={navigatePrevious}
@@ -165,26 +165,16 @@ const ScrollableCityCards: React.FC<{
         >
           {/* Edge Fades */}
           <div 
-            className="absolute left-0 top-0 bottom-0 w-72 z-10 pointer-events-none transition-opacity duration-300"
+            className="absolute left-0 top-0 bottom-0 w-10 z-10 pointer-events-none transition-opacity duration-300"
             style={{
-              background: `linear-gradient(to right, 
-                ${fadeColor} 0%, 
-                color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
-                color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
-                color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
-                transparent 100%)`,
+              background: `linear-gradient(to right, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
               opacity: fadeColor === "transparent" ? 0 : 1
             }}
           />
           <div 
-            className="absolute right-0 top-0 bottom-0 w-72 z-10 pointer-events-none transition-opacity duration-300"
+            className="absolute right-0 top-0 bottom-0 w-10 z-10 pointer-events-none transition-opacity duration-300"
             style={{
-              background: `linear-gradient(to left, 
-                ${fadeColor} 0%, 
-                color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
-                color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
-                color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
-                transparent 100%)`,
+              background: `linear-gradient(to left, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
               opacity: fadeColor === "transparent" ? 0 : 1
             }}
           />

@@ -50,26 +50,16 @@ const ScrollableCityList: React.FC<Props> = ({ show, children, fadeColor = "var(
       <div className="relative h-[50px] flex items-center overflow-hidden">
         {/* Fades */}
       <div 
-        className="absolute left-[30px] top-0 h-full w-[120px] z-10 pointer-events-none transition-opacity duration-300" 
+        className="absolute left-[30px] top-0 h-full w-[40px] z-10 pointer-events-none transition-opacity duration-300" 
         style={{ 
-          background: `linear-gradient(to right, 
-            ${fadeColor} 0%, 
-            color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
-            color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
-            color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
-            transparent 100%)`,
+          background: `linear-gradient(to right, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
           opacity: canScrollLeft ? 1 : 0 
         }}
       />
       <div 
-        className="absolute right-[30px] top-0 h-full w-[120px] z-10 pointer-events-none transition-opacity duration-300"
+        className="absolute right-[30px] top-0 h-full w-[40px] z-10 pointer-events-none transition-opacity duration-300"
         style={{ 
-          background: `linear-gradient(to left, 
-            ${fadeColor} 0%, 
-            color-mix(in srgb, ${fadeColor}, transparent 10%) 19%, 
-            color-mix(in srgb, ${fadeColor}, transparent 40%) 43%, 
-            color-mix(in srgb, ${fadeColor}, transparent 80%) 73%, 
-            transparent 100%)`,
+          background: `linear-gradient(to left, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
           opacity: canScrollRight ? 1 : 0
         }}
       />
