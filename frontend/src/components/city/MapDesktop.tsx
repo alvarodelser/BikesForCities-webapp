@@ -1,0 +1,191 @@
+import React, { useEffect } from 'react';
+import { useSearchParams } from 'react-router';
+import type { CityData } from '../../constants/cities';
+import { getModeStats } from '../../constants/cityStats';
+import { useMapState } from '../../hooks/useMapState';
+import { useViewport } from '../../hooks/useViewport';
+import MapFilters from './MapFilters';
+import CityMap from './CityMap';
+import CityStats from './CityStats';
+import DualPanel from './DualPanel';
+import OverviewSection from './OverviewSection';
+import backgroundTexture from '../../assets/background2.svg';
+import { Users, Euro, Bike, Percent } from 'lucide-react';
+import GlassCard from '../ui/GlassCard';
+import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
+
+const modeNames: Record<string, string> = {
+  infrastructure: 'Infraestructura',
+  traffic:        'Tráfico',
+  stations:       'Estaciones',
+  terrain:        'Terreno',
+  intersections:  'Intersecciones',
+  accidents:      'Accidentes',
+};
+
+const modeColors: Record<string, string> = {
+  infrastructure: 'var(--blue)',
+  traffic:        'var(--red)',
+  stations:       'var(--green)',
+  terrain:        'var(--orange)',
+  intersections:  'var(--yellow)',
+  accidents:      'var(--red)',
+};
+
+interface MapDesktopProps {
+  city: CityData;
+}
+
+/** Hero header used in both single-column and dual-panel layouts */
+function CityHero({ city }: { city: CityData }) {
+  return (
+    <section
+      className="relative w-full pt-36 pb-16 px-[var(--space-gutter)] overflow-hidden"
+      style={{ background: 'linear-gradient(160deg, var(--blue-dark) 0%, var(--blue) 100%)' }}
+    >
+      {/* Radial glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 50% at 40% 50%, rgba(146,190,201,0.18) 0%, transparent 70%)',
+        }}
+      />
+      {/* Texture */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
+        style={{
+          backgroundImage: `url(${backgroundTexture})`,
+          backgroundSize: '600px 600px',
+        }}
+      />
+      <div className="relative z-10">
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--green-light)]/70 mb-3">
+          Análisis de movilidad ciclista
+        </p>
+        <h1
+          className="text-5xl md:text-6xl font-bold text-white mb-8 leading-tight"
+          style={{ fontFamily: 'var(--heading)' }}
+        >
+          {city.name}
+        </h1>
+
+        {/* Quick stats row */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { icon: Users, label: 'Población', value: formatPopulation(city.population), gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
+            { icon: Euro, label: 'Presupuesto', value: formatCurrency(city.budget), gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
+            { icon: Bike, label: 'Red Ciclista', value: `${formatDistance(city.cyclingNetwork)} km`, gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
+            { icon: Percent, label: 'Cobertura', value: `${formatPercentage(city.coverage)}%`, gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
+          ].map(({ icon: Icon, label, value, gradient }) => (
+            <GlassCard
+              key={label}
+              surface="glass"
+              tint="rgba(255,255,255,0.07)"
+              className="p-4 flex items-center gap-3"
+            >
+              <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md flex-shrink-0`}>
+                <Icon className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-white/50 font-bold">{label}</p>
+                <p className="text-lg font-bold text-white leading-tight">{value}</p>
+              </div>
+            </GlassCard>
+          ))}
+        </div>
+      </div>
+
+      {/* Wave bottom edge */}
+      <div className="absolute bottom-0 left-0 right-0 h-10 pointer-events-none">
+        <svg viewBox="0 0 1440 40" className="w-full h-full" preserveAspectRatio="none">
+          <path d="M0,20 C360,40 1080,0 1440,20 L1440,40 L0,40 Z" fill="var(--cream)" />
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
+  const { mode, setMode } = useMapState();
+  const { isUltrawide } = useViewport();
+  const [, setSearchParams] = useSearchParams();
+
+  const isModeAvailable = (m: string | null): boolean => {
+    if (!m) return false;
+    if (m === 'infrastructure' || m === 'traffic') return true;
+    if (!modeNames[m]) return false;
+    if (city.available_modes) return city.available_modes[m] === true;
+    if (m === 'stations') return (city.stations_count || 0) > 0;
+    return false;
+  };
+
+  // Redirect to infrastructure if the mode param is invalid for this city
+  useEffect(() => {
+    if (!isModeAvailable(mode)) {
+      setSearchParams(
+        prev => {
+          const next = new URLSearchParams(prev);
+          next.set('mode', 'infrastructure');
+          next.delete('submode');
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  }, [mode, city.id]);
+
+  const selectedColor = modeColors[mode] || 'var(--blue)';
+  const modeStats = getModeStats(mode, city);
+  const modeName = modeNames[mode] || mode;
+  const title    = `Estadísticas de ${modeName}`;
+  const subtitle = `Análisis detallado de datos de ${modeName.toLowerCase()} en ${city.name}`;
+
+  const filtersEl = (
+    <MapFilters
+      city={city}
+      selectedMode={mode}
+      onModeChange={m => setMode(m)}
+      isModeAvailable={isModeAvailable}
+    />
+  );
+  const mapEl   = <CityMap city={city} selectedColor={selectedColor} />;
+  const statsEl = <CityStats title={title} subtitle={subtitle} modeStats={modeStats} />;
+
+  // ── Desktop Layouts (768px+) ──────────────────────────────────────────────
+  return (
+    <div className="w-full min-h-screen bg-[var(--cream)]">
+      <CityHero city={city} />
+      
+      {isUltrawide ? (
+        <div className="py-6">
+          <div className="px-[var(--space-gutter)] mb-8">
+            {filtersEl}
+          </div>
+          <DualPanel leftRatio={0.45}>
+            <DualPanel.Left>
+              {mapEl}
+            </DualPanel.Left>
+            <DualPanel.Right>
+              <div className="px-[var(--space-gutter)]">
+                {statsEl}
+              </div>
+            </DualPanel.Right>
+          </DualPanel>
+        </div>
+      ) : (
+        <>
+          <div className="px-[var(--space-gutter)] py-8">
+            {filtersEl}
+          </div>
+          <div>{mapEl}</div>
+          <div>
+            {statsEl}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default MapDesktop;

@@ -2,18 +2,23 @@ import React from 'react';
 import { useParams } from 'react-router';
 import type { CityData } from '../constants/cities';
 import { fetchCities } from '../services/api';
-import OverviewSection from '../components/city/OverviewSection';
-import MapSection from '../components/city/MapSection';
+import { useViewport } from '../hooks/useViewport';
+import MapDesktop from '../components/city/MapDesktop';
+import MapMobile from '../components/city/MapMobile';
 import ErrorState from '../components/ui/ErrorState';
 import Spinner from '../components/ui/Spinner';
 
 const CityPage: React.FC = () => {
-  const { cityName } = useParams<{ cityName: string }>();
+  const { cityName: rawCityName } = useParams<{ cityName: string }>();
+  const cityName = rawCityName?.replace(/\/$/, "");
   const [city, setCity] = React.useState<CityData | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const { isMobile } = useViewport();
 
   React.useEffect(() => {
+    setLoading(true);
+    setError(null);
     fetchCities().then(cities => {
       if (!cities || cities.length === 0) {
         setError("Unable to find city data. The database might be empty or unreachable.");
@@ -59,13 +64,10 @@ const CityPage: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      {/* Overview Section */}
-      <OverviewSection city={city} />    
-      
-      {/* Map Section */}
-      <MapSection city={city} />
+      {isMobile ? <MapMobile city={city} /> : <MapDesktop city={city} />}
     </div>
   );
 };
 
-export default CityPage; 
+export default CityPage;
+ 

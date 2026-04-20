@@ -10,7 +10,7 @@ export interface Viewport {
 }
 
 const DESKTOP_Q = '(min-width: 768px)';
-const ULTRA_Q = '(min-width: 1920px)';
+const ULTRA_Q = '(min-width: 1536px)';
 
 function tierFrom(desktop: boolean, ultra: boolean): ViewportTier {
   if (ultra) return 'ultrawide';

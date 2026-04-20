@@ -41,7 +41,7 @@ function MobileTabs({ defaultTab, children }: MobileTabsProps) {
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
   return (
     <div>
-      <div role="tablist" className="flex gap-2 px-3 py-3 border-b border-black/10">
+      <div role="tablist" className="flex gap-2 px-3 py-3 border-b border-black/10 overflow-x-auto shrink-0 custom-scrollbar">
         {tabs.map((t) => (
           <button
             key={t.id}

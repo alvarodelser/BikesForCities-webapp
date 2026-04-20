@@ -395,18 +395,20 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
 
   if (isMobile) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 w-full overflow-hidden">
         <ColumnGroupPicker
           groups={GROUPS}
           expanded={expandedGroups}
           onToggle={toggleGroup}
         />
-        <MobileCompareRows
-          cities={sorted}
-          selectedCityPaths={selectedCityPaths}
-          onToggleCity={onToggleCity}
-          visibleColumns={visibleColumns}
-        />
+        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
+          <MobileCompareRows
+            cities={sorted}
+            selectedCityPaths={selectedCityPaths}
+            onToggleCity={onToggleCity}
+            visibleColumns={visibleColumns}
+          />
+        </div>
       </div>
     );
   }

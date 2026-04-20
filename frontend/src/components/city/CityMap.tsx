@@ -110,55 +110,57 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
                     <div className="absolute inset-0 map-section-bg__noise" />
 
 
-                    {/* Floating header */}
-                    <div className="absolute top-0 left-0 right-0 z-20 p-4">
-                        <div
-                            className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
-                            style={{
-                                background: 'rgba(255,255,255,0.12)',
-                                backdropFilter: 'blur(20px)',
-                                WebkitBackdropFilter: 'blur(20px)',
-                                border: '1px solid rgba(255,255,255,0.22)',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)',
-                            }}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div
-                                    className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-                                    style={{
-                                        background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})`,
-                                        boxShadow: `0 4px 12px ${colorScheme.primary}55`,
-                                    }}
-                                >
-                                    <MapPin className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <h1
-                                        className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
-                                        style={{ color: '#ffffffee' }}
+                    {/* Floating header - hidden on mobile as MapMobile provides its own overlay */}
+                    {!isMobile && (
+                        <div className="absolute top-0 left-0 right-0 z-20 p-4">
+                            <div
+                                className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
+                                style={{
+                                    background: 'rgba(255,255,255,0.12)',
+                                    backdropFilter: 'blur(20px)',
+                                    WebkitBackdropFilter: 'blur(20px)',
+                                    border: '1px solid rgba(255,255,255,0.22)',
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)',
+                                }}
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})`,
+                                            boxShadow: `0 4px 12px ${colorScheme.primary}55`,
+                                        }}
                                     >
-                                        {city.name} - {modeLabel}
-                                    </h1>
+                                        <MapPin className="w-5 h-5 text-white" />
+                                    </div>
+                                    <div>
+                                        <h1
+                                            className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
+                                            style={{ color: '#ffffffee' }}
+                                        >
+                                            {city.name} - {modeLabel}
+                                        </h1>
+                                    </div>
                                 </div>
+
+                                {/* MapControls reads map instance from MapContext — hidden on mobile (rendered separately at bottom-right) */}
+                                {!isMobile && <MapControls colorScheme={colorScheme} />}
                             </div>
-
-                            {/* MapControls reads map instance from MapContext — hidden on mobile (rendered separately at bottom-right) */}
-                            {!isMobile && <MapControls colorScheme={colorScheme} />}
                         </div>
-                    </div>
+                    )}
 
-                    {/* Mobile: vertical MapControls floating at bottom-left */}
+                    {/* Mobile: vertical MapControls floating at bottom-RIGHT, above pull-up sheet */}
                     {isMobile && (
-                        <div className="absolute bottom-12 left-4 z-20">
+                        <div className="absolute bottom-[130px] right-4 z-20">
                             <MapControls colorScheme={colorScheme} vertical />
                         </div>
                     )}
 
                     {/* Map canvas */}
-                    <div className="absolute inset-0 z-10 pt-24 pb-4 px-4">
+                    <div className={`absolute inset-0 z-10 ${isMobile ? '' : 'pt-24 pb-4 px-4'}`}>
                         <div
-                            className="w-full h-full rounded-2xl overflow-hidden shadow-2xl transition-colors duration-500"
-                            style={{
+                            className={`w-full h-full overflow-hidden transition-colors duration-500 ${isMobile ? '' : 'rounded-2xl shadow-2xl'}`}
+                            style={isMobile ? {} : {
                                 border: `2px solid ${colorScheme.primary}55`,
                                 boxShadow: `0 0 0 1px ${colorScheme.primary}22, 0 24px 64px rgba(0,0,0,0.35)`,
                             }}

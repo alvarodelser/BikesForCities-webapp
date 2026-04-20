@@ -17,7 +17,7 @@ export const MobileCompareRows: React.FC<MobileCompareRowsProps> = ({
   visibleColumns,
 }) => {
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1 min-w-full w-max">
       {cities.map((city, rowIdx) => {
         const selectionIndex = selectedCityPaths.indexOf(city.path);
         const isSelected = selectionIndex !== -1;

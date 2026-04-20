@@ -45,4 +45,5 @@
     --container-max:     1440px;
     --space-section-y:   clamp(2rem, 4vw, 5rem);
     --space-gutter:      clamp(1rem, 4vw, 6rem);
+    --navbar-height:     80px;
   }  

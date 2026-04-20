@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import maplibregl from 'maplibre-gl';
+import { useMapState } from '../../../hooks/useMapState';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { CityData } from '../../../constants/cities';
 import { TILE_SERVER_URL } from '../../../config/api';
@@ -17,7 +18,9 @@ interface CityCanvasProps {
  * shared via MapContext to siblings like Legend and Controls.
  */
 export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
+    const { mode } = useMapState();
     const mapContainer = useRef<HTMLDivElement>(null);
+    const mapRef = useRef<maplibregl.Map | null>(null);
     const [mapReady, setMapReady] = useState(false);
     const [loading, setLoading] = useState(true);
 
@@ -25,6 +28,20 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                           city.geoCoords.latitude !== null && 
                           city.geoCoords.longitude !== null &&
                           (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
+
+    // Calculate bounds based on mode (20km for infra, 50km for others)
+    const bounds = useMemo(() => {
+        if (!hasValidCoords) return null;
+        const radiusKm = mode === 'infrastructure' ? 20 : 50;
+        const lat = city.geoCoords.latitude;
+        const lon = city.geoCoords.longitude;
+        const latDelta = radiusKm / 111.32;
+        const lonDelta = radiusKm / (111.32 * Math.cos(lat * (Math.PI / 180)));
+        return [
+            [lon - lonDelta, lat - latDelta], // SW
+            [lon + lonDelta, lat + latDelta]  // NE
+        ] as [[number, number], [number, number]];
+    }, [city.geoCoords.latitude, city.geoCoords.longitude, mode, hasValidCoords]);
 
     useEffect(() => {
         if (!mapContainer.current || !hasValidCoords) return;
@@ -61,18 +78,21 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
             zoom: 12,
+            minZoom: 10,
+            maxBounds: bounds || undefined,
             pitch: 0,
             bearing: city.angle || 0,
             dragRotate: false,
-            scrollZoom: false,
+            scrollZoom: true,
             pitchWithRotate: false,
             attributionControl: false,
         });
 
+        mapRef.current = mapInstance;
+
         mapInstance.on('load', () => {
-            // Hard-lock rotation / pitch / scroll
+            // Hard-lock rotation / pitch
             mapInstance.dragRotate.disable();
-            mapInstance.scrollZoom.disable();
             mapInstance.touchZoomRotate.disableRotation();
             mapInstance.touchPitch.disable();
             mapInstance.keyboard.disableRotation();
@@ -170,10 +190,18 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
         return () => {
             onMapInstance(null);
             mapInstance.remove();
+            mapRef.current = null;
             setMapReady(false);
             setLoading(true);
         };
     }, [city.geoCoords.latitude, city.geoCoords.longitude, city.id]);
+
+    // Update bounds dynamically when mode changes without re-initializing the whole map
+    useEffect(() => {
+        if (mapRef.current && bounds) {
+            mapRef.current.setMaxBounds(bounds);
+        }
+    }, [bounds]);
 
     return (
         <div className="relative w-full h-full bg-[var(--blue-dark)] flex items-center justify-center">
