@@ -1,8 +1,25 @@
 import React from 'react';
-import { FileText, Map, Building2, CircleChevronDown } from 'lucide-react';
-import backgroundTexture from '../../assets/background2.svg';
-import GlassCard from '../ui/GlassCard';
-import IconContainer from '../ui/IconContainer';
+
+const FEATURES = [
+  {
+    tint: 'linear-gradient(135deg, rgba(2,122,118,0.06) 0%, rgba(2,122,118,0.02) 100%)',
+    border: 'rgba(2,122,118,0.08)',
+    title: 'Compara nuestras ciudades',
+    description: 'Datos de más de X ciudades',
+  },
+  {
+    tint: 'linear-gradient(135deg, rgba(244,162,76,0.06) 0%, rgba(244,162,76,0.02) 100%)',
+    border: 'rgba(244,162,76,0.08)',
+    title: 'Explora mapas de movilidad',
+    description: 'Diversos modos de ver sobre el papel',
+  },
+  {
+    tint: 'linear-gradient(135deg, rgba(175,71,73,0.06) 0%, rgba(175,71,73,0.02) 100%)',
+    border: 'rgba(175,71,73,0.08)',
+    title: 'Planifica con visión de futuro',
+    description: 'Estrategia municipal basada en datos',
+  },
+];
 
 const HeroSection: React.FC = () => {
   const scrollToNextSection = () => {
@@ -14,152 +31,69 @@ const HeroSection: React.FC = () => {
 
   return (
     <section
-      className="w-full flex items-center justify-center px-[var(--space-gutter)] relative"
-      style={{
-        backgroundColor: 'var(--cream)',
-      }}
+      className="w-full relative overflow-hidden"
+      style={{ backgroundColor: '#ffffff' }}
     >
-      {/* Background texture extending upward to cover navbar */}
+      {/* ── Main hero container ── */}
       <div
-        className="absolute pointer-events-none"
-        style={{
-          backgroundImage: `url(${backgroundTexture})`,
-          backgroundSize: '600px 600px',
-          backgroundPosition: 'top left',
-          backgroundRepeat: 'repeat',
-          top: -145, // Extend upward to cover navbar
-          left: 0,
-          right: 0,
-          bottom: 0,
-          opacity: 0.07
-        }}
-      />
+        className="relative z-10 w-full max-w-[var(--container-max)] mx-auto px-[var(--space-gutter)] py-24 md:py-32 lg:py-40"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-      <div className="relative w-full z-10 pt-32 md:pt-[88px]">
-        {/* Title */}
-        <h1
-          className="text-[6vw] font-heading font-bold leading-tight bg-gradient-to-b from-[#2c5c8c] to-[#3f7aba] bg-clip-text text-transparent
-         my-[-10px]"
-        >
-          Bikes for Cities
-        </h1>
-
-        {/* Image */}
-
-        {/* Introduction */}
-        <div className="flex flex-col md:flex-row items-start justify-between py-[var(--space-section-y)] gap-[20px] lg:gap-[120px]">
-          {/* Left side - Motivational phrase */}
-          <div className="flex-1">
-            <h1 className="text-3xl md:text-5xl font-heading font-bold bg-gradient-to-r from-[var(--blue-dark)] via-[var(--green-dark)] via-[var(--green)] to-[var(--blue)] bg-clip-text text-transparent leading-tight mb-6 tracking-tighter">
-              <span className="block text-6xl lg:text-4xl tracking-tight">Movilidad sostenible</span>
-              <span className="block text-4xl lg:text-3xl tracking-tight flex items-center gap-3 leading-[1.2]">
-                en la era digital
-                <CircleChevronDown
-                  onClick={scrollToNextSection}
-                  className="text-[var(--green)] cursor-pointer 
-                    transition-all duration-300 
-                    hover:scale-110 hover:text-[var(--green-dark)] 
-                    animate-bounce"
-                  size={32}
-                />
-              </span>
+          {/* ── TOP LEFT: Title + subtitle ── */}
+          <div className="lg:col-span-8 flex flex-col pt-8 lg:pt-0">
+            {/* Title - Single line, bold, top left */}
+            <h1
+              style={{
+                background: 'linear-gradient(180deg, #1a3a5a 0%, #2c5c8c 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+              className="text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-heading font-bold leading-tight tracking-tighter mb-4"
+            >
+              Bikes for Cities
             </h1>
+
+            {/* Subtitle */}
+            <p
+              className="text-lg md:text-xl font-heading font-medium text-[var(--blue-dark)] opacity-40 max-w-xl"
+            >
+              Movilidad sostenible en la era digital
+            </p>
+
+            {/* Subtle accent line */}
+            <div
+              className="h-[2px] rounded-full mt-6"
+              style={{
+                width: '40px',
+                background: 'var(--green)',
+                opacity: 0.3
+              }}
+            />
           </div>
 
-          {/* Right side - Description and Feature cards */}
-          <div className="flex-1">
-            <div className="space-y-4">
-              <GlassCard
-                surface="glass"
-                interactive
-                tint="rgba(255, 255, 255, 0.15)"
-                blurStrength="md"
-                shadow="lg"
-                size="md"
-                className="group cursor-pointer"
+          {/* ── RIGHT: Smaller Feature Pills ── */}
+          <div className="lg:col-span-4 flex flex-col gap-3 lg:items-end lg:pt-4">
+            {FEATURES.map((feat, i) => (
+              <div
+                key={i}
                 onClick={scrollToNextSection}
+                className="group cursor-pointer rounded-2xl p-4 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] w-full max-w-[300px]"
+                style={{
+                  background: feat.tint,
+                  border: `1px solid ${feat.border}`,
+                  backdropFilter: 'blur(10px)',
+                }}
               >
-                <div className="flex items-center gap-2 lg:gap-4">
-                  <IconContainer
-                    icon={Building2}
-                    variant="glass"
-                    size="lg"
-                    tint="rgba(2, 122, 118, 0.6)"
-                    iconColor="white"
-                    hoverIconColor="#ffffff"
-                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="flex-1">
-                    <h3 className="text-md lg:text-xl font-semibold text-gray-800 mb-1">
-                      Compara nuestras ciudades
-                    </h3>
-
-                    <p> Datos de más de X ciudades de todo el territorio</p>
-                  </div>
-                </div>
-              </GlassCard>
-
-              <GlassCard
-                surface="glass"
-                interactive
-                tint="rgba(255, 255, 255, 0.15)"
-                blurStrength="md"
-                shadow="lg"
-                size="md"
-                className="group cursor-pointer"
-                onClick={() => console.log('Explora mapas clicked')}
-              >
-                <div className="flex items-center gap-2 lg:gap-4">
-                  <IconContainer
-                    icon={Map}
-                    variant="glass"
-                    size="lg"
-                    tint="rgba(244, 162, 76, 0.6)"
-                    iconColor="white"
-                    hoverIconColor="#ffffff"
-                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="flex-1">
-                    <h3 className="text-lg lg:text-xl font-semibold text-gray-800 mb-1">
-                      Explora mapas de movilidad
-                    </h3>
-                    <p>
-                      Diversos modos de ver sobre el papel.
-                    </p>
-                  </div>
-                </div>
-              </GlassCard>
-              <GlassCard
-                surface="glass"
-                interactive
-                tint="rgba(255, 255, 255, 0.15)"
-                blurStrength="md"
-                shadow="lg"
-                size="md"
-                className="group cursor-pointer"
-                onClick={scrollToNextSection}
-              >
-                <div className="flex items-center gap-2 lg:gap-4">
-                  <IconContainer
-                    icon={FileText}
-                    variant="glass"
-                    size="lg"
-                    tint="rgba(175, 71, 73, 0.6)"
-                    iconColor="white"
-                    hoverIconColor="#ffffff"
-                    className="flex-shrink-0 group-hover:scale-110 transition-transform duration-300"
-                  />
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-1">
-                      Planifica con visión de futuro
-                    </h3>
-                    <p>
-                      Datos y estudios contrastados para informar una estrategia municipal basada en datos.
-                    </p>
-                  </div>
-                </div>
-              </GlassCard>
-            </div>
+                <h3 className="text-xs lg:text-[13px] font-bold text-gray-700 mb-0.5">
+                  {feat.title}
+                </h3>
+                <p className="text-[11px] text-gray-400 font-medium leading-normal">
+                  {feat.description}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -167,4 +101,4 @@ const HeroSection: React.FC = () => {
   );
 };
 
-export default HeroSection; 
+export default HeroSection;
