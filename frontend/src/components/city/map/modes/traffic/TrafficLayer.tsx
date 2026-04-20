@@ -62,9 +62,10 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const { map, city } = useMap();
     const { setThresholds } = useThresholds();
 
-    const popupRef   = useRef<maplibregl.Popup | null>(null);
-    const stickyRef  = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
-    const submodeRef = useRef<string>(submode);
+    const popupRef    = useRef<maplibregl.Popup | null>(null);
+    const stickyRef   = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
+    const submodeRef  = useRef<string>(submode);
+    const routeInfoRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => { submodeRef.current = submode; }, [submode]);
 
@@ -121,6 +122,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             { selected: false }
         );
         stickyRef.current = null;
+        routeInfoRef.current = null;
         popupRef.current?.remove();
         clearOverlay();
     }, [map, clearOverlay]);
@@ -212,7 +214,9 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             const feature = e.features?.[0];
             if (!feature) return;
 
-            const edgeId = feature.id as number;
+            const rawId = feature.id;
+            if (rawId == null) return;
+            const edgeId = Number(rawId);
             if (stickyRef.current?.edgeId === edgeId) return; // no-op: same edge
 
             // Deselect previous
@@ -239,6 +243,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             popup.setLngLat(e.lngLat).setDOMContent(dom).addTo(map);
 
             const routeInfoEl = dom.querySelector<HTMLElement>('[data-route-info]');
+            routeInfoRef.current = routeInfoEl;
             loadRoutes(edgeId, submodeRef.current, routeInfoEl);
         };
 
@@ -267,10 +272,10 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         if (!stickyRef.current) return;
         clearOverlay();
         // Update the popup's route info line
-        const routeInfoEl = document.querySelector<HTMLElement>('[data-route-info]');
+        const routeInfoEl = routeInfoRef.current;
         if (routeInfoEl) routeInfoEl.textContent = 'Cargando rutas\u2026';
-        loadRoutes(stickyRef.current.edgeId, submode, routeInfoEl ?? null);
-    }, [submode]); // eslint-disable-line react-hooks/exhaustive-deps
+        loadRoutes(stickyRef.current.edgeId, submode, routeInfoEl);
+    }, [submode]); // intentionally omit clearOverlay/loadRoutes — only re-run on submode change
 
     return null;
 }
