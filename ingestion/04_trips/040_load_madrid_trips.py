@@ -638,7 +638,7 @@ def main():
     parser.add_argument("--years", nargs="+", type=int, choices=sorted(HISTORICAL_URLS.keys()), help="Years to download")
     parser.add_argument("--force", action="store_true", help="Force re-download and re-ingest")
     parser.add_argument("--single-file", action="store_true", help="Process only one file")
-    parser.add_argument("--workers", type=int, default=4, help="Parallel workers for GPS map matching")
+    parser.add_argument("--workers", type=int, default=16, help="Parallel workers for GPS map matching")
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
