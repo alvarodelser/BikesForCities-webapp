@@ -6,7 +6,7 @@ import GetInvolvedSection from '../components/landing/GetInvolvedSection';
 
 const LandingPage: React.FC = () => {
   return (
-    <div>
+    <div className="overflow-x-hidden">
       <HeroSection />
       <MapSelector />
       <GetInvolvedSection />
@@ -14,4 +14,4 @@ const LandingPage: React.FC = () => {
   );
 };
 
-export default LandingPage; 
+export default LandingPage;

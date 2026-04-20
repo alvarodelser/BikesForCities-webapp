@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Share2, BookOpen, ChevronDown, Lightbulb, Activity, MessageCircle, MapPin, Megaphone
 } from 'lucide-react';
+import { useViewport } from '../../hooks/useViewport';
 
 /* ─────────────────────────── data ─────────────────────────── */
 
@@ -144,27 +145,13 @@ function FaqAccordion() {
 
 /* ─────────────────── 3-D ellipse carousel ──────────────────── */
 
-const ELLIPSE_RX = 220; // horizontal radius
-const ELLIPSE_RY = 100; // vertical radius
 const N = INVOLVEMENT_ITEMS.length;
-const ICON_D = 100;      // icon circle diameter
 
-interface OrbitItem {
-  item: typeof INVOLVEMENT_ITEMS[0];
-  index: number;
-  x: number;
-  y: number;
-  z: number; // -1 … 1  (depth)
-  scale: number;
-  opacity: number;
-  angleRad: number;
-}
-
-function computeOrbit(baseAngle: number): OrbitItem[] {
+function computeOrbit(baseAngle: number, rx: number, ry: number, iconD: number): OrbitItem[] {
   return INVOLVEMENT_ITEMS.map((item, i) => {
     const a = baseAngle + (2 * Math.PI * i) / N;
-    const x = ELLIPSE_RX * Math.cos(a);
-    const y = ELLIPSE_RY * Math.sin(a);
+    const x = rx * Math.cos(a);
+    const y = ry * Math.sin(a);
     const z = Math.sin(a); // 1 = front, -1 = back
     const scale = 0.6 + 0.4 * ((z + 1) / 2);
     const opacity = 0.35 + 0.65 * ((z + 1) / 2);
@@ -188,6 +175,11 @@ function OrbitCarousel({
   selected: number;
   onSelect: (i: number) => void;
 }) {
+  const { isMobile } = useViewport();
+  const rx = isMobile ? 120 : 220;
+  const ry = isMobile ? 50 : 100;
+  const iconD = isMobile ? 70 : 100;
+
   // Use a state for the current display angle to allow smooth rotation along the path
   const [displayAngle, setDisplayAngle] = useState(Math.PI / 2 - (2 * Math.PI * selected) / N);
   const rafRef = useRef<number>(0);
@@ -224,9 +216,9 @@ function OrbitCarousel({
     return () => cancelAnimationFrame(rafRef.current);
   }, [selected]);
 
-  const items = computeOrbit(displayAngle);
-  const W = ELLIPSE_RX * 2 + ICON_D + 60;
-  const H = ELLIPSE_RY * 2 + ICON_D + 60;
+  const items = computeOrbit(displayAngle, rx, ry, iconD);
+  const W = rx * 2 + iconD + (isMobile ? 20 : 60);
+  const H = ry * 2 + iconD + (isMobile ? 20 : 60);
 
   return (
     <div
@@ -243,8 +235,8 @@ function OrbitCarousel({
         const isSelected = selected === index;
         const Icon = item.icon;
 
-        const cx = W / 2 + x - ICON_D / 2;
-        const cy = H / 2 + y - ICON_D / 2;
+        const cx = W / 2 + x - iconD / 2;
+        const cy = H / 2 + y - iconD / 2;
 
         return (
           <div
@@ -254,8 +246,8 @@ function OrbitCarousel({
               position: 'absolute',
               left: cx,
               top: cy,
-              width: ICON_D,
-              height: ICON_D,
+              width: iconD,
+              height: iconD,
               // When selected, scale it up significantly (1.5x)
               transform: `scale(${isSelected ? 1.5 : scale})`,
               opacity: isSelected ? 1 : opacity,
@@ -268,8 +260,8 @@ function OrbitCarousel({
           >
             <div
               style={{
-                width: ICON_D,
-                height: ICON_D,
+                width: iconD,
+                height: iconD,
                 borderRadius: '50%',
                 background: isSelected ? item.color : item.bg,
                 border: `2.5px solid ${isSelected ? item.color : 'rgba(0,0,0,0.08)'}`,
@@ -285,7 +277,7 @@ function OrbitCarousel({
               }}
             >
               <Icon
-                size={isSelected ? 36 : 28}
+                size={isSelected ? (isMobile ? 24 : 36) : (isMobile ? 20 : 28)}
                 style={{
                   color: isSelected ? '#fff' : item.color,
                   transition: 'size 0.3s, color 0.3s',
@@ -293,7 +285,7 @@ function OrbitCarousel({
               />
               <span
                 style={{
-                  fontSize: isSelected ? '0.8rem' : '0.65rem',
+                  fontSize: isSelected ? (isMobile ? '0.65rem' : '0.8rem') : (isMobile ? '0.55rem' : '0.65rem'),
                   fontWeight: 800,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
@@ -321,7 +313,7 @@ const GetInvolvedSection: React.FC = () => {
   return (
     <section
       id="get-involved"
-      className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)]"
+      className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)] overflow-x-hidden"
       style={{ background: 'var(--cream)' }}
     >
       <div className="max-w-[var(--container-max)] mx-auto">
