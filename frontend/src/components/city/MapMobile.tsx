@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { CityData } from '../../constants/cities';
 import { useMapState } from '../../hooks/useMapState';
-import MapFilters from './MapFilters';
 import CityMap from './CityMap';
 import MapSheetContent from './MapSheetContent';
 
@@ -24,20 +23,20 @@ const CLOSE_THRESHOLD = 80;
 
 const modeColors: Record<string, string> = {
   infrastructure: 'var(--blue)',
-  traffic:        'var(--red)',
-  stations:       'var(--green)',
-  terrain:        'var(--orange)',
-  intersections:  'var(--yellow)',
-  accidents:      'var(--red)',
+  traffic: 'var(--red)',
+  stations: 'var(--green)',
+  terrain: 'var(--orange)',
+  intersections: 'var(--yellow)',
+  accidents: 'var(--red)',
 };
 
 const modeNames: Record<string, string> = {
   infrastructure: 'Infraestructura',
-  traffic:        'Tráfico',
-  stations:       'Estaciones',
-  terrain:        'Terreno',
-  intersections:  'Intersecciones',
-  accidents:      'Accidentes',
+  traffic: 'Tráfico',
+  stations: 'Estaciones',
+  terrain: 'Terreno',
+  intersections: 'Intersecciones',
+  accidents: 'Accidentes',
 };
 
 const modeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -132,11 +131,11 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
                     key={id}
                     onClick={() => setMode(id)}
                     aria-pressed={isActive}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-200 backdrop-blur-md shadow-sm ${
-                      isActive
-                        ? 'bg-[var(--cream)]/95 text-[var(--blue-dark)] border border-[var(--cream)]/60 shadow-md scale-105'
+                    style={isActive ? { backgroundColor: modeColors[id], borderColor: modeColors[id] } : {}}
+                    className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold whitespace-nowrap transition-all duration-200 backdrop-blur-md shadow-sm ${isActive
+                        ? 'text-white border shadow-md scale-105'
                         : 'bg-[var(--cream)]/50 text-[var(--blue-dark)]/80 border border-white/30 hover:bg-[var(--cream)]/70'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     {modeNames[id]}
