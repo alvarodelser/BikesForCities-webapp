@@ -147,7 +147,18 @@ function FaqAccordion() {
 
 const N = INVOLVEMENT_ITEMS.length;
 
-function computeOrbit(baseAngle: number, rx: number, ry: number, iconD: number): OrbitItem[] {
+interface OrbitItem {
+  item: typeof INVOLVEMENT_ITEMS[0];
+  index: number;
+  x: number;
+  y: number;
+  z: number; // -1 … 1  (depth)
+  scale: number;
+  opacity: number;
+  angleRad: number;
+}
+
+function computeOrbit(baseAngle: number, rx: number, ry: number): OrbitItem[] {
   return INVOLVEMENT_ITEMS.map((item, i) => {
     const a = baseAngle + (2 * Math.PI * i) / N;
     const x = rx * Math.cos(a);
@@ -216,7 +227,7 @@ function OrbitCarousel({
     return () => cancelAnimationFrame(rafRef.current);
   }, [selected]);
 
-  const items = computeOrbit(displayAngle, rx, ry, iconD);
+  const items = computeOrbit(displayAngle, rx, ry);
   const W = rx * 2 + iconD + (isMobile ? 20 : 60);
   const H = ry * 2 + iconD + (isMobile ? 20 : 60);
 

@@ -11,13 +11,13 @@ const mockGroups: ColumnGroup[] = [
 ];
 
 describe('ColumnGroupPicker', () => {
-  it('renders all group pills', () => {
-    const handleToggle = vi.fn();
+  it('renders all group buttons', () => {
+    const handleSelect = vi.fn();
     render(
       <ColumnGroupPicker
         groups={mockGroups}
-        expanded={new Set(['Infraestructura'])}
-        onToggle={handleToggle}
+        activeGroup="Infraestructura"
+        onSelect={handleSelect}
       />
     );
     expect(screen.getByText('Infraestructura')).toBeInTheDocument();
@@ -25,57 +25,51 @@ describe('ColumnGroupPicker', () => {
     expect(screen.getByText('Ayuntamiento')).toBeInTheDocument();
   });
 
-  it('renders Base pill as read-only', () => {
-    const handleToggle = vi.fn();
+  it('calls onSelect when a group button is clicked', () => {
+    const handleSelect = vi.fn();
     render(
       <ColumnGroupPicker
         groups={mockGroups}
-        expanded={new Set([])}
-        onToggle={handleToggle}
+        activeGroup="Infraestructura"
+        onSelect={handleSelect}
       />
     );
-    const basePill = screen.getByText('Base');
-    expect(basePill).toBeInTheDocument();
-    expect(basePill.closest('div')).toHaveClass('opacity-50');
+    const serviceButton = screen.getByText('Servicio Bici').closest('button');
+    fireEvent.click(serviceButton!);
+    expect(handleSelect).toHaveBeenCalledWith('Servicio Bici');
   });
 
-  it('calls onToggle when a group pill is clicked', () => {
-    const handleToggle = vi.fn();
+  it('applies active styling and underline to the active group', () => {
+    const handleSelect = vi.fn();
     render(
       <ColumnGroupPicker
         groups={mockGroups}
-        expanded={new Set([])}
-        onToggle={handleToggle}
+        activeGroup="Infraestructura"
+        onSelect={handleSelect}
       />
     );
-    const infraPill = screen.getByText('Infraestructura').closest('button');
-    fireEvent.click(infraPill!);
-    expect(handleToggle).toHaveBeenCalledWith('Infraestructura');
+    const infraButton = screen.getByText('Infraestructura').closest('button');
+    expect(infraButton).toHaveClass('text-white');
+    
+    // Check for the underline span
+    const underline = infraButton?.querySelector('span.absolute.bottom-0');
+    expect(underline).toBeInTheDocument();
+    expect(underline).toHaveClass('bg-[var(--green-light)]');
   });
 
-  it('applies active styling to expanded groups', () => {
-    const handleToggle = vi.fn();
+  it('applies inactive styling to other groups', () => {
+    const handleSelect = vi.fn();
     render(
       <ColumnGroupPicker
         groups={mockGroups}
-        expanded={new Set(['Infraestructura'])}
-        onToggle={handleToggle}
+        activeGroup="Infraestructura"
+        onSelect={handleSelect}
       />
     );
-    const infraPill = screen.getByText('Infraestructura').closest('button');
-    expect(infraPill).toHaveClass('bg-white/20');
-  });
-
-  it('applies inactive styling to collapsed groups', () => {
-    const handleToggle = vi.fn();
-    render(
-      <ColumnGroupPicker
-        groups={mockGroups}
-        expanded={new Set([])}
-        onToggle={handleToggle}
-      />
-    );
-    const infraPill = screen.getByText('Infraestructura').closest('button');
-    expect(infraPill).toHaveClass('bg-white/10');
+    const serviceButton = screen.getByText('Servicio Bici').closest('button');
+    expect(serviceButton).toHaveClass('text-white/40');
+    
+    const underline = serviceButton?.querySelector('span.absolute.bottom-0');
+    expect(underline).not.toBeInTheDocument();
   });
 });
