@@ -15,7 +15,7 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compa
   const { stats, insights, recommendations, overallScore } = modeStats;
 
   return (
-    <div className={`w-full bg-white/95 backdrop-blur-md border-t border-[var(--green)]/20 ${compact ? 'py-0' : ''}`}>
+    <div className={`w-full ${compact ? 'bg-transparent' : 'bg-white/95 backdrop-blur-md border-t border-[var(--green)]/20'} ${compact ? 'py-0' : ''}`}>
       <div className={`max-w-7xl mx-auto ${compact ? 'px-0 py-4' : 'px-6 py-8'}`}>
         {/* Header */}
         <div className={`flex items-center justify-between ${compact ? 'mb-4' : 'mb-8'}`}>

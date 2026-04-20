@@ -296,7 +296,9 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>('population');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  // Desktop: multi-expand; Mobile: single active group
   const [expandedGroups, setExpandedGroups] = useState<Set<GroupId>>(new Set(['Infraestructura', 'Ayuntamiento']));
+  const [mobileGroup, setMobileGroup] = useState<GroupId>('Infraestructura');
   const [scrollMetrics, setScrollMetrics] = useState({ left: 0, width: 0, client: 0 });
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -324,7 +326,6 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
       el.addEventListener('scroll', updateScrollMetrics);
       const resizeObserver = new ResizeObserver(updateScrollMetrics);
       resizeObserver.observe(el);
-      // Wait for table layout to stabilize
       const timer = setTimeout(updateScrollMetrics, 500);
       return () => {
         el.removeEventListener('scroll', updateScrollMetrics);
@@ -346,12 +347,8 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
 
   const onMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging.current || !scrollRef.current) return;
-    const deltaX = e.pageX - startX.current;
-    // The visual movement of the thumb corresponds to the scroll progress
-    // Track width is fixed at max-w-sm (approx 384px) effectively.
-    // However, let's use a simpler approach: calculate % of track moved.
-    const trackWidth = 384; // max-w-sm in px roughly
-    const moveRatio = deltaX / trackWidth;
+    const trackWidth = 384;
+    const moveRatio = (e.pageX - startX.current) / trackWidth;
     scrollRef.current.scrollLeft = startScrollLeft.current + moveRatio * scrollMetrics.width;
   }, [scrollMetrics]);
 
@@ -382,11 +379,19 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
   const activeGroups = useMemo(() => GROUPS.filter(g => expandedGroups.has(g.id)), [expandedGroups]);
   const closedGroups = useMemo(() => GROUPS.filter(g => !expandedGroups.has(g.id)), [expandedGroups]);
 
+  // Desktop visible columns (base + all expanded groups)
   const visibleColumns = useMemo(() => {
     const baseCols = COLUMNS.filter(col => col.group === 'Base');
     const groupCols = activeGroups.flatMap(g => COLUMNS.filter(col => col.group === g.id));
     return [...baseCols, ...groupCols];
   }, [activeGroups]);
+
+  // Mobile visible columns (base + single active group only)
+  const mobileVisibleColumns = useMemo(() => {
+    const baseCols = COLUMNS.filter(col => col.group === 'Base');
+    const groupCols = COLUMNS.filter(col => col.group === mobileGroup);
+    return [...baseCols, ...groupCols];
+  }, [mobileGroup]);
 
   const sorted = sortCities(cities, sortKey, sortDir);
 
@@ -395,20 +400,18 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
 
   if (isMobile) {
     return (
-      <div className="flex flex-col gap-4 w-full overflow-hidden">
+      <div className="flex flex-col w-full overflow-hidden">
         <ColumnGroupPicker
           groups={GROUPS}
-          expanded={expandedGroups}
-          onToggle={toggleGroup}
+          activeGroup={mobileGroup}
+          onSelect={setMobileGroup}
         />
-        <div className="w-full overflow-x-auto pb-4 custom-scrollbar">
-          <MobileCompareRows
-            cities={sorted}
-            selectedCityPaths={selectedCityPaths}
-            onToggleCity={onToggleCity}
-            visibleColumns={visibleColumns}
-          />
-        </div>
+        <MobileCompareRows
+          cities={sorted}
+          selectedCityPaths={selectedCityPaths}
+          onToggleCity={onToggleCity}
+          visibleColumns={mobileVisibleColumns}
+        />
       </div>
     );
   }

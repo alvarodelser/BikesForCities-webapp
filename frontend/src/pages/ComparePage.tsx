@@ -103,9 +103,9 @@ const ComparePage: React.FC = () => {
 
         <MobileTabs.Tab id="table" label="Tabla">
           {/* ── Comparison table ──────────────────────────────────────────────── */}
-          <section className="py-16 px-6" style={{ backgroundColor: 'var(--blue-dark)' }}>
+          <section className="py-8 md:py-16 md:px-6" style={{ backgroundColor: 'var(--blue-dark)' }}>
             <div className="max-w-[var(--container-max)] 3xl:max-w-none mx-auto">
-              <div className="mb-8">
+              <div className="mb-6 px-4 md:px-0">
                 <h2
                   className="text-2xl font-bold text-white mb-2"
                   style={{ fontFamily: 'var(--heading)' }}

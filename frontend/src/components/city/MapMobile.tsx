@@ -89,13 +89,20 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const onDragMove = (y: number) => {
     if (!isDragging) return;
     const dy = startYRef.current - y;
-    // Allow dragging but don't snap yet
-    const next = Math.max(COLLAPSED_HEIGHT, Math.min(openHeight, startHeightRef.current + dy));
+    // Allow dragging slightly ABOVE openHeight for the snap-to-close gesture
+    const next = Math.max(COLLAPSED_HEIGHT, Math.min(openHeight + 50, startHeightRef.current + dy));
     setSheetHeight(next);
   };
 
   const onDragEnd = () => {
     setIsDragging(false);
+    // Pulled UP even more when already open? -> Minimize (Dismiss to map)
+    if (isOpen && sheetHeight > openHeight + 10) {
+      setIsOpen(false);
+      setSheetHeight(COLLAPSED_HEIGHT);
+      return;
+    }
+
     // Binary snap logic
     if (isOpen) {
       // If pulled down far enough, close it. Otherwise snap back to open.
@@ -139,8 +146,8 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
         {/* Spacer matching the floating navbar pill height */}
         <div className="h-[var(--navbar-height,80px)]" />
 
-        {/* Filter pills — no background container, just the pills themselves */}
-        <div className="pointer-events-auto px-4 pt-2.5">
+        {/* Filter pills — aligned with navbar logo (px-10 = 40px) */}
+        <div className="pointer-events-auto px-10 pt-2.5">
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {(['infrastructure', 'traffic', 'stations', 'terrain', 'intersections', 'accidents'] as const)
               .filter(id => isModeAvailable(id))

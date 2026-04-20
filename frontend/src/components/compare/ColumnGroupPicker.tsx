@@ -5,43 +5,34 @@ type GroupId = 'Infraestructura' | 'Servicio Bici' | 'Ayuntamiento';
 
 interface ColumnGroupPickerProps {
   groups: ColumnGroup[];
-  expanded: Set<GroupId>;
-  onToggle: (groupId: GroupId) => void;
+  activeGroup: GroupId;
+  onSelect: (groupId: GroupId) => void;
 }
 
 export const ColumnGroupPicker: React.FC<ColumnGroupPickerProps> = ({
   groups,
-  expanded,
-  onToggle,
+  activeGroup,
+  onSelect,
 }) => {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-      {/* Base pill - read-only indicator */}
-      <div
-        className="shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 text-white/60 text-xs font-semibold opacity-50 cursor-default"
-      >
-        <span>Base</span>
-      </div>
-
-      {/* Group pills */}
+    <div className="flex border-b border-white/10">
       {groups.map((group) => {
-        const isExpanded = expanded.has(group.id);
+        const isActive = group.id === activeGroup;
         return (
           <button
             key={group.id}
-            onClick={() => onToggle(group.id)}
+            onClick={() => onSelect(group.id)}
             className={`
-              shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-full
-              text-white text-xs font-semibold transition-all duration-200
-              ${
-                isExpanded
-                  ? 'bg-white/20 text-white'
-                  : 'bg-white/10 text-white/60 hover:bg-white/15'
-              }
+              flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-semibold
+              relative transition-colors duration-200 select-none
+              ${isActive ? 'text-white' : 'text-white/40 hover:text-white/60'}
             `}
           >
-            <group.icon size={14} />
+            <group.icon size={12} />
             <span>{group.label}</span>
+            {isActive && (
+              <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-full bg-[var(--green-light)]" />
+            )}
           </button>
         );
       })}
