@@ -5,12 +5,12 @@ import { useThresholds } from '../../ThresholdsContext';
 import { fetchTraffic, fetchEdgeRoutes } from '../../../../../services/api';
 import type * as GeoJSON from 'geojson';
 
-const LAYER_ID      = 'traffic-layer';
-const SOURCE_ID     = 'edges-source';
+const LAYER_ID = 'traffic-layer';
+const SOURCE_ID = 'edges-source';
 const TRACES_SOURCE = 'route-traces-source';
-const TRACES_LAYER  = 'route-traces-layer';
-const OD_SOURCE     = 'route-od-source';
-const OD_LAYER      = 'route-od-layer';
+const TRACES_LAYER = 'route-traces-layer';
+const OD_SOURCE = 'route-od-source';
+const OD_LAYER = 'route-od-layer';
 
 interface TrafficLayerProps {
     submode: string;
@@ -62,9 +62,9 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const { map, city } = useMap();
     const { setThresholds } = useThresholds();
 
-    const popupRef    = useRef<maplibregl.Popup | null>(null);
-    const stickyRef   = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
-    const submodeRef  = useRef<string>(submode);
+    const popupRef = useRef<maplibregl.Popup | null>(null);
+    const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
+    const submodeRef = useRef<string>(submode);
     const trafficDataRef = useRef<Map<number, number>>(new Map());
     const routeInfoRef = useRef<HTMLElement | null>(null);
 
@@ -73,10 +73,10 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     // --- Overlay helpers ---
     const clearOverlay = useCallback(() => {
         if (!map) return;
-        if (map.getLayer(TRACES_LAYER))  map.removeLayer(TRACES_LAYER);
+        if (map.getLayer(TRACES_LAYER)) map.removeLayer(TRACES_LAYER);
         if (map.getSource(TRACES_SOURCE)) map.removeSource(TRACES_SOURCE);
-        if (map.getLayer(OD_LAYER))      map.removeLayer(OD_LAYER);
-        if (map.getSource(OD_SOURCE))    map.removeSource(OD_SOURCE);
+        if (map.getLayer(OD_LAYER)) map.removeLayer(OD_LAYER);
+        if (map.getSource(OD_SOURCE)) map.removeSource(OD_SOURCE);
     }, [map]);
 
     const renderOverlay = useCallback((geojson: GeoJSON.FeatureCollection, mode: string) => {
@@ -93,7 +93,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     'heatmap-opacity': 0.72,
                     'heatmap-color': [
                         'interpolate', ['linear'], ['heatmap-density'],
-                        0,   'rgba(68,1,84,0)',
+                        0, 'rgba(68,1,84,0)',
                         0.2, '#3b528b',
                         0.4, '#21908c',
                         0.6, '#5ec962',
@@ -153,8 +153,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     // --- Mount: show layer, hide others ---
     useEffect(() => {
         if (!map) return;
-        if (map.getLayer(LAYER_ID))           map.setLayoutProperty(LAYER_ID, 'visibility', 'visible');
-        if (map.getLayer('stations-layer'))   map.setLayoutProperty('stations-layer', 'visibility', 'none');
+        if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'visible');
+        if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', 'none');
         if (map.getLayer('bike-paths-layer')) map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
         return () => {
             if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
@@ -189,7 +189,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             const counts = trafficData.map(t => t.trip_count).sort((a, b) => a - b);
             if (counts.length > 0) {
                 setThresholds({
-                    q5:  counts[Math.floor(counts.length * 0.05)],
+                    q5: counts[Math.floor(counts.length * 0.05)],
                     q50: counts[Math.floor(counts.length * 0.5)],
                     q95: counts[Math.floor(counts.length * 0.95)],
                     max: Math.max(...counts),
@@ -258,14 +258,14 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
         map.on('mouseenter', LAYER_ID, onMouseEnter);
         map.on('mouseleave', LAYER_ID, onMouseLeave);
-        map.on('click',      LAYER_ID, onClick);
-        map.on('click',               onMapClick);
+        map.on('click', LAYER_ID, onClick);
+        map.on('click', onMapClick);
 
         return () => {
             map.off('mouseenter', LAYER_ID, onMouseEnter);
             map.off('mouseleave', LAYER_ID, onMouseLeave);
-            map.off('click',      LAYER_ID, onClick);
-            map.off('click',               onMapClick);
+            map.off('click', LAYER_ID, onClick);
+            map.off('click', onMapClick);
             popup.remove();
         };
     }, [map, loadRoutes, clearOverlay, doDeselect]); // eslint-disable-line react-hooks/exhaustive-deps
