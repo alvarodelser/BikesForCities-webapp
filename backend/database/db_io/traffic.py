@@ -85,14 +85,16 @@ def upsert_edge_traffic_for_city(
         rows = cur.rowcount
         print(f"   ✅ Upserted {rows} edge-traffic records.")
 
-        # Enable traffic mode flag
+        # Update traffic flag: enable only if enough edges have data
+        from .cities import TRAFFIC_MIN_EDGES
         cur.execute(
             """
             INSERT INTO city_modes (city_id, traffic)
-            VALUES (%s, TRUE)
-            ON CONFLICT (city_id) DO UPDATE SET traffic = TRUE
+            SELECT %(id)s, (COUNT(*) >= %(min)s)
+            FROM edge_traffic WHERE city_id = %(id)s
+            ON CONFLICT (city_id) DO UPDATE SET traffic = EXCLUDED.traffic
             """,
-            (city_id,),
+            {'id': city_id, 'min': TRAFFIC_MIN_EDGES},
         )
 
 

@@ -111,6 +111,7 @@ def upsert_stations(conn, rows: List[Tuple]) -> int:
     """Bulk upsert stations."""
     if not rows:
         return 0
+    from .cities import STATIONS_MIN_COUNT
     with conn.cursor() as cur:
         execute_values(
             cur,
@@ -137,6 +138,18 @@ def upsert_stations(conn, rows: List[Tuple]) -> int:
             rows,
             template="(%s,%s,%s,%s,%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),4326),%s,%s,%s,%s)",
         )
+        # Update stations mode flag for each affected city
+        city_ids = {row[0] for row in rows}
+        for cid in city_ids:
+            cur.execute(
+                """
+                INSERT INTO city_modes (city_id, stations)
+                SELECT %(id)s, (COUNT(*) >= %(min)s)
+                FROM stations WHERE city_id = %(id)s AND merged_into_id IS NULL
+                ON CONFLICT (city_id) DO UPDATE SET stations = EXCLUDED.stations
+                """,
+                {'id': cid, 'min': STATIONS_MIN_COUNT},
+            )
     return len(rows)
 
 

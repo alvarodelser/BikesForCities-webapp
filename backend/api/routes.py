@@ -25,7 +25,7 @@ from .dependencies import (
 from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
     count_routes, count_features, get_nodes, get_edges, get_features,
-    get_stations, has_traffic, get_edge_traffic, get_latest_traffic_month,
+    get_stations, get_edge_traffic, get_latest_traffic_month,
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_routes,
     get_paginated_features, get_paginated_stations,
@@ -61,11 +61,9 @@ async def list_networks(conn=Depends(get_db_connection)):
                     "max_lon": max_lon
                 }
 
-            has_traffic_data = has_traffic(conn, city_id)
-
             available_modes = {
                 "infrastructure": bool(infra),
-                "traffic": bool(has_traffic_data),
+                "traffic": bool(traffic),
                 "accidents": bool(accidents),
                 "terrain": bool(topo),
                 "intersections": bool(inter),
@@ -114,11 +112,10 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             raise HTTPException(status_code=404, detail="City not found")
         
         bounds_dict = get_city_bounds(conn, city_id)
-        has_traffic_data = has_traffic(conn, city_id)
-        
+
         available_modes = {
             "infrastructure": bool(city_dict.get("infrastructure")),
-            "traffic": bool(has_traffic_data),
+            "traffic": bool(city_dict.get("traffic")),
             "accidents": bool(city_dict.get("accidents")),
             "terrain": bool(city_dict.get("topography")),
             "intersections": bool(city_dict.get("intersections")),
