@@ -59,8 +59,11 @@ const AboutPage: React.FC = () => {
                 comparables y reproducibles. Toda la metodología es abierta y está documentada.
               </p>
               <p className="text-base leading-relaxed" style={{ color: 'color-mix(in srgb, var(--black) 75%, transparent)' }}>
-                El equipo está formado por investigadores, diseñadores y urbanistas apasionados por la movilidad
-                sostenible, convencidos de que mejores datos llevan a mejores políticas.
+                Soy Álvaro, investigador apasionado por la movilidad urbana.
+                Creé <strong>BikesForCities</strong> convencido de que la bicicleta tiene el potencial de transformar completamente
+                nuestras ciudades, y de que eso empieza por invertir en infraestructura basada en datos. Cuento con el apoyo
+                de una red de investigadores, creativos y urbanistas que comparten esa visión y
+                contribuyen a que el proyecto crezca.
               </p>
             </div>
           </div>
