@@ -151,7 +151,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
     <div className="relative h-dvh w-full overflow-hidden">
       {/* ── MAP LAYER (full screen) ── */}
       <div className="absolute inset-0 z-0">
-        <CityMap city={city} selectedColor={selectedColor} />
+        <CityMap city={city} selectedColor={selectedColor} bottomOffset={sheetHeight} />
       </div>
 
       {/* ── TOP OVERLAY: just the filter pills, no container ── */}

@@ -19,10 +19,11 @@ const Spinner: React.FC<SpinnerProps> = ({
   style, 
   color = '#027A76' 
 }) => {
-  // Default size w-16 h-16 if no className provided
+  // Default size w-24 h-24 if no className provided
   const finalClassName = className !== undefined
     ? className
-    : `w-16 h-16`;
+    : `w-24 h-24`;
+
 
   return (
     <div className={finalClassName} style={style}>

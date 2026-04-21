@@ -11,10 +11,18 @@ import { commonLegendItems } from './modes/common';
  *
  * On mobile, collapses to an icon-button with a glass popover to save space.
  */
-export default function CityLegend() {
+interface CityLegendProps {
+    bottomOffset?: number;
+    defaultOpen?: boolean;
+}
+
+export default function CityLegend({ bottomOffset = 0, defaultOpen }: CityLegendProps) {
     const { mode } = useMapState();
     const { isMobile } = useViewport();
     const [open, setOpen] = useState(() => {
+        // If defaultOpen is explicitly provided (e.g. from props), use it.
+        // Otherwise, fallback to localStorage or true.
+        if (defaultOpen !== undefined) return defaultOpen;
         const saved = localStorage.getItem('bfc_legend_open');
         return saved !== null ? saved === 'true' : true;
     });
@@ -62,7 +70,11 @@ export default function CityLegend() {
     );
 
     return (
-        <div ref={rootRef} className={`absolute ${isMobile ? 'bottom-6 left-6' : 'bottom-8 left-8'} z-20`}>
+        <div 
+            ref={rootRef} 
+            className={`absolute ${isMobile ? 'left-6' : 'bottom-8 left-8'} z-20`}
+            style={isMobile ? { bottom: `${bottomOffset + 12}px` } : {}}
+        >
             {/* Legend Content Box */}
             <div 
                 className={`

@@ -86,6 +86,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             bearing: city.angle || 0,
             dragRotate: false,
             scrollZoom: true,
+            cooperativeGestures: true,
             pitchWithRotate: false,
             attributionControl: false,
         });

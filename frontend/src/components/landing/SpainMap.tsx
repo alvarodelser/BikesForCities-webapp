@@ -35,17 +35,19 @@ const getCityCoordinates = (cities: CityData[]): CityCoordinates[] => {
 // Constants for Canary Islands transformation
 const CANARY_PROV_CODES = ["35", "38"];
 const CANARY_LAT_OFFSET = 7.5;
-const CANARY_LON_OFFSET = 0;
+const CANARY_LON_OFFSET_DESKTOP = 1.5;
+const CANARY_LON_OFFSET_MOBILE = 2.5; // Moved right for mobile as requested
 
 /**
  * Transforms coordinates for Canary Islands to move them closer to the mainland.
  */
-const transformCanaryCoords = (lon: number, lat: number, codProv?: string): [number, number] => {
+const transformCanaryCoords = (lon: number, lat: number, isMobile: boolean, codProv?: string): [number, number] => {
+  const lonOffset = isMobile ? CANARY_LON_OFFSET_MOBILE : CANARY_LON_OFFSET_DESKTOP;
   if (codProv && CANARY_PROV_CODES.includes(codProv)) {
-    return [lon + CANARY_LON_OFFSET, lat + CANARY_LAT_OFFSET];
+    return [lon + lonOffset, lat + CANARY_LAT_OFFSET];
   }
   if (!codProv && lat < 30) {
-    return [lon + CANARY_LON_OFFSET, lat + CANARY_LAT_OFFSET];
+    return [lon + lonOffset, lat + CANARY_LAT_OFFSET];
   }
   return [lon, lat];
 };
@@ -54,14 +56,14 @@ const transformCanaryCoords = (lon: number, lat: number, codProv?: string): [num
  * Deeply transforms all coordinates in a GeoJSON geometry.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const transformGeometry = (geometry: any, codProv: string) => {
+const transformGeometry = (geometry: any, isMobile: boolean, codProv: string) => {
   if (!geometry || !geometry.coordinates) return;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const transform = (coords: any) => {
     if (!Array.isArray(coords)) return;
     if (coords.length === 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
-      const [shiftedLon, shiftedLat] = transformCanaryCoords(coords[0], coords[1], codProv);
+      const [shiftedLon, shiftedLat] = transformCanaryCoords(coords[0], coords[1], isMobile, codProv);
       coords[0] = shiftedLon;
       coords[1] = shiftedLat;
     } else {
@@ -72,25 +74,33 @@ const transformGeometry = (geometry: any, codProv: string) => {
   transform(geometry.coordinates);
 };
 
+// Cache for the raw GeoJSON data to avoid redundant fetches
+let cachedRawGeoJSON: any = null;
+
 // Load Spain provinces GeoJSON data
-const loadSpainGeoJSON = async () => {
+const loadSpainGeoJSON = async (isMobile: boolean) => {
   try {
-    const response = await fetch(spainGeoJSON);
-    if (response.ok) {
-      const data = await response.json();
-      if (data && data.features) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        data.features.forEach((feature: any) => {
-          const codProv = feature.properties?.cod_prov;
-          if (CANARY_PROV_CODES.includes(codProv)) {
-            transformGeometry(feature.geometry, codProv);
-          }
-        });
+    if (!cachedRawGeoJSON) {
+      const response = await fetch(spainGeoJSON);
+      if (!response.ok) {
+        throw new Error(`Failed to load GeoJSON: ${response.status}`);
       }
-      return data;
-    } else {
-      throw new Error(`Failed to load GeoJSON: ${response.status}`);
+      cachedRawGeoJSON = await response.json();
     }
+
+    // Always work on a fresh clone to apply correct transformation for current viewport
+    const data = JSON.parse(JSON.stringify(cachedRawGeoJSON));
+
+    if (data && data.features) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data.features.forEach((feature: any) => {
+        const codProv = feature.properties?.cod_prov;
+        if (CANARY_PROV_CODES.includes(codProv)) {
+          transformGeometry(feature.geometry, isMobile, codProv);
+        }
+      });
+    }
+    return data;
   } catch (error) {
     console.error('Error loading Spain GeoJSON:', error);
     throw error;
@@ -224,10 +234,10 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const { width, height } = size;
     if (!width || !height) return null;
     const scale = Math.min(width, height) * 4;
-    
+
     // Displace Spain to the right on mobile (approx 10% of width) for better framing
     const xOffset = isMobile ? width * 0.12 : 0;
-    
+
     return d3.geoMercator()
       .center([-3.5, 40])
       .scale(scale)
@@ -236,7 +246,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
 
   // Load GeoJSON data
   useEffect(() => {
-    loadSpainGeoJSON()
+    loadSpainGeoJSON(isMobile)
       .then(data => {
         setGeoData(data);
         setError(null);
@@ -244,7 +254,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .catch(err => {
         setError(err.message || 'Failed to load map data');
       });
-  }, []);
+  }, [isMobile]);
 
   // Draw base map shape via D3, scoped to g.map-base to avoid wiping React pins
   useEffect(() => {
@@ -334,6 +344,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
             const [shiftedLon, shiftedLat] = transformCanaryCoords(
               city.coordinates[0],
               city.coordinates[1],
+              isMobile,
             );
             const p = projection([shiftedLon, shiftedLat]);
             if (!p) return null;

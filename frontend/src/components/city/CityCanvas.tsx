@@ -268,7 +268,8 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
             pitch: 0,
             bearing: city.angle || 0,
             dragRotate: false,
-            scrollZoom: false,
+            scrollZoom: true,
+            cooperativeGestures: true,
             pitchWithRotate: false
         });
 
@@ -277,7 +278,6 @@ const CityCanvas = forwardRef<CityCanvasHandle, CityCanvasProps>(({
         mapInstance.on('load', () => {
             // Hard-lock rotation, pitch and scroll-zoom to ensure no accidental changes
             mapInstance.dragRotate.disable();
-            mapInstance.scrollZoom.disable();
             mapInstance.touchZoomRotate.disableRotation();
             mapInstance.touchPitch.disable();
             mapInstance.keyboard.disableRotation();

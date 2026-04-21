@@ -17,6 +17,7 @@ import { MAP_MODES } from '../../constants/mapModes';
 interface CityMapProps {
     city: CityData;
     selectedColor?: string;
+    bottomOffset?: number;
 }
 
 const modeLabels: Record<string, string> = {
@@ -46,7 +47,7 @@ const getColorScheme = (colorVar: string) => {
  * - Renders the header chrome, canvas, legend, and controls
  * - Holds NO mode/metric state — all derived from URL via useMapState
  */
-const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }) => {
+const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0 }) => {
     const { mode } = useMapState();
     const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
@@ -153,7 +154,10 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT, above pull-up sheet */}
                     {isMobile && (
-                        <div className="absolute bottom-[150px] right-4 z-20">
+                        <div 
+                            className="absolute right-4 z-20 transition-all duration-300"
+                            style={{ bottom: `${bottomOffset + 12}px` }}
+                        >
                             <MapControls colorScheme={colorScheme} vertical />
                         </div>
                     )}
@@ -172,7 +176,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)' }
                     </div>
 
                     {/* Legend — floats over canvas */}
-                    <CityLegend />
+                    <CityLegend bottomOffset={bottomOffset} defaultOpen={!isMobile ? true : false} />
                 </div>
             </ThresholdsContext.Provider>
         </MapContext.Provider>

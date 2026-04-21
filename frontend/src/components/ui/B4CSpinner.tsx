@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react';
 
 // ─── Animation constants ───────────────────────────────────────────────────────
 const GRAVITY = 320;   // canvas-px / s² — scaled for visible swing
-const ARM2_LEN = 100;   // bicycle pendulum arm length (canvas px)
+const ARM2_LEN = 30;    // bicycle pendulum arm length (canvas px)
 const DAMPING = 0.998;
 const SUBSTEPS = 20;
 const WHEEL_SPEED = 3.2;   // constant wheel spin (rad/s), independent of physics
@@ -13,10 +13,11 @@ const PARA_SPEED = 2.4;           // rad/s — full swing ≈ 2.6 s
 
 // ─── SVG → canvas geometry ────────────────────────────────────────────────────
 const VBW = 210, VBH = 297;
-const LOGO_H = 220;
+const LOGO_H = 70;
 const LOGO_W = LOGO_H * (VBW / VBH);
-const SX = LOGO_W / VBW;   // ≈ 0.741 (uniform with SY)
+const SX = LOGO_W / VBW;   // ≈ 0.235 (uniform with SY)
 const SY = LOGO_H / VBH;
+
 
 const APEX_VB = { x: 102, y: 15 };
 const ATTACH_VB = { x: 102, y: 136 };
