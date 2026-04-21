@@ -1,0 +1,79 @@
+[
+    {
+        "id": "ign-geoespacial",
+        "title": "IGN – Centro de Descargas",
+        "description": "Instituto Geográfico Nacional. Datos geoespaciales oficiales de España: cartografía base, modelos digitales del terreno, redes viarias y límites administrativos. Fuente de referencia para análisis espacial de infraestructura ciclista.",
+        "tag": "Geografía",
+        "link": {
+            "label": "centrodedescargas.cnig.es",
+            "url": "https://centrodedescargas.cnig.es"
+        },
+        "variant": "yellow"
+    },
+    {
+        "id": "pnoa-lidar",
+        "title": "PNOA LiDAR – IGN",
+        "description": "Nube de puntos LiDAR de cobertura nacional del Plan Nacional de Ortofotografía Aérea. Permite analizar pendientes, obstáculos y calidad del terreno a lo largo de rutas ciclistas con alta precisión altimétrica.",
+        "tag": "Geografía",
+        "link": {
+            "label": "centrodedescargas.cnig.es/LiDAR",
+            "url": "https://centrodedescargas.cnig.es/CentroDescargas/catalogo.do?Serie=PNLIE"
+        },
+        "variant": "yellow"
+    },
+    {
+        "id": "densidad-poblacion",
+        "title": "Densidad de Población – INE / GEOSTAT",
+        "description": "Datos de densidad de población a nivel de rejilla (1km²) del INE en colaboración con Eurostat/GEOSTAT. Permiten cruzar densidad urbana con disponibilidad de infraestructura ciclista a escala sub-municipal.",
+        "tag": "Demografía",
+        "link": {
+            "label": "ine.es/geostat",
+            "url": "https://www.ine.es/ss/Satellite?L=es_ES&c=Page&cid=1259944137702&p=1259944137702&pagename=ProductosYServicios/PYSLayout"
+        },
+        "variant": "yellow"
+    },
+    {
+        "id": "ine",
+        "title": "INE – Instituto Nacional de Estadística",
+        "description": "Fuente oficial de estadística pública española. Usamos datos del Padrón Municipal para obtener población por municipio, densidad demográfica y estructura de edad, variables clave para normalizar el uso de infraestructura ciclista.",
+        "tag": "Demografía",
+        "link": {
+            "label": "ine.es",
+            "url": "https://www.ine.es"
+        },
+        "variant": "yellow"
+    },
+    {
+        "id": "mitma",
+        "title": "MITMA – Datos de Movilidad",
+        "description": "El Ministerio de Transportes publica estudios de movilidad de alta resolución a partir de datos de telefonía móvil. Permiten analizar patrones de desplazamiento entre municipios y comparar la cuota modal de la bicicleta.",
+        "tag": "Movilidad",
+        "link": {
+            "label": "transportes.gob.es",
+            "url": "https://www.transportes.gob.es/ministerio/proyectos-singulares/estudios-de-movilidad-con-big-data"
+        },
+        "variant": "yellow"
+    },
+    {
+        "id": "datos-gob-es",
+        "title": "datos.gob.es – Catálogo Nacional de Datos Abiertos",
+        "description": "Portal nacional de datos abiertos de la Administración General del Estado. Agrega conjuntos de datos de ministerios, comunidades autónomas y entidades locales, con conjuntos relevantes sobre movilidad, urbanismo y medio ambiente.",
+        "tag": "Geografía",
+        "link": {
+            "label": "datos.gob.es",
+            "url": "https://datos.gob.es"
+        },
+        "variant": "yellow"
+    },
+    {
+        "id": "bcn-open-data",
+        "title": "Open Data BCN",
+        "description": "Portal de datos abiertos del Ayuntamiento de Barcelona. Incluye datos del sistema Bicing, infraestructura ciclista, accidentalidad y movilidad urbana, útiles para comparativas con otras ciudades españolas.",
+        "tag": "Movilidad",
+        "link": {
+            "label": "opendata-ajuntament.barcelona.cat",
+            "url": "https://opendata-ajuntament.barcelona.cat"
+        },
+        "variant": "yellow"
+    }
+]

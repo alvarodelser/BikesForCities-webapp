@@ -1,0 +1,158 @@
+[
+  {
+    "id": "od1",
+    "title": "Estrategia Estatal por la Bicicleta",
+    "subtitle": "MITMA – Ministerio de Transportes, Movilidad y Agenda Urbana",
+    "description": "Primera hoja de ruta nacional aprobada por el Consejo de Ministros (junio 2021) para fomentar la bicicleta en España en todos sus ámbitos: movilidad cotidiana, ocio, deporte, turismo e industria. Establece cinco áreas prioritarias con horizonte 2025 y crea la Oficina General de la Bicicleta como órgano coordinador.",
+    "tag": 2021,
+    "link": {
+      "label": "MITMA – PDF oficial",
+      "url": "https://www.miteco.gob.es/va/ceneam/recursos/pag-web/estrategia-estatal-bicicleta.html"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od2",
+    "title": "Ley de Movilidad Sostenible",
+    "subtitle": "Cortes Generales – Ley 9/2025 BOE núm. 291, 4 de diciembre de 2025",
+    "description": "Marco legal transversal que reconoce por primera vez la movilidad como derecho ciudadano. Regula la gobernanza multinivel, la planificación y financiación del transporte y fomento de la movilidad activa. Aprobada en el Congreso (octubre 2025) y publicada en el BOE el 4/12/2025. Clave para el desbloqueo de ~10.000 M€ de fondos NextGeneration EU.",
+    "tag": 2025,
+    "link": {
+      "label": "BOE-A-2025-24545",
+      "url": "https://www.boe.es/buscar/act.php?id=BOE-A-2025-24545"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od3",
+    "title": "Estrategia de Movilidad Segura, Sostenible y Conectada 2030",
+    "subtitle": "MITMA – Consejo de Ministros, diciembre 2021",
+    "description": "Hoja de ruta del Ministerio de Transportes para la próxima década: digitalización, descarbonización y cohesión territorial. Marco estratégico superior en el que se inscribe tanto la Estrategia Estatal por la Bicicleta como la Ley de Movilidad Sostenible.",
+    "tag": 2021,
+    "link": {
+      "label": "transportes.gob.es",
+      "url": "https://www.transportes.gob.es/el-ministerio/campanas-de-publicidad/ley-de-movilidad-sostenible-y-financiacion-del-transporte"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od4",
+    "title": "Informe de Áreas Urbanas en España",
+    "subtitle": "Ministerio de Transportes, Movilidad y Agenda Urbana",
+    "description": "Compendio estadístico sobre la delimitación y características demográficas de las áreas urbanas españolas. Referencia para contextualizar la cobertura y el tamaño de los municipios analizados.",
+    "tag": 2021,
+    "link": {
+      "label": "Estadística – PDF",
+      "url": "Areas Urbanas Informe.pdf"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od5",
+    "title": "Plan Andaluz de la Bicicleta",
+    "subtitle": "Junta de Andalucía – Consejería de Fomento",
+    "description": "Plan autonómico que proyecta ~5.200 km de vías ciclistas en redes urbana, metropolitana y autonómica. Incluye aparcamientos, intermodalidad y programas sectoriales (turismo, empleo, educación). Es el plan regional más desarrollado de España por volumen de red planificada.",
+    "tag": 2014,
+    "link": {
+      "label": "Junta de Andalucía",
+      "url": "https://www.juntadeandalucia.es/organismos/fomentoarticulaciondelterritorioyvivienda/consejeria/transparencia/planificacion-evaluacion-estadistica/planes/detalle/42993.html"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od6",
+    "title": "Estratègia Catalana de la Biciclet",
+    "subtitle": "Generalitat de Catalunya – Acord GOV/160/2019, de 5 de novembre",
+    "description": "Aprobada en noviembre de 2019, recoge más de 80 acciones para aumentar la cuota modal de la bici al 8% en desplazamientos cotidianos catalanes (de 300.000 a 600.000 viajes diarios en Barcelona). Tres ejes: movilidad cotidiana, cicloturismo, y gobernanza. Fue desarrollada con más de 300 agentes del sector.",
+    "tag": 2019,
+    "link": {
+      "label": "territori.gencat.cat",
+      "url": "https://territori.gencat.cat/ca/03_infraestructures_i_mobilitat/bicicleta/ecb2025/"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od7",
+    "title": "Plan Director de Movilidad Ciclista de Canarias",
+    "subtitle": "Gobierno de Canarias",
+    "description": "Plan director autonómico con horizonte 2025 que establece la red de vías ciclistas interurbanas e interinsulares del archipiélago, con especial atención a la conectividad entre núcleos turísticos y residenciales y la integración con el transporte público.",
+    "tag": 2018,
+    "link": {
+      "label": "Gobierno de Canarias",
+      "url": "https://www.gobiernodecanarias.org"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od8",
+    "title": "Estrategia de la Bicicleta de Aragón",
+    "subtitle": "Gobierno de Aragón",
+    "description": "Estrategia autonómica aprobada en 2017 que define las líneas de actuación para el fomento de la bicicleta como modo de transporte cotidiano y cicloturístico en el territorio aragonés, con especial foco en la conexión entre municipios rurales.",
+    "tag": 2017,
+    "link": {
+      "label": "Gobierno de Aragón",
+      "url": "https://www.aragon.es"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od9",
+    "title": "Plan Territorial Sectorial de Vías Ciclistas de Gipuzkoa",
+    "subtitle": "Diputación Foral de Gipuzkoa",
+    "description": "Instrumento de planificación provincial que establece la red principal de vías ciclistas del territorio histórico de Gipuzkoa, con criterios de diseño, priorización de inversiones y mecanismos de coordinación con los municipios. Complementado por el Plan de Gestión de la Estrategia de la Bici (2015).",
+    "tag": 2015,
+    "link": {
+      "label": "Gipuzkoa.eus",
+      "url": "https://www.gipuzkoa.eus"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od10",
+    "title": "Plan Director Ciclable de Bizkaia",
+    "subtitle": "Diputación Foral de Bizkaia",
+    "description": "Plan director provincial para la red ciclable del territorio histórico de Bizkaia, con enfoque en la intermodalidad con Metro Bilbao y Euskotren, y la conexión de los principales municipios del Gran Bilbao con las vías ciclistas rurales.",
+    "tag": 2016,
+    "link": {
+      "label": "Bizkaia.eus",
+      "url": "https://www.bizkaia.eus"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od11",
+    "title": "Estrategia de la Bici de La Rioja",
+    "subtitle": "Gobierno de La Rioja",
+    "description": "Estrategia autonómica aprobada en 2022 con propuestas de la Asociación de Empresas de la Bici (AEA). Define una red de vías ciclistas que conecta los principales municipios riojanos aprovechando la infraestructura de las vías verdes existentes.",
+    "tag": 2022,
+    "link": {
+      "label": "Gobierno de La Rioja",
+      "url": "https://www.larioja.org"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od12",
+    "title": "Plan Director de Movilidad Ciclista de Madrid",
+    "subtitle": "Ayuntamiento de Madrid",
+    "description": "Plan referente para la ciudad de Madrid, aprobado originalmente en 2008 y revisado en 2016 por gea21 desde una perspectiva de uso inclusivo. Propone una Red Básica de Vías Ciclistas de 575 km conectando barrios y generadores de desplazamiento. Documento aún vigente, aunque con cumplimiento parcial según colectivos ciclistas.",
+    "tag": 2016,
+    "link": {
+      "label": "Ayuntamiento de Madrid",
+      "url": "https://www.madrid.es/portales/munimadrid/es/Inicio/Movilidad-y-transportes/Oficina-de-la-bici/Revision-y-actualizacion-del-Plan-Director-de-Movilidad-Ciclista/"
+    },
+    "variant": "green"
+  },
+  {
+    "id": "od13",
+    "title": "Plan Director para el Fomento del Transporte en Bicicleta de Sevilla",
+    "subtitle": "Ayuntamiento de Sevilla",
+    "description": "El plan municipal más influyente de España: impulsó la transformación de Sevilla de ciudad sin infraestructura ciclista a referente europeo con más de 180 km de carril bici en tres años. Estudiado internacionalmente como modelo de transformación urbana rápida. Complementado por el PMUS Sevilla 2030.",
+    "tag": 2007,
+    "link": {
+      "label": "Ayuntamiento de Sevilla",
+      "url": "https://www.urbanismosevilla.org/areas/sostenibilidad-innovacion/sevilla-en-bici"
+    },
+    "variant": "green"
+  }
+]

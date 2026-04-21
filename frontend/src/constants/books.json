@@ -1,0 +1,74 @@
+[
+  {
+    "id": "b1",
+    "title": "Movement: How to Take Back Our Streets and Transform Our Lives",
+    "subtitle": "Thalia Verkade · Marco te Brömmelstroet",
+    "description": "Una periodista y el 'Cycling Professor' de la Universidad de Ámsterdam narran un viaje de tres años para desmontar los supuestos del urbanismo centrado en el coche. Exploran quién posee las calles, qué lenguaje usamos para describirlas y cómo los Países Bajos —con sus contradicciones— pueden inspirar al resto del mundo.",
+    "tag": 2022,
+    "link": { "label": "ISBN 9781911344971", "url": "https://islandpress.org/books/movement" },
+    "variant": "red"
+  },
+  {
+    "id": "b2",
+    "title": "Ciudad Digital: Conectividad y (Des)Aceleración",
+    "subtitle": "Fernando Villatoro Hernández (coord.)",
+    "description": "Colección Ciudad 2030, Catarata. Explora la intersección entre digitalización y vida urbana: gobernanza algorítmica, movilidad de cuidados, nomadismo digital y aceleración del tiempo en la ciudad. Propone modelos de gobernanza más democráticos y sostenibles.",
+    "tag": 2024,
+    "link": { "label": "ISBN 9788413529219", "url": "https://www.catarata.org/libro/ciudad-digital_150546/" },
+    "variant": "red"
+  },
+  {
+    "id": "b3",
+    "title": "Bikenomics: How Bicycling Can Save the Economy",
+    "subtitle": "Elly Blue",
+    "description": "Desmonta el mito de que la bicicleta es cara o marginal: analiza los costes reales del transporte en coche para familias y ciudades, y documenta cómo invertir en infraestructura ciclista genera retornos económicos, de salud y de comunidad. Lectura clave para justificar inversión pública en movilidad activa.",
+    "tag": 2013,
+    "link": { "label": "ISBN 9781621062400", "url": "https://microcosmpublishing.com/catalog/books/4418/" },
+    "variant": "red"
+  },
+  {
+    "id": "b4",
+    "title": "Walkable City: How Downtown Can Save America, One Step at a Time",
+    "subtitle": "Jeff Speck",
+    "description": "El urbanista Jeff Speck argumenta que el factor más determinante para el éxito de una ciudad es su caminabilidad. Desmonta política de aparcamiento, diseño de carriles y velocidad del tráfico con datos. Complementa bien el análisis de infraestructura ciclista: lo que funciona para peatones suele funcionar para ciclistas.",
+    "tag": 2012,
+    "link": { "label": "ISBN 9780374285814", "url": "https://us.macmillan.com/books/9780374710071/walkablecity" },
+    "variant": "red"
+  },
+  {
+    "id": "b5",
+    "title": "Copenhagenize: The Definitive Guide to Global Bicycle Urbanism",
+    "subtitle": "Mikael Colville-Andersen",
+    "description": "El consultor de movilidad que acuñó el término 'copenhagenización' sistematiza 20 años de trabajo en 60 ciudades. Analiza por qué algunas políticas ciclistas funcionan y otras no, con foco en diseño urbano, comportamiento modal y comunicación. Referencia directa para comparativas entre ciudades europeas.",
+    "tag": 2018,
+    "link": { "label": "ISBN 9781610918794", "url": "https://islandpress.org/books/copenhagenize" },
+    "variant": "red"
+  },
+  {
+    "id": "b6",
+    "title": "Building the Cycling City: The Dutch Blueprint for Urban Vitality",
+    "subtitle": "Melissa Bruntlett · Chris Bruntlett",
+    "description": "Una pareja canadiense se muda a los Países Bajos y documenta las decisiones políticas, de diseño y culturales que hicieron posible el milagro ciclista holandés. Aporta el contrafactual comparativo necesario para evaluar por qué ciudades como Madrid o Barcelona siguen rezagadas.",
+    "tag": 2018,
+    "link": { "label": "ISBN 9781610919258", "url": "https://islandpress.org/books/building-cycling-city" },
+    "variant": "red"
+  },
+  {
+    "id": "b7",
+    "title": "Streetfight: Handbook for an Urban Revolution",
+    "subtitle": "Janette Sadik-Khan · Seth Solomonow",
+    "description": "La excomisaria de transporte de Nueva York narra cómo transformó radicalmente las calles de la ciudad —carriles bici, plazas peatonales, BRT— contra la resistencia política. Manual práctico de cambio institucional que habla directamente al nexo entre presupuesto municipal, decisión política e infraestructura.",
+    "tag": 2016,
+    "link": { "label": "ISBN 9780143128977", "url": "https://www.penguinrandomhouse.com/books/318388/streetfight-by-janette-sadik-khan-and-seth-solomonow/" },
+    "variant": "red"
+  },
+  {
+    "id": "b8",
+    "title": "Happy City: Transforming Our Lives Through Urban Design",
+    "subtitle": "Charles Montgomery",
+    "description": "Investiga la relación entre forma urbana y bienestar psicológico. Integra neurociencia, economía del comportamiento y urbanismo para argumentar que las ciudades diseñadas para el coche generan estrés, aislamiento y desigualdad. Contextualiza bien por qué la movilidad activa no es solo eficiencia sino salud pública.",
+    "tag": 2013,
+    "link": { "label": "ISBN 9780141047171", "url": "https://www.penguin.co.uk/books/182137/happy-city-by-montgomery-charles/9780141047171" },
+    "variant": "red"
+  }
+]

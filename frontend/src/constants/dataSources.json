@@ -1,0 +1,101 @@
+[
+  {
+    "id": "osm",
+    "title": "OpenStreetMap",
+    "description": "Mapa colaborativo del mundo mantenido por una gran comunidad de voluntarios. Extraemos la infraestructura ciclista —carriles bici, caminos y rutas dedicadas— directamente de las geometrías OSM.",
+    "tag": "Geografía",
+    "link": {
+      "label": "openstreetmap.org",
+      "url": "https://openstreetmap.org"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "madrid-datos-abiertos",
+    "title": "Madrid Datos Abiertos",
+    "description": "Portal de datos abiertos del Ayuntamiento de Madrid. Incluye información sobre el sistema público de bicicletas BiciMAD, registros históricos de viajes, estaciones y registro de accidentes. Resulta clave para validar nuestras estimaciones de trayectos.",
+    "tag": "Movilidad",
+    "link": {
+      "label": "datos.madrid.es",
+      "url": "https://datos.madrid.es"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "citybikes",
+    "title": "CityBikes",
+    "description": "API abierta que agrega datos de sistemas de bicicleta pública de todo el mundo. Utilizamos el histórico de viajes por estación para analizar patrones de uso y demanda a lo largo del tiempo.",
+    "tag": "Movilidad",
+    "link": {
+      "label": "api.citybik.es",
+      "url": "https://api.citybik.es"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "hacienda-conprel",
+    "title": "Ministerio de Hacienda",
+    "description": "CONPREL es la base de datos de liquidaciones presupuestarias de entidades locales del Ministerio de Hacienda. Fuente primaria de los presupuestos municipales españoles: desglose de gastos por programa, capítulo y municipio.",
+    "tag": "Finanzas",
+    "link": {
+      "label": "hacienda.gob.es",
+      "url": "https://www.hacienda.gob.es/es-ES/Areas%20Tematicas/Administracion%20Electronica/OVEELL/Paginas/LiquidacionesEENNLL.aspx"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "gobierto",
+    "title": "Gobierto",
+    "description": "Visualizador de presupuestos municipales españoles que consume datos de CONPREL (Ministerio de Hacienda). Usamos sus datos procesados para correlacionar inversión en movilidad ciclista con resultados de infraestructura.",
+    "tag": "Finanzas",
+    "link": {
+      "label": "gobierto.es",
+      "url": "https://gobierto.es"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "placsp",
+    "title": "Portal de Contratación Pública",
+    "description": "PLACSP es la plataforma oficial del Estado para la contratación del sector público. Consultamos licitaciones y contratos adjudicados relacionados con obra ciclista e infraestructura de movilidad sostenible para correlacionarlos con inversión real ejecutada.",
+    "tag": "Finanzas",
+    "link": {
+      "label": "contrataciondelestado.es",
+      "url": "https://contrataciondelestado.es"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "infoelectoral",
+    "title": "Ministerio del Interior",
+    "description": "Resultados electorales oficiales de elecciones municipales en España. Extraemos composición de gobiernos locales, partido del alcalde y distribución de concejales para analizar si el color político correlaciona con la inversión ciclista.",
+    "tag": "Política",
+    "link": {
+      "label": "infoelectoral.interior.gob.es",
+      "url": "https://infoelectoral.interior.gob.es/es/elecciones-celebradas/resultados-electorales/"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "wikidata",
+    "title": "Wikidata",
+    "description": "Base de conocimiento estructurado y abierto de la Fundación Wikimedia. Consultamos vía SPARQL datos municipales como alcalde en ejercicio, población oficial y datos demográficos básicos para enriquecer el perfil de cada ciudad.",
+    "tag": "Demografía",
+    "link": {
+      "label": "wikidata.org",
+      "url": "https://www.wikidata.org"
+    },
+    "variant": "yellow"
+  },
+  {
+    "id": "google-news",
+    "title": "Google News",
+    "description": "API de búsqueda de noticias de Google. La utilizamos para rastrear cobertura mediática sobre infraestructura ciclista en cada municipio, como indicador indirecto de relevancia política y social del tema.",
+    "tag": "Medios",
+    "link": {
+      "label": "developers.google.com/news",
+      "url": "https://developers.google.com/news"
+    },
+    "variant": "yellow"
+  }
+]

@@ -1,0 +1,350 @@
+[
+  {
+    "id": "r2",
+    "title": "Análisis del concepto Smart City y la visión de los expertos en España",
+    "subtitle": "Baucells Aletà, N. · Arce Ruiz, R. M.",
+    "description": "Estudia la percepción de profesionales sobre las iniciativas Smart en ciudades españolas, destacando retos de movilidad y sostenibilidad.",
+    "tag": 2016,
+    "link": {
+      "label": "Investigación",
+      "url": "Analisis Concepto Smart City.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r3",
+    "title": "Comparative analysis of national open data portals",
+    "subtitle": "Nikiforova, A. · McBride, K.",
+    "description": "Evaluación de 41 portales de datos abiertos gubernamentales enfocada en usabilidad, calidad de metadatos y compromiso ciudadano.",
+    "tag": 2021,
+    "link": {
+      "label": "DOI: 10.1016/j.tele.2021.101539",
+      "url": "Analysis of open portals.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r4",
+    "title": "There's no such thing as cycle traffic",
+    "subtitle": "Egan, R. · Caulfield, B.",
+    "description": "Análisis del discurso sobre la oposición pública a infraestructuras ciclistas y la persistencia de la hegemonía del coche en Irlanda.",
+    "tag": 2024,
+    "link": {
+      "label": "DOI: 10.1016/j.jcmr.2024.100014",
+      "url": "Analysis of opposition to pro-cycle planning.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r6",
+    "title": "Short-term planning to promote cycling in Barcelona",
+    "subtitle": "Braun, L. M. · Rodriguez, D. A. · et al.",
+    "description": "Estudio sobre la elección del modo de transporte al trabajo en Barcelona, analizando el impacto de carriles bici y el sistema Bicing.",
+    "tag": 2016,
+    "link": {
+      "label": "DOI: 10.1016/j.tra.2016.05.007",
+      "url": "Barcelona commute choices.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r7",
+    "title": "The health and economic benefits of active transport in Barcelona",
+    "subtitle": "Pérez, K. · Olabarria, M. · et al.",
+    "description": "Calcula el ahorro económico y la reducción de mortalidad logrados por las políticas de movilidad activa de Barcelona entre 2009 y 2013.",
+    "tag": 2017,
+    "link": {
+      "label": "DOI: 10.1016/j.jth.2017.01.001",
+      "url": "Benefits Active Transport Barcelona.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r8",
+    "title": "Use and Promotion of Bicycles for Sustainable Urban Mobility: Bizkaia",
+    "subtitle": "Monteagudo, M. J. · Villatoro, F. · et al.",
+    "description": "Analiza retos y acciones estratégicas para la expansión de la bicicleta en Bizkaia basada en la visión de expertos locales.",
+    "tag": 2025,
+    "link": {
+      "label": "DOI: 10.3390/su17031147",
+      "url": "Bizkaia bicycles.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r9",
+    "title": "Effective interventions to reduce car use in European cities",
+    "subtitle": "Kuss, P. · Nicholas, K. A.",
+    "description": "Revisión sistemática de 12 tipos de intervenciones urbanas que han logrado reducir el tráfico de automóviles en Europa.",
+    "tag": 2022,
+    "link": {
+      "label": "DOI: 10.1016/j.cstp.2022.02.001",
+      "url": "Case Studies on Transport Policy.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r10",
+    "title": "Cost benefit analysis of active travel interventions",
+    "subtitle": "Chapman, R. · et al.",
+    "description": "Estudio del retorno social de la inversión en infraestructura ciclista considerando beneficios climáticos y de salud.",
+    "tag": 2018,
+    "link": {
+      "label": "DOI: 10.3390/ijerph15050962",
+      "url": "Cost benefit of active travel.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r11",
+    "title": "Comparing the cost of cars and bicycles in Copenhagen",
+    "subtitle": "Gössling, S. · Choi, A. S.",
+    "description": "Análisis comparativo de los costes externos de la automovilidad frente a la bicicleta, demostrando el beneficio social del ciclismo.",
+    "tag": 2015,
+    "link": {
+      "label": "DOI: 10.1016/j.ecolecon.2015.03.006",
+      "url": "Cost of Cars and Bicycles.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r12",
+    "title": "Data-driven micromobility network planning for Turin",
+    "subtitle": "Folco, P. · Gauvin, L. · et al.",
+    "description": "Propone un modelo de planificación de infraestructuras que combina datos de demanda de patinetes y siniestralidad ciclista.",
+    "tag": 2022,
+    "link": {
+      "label": "arXiv: 2203.14619",
+      "url": "Data-driven micromobility network planning for demand and safety.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r13",
+    "title": "Demand-driven design of bicycle infrastructure networks",
+    "subtitle": "Steinacker, C. · Storch, D.-M. · et al.",
+    "description": "Algoritmo de optimización de redes ciclistas basado en la demanda urbana, aplicado a Hamburgo y otras ciudades globales.",
+    "tag": 2022,
+    "link": {
+      "label": "DOI: 10.1038/s43588-022-00318-w",
+      "url": "Demand-driven design of bicycle infrastructure networks.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r15",
+    "title": "Estimating city-wide hourly bicycle flow using Deep Learning",
+    "subtitle": "Myhrmann, M. S. · Mabit, S. E.",
+    "description": "Predicción de flujos de ciclistas a escala de ciudad mediante modelos LSTM para mejorar la seguridad vial urbana.",
+    "tag": 2021,
+    "link": {
+      "label": "Paper",
+      "url": "Estimating city-wide hourly bicycle ow using a hybrid LSTM.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r16",
+    "title": "Optimal Cycling Infrastructure Development in Europe",
+    "subtitle": "Key Studies: Análisis de Beneficio-Coste",
+    "description": "Estudios sobre rentabilidad de infraestructuras en Zúrich, diseño robusto en Copenhague y equidad en Utrecht.",
+    "tag": 2025,
+    "link": {
+      "label": "Recurso",
+      "url": "Infrastructure Development_Key Studies.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r17",
+    "title": "Spatial and social dimensions of shared bicycle use in Las Palmas",
+    "subtitle": "Maas, S. · Attard, M. · et al.",
+    "description": "Investigación sobre el perfil de usuario del sistema Sítycleta y la accesibilidad equitativa al transporte compartido.",
+    "tag": 2020,
+    "link": {
+      "label": "DOI: 10.1016/j.tra.2020.08.003",
+      "url": "Las Palmas analyis.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r19",
+    "title": "Low emission zones: uptake of AFV and fleet CO2 emissions",
+    "subtitle": "Peters, J. F. · Burguillo, M. · et al.",
+    "description": "Analiza cómo la implantación de Madrid Central impulsó la compra de vehículos eléctricos e híbridos y redujo emisiones.",
+    "tag": 2021,
+    "link": {
+      "label": "DOI: 10.1016/j.trd.2021.102882",
+      "url": "Low Emissions Zone.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r20",
+    "title": "Active transportation investments and associated fiscal benefits",
+    "subtitle": "Kornas, K. · Bornbaum, C. · et al.",
+    "description": "Revisión de beneficios económicos para presupuestos municipales derivados de infraestructuras activas (empleo, valor inmobiliario).",
+    "tag": 2017,
+    "link": {
+      "label": "DOI: 10.1080/01441647.2016.1252446",
+      "url": "Mobility Budget Benefits review.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r21",
+    "title": "Overcoming the Barriers of Using Linked Open Data",
+    "subtitle": "Conde, J. · Munoz-Arcentales, A. · et al.",
+    "description": "Arquitectura de herramientas FIWARE y CKAN para estandarizar datos de movilidad inteligente en ciudades inteligentes.",
+    "tag": 2022,
+    "link": {
+      "label": "IEEE",
+      "url": "Ontologies for Smart Cities Apps.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r22",
+    "title": "Cost Analysis of Bicycle Facilities: Cases from Portland",
+    "subtitle": "Weigand, L. · McNeil, N. · Dill, J.",
+    "description": "Referencia técnica detallada sobre los costes de construcción de ciclovías, carriles protegidos y estacionamientos en Portland.",
+    "tag": 2013,
+    "link": {
+      "label": "Reporte",
+      "url": "Portland.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r23",
+    "title": "Robust design of bicycle infrastructure networks",
+    "subtitle": "Steinacker, C. · Paulsen, M. · Schröder, M. · Rich, J.",
+    "description": "Propone modelos de optimización robustos para redes de 'supercarreteras' ciclistas en Copenhague frente a incertidumbres.",
+    "tag": 2025,
+    "link": {
+      "label": "DOI: 10.1038/s41598-025-99976-9",
+      "url": "Robust design of bicycle infrastructure networks.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r24",
+    "title": "Effect of network connectivity on the risk of cycling: Seville",
+    "subtitle": "Marqués, R. · Hernández-Herrador, V.",
+    "description": "Demuestra que la creación de una red conectada de carriles bici en Sevilla redujo drásticamente el riesgo de accidentes.",
+    "tag": 2017,
+    "link": {
+      "label": "DOI: 10.1016/j.aap.2017.03.017",
+      "url": "Sevilla safe tracks.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r25",
+    "title": "Ontological Representation of Smart City Data",
+    "subtitle": "Espinoza-Arias, P. · Poveda-Villalón, M. · et al.",
+    "description": "Investigación sobre ontologías de ciudades inteligentes para facilitar la interoperabilidad entre diversos sistemas de datos urbanos.",
+    "tag": 2018,
+    "link": {
+      "label": "DOI: 10.3390/app9010032",
+      "url": "Smart cities ontologies.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r26",
+    "title": "Sustainable Urban Mobility: Key Studies",
+    "subtitle": "Resumen de evidencias en salud y transporte",
+    "description": "Evidencias sobre por qué los beneficios para la salud del transporte activo superan con creces los riesgos asociados.",
+    "tag": 2025,
+    "link": {
+      "label": "Recurso",
+      "url": "Sustainable Urban Mobility_Key Studies.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r27",
+    "title": "The Bicycle Network Improvement Problem",
+    "subtitle": "Lim, J. · Dalmeijer, K. · et al.",
+    "description": "Marco de optimización matemática para priorizar mejoras en redes ciclistas minimizando el coste de implementación y la distancia de viaje.",
+    "tag": 2022,
+    "link": {
+      "label": "Estudio",
+      "url": "The Bicycle Network Improvement Problem.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r28",
+    "title": "Citizen Participation Platforms and digital Transport Governance",
+    "subtitle": "Hansson, L. · et al.",
+    "description": "Revisión sobre portales de datos abiertos y canales informales de participación ciudadana en el transporte europeo.",
+    "tag": 2025,
+    "link": {
+      "label": "Gobernanza",
+      "url": "Transport Governance Platforms_Key Studies.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r29",
+    "title": "Methodology to estimate unsafe vehicle-cyclist passings",
+    "subtitle": "Mehta, K. · Mehran, B. · Hellinga, B.",
+    "description": "Modelo para cuantificar eventos peligrosos de adelantamiento en arterias urbanas basado en flujos de tráfico.",
+    "tag": 2019,
+    "link": {
+      "label": "DOI: 10.1016/j.aap.2018.12.009",
+      "url": "Unsafe passings estimation.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r30",
+    "title": "Using Metaheuristics for the Location of Bicycle Stations",
+    "subtitle": "Cintrano, C. · Chicano, F. · Alba, E.",
+    "description": "Optimización de la ubicación de estaciones de bicicletas públicas en Málaga mediante algoritmos inspirados en la naturaleza.",
+    "tag": 2024,
+    "link": {
+      "label": "Metaheurísticas",
+      "url": "Using Metaheuristics for the Location of Bicycle Stations.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r31",
+    "title": "Data-driven dashboards for smart city decision-making",
+    "subtitle": "Matheus, R. · Janssen, M. · et al.",
+    "description": "Estudio sobre cómo los paneles de control de Big Data empoderan al público y mejoran la rendición de cuentas en el transporte.",
+    "tag": 2020,
+    "link": {
+      "label": "DOI: 10.1016/j.giq.2020.101284",
+      "url": "data-dashboards for transparency.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r32",
+    "title": "Health impact assessment of cycling network expansions",
+    "subtitle": "Mueller, N. · Rojas-Rueda, D. · et al.",
+    "description": "Evaluación del impacto en salud en 167 ciudades europeas, estimando beneficios por el incremento masivo del ciclismo.",
+    "tag": 2018,
+    "link": {
+      "label": "DOI: 10.1016/j.ypmed.2017.12.011",
+      "url": "health impact of cycling networks.pdf"
+    },
+    "variant": "blue"
+  },
+  {
+    "id": "r33",
+    "title": "Regional bike network connectivity tool",
+    "subtitle": "Gehrke, S. R. · Akhavan, A. · et al.",
+    "description": "Introduce el algoritmo CRANC para modelar cambios en la accesibilidad regional según perfiles de ciclistas y estrés de tráfico.",
+    "tag": 2020,
+    "link": {
+      "label": "DOI: 10.1016/j.trd.2020.102388",
+      "url": "regional cyle connectivity.pdf"
+    },
+    "variant": "blue"
+  }
+]
