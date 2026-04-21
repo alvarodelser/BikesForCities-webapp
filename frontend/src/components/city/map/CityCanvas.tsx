@@ -170,19 +170,15 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     'line-width': [
                         'case',
                         ['==', ['feature-state', 'selected'], true], 5,
-                        3,
+                        1.5,
                     ],
+                    // TrafficLayer.setPaintProperty replaces color+opacity with percentile-based expressions after data loads
                     'line-color': [
                         'case',
                         ['==', ['feature-state', 'selected'], true], '#f0c040',
-                        ['!=', ['feature-state', 'trip_count'], null],
-                        [
-                            'interpolate', ['linear'], ['feature-state', 'trip_count'],
-                            0, '#edf8e9', 10, '#c7e9c0', 50, '#a1d99b', 100, '#74c476',
-                            500, '#41ab5d', 1000, '#238b45', 5000, '#005a32',
-                        ],
                         '#edf8e9',
                     ],
+                    'line-opacity': 0,
                 },
             });
 

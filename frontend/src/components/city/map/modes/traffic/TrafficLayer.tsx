@@ -58,6 +58,34 @@ function buildEdgePopupDOM(
     return container;
 }
 
+// Builds a MapLibre color expression: P5→lightest green, P50→mid, P95+→dark (clamped).
+function buildColorExpr(q5: number, q50: number, q95: number): unknown[] {
+    const s1 = Math.max(q5, 0);
+    const s2 = Math.max(q50, s1 + 1);
+    const s3 = Math.max(q95, s2 + 1);
+    return [
+        'case',
+        ['==', ['feature-state', 'selected'], true], '#f0c040',
+        ['interpolate', ['linear'],
+            ['coalesce', ['feature-state', 'trip_count'], 0],
+            s1, '#edf8e9',
+            s2, '#74c476',
+            s3, '#005a32',
+        ],
+    ];
+}
+
+// Edges below P5 (and no-data edges) are hidden; selected edges always visible.
+function buildOpacityExpr(q5: number): unknown[] {
+    const s1 = Math.max(q5, 0);
+    return [
+        'case',
+        ['==', ['feature-state', 'selected'], true], 1,
+        ['>=', ['coalesce', ['feature-state', 'trip_count'], -1], s1], 1,
+        0,
+    ];
+}
+
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const { map, city } = useMap();
     const { setThresholds } = useThresholds();
@@ -188,13 +216,14 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             trafficDataRef.current = dataMap;
             const counts = trafficData.map(t => t.trip_count).sort((a, b) => a - b);
             if (counts.length > 0) {
-                setThresholds({
-                    q5: counts[Math.floor(counts.length * 0.05)],
-                    q50: counts[Math.floor(counts.length * 0.5)],
-                    q95: counts[Math.floor(counts.length * 0.95)],
-                    max: Math.max(...counts),
-                    min: Math.min(...counts),
-                });
+                const q5  = counts[Math.floor(counts.length * 0.05)];
+                const q50 = counts[Math.floor(counts.length * 0.5)];
+                const q95 = counts[Math.floor(counts.length * 0.95)];
+                setThresholds({ q5, q50, q95, max: Math.max(...counts), min: Math.min(...counts) });
+                if (map.getLayer(LAYER_ID)) {
+                    map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
+                    map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
+                }
             }
         }).catch(err => console.error('Failed to load traffic:', err));
         return () => { cancelled = true; };
