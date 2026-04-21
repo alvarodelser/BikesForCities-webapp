@@ -216,5 +216,20 @@
         "raster": "south_spain",
         "wikidata_id": "Q5836",
         "ine_code": "45168"
+    },
+    "Girona": {
+        "name": "Girona",
+        "modes": [
+            "infrastructure",
+            "stations"
+        ],
+        "longitude": 2.49074,
+        "latitude": 41.596466,
+        "angle": 0,
+        "population": 100000,
+        "raster": "north_spain",
+        "citybikes_network_id": "girocleta",
+        "wikidata_id": "Q7038",
+        "ine_code": "17079"
     }
 }
