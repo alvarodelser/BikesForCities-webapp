@@ -52,18 +52,8 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             container: mapContainer.current,
             style: {
                 version: 8,
-                name: 'Dark',
+                name: 'Clean',
                 sources: {
-                    'carto-nolabels': {
-                        type: 'raster',
-                        tiles: [
-                            'https://a.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
-                            'https://b.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
-                            'https://c.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
-                        ],
-                        tileSize: 256,
-                        attribution: '© CARTO',
-                    },
                     'carto-labels': {
                         type: 'raster',
                         tiles: [
@@ -72,10 +62,11 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                             'https://c.basemaps.cartocdn.com/rastertiles/light_only_labels/{z}/{x}/{y}@2x.png',
                         ],
                         tileSize: 256,
+                        attribution: '© CARTO',
                     },
                 },
                 layers: [
-                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19 },
+                    { id: 'background', type: 'background', paint: { 'background-color': '#f0ece7' } } as any,
                 ],
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
@@ -106,11 +97,12 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                 minzoom: 0, maxzoom: 19, layout: { visibility: 'none' },
             });
 
-            // Martin vector tile source
+            // Martin vector tile source — maxzoom 14 so MapLibre overzooms cached tiles
+            // rather than requesting new tiles at every zoom, reducing Martin server pressure
             mapInstance.addSource('martin-features', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/features/{z}/{x}/{y}`],
-                minzoom: 0, maxzoom: 22,
+                minzoom: 0, maxzoom: 14,
             });
 
             // Static background layers (shared across all modes)
@@ -157,7 +149,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             mapInstance.addSource('edges-source', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/edges/{z}/{x}/{y}`],
-                minzoom: 0, maxzoom: 22,
+                minzoom: 0, maxzoom: 14,
                 promoteId: 'id',
             });
             mapInstance.addLayer({
