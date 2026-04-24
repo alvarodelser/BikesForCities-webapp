@@ -116,12 +116,16 @@ CREATE TABLE IF NOT EXISTS city_budgets (
     UNIQUE(city_id, year)
 );
 
-CREATE TABLE IF NOT EXISTS budget_lines (
+-- Detailed budget lines for functional expenses
+CREATE TABLE IF NOT EXISTS city_budget (
     id SERIAL PRIMARY KEY,
-    budget_id INTEGER REFERENCES city_budgets(id) ON DELETE CASCADE,
+    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    year INTEGER NOT NULL,
+    budget_type VARCHAR(16) NOT NULL, -- 'planned' or 'executed'
+    category_code TEXT NOT NULL,      -- e.g., '134', '1341'
     category_name TEXT NOT NULL,
-    line_type VARCHAR(16) NOT NULL,
-    amount BIGINT NOT NULL
+    amount BIGINT NOT NULL,
+    UNIQUE(city_id, year, budget_type, category_code)
 );
 
 CREATE TABLE IF NOT EXISTS nodes (
@@ -158,36 +162,86 @@ CREATE TABLE IF NOT EXISTS edges (
     UNIQUE(u, v, k)                                 -- enforce unique edge per MultiDiGraph
 );
 
-CREATE TABLE IF NOT EXISTS routes (
-    id SERIAL PRIMARY KEY,
-    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
-    id_trip TEXT NOT NULL,
-    origin_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
-    dest_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
-    strategy TEXT NOT NULL,              -- e.g., 'shortest', 'map_matched'
-    trip_minutes DOUBLE PRECISION,
+-- ── Trips ──────────────────────────────────────────────────────────────────
+-- One row per demand record: a real observed trip or a modelled O-D pair.
+-- generation_type distinguishes the source of the demand:
+--   'real'                 – recorded from a bike-share service (e.g. BiciMAD)
+--   'station_based'        – synthetic, generated from station inbound/outbound flows
+--   'buildings_population' – synthetic, generated from building footprints + pop density
+CREATE TABLE IF NOT EXISTS trips (
+    id              SERIAL PRIMARY KEY,
+    city_id         INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    id_trip         TEXT NOT NULL UNIQUE,
+    origin_node     BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
+    dest_node       BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
+    trip_minutes    DOUBLE PRECISION,
     datetime_unlock TIMESTAMP,
-    datetime_lock TIMESTAMP,
-    id_bike BIGINT,
-    processed BOOLEAN DEFAULT FALSE,
+    datetime_lock   TIMESTAMP,
+    id_bike         BIGINT,
+    generation_type TEXT NOT NULL
+                    CHECK (generation_type IN ('real','station_based','buildings_population')),
+    created_at      TIMESTAMP DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_trips_city_id         ON trips(city_id);
+CREATE INDEX IF NOT EXISTS idx_trips_generation_type ON trips(generation_type);
+
+-- ── Paths ──────────────────────────────────────────────────────────────────
+-- One row per unique computed path (edge sequence between two graph nodes).
+-- algorithm identifies how the path was computed:
+--   'shortest'    – Dijkstra shortest path; deduplicated per (city, origin, dest)
+--   'map_matched' – GPS track map-matched to the graph; one path per trip
+CREATE TABLE IF NOT EXISTS paths (
+    id          SERIAL PRIMARY KEY,
+    city_id     INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    origin_node BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
+    dest_node   BIGINT REFERENCES nodes(id) ON DELETE CASCADE,
+    algorithm   TEXT NOT NULL
+);
+-- Shortest paths are deduplicated: one canonical path per (city, origin, dest).
+-- Map-matched paths are NOT subject to this constraint (each GPS track is unique).
+CREATE UNIQUE INDEX IF NOT EXISTS paths_shortest_uq
+    ON paths(city_id, origin_node, dest_node)
+    WHERE algorithm = 'shortest';
+CREATE INDEX IF NOT EXISTS idx_paths_city_id ON paths(city_id);
+
+-- ── Path edges ─────────────────────────────────────────────────────────────
+-- Ordered edge sequence for each path (no per-trip duplication).
+CREATE TABLE IF NOT EXISTS path_edges (
+    path_id    INTEGER REFERENCES paths(id) ON DELETE CASCADE,
+    edge_id    INTEGER REFERENCES edges(id) ON DELETE CASCADE,
+    edge_order INTEGER NOT NULL,
+    PRIMARY KEY (path_id, edge_order)
+);
+CREATE INDEX IF NOT EXISTS idx_path_edges_edge_id ON path_edges(edge_id);
+
+-- ── Path nodes ─────────────────────────────────────────────────────────────
+-- Ordered node sequence for each path; enables efficient node-level traffic queries
+-- (e.g. "how many trips pass through intersection X?") with a single index scan.
+CREATE TABLE IF NOT EXISTS path_nodes (
+    path_id    INTEGER REFERENCES paths(id) ON DELETE CASCADE,
+    node_id    BIGINT  REFERENCES nodes(id) ON DELETE CASCADE,
+    node_order INTEGER NOT NULL,
+    PRIMARY KEY (path_id, node_order)
+);
+CREATE INDEX IF NOT EXISTS idx_path_nodes_node_id ON path_nodes(node_id);
+
+-- ── Routes ─────────────────────────────────────────────────────────────────
+-- Join table: links each trip to the path that was computed for it.
+-- path_id is NULL for trips that have not yet been routed.
+-- The routing algorithm is determined by paths.algorithm (not stored here).
+-- UNIQUE(trip_id, path_id) prevents routing the same trip to the same path twice.
+CREATE TABLE IF NOT EXISTS routes (
+    id         SERIAL PRIMARY KEY,
+    city_id    INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    trip_id    INTEGER REFERENCES trips(id) ON DELETE CASCADE,
+    path_id    INTEGER REFERENCES paths(id) ON DELETE SET NULL,
+    processed  BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW(),
-    UNIQUE (id_trip, strategy)
+    UNIQUE (trip_id, path_id)
 );
-
-
-CREATE TABLE IF NOT EXISTS route_nodes ( -- Separate table for efficient queries
-    id SERIAL PRIMARY KEY,
-    route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
-    node_order INTEGER,
-    node_id BIGINT REFERENCES nodes(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS route_edges ( -- Separate table for efficient queries
-    id SERIAL PRIMARY KEY,
-    route_id INTEGER REFERENCES routes(id) ON DELETE CASCADE,
-    edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE,
-    edge_order INTEGER
-);
+CREATE INDEX IF NOT EXISTS idx_routes_city_id ON routes(city_id);
+CREATE INDEX IF NOT EXISTS idx_routes_trip_id ON routes(trip_id);
+CREATE INDEX IF NOT EXISTS idx_routes_path_id ON routes(path_id);
 
 -- OSM Features table
 CREATE TABLE IF NOT EXISTS features (
@@ -246,7 +300,6 @@ CREATE INDEX IF NOT EXISTS idx_nodes_network_id ON nodes(city_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_geom ON nodes USING GIST(geom);
 CREATE INDEX IF NOT EXISTS idx_edges_network_id ON edges(city_id);
 CREATE INDEX IF NOT EXISTS idx_edges_geom ON edges USING GIST(geom);
-CREATE INDEX IF NOT EXISTS idx_routes_network_id ON routes(city_id);
 CREATE INDEX IF NOT EXISTS idx_features_network_type ON features(city_id, feature_type);  -- Combined filtering
 
 
@@ -265,30 +318,39 @@ CREATE TABLE IF NOT EXISTS accidents (
     id               SERIAL PRIMARY KEY,
     city_id          INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     accident_id      TEXT NOT NULL,              -- num_expediente (original ID)
-    accident_date    DATE,
-    accident_time    TIME,
+    timestamp        TIMESTAMPTZ,
     street           TEXT,
     street_number    TEXT,
     district         TEXT,
     accident_type    TEXT,
     weather          TEXT,
-    -- Location (converted from UTM ETRS89 zone 30N / EPSG:25830)
-    lat              DOUBLE PRECISION,
-    lon              DOUBLE PRECISION,
+    -- Location
     geom             GEOMETRY(Point, 4326),
+    closest_edge_id  INTEGER REFERENCES edges(id) ON DELETE SET NULL,
     -- Aggregated person counts (from all rows sharing same num_expediente)
     total_involved   INTEGER DEFAULT 0,
     injured          INTEGER DEFAULT 0,          -- lesividad not in (sin asistencia, ileso, se desconoce)
     killed           INTEGER DEFAULT 0,          -- lesividad = muerto
     cyclists_involved INTEGER DEFAULT 0,         -- tipo_vehiculo contains 'bici'
     pedestrians_involved INTEGER DEFAULT 0,      -- tipo_persona = peaton/peatón
-    year             INTEGER,
     source           TEXT DEFAULT 'madrid_open_data',
     UNIQUE (city_id, accident_id)
 );
 
+CREATE TABLE IF NOT EXISTS accident_participants (
+    id               SERIAL PRIMARY KEY,
+    accident_db_id   INTEGER REFERENCES accidents(id) ON DELETE CASCADE,
+    person_type      TEXT,    -- tipo_persona
+    age_range        TEXT,    -- rango_edad
+    sex              TEXT,    -- sexo
+    vehicle_type     TEXT,    -- tipo_vehiculo
+    injury_status    TEXT,    -- lesividad
+    injury_code      INTEGER  -- cod_lesividad
+);
+
 CREATE INDEX IF NOT EXISTS idx_accidents_city_id ON accidents(city_id);
 CREATE INDEX IF NOT EXISTS idx_accidents_geom    ON accidents USING GIST(geom);
-CREATE INDEX IF NOT EXISTS idx_accidents_date    ON accidents(accident_date);
-CREATE INDEX IF NOT EXISTS idx_accidents_year    ON accidents(year);
+CREATE INDEX IF NOT EXISTS idx_accidents_timestamp ON accidents(timestamp);
+CREATE INDEX IF NOT EXISTS idx_accidents_closest_edge ON accidents(closest_edge_id);
+CREATE INDEX IF NOT EXISTS idx_participants_accident_id ON accident_participants(accident_db_id);
 

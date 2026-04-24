@@ -376,15 +376,11 @@ def put_city_budgets(
     conn,
     city_id: int,
     year: int,
-    total_income: int,
-    total_expenses: int,
-    public_debt: int,
-    lines_list: List[dict],
+    total_income: Optional[int] = None,
+    total_expenses: Optional[int] = None,
+    public_debt: Optional[int] = None,
 ) -> int:
-    """
-    Upsert a yearly city budget and replace its breakdown lines.
-    lines_list: list of dicts {'category_name', 'line_type': 'INCOME'|'EXPENSE', 'amount'}
-    """
+    """Upsert a yearly city budget summary."""
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -392,27 +388,50 @@ def put_city_budgets(
             VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (city_id, year)
             DO UPDATE SET
-                total_income   = EXCLUDED.total_income,
-                total_expenses = EXCLUDED.total_expenses,
-                public_debt    = EXCLUDED.public_debt
+                total_income   = COALESCE(EXCLUDED.total_income, city_budgets.total_income),
+                total_expenses = COALESCE(EXCLUDED.total_expenses, city_budgets.total_expenses),
+                public_debt    = COALESCE(EXCLUDED.public_debt, city_budgets.public_debt)
             RETURNING id
             """,
             (city_id, year, total_income, total_expenses, public_debt),
         )
-        budget_id = cur.fetchone()[0]
-        cur.execute("DELETE FROM budget_lines WHERE budget_id = %s", (budget_id,))
-        if lines_list:
-            args_str = ",".join(
-                cur.mogrify(
-                    "(%s,%s,%s,%s)",
-                    (budget_id, line["category_name"], line["line_type"], line["amount"]),
-                ).decode("utf-8")
-                for line in lines_list
-            )
-            cur.execute(
-                f"INSERT INTO budget_lines (budget_id, category_name, line_type, amount) VALUES {args_str}"
-            )
-    return budget_id
+        return cur.fetchone()[0]
+
+
+def put_city_budget_lines(
+    conn,
+    city_id: int,
+    year: int,
+    budget_type: str,
+    lines_df: pd.DataFrame,
+):
+    """
+    Bulk insert functional budget lines for a city/year/type.
+    lines_df columns: ['category_code', 'category_name', 'amount']
+    """
+    if lines_df.empty:
+        return
+        
+    with conn.cursor() as cur:
+        # Clear existing lines for this city/year/type before re-ingesting
+        cur.execute(
+            "DELETE FROM city_budget WHERE city_id = %s AND year = %s AND budget_type = %s",
+            (city_id, year, budget_type)
+        )
+        
+        args = [
+            (city_id, year, budget_type, str(row["category_code"]), row["category_name"], int(row["amount"]))
+            for _, row in lines_df.iterrows()
+        ]
+        
+        execute_values(
+            cur,
+            """
+            INSERT INTO city_budget (city_id, year, budget_type, category_code, category_name, amount)
+            VALUES %s
+            """,
+            args
+        )
 
 
 TRAFFIC_MIN_EDGES   = 50   # minimum rows in edge_traffic to enable traffic mode
@@ -472,19 +491,20 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
                 cb.total_expenses,
                 cb.public_debt,
                 COALESCE(
-                    json_agg(
+                    (SELECT json_agg(
                         json_build_object(
-                            'category_name', bl.category_name,
-                            'line_type', bl.line_type,
-                            'amount', bl.amount
+                            'category_code', cb_lines.category_code,
+                            'category_name', cb_lines.category_name,
+                            'amount', cb_lines.amount,
+                            'budget_type', cb_lines.budget_type
                         )
-                    ) FILTER (WHERE bl.id IS NOT NULL),
+                    ) FROM city_budget cb_lines
+                      WHERE cb_lines.city_id = cb.city_id 
+                        AND cb_lines.year = cb.year),
                     '[]'::json
                 ) AS lines
             FROM city_budgets cb
-            LEFT JOIN budget_lines bl ON bl.budget_id = cb.id
             WHERE cb.city_id = %s
-            GROUP BY cb.id
             ORDER BY cb.year DESC
             """,
             (city_id,),
