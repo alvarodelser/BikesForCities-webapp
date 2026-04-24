@@ -97,12 +97,10 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                 minzoom: 0, maxzoom: 19, layout: { visibility: 'none' },
             });
 
-            // Martin vector tile source — maxzoom 14 so MapLibre overzooms cached tiles
-            // rather than requesting new tiles at every zoom, reducing Martin server pressure
             mapInstance.addSource('martin-features', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/features/{z}/{x}/{y}`],
-                minzoom: 0, maxzoom: 14,
+                minzoom: 0, maxzoom: 22,
             });
 
             // Static background layers (shared across all modes)
@@ -149,7 +147,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             mapInstance.addSource('edges-source', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/edges/{z}/{x}/{y}`],
-                minzoom: 0, maxzoom: 14,
+                minzoom: 0, maxzoom: 22,
                 promoteId: 'id',
             });
             mapInstance.addLayer({
