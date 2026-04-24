@@ -66,35 +66,18 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const [isDragging, setIsDragging] = useState(false);
   const startYRef = useRef<number>(0);
   const startHeightRef = useRef<number>(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const openHeight =
     typeof window !== 'undefined'
       ? window.innerHeight - 90 /* navbar height approx (increased by 4px to move top down) */
       : 600;
 
-  // Lock page scroll when sheet is collapsed and handle overscroll behavior
+  // Lock page scroll when sheet is collapsed
   useEffect(() => {
-    // 1. Handle overscroll behavior to prevent page refresh when tab is open
-    // and allow it only when tab is closed over the map.
-    if (isOpen) {
-      document.documentElement.style.overscrollBehaviorY = 'none';
-      document.body.style.overscrollBehaviorY = 'none';
-      document.documentElement.style.overflow = 'hidden';
-    } else {
-      document.documentElement.style.overscrollBehaviorY = 'auto';
-      document.body.style.overscrollBehaviorY = 'auto';
-      document.documentElement.style.overflow = ''; // Allow scroll/refresh on map
-    }
-
-    // 2. Binary state enforcement: snap to exact heights when not dragging
-    if (!isDragging) {
-      setSheetHeight(isOpen ? openHeight : COLLAPSED_HEIGHT);
-    }
-
+    document.documentElement.style.overflow = isOpen ? '' : 'hidden';
+    if (!isOpen && !isDragging) setSheetHeight(COLLAPSED_HEIGHT);
+    else if (isOpen && !isDragging) setSheetHeight(openHeight);
     return () => {
-      document.documentElement.style.overscrollBehaviorY = 'auto';
-      document.body.style.overscrollBehaviorY = 'auto';
       document.documentElement.style.overflow = '';
     };
   }, [isOpen, openHeight, isDragging]);
@@ -110,20 +93,35 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
     const dy = startYRef.current - y;
     const next = startHeightRef.current + dy;
 
-    // Allow dragging slightly ABOVE openHeight for visual feedback (bounce effect)
-    // but keep it within reasonable bounds.
-    setSheetHeight(Math.max(COLLAPSED_HEIGHT - 20, Math.min(openHeight + 40, next)));
+    // Direct trigger while dragging: Pulled UP significantly when already open? -> SNAP Minimize
+    if (isOpen && next > openHeight + 45) {
+      setIsDragging(false);
+      setIsOpen(false);
+      setSheetHeight(COLLAPSED_HEIGHT);
+      return;
+    }
+
+    // Allow dragging slightly ABOVE openHeight for visual feedback
+    setSheetHeight(Math.max(COLLAPSED_HEIGHT, Math.min(openHeight + 50, next)));
   };
 
   const onDragEnd = () => {
-    if (!isDragging) return;
+    if (!isDragging) return; // already snap-closed by move trigger
     setIsDragging(false);
-    
+
+    // Release trigger: Pulled UP above threshold? -> Minimize
+    if (isOpen && sheetHeight > openHeight + 15) {
+      setIsOpen(false);
+      setSheetHeight(COLLAPSED_HEIGHT);
+      return;
+    }
+
     // Binary snap logic
     if (isOpen) {
       // If pulled down far enough, close it. Otherwise snap back to open.
       if (openHeight - sheetHeight > CLOSE_THRESHOLD) {
         setIsOpen(false);
+        setSheetHeight(COLLAPSED_HEIGHT);
       } else {
         setSheetHeight(openHeight);
       }
@@ -131,6 +129,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
       // If pulled up far enough, open it. Otherwise snap back to closed.
       if (sheetHeight - COLLAPSED_HEIGHT > SNAP_THRESHOLD) {
         setIsOpen(true);
+        setSheetHeight(openHeight);
       } else {
         setSheetHeight(COLLAPSED_HEIGHT);
       }
@@ -229,29 +228,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
         {/* Scrollable sheet content — only accessible when open */}
         <div
-          ref={scrollRef}
           className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-          onTouchStart={(e) => {
-            if (scrollRef.current && scrollRef.current.scrollTop <= 0) {
-              startYRef.current = e.touches[0].clientY;
-            }
-          }}
-          onTouchMove={(e) => {
-            if (!scrollRef.current || !isOpen) return;
-            const y = e.touches[0].clientY;
-            const dy = startYRef.current - y;
-            // If at the top and pulling DOWN (dy < 0)
-            if (scrollRef.current.scrollTop <= 0 && dy < 0) {
-              if (!isDragging) {
-                setIsDragging(true);
-                startYRef.current = y;
-                startHeightRef.current = sheetHeight;
-              }
-              onDragMove(y);
-              if (e.cancelable) e.preventDefault();
-            }
-          }}
-          onTouchEnd={onDragEnd}
         >
           <div className="px-4 pt-1 pb-24">
             <MapSheetContent city={city} />
@@ -259,6 +236,20 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
         </div>
       </div>
     </div>
+  );
+};
+
+export default MapMobile;
+            }
+          }}
+onTouchEnd = { onDragEnd }
+  >
+  <div className="px-4 pt-1 pb-24">
+    <MapSheetContent city={city} />
+  </div>
+        </div >
+      </div >
+    </div >
   );
 };
 

@@ -26,10 +26,10 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
     const [mapReady, setMapReady] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const hasValidCoords = city.geoCoords && 
-                          city.geoCoords.latitude !== null && 
-                          city.geoCoords.longitude !== null &&
-                          (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
+    const hasValidCoords = city.geoCoords &&
+        city.geoCoords.latitude !== null &&
+        city.geoCoords.longitude !== null &&
+        (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
 
     // Calculate bounds based on mode (20km for infra, 50km for others)
     const bounds = useMemo(() => {
@@ -54,6 +54,16 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                 version: 8,
                 name: 'Clean',
                 sources: {
+                    'carto-nolabels': {
+                        type: 'raster',
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
+                            'https://b.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
+                            'https://c.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
+                        ],
+                        tileSize: 256,
+                        attribution: '© CARTO',
+                    },
                     'carto-labels': {
                         type: 'raster',
                         tiles: [
@@ -62,15 +72,15 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                             'https://c.basemaps.cartocdn.com/rastertiles/light_only_labels/{z}/{x}/{y}@2x.png',
                         ],
                         tileSize: 256,
-                        attribution: '© CARTO',
                     },
                 },
                 layers: [
                     { id: 'background', type: 'background', paint: { 'background-color': '#f0ece7' } } as any,
+                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'none' } } as any,
                 ],
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
-            zoom: 12,
+            zoom: 13,
             minZoom: 10,
             maxBounds: bounds || undefined,
             pitch: 0,
@@ -91,12 +101,6 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             mapInstance.touchPitch.disable();
             mapInstance.keyboard.disableRotation();
 
-            // Labels layer (off by default)
-            mapInstance.addLayer({
-                id: 'carto-labels-layer', type: 'raster', source: 'carto-labels',
-                minzoom: 0, maxzoom: 19, layout: { visibility: 'none' },
-            });
-
             mapInstance.addSource('martin-features', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/features/{z}/{x}/{y}`],
@@ -105,13 +109,13 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
 
             // Static background layers (shared across all modes)
             const baseLayers = [
-                { id: 'sea-layer',              type: 'fill', filter: ['all', ['==', ['get','feature_type'],'sea'],             ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
-                { id: 'coastline-layer',         type: 'line', filter: ['all', ['==', ['get','feature_type'],'coastline'],       ['==', ['get','city_id'], city.id as number]], paint: { 'line-color': '#a4b7ca', 'line-width': 1 } },
-                { id: 'waterways-layer',         type: 'fill', filter: ['all', ['==', ['get','feature_type'],'waterways'],      ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
-                { id: 'forest-layer',            type: 'fill', filter: ['all', ['==', ['get','feature_type'],'forest'],         ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#dde5e4' } },
-                { id: 'buildings-layer',         type: 'fill', filter: ['all', ['==', ['get','feature_type'],'buildings'],      ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
-                { id: 'bike-path-buildings-layer', type: 'fill', filter: ['all', ['==', ['get','feature_type'],'bike_path_buildings'], ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
-                { id: 'bike-paths-layer',        type: 'line', filter: ['all', ['==', ['get','feature_type'],'bike_paths'],    ['==', ['get','city_id'], city.id as number]], paint: { 'line-color': '#00cac3', 'line-width': 2 } },
+                { id: 'sea-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'sea'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
+                { id: 'coastline-layer', type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'coastline'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#a4b7ca', 'line-width': 1 } },
+                { id: 'waterways-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'waterways'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
+                { id: 'forest-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'forest'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#dde5e4' } },
+                { id: 'buildings-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'buildings'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
+                { id: 'bike-path-buildings-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'bike_path_buildings'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
+                { id: 'bike-paths-layer', type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'bike_paths'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#00cac3', 'line-width': 2 } },
             ];
 
             baseLayers.forEach(def => {
@@ -173,6 +177,13 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                 },
             });
 
+            // Labels added last so they sit on top of all geometry layers by default.
+            // toggleBackground also calls moveLayer to keep them on top after mode layers are added.
+            mapInstance.addLayer({
+                id: 'carto-labels-layer', type: 'raster', source: 'carto-labels',
+                minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' },
+            });
+
             setLoading(false);
             setMapReady(true);
             onMapInstance(mapInstance);
@@ -214,7 +225,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     </div>
                     <h3 className="text-lg font-bold text-white tracking-tight">Geographic Data Unavailable</h3>
                     <p className="text-sm text-slate-400 leading-relaxed">
-                        The coordinates for <span className="text-[var(--blue)] font-bold">{city.name}</span> are not set in the database. 
+                        The coordinates for <span className="text-[var(--blue)] font-bold">{city.name}</span> are not set in the database.
                         Run the city ingestion script to update.
                     </p>
                 </div>

@@ -83,7 +83,12 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         if (!mapInstance) return;
         const visibility = show ? 'visible' : 'none';
         if (mapInstance.getLayer('carto-base-layer')) mapInstance.setLayoutProperty('carto-base-layer', 'visibility', visibility);
-        if (mapInstance.getLayer('carto-labels-layer')) mapInstance.setLayoutProperty('carto-labels-layer', 'visibility', visibility);
+        if (mapInstance.getLayer('carto-labels-layer')) {
+            mapInstance.setLayoutProperty('carto-labels-layer', 'visibility', visibility);
+            // Re-float labels to the top of the layer stack so they render above any
+            // mode-specific layers (traffic, stations, etc.) that were added after map load.
+            if (show) mapInstance.moveLayer('carto-labels-layer');
+        }
     }, [mapInstance]);
 
     const contextValue: MapContextValue = {
@@ -154,7 +159,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT, above pull-up sheet */}
                     {isMobile && (
-                        <div 
+                        <div
                             className="absolute right-4 z-20 transition-all duration-300"
                             style={{ bottom: `${bottomOffset + 12}px` }}
                         >
