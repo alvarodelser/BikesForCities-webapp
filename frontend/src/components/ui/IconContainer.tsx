@@ -146,6 +146,16 @@ export const IconContainer = React.forwardRef<HTMLButtonElement | HTMLDivElement
       onClick,
       style,
       "aria-label": ariaLabel,
+      // Destructure these so they don't leak into 'rest' and cause DOM warnings
+      tint: _tint,
+      hoverTint: _hoverTint,
+      activeTint: _activeTint,
+      blurStrength: _blurStrength,
+      borderColor: _borderColor,
+      hoverBorderColor: _hoverBorderColor,
+      activeBorderColor: _activeBorderColor,
+      gradient: _gradient,
+      color: _color,
       ...rest
     } = props;
 

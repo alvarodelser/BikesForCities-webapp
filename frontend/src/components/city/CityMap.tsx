@@ -159,7 +159,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT, above pull-up sheet */}
                     {isMobile && (
-                        <div
+                        <div 
                             className="absolute right-4 z-20 transition-all duration-300"
                             style={{ bottom: `${bottomOffset + 12}px` }}
                         >

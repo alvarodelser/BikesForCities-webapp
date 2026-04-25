@@ -19,9 +19,7 @@ interface MapMobileProps {
   city: CityData;
 }
 
-const COLLAPSED_HEIGHT = 75; // moved 4px down (original 116)
-const SNAP_THRESHOLD = 50;
-const CLOSE_THRESHOLD = 50;
+const COLLAPSED_HEIGHT = 75;
 
 const modeColors: Record<string, string> = {
   [MAP_MODES.INFRASTRUCTURE]: 'var(--blue)',
@@ -62,76 +60,51 @@ const modeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
 export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const { mode, setMode } = useMapState();
   const [isOpen, setIsOpen] = useState(false);
-  const [sheetHeight, setSheetHeight] = useState(COLLAPSED_HEIGHT);
-  const [isDragging, setIsDragging] = useState(false);
-  const startYRef = useRef<number>(0);
-  const startHeightRef = useRef<number>(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef<number>(0);
 
   const openHeight =
     typeof window !== 'undefined'
-      ? window.innerHeight - 90 /* navbar height approx (increased by 4px to move top down) */
+      ? window.innerHeight - 90
       : 600;
 
-  // Lock page scroll when sheet is collapsed
+  const currentHeight = isOpen ? openHeight : COLLAPSED_HEIGHT;
+
+  // Lock page scroll for the mobile experience
   useEffect(() => {
-    document.documentElement.style.overflow = isOpen ? '' : 'hidden';
-    if (!isOpen && !isDragging) setSheetHeight(COLLAPSED_HEIGHT);
-    else if (isOpen && !isDragging) setSheetHeight(openHeight);
+    document.documentElement.style.overflow = 'hidden';
     return () => {
       document.documentElement.style.overflow = '';
     };
-  }, [isOpen, openHeight, isDragging]);
+  }, []);
 
-  const onDragStart = (y: number) => {
-    setIsDragging(true);
-    startYRef.current = y;
-    startHeightRef.current = sheetHeight;
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
   };
 
-  const onDragMove = (y: number) => {
-    if (!isDragging) return;
-    const dy = startYRef.current - y;
-    const next = startHeightRef.current + dy;
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const currentY = e.touches[0].clientY;
+    const dy = touchStartY.current - currentY;
 
-    // Direct trigger while dragging: Pulled UP significantly when already open? -> SNAP Minimize
-    if (isOpen && next > openHeight + 45) {
-      setIsDragging(false);
-      setIsOpen(false);
-      setSheetHeight(COLLAPSED_HEIGHT);
-      return;
-    }
-
-    // Allow dragging slightly ABOVE openHeight for visual feedback
-    setSheetHeight(Math.max(COLLAPSED_HEIGHT, Math.min(openHeight + 50, next)));
-  };
-
-  const onDragEnd = () => {
-    if (!isDragging) return; // already snap-closed by move trigger
-    setIsDragging(false);
-
-    // Release trigger: Pulled UP above threshold? -> Minimize
-    if (isOpen && sheetHeight > openHeight + 15) {
-      setIsOpen(false);
-      setSheetHeight(COLLAPSED_HEIGHT);
-      return;
-    }
-
-    // Binary snap logic
-    if (isOpen) {
-      // If pulled down far enough, close it. Otherwise snap back to open.
-      if (openHeight - sheetHeight > CLOSE_THRESHOLD) {
+    // Detect significant swipe (trigger)
+    // Swiping up (dy > 0) -> Open
+    if (!isOpen && dy > 30) {
+      setIsOpen(true);
+    } 
+    // Swiping down (dy < 0) -> Close (if at top of content)
+    else if (isOpen && dy < -30) {
+      if (contentRef.current && contentRef.current.scrollTop <= 0) {
         setIsOpen(false);
-        setSheetHeight(COLLAPSED_HEIGHT);
-      } else {
-        setSheetHeight(openHeight);
       }
-    } else {
-      // If pulled up far enough, open it. Otherwise snap back to closed.
-      if (sheetHeight - COLLAPSED_HEIGHT > SNAP_THRESHOLD) {
-        setIsOpen(true);
-        setSheetHeight(openHeight);
-      } else {
-        setSheetHeight(COLLAPSED_HEIGHT);
+    }
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!isOpen && e.deltaY > 10) {
+      setIsOpen(true);
+    } else if (isOpen && e.deltaY < -10) {
+      if (contentRef.current && contentRef.current.scrollTop <= 0) {
+        setIsOpen(false);
       }
     }
   };
@@ -148,18 +121,20 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const selectedColor = modeColors[mode] || 'var(--blue)';
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden">
+    <div 
+      className="relative h-dvh w-full overflow-hidden"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onWheel={handleWheel}
+    >
       {/* ── MAP LAYER (full screen) ── */}
       <div className="absolute inset-0 z-0">
-        <CityMap city={city} selectedColor={selectedColor} bottomOffset={sheetHeight} />
+        <CityMap city={city} selectedColor={selectedColor} bottomOffset={currentHeight} />
       </div>
 
-      {/* ── TOP OVERLAY: just the filter pills, no container ── */}
+      {/* ── TOP OVERLAY: Filter pills ── */}
       <div className="absolute top-0 inset-x-0 z-20 pointer-events-none">
-        {/* Spacer matching the floating navbar pill height */}
         <div className="h-[var(--navbar-height,80px)]" />
-
-        {/* Filter pills — aligned with navbar logo (px-10 = 40px) */}
         <div className="pointer-events-auto px-10 pt-2.5">
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {Object.values(MAP_MODES)
@@ -189,19 +164,13 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
       {/* ── BOTTOM SHEET ── */}
       <div
-        className={`absolute bottom-0 inset-x-0 z-30 bg-[var(--cream)] rounded-t-[28px] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] flex flex-col ${isDragging ? '' : 'transition-[height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]'}`}
-        style={{ height: `${sheetHeight}px` }}
+        className={`absolute bottom-0 inset-x-0 z-30 bg-[var(--cream)] rounded-t-[28px] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] flex flex-col transition-[height] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]`}
+        style={{ height: `${currentHeight}px` }}
       >
-        {/* Drag handle area — always visible, touchable */}
+        {/* Drag handle area — always visible, clickable to toggle */}
         <div
-          className="flex-shrink-0 cursor-grab active:cursor-grabbing"
-          onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
-          onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
-          onTouchEnd={onDragEnd}
-          onMouseDown={(e) => onDragStart(e.clientY)}
-          onMouseMove={(e) => onDragMove(e.clientY)}
-          onMouseUp={onDragEnd}
-          onMouseLeave={() => isDragging && onDragEnd()}
+          className="flex-shrink-0 cursor-pointer"
+          onClick={() => setIsOpen(!isOpen)}
         >
           {/* Pill */}
           <div className="flex justify-center pt-3 pb-2">
@@ -226,9 +195,10 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
           </div>
         </div>
 
-        {/* Scrollable sheet content — only accessible when open */}
+        {/* Scrollable sheet content */}
         <div
-          className={`flex-1 overflow-y-auto transition-opacity duration-200 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          ref={contentRef}
+          className={`flex-1 overflow-y-auto transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         >
           <div className="px-4 pt-1 pb-24">
             <MapSheetContent city={city} />
@@ -240,17 +210,4 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 };
 
 export default MapMobile;
-            }
-          }}
-onTouchEnd = { onDragEnd }
-  >
-  <div className="px-4 pt-1 pb-24">
-    <MapSheetContent city={city} />
-  </div>
-        </div >
-      </div >
-    </div >
-  );
-};
 
-export default MapMobile;
