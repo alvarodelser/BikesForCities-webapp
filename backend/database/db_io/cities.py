@@ -105,7 +105,10 @@ def get_all_cities(conn) -> List[Tuple]:
                 c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
-                 WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) AS budget,
+                 WHERE cb.city_id = c.id 
+                 ORDER BY year DESC, 
+                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC 
+                 LIMIT 1) AS budget,
                 (SELECT coverage FROM city_metrics cm
                  WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
                 (SELECT total_kilometers FROM city_metrics cm
@@ -168,7 +171,10 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                 c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
-                 WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) AS budget,
+                 WHERE cb.city_id = c.id 
+                 ORDER BY year DESC, 
+                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC 
+                 LIMIT 1) AS budget,
                 (SELECT coverage FROM city_metrics cm
                  WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
                 (SELECT total_kilometers FROM city_metrics cm
@@ -376,6 +382,7 @@ def put_city_budgets(
     conn,
     city_id: int,
     year: int,
+    budget_type: str = 'planned',
     total_income: Optional[int] = None,
     total_expenses: Optional[int] = None,
     public_debt: Optional[int] = None,
@@ -384,21 +391,21 @@ def put_city_budgets(
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO city_budgets (city_id, year, total_income, total_expenses, public_debt)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (city_id, year)
+            INSERT INTO city_budgets (city_id, year, budget_type, total_income, total_expenses, public_debt)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (city_id, year, budget_type)
             DO UPDATE SET
                 total_income   = COALESCE(EXCLUDED.total_income, city_budgets.total_income),
                 total_expenses = COALESCE(EXCLUDED.total_expenses, city_budgets.total_expenses),
                 public_debt    = COALESCE(EXCLUDED.public_debt, city_budgets.public_debt)
             RETURNING id
             """,
-            (city_id, year, total_income, total_expenses, public_debt),
+            (city_id, year, budget_type, total_income, total_expenses, public_debt),
         )
         return cur.fetchone()[0]
 
 
-def put_city_budget_lines(
+def put_city_budget_categories(
     conn,
     city_id: int,
     year: int,
@@ -406,7 +413,7 @@ def put_city_budget_lines(
     lines_df: pd.DataFrame,
 ):
     """
-    Bulk insert functional budget lines for a city/year/type.
+    Bulk insert functional budget categories for a city/year/type.
     lines_df columns: ['category_code', 'category_name', 'amount']
     """
     if lines_df.empty:
@@ -415,7 +422,7 @@ def put_city_budget_lines(
     with conn.cursor() as cur:
         # Clear existing lines for this city/year/type before re-ingesting
         cur.execute(
-            "DELETE FROM city_budget WHERE city_id = %s AND year = %s AND budget_type = %s",
+            "DELETE FROM city_budget_categories WHERE city_id = %s AND year = %s AND budget_type = %s",
             (city_id, year, budget_type)
         )
         
@@ -427,7 +434,7 @@ def put_city_budget_lines(
         execute_values(
             cur,
             """
-            INSERT INTO city_budget (city_id, year, budget_type, category_code, category_name, amount)
+            INSERT INTO city_budget_categories (city_id, year, budget_type, category_code, category_name, amount)
             VALUES %s
             """,
             args
@@ -493,14 +500,14 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
                 COALESCE(
                     (SELECT json_agg(
                         json_build_object(
-                            'category_code', cb_lines.category_code,
-                            'category_name', cb_lines.category_name,
-                            'amount', cb_lines.amount,
-                            'budget_type', cb_lines.budget_type
+                            'category_code', cat.category_code,
+                            'category_name', cat.category_name,
+                            'amount', cat.amount,
+                            'budget_type', cat.budget_type
                         )
-                    ) FROM city_budget cb_lines
-                      WHERE cb_lines.city_id = cb.city_id 
-                        AND cb_lines.year = cb.year),
+                    ) FROM city_budget_categories cat
+                      WHERE cat.city_id = cb.city_id 
+                        AND cat.year = cb.year),
                     '[]'::json
                 ) AS lines
             FROM city_budgets cb

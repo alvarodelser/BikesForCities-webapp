@@ -110,14 +110,15 @@ CREATE TABLE IF NOT EXISTS city_budgets (
     id SERIAL PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     year INTEGER NOT NULL,
+    budget_type VARCHAR(16) NOT NULL DEFAULT 'planned', -- 'planned' or 'executed'
     total_income BIGINT,
     total_expenses BIGINT,
     public_debt BIGINT,
-    UNIQUE(city_id, year)
+    UNIQUE(city_id, year, budget_type)
 );
 
--- Detailed budget lines for functional expenses
-CREATE TABLE IF NOT EXISTS city_budget (
+-- Detailed functional budget categories
+CREATE TABLE IF NOT EXISTS city_budget_categories (
     id SERIAL PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     year INTEGER NOT NULL,
@@ -345,8 +346,12 @@ CREATE TABLE IF NOT EXISTS accident_participants (
     sex              TEXT,    -- sexo
     vehicle_type     TEXT,    -- tipo_vehiculo
     injury_status    TEXT,    -- lesividad
-    injury_code      INTEGER  -- cod_lesividad
+    injury_code      INTEGER, -- cod_lesividad
+    alcohol_positive BOOLEAN, -- positiva_alcohol
+    drugs_positive   BOOLEAN, -- positiva_droga
+    accident_type    TEXT     -- tipo_accidente (denormalized)
 );
+
 
 CREATE INDEX IF NOT EXISTS idx_accidents_city_id ON accidents(city_id);
 CREATE INDEX IF NOT EXISTS idx_accidents_geom    ON accidents USING GIST(geom);

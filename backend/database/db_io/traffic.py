@@ -39,10 +39,13 @@ def upsert_edge_traffic_for_city(
     city_name: str,
     month_filter: Optional[date] = None,
 ):
-    """Aggregate route_edges → edge_traffic for a city.
+    """Aggregate path_edges → edge_traffic for a city.
+
+    Counts distinct trips (not path_edge rows) per edge per month, so the
+    figures reflect demand correctly regardless of path deduplication.
 
     If *month_filter* is given, only that month is (re)calculated.
-    Otherwise all months present in routes are processed.
+    Otherwise all months present in trips are processed.
     """
     print(f"🔄 Calculating traffic for {city_name} (city_id={city_id})...")
 
@@ -50,11 +53,10 @@ def upsert_edge_traffic_for_city(
     params: list = [city_id, city_id]
 
     if month_filter:
-        month_clause = "AND DATE_TRUNC('month', r.datetime_unlock) = %s"
+        month_clause = "AND DATE_TRUNC('month', t.datetime_unlock) = %s"
         params.append(month_filter)
 
     with conn.cursor() as cur:
-        # Delete existing traffic for this city (and month if filtered)
         if month_filter:
             cur.execute(
                 "DELETE FROM edge_traffic WHERE city_id = %s AND month = %s",
@@ -66,18 +68,20 @@ def upsert_edge_traffic_for_city(
         query = f"""
             INSERT INTO edge_traffic (edge_id, city_id, trip_count, month)
             SELECT
-                re.edge_id,
+                pe.edge_id,
                 e.city_id,
-                COUNT(re.route_id),
-                DATE_TRUNC('month', r.datetime_unlock)::DATE AS month
-            FROM route_edges re
-            JOIN edges  e ON re.edge_id  = e.id
-            JOIN routes r ON re.route_id = r.id
+                COUNT(r.trip_id)                                   AS trip_count,
+                DATE_TRUNC('month', t.datetime_unlock)::DATE       AS month
+            FROM routes    r
+            JOIN paths     p  ON p.id  = r.path_id
+            JOIN path_edges pe ON pe.path_id = p.id
+            JOIN trips     t  ON t.id  = r.trip_id
+            JOIN edges     e  ON e.id  = pe.edge_id
             WHERE e.city_id = %s
-              AND r.city_id = %s
+              AND t.city_id = %s
+              AND t.datetime_unlock IS NOT NULL
               {month_clause}
-              AND r.datetime_unlock IS NOT NULL
-            GROUP BY re.edge_id, e.city_id, DATE_TRUNC('month', r.datetime_unlock)
+            GROUP BY pe.edge_id, e.city_id, DATE_TRUNC('month', t.datetime_unlock)
             ON CONFLICT (edge_id, month) DO UPDATE SET
                 trip_count = EXCLUDED.trip_count
         """
@@ -85,7 +89,6 @@ def upsert_edge_traffic_for_city(
         rows = cur.rowcount
         print(f"   ✅ Upserted {rows} edge-traffic records.")
 
-        # Update traffic flag: enable only if enough edges have data
         from .cities import TRAFFIC_MIN_EDGES
         cur.execute(
             """
@@ -96,7 +99,6 @@ def upsert_edge_traffic_for_city(
             """,
             {'id': city_id, 'min': TRAFFIC_MIN_EDGES},
         )
-
 
 
 # ---------------------------------------------------------------------------

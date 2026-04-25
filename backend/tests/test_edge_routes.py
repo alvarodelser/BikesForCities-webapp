@@ -8,7 +8,7 @@ def _get_test_edge_id(conn):
     """Return an edge_id that has at least one route, or None."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT edge_id FROM route_edges LIMIT 1"
+            "SELECT edge_id FROM path_edges LIMIT 1"
         )
         row = cur.fetchone()
         return row[0] if row else None
@@ -17,7 +17,7 @@ def _get_test_edge_id(conn):
 def test_get_edge_route_traces_returns_list(db_connection):
     edge_id = _get_test_edge_id(db_connection)
     if edge_id is None:
-        pytest.skip("No route_edges in DB")
+        pytest.skip("No path_edges in DB")
     cities = get_all_cities(db_connection)
     city_id = cities[0][0]
     result = get_edge_route_traces(db_connection, city_id, edge_id, limit=10)
@@ -30,7 +30,7 @@ def test_get_edge_route_traces_returns_list(db_connection):
 def test_get_edge_route_od_returns_pairs(db_connection):
     edge_id = _get_test_edge_id(db_connection)
     if edge_id is None:
-        pytest.skip("No route_edges in DB")
+        pytest.skip("No path_edges in DB")
     cities = get_all_cities(db_connection)
     city_id = cities[0][0]
     result = get_edge_route_od(db_connection, city_id, edge_id, limit=10)
@@ -49,7 +49,7 @@ def test_get_edge_route_od_returns_pairs(db_connection):
 def test_get_edge_route_traces_respects_limit(db_connection):
     edge_id = _get_test_edge_id(db_connection)
     if edge_id is None:
-        pytest.skip("No route_edges in DB")
+        pytest.skip("No path_edges in DB")
     cities = get_all_cities(db_connection)
     city_id = cities[0][0]
     result = get_edge_route_traces(db_connection, city_id, edge_id, limit=2)
