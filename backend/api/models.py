@@ -40,7 +40,7 @@ class CityResponse(NetworkBase):
     monthly_trips: Optional[int] = None
     bounds: Optional[Dict[str, float]] = None
     available_modes: Optional[Dict[str, bool]] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -63,7 +63,7 @@ class NetworkStats(BaseModel):
     city_name: str
     nodes_count: int
     edges_count: int
-    routes_count: int
+    trips_count: int
     features_count: int
     bounds: Optional[Dict[str, float]] = None  # min_lat, max_lat, min_lon, max_lon
 
@@ -80,7 +80,7 @@ class NodeResponse(BaseModel):
     lat: float
     lon: float
     street_count: int
-    
+
     class Config:
         from_attributes = True
 
@@ -102,25 +102,29 @@ class EdgeResponse(BaseModel):
     tunnel: Optional[bool] = None
     bridge: Optional[bool] = None
     geometry: Optional[str] = None  # WKT format
-    
+
     class Config:
         from_attributes = True
 
 
-class RouteResponse(BaseModel):
-    """Route response model."""
+class TripResponse(BaseModel):
+    """Trip response model (demand record: real or synthetic O-D pair)."""
     id: int
     id_trip: str
     origin_node: int
     dest_node: int
-    strategy: str
+    generation_type: str        # 'real' | 'station_based' | 'buildings_population'
     trip_minutes: Optional[float] = None
     datetime_unlock: Optional[datetime] = None
     id_bike: Optional[int] = None
     created_at: Optional[datetime] = None
-    
+
     class Config:
         from_attributes = True
+
+
+# Backward-compatible alias
+RouteResponse = TripResponse
 
 
 class FeatureResponse(BaseModel):
@@ -129,7 +133,7 @@ class FeatureResponse(BaseModel):
     feature_type: str
     geometry: str  # WKT format
     tags: Optional[Dict[str, Any]] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -146,7 +150,7 @@ class StationResponse(BaseModel):
     downtime_minutes: Optional[float] = None
     reach_coverage: Optional[float] = None
     extra: Optional[Dict[str, Any]] = None
-    
+
     class Config:
         from_attributes = True
 
@@ -176,9 +180,13 @@ class PaginatedEdgesResponse(PaginatedResponse):
     data: List[EdgeResponse]
 
 
-class PaginatedRoutesResponse(PaginatedResponse):
-    """Paginated routes response."""
-    data: List[RouteResponse]
+class PaginatedTripsResponse(PaginatedResponse):
+    """Paginated trips response."""
+    data: List[TripResponse]
+
+
+# Backward-compatible alias
+PaginatedRoutesResponse = PaginatedTripsResponse
 
 
 class PaginatedFeaturesResponse(PaginatedResponse):
@@ -223,11 +231,18 @@ class EdgeQueryParams(PaginationParams):
     bbox: Optional[str] = Field(default=None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)")
 
 
-class RouteQueryParams(PaginationParams):
-    """Route query parameters."""
-    strategy: Optional[str] = Field(default=None, description="Filter by routing strategy")
+class TripQueryParams(PaginationParams):
+    """Trip query parameters."""
+    generation_type: Optional[str] = Field(
+        default=None,
+        description="Filter by generation type: real | station_based | buildings_population",
+    )
     min_duration: Optional[float] = Field(default=None, ge=0, description="Minimum trip duration in minutes")
     max_duration: Optional[float] = Field(default=None, ge=0, description="Maximum trip duration in minutes")
+
+
+# Backward-compatible alias (strategy param ignored — was redundant with generation_type)
+RouteQueryParams = TripQueryParams
 
 
 class FeatureQueryParams(PaginationParams):
@@ -265,7 +280,9 @@ class APIInfoResponse(BaseModel):
     title: str
     description: str
     version: str
-    endpoints: Dict[str, str] 
+    endpoints: Dict[str, str]
+
+
 # Traffic models
 class TrafficCount(BaseModel):
     """Traffic count for a single edge."""

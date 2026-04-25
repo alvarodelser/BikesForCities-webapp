@@ -54,7 +54,9 @@ services:
       - b4c_database
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@b4c_database:5432/${POSTGRES_DB}
-    command: --listen-addresses=0.0.0.0:3000
+    volumes:
+      - ./martin-config.yaml:/martin-config.yaml
+    command: --listen-addresses=0.0.0.0:3000 --config /martin-config.yaml
   # frontend:
   #   build:
   #     context: ./frontend

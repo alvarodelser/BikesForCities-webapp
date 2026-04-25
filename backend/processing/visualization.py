@@ -21,10 +21,11 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 
 from backend.database.db_io import (
-    get_all_cities, count_nodes, count_edges, count_routes,
+    get_all_cities, count_nodes, count_edges, count_trips,
     get_features, get_city_center, get_city_bounds,
-    get_highway_distribution, get_route_stats
+    get_highway_distribution,
 )
+from backend.database.db_io.trips import get_trip_stats
 from .city_ops import build_graph
 
 # Coordinate transformers (same as mappingmodule.py)
@@ -53,7 +54,7 @@ def plot_network_overview(conn, save_path: Optional[str] = None) -> None:
         city_id, city_name, description, *_ = row
         nodes = count_nodes(conn, city_id)
         edges = count_edges(conn, city_id)
-        routes = count_routes(conn, city_id)
+        routes = count_trips(conn, city_id)
         
         network_data.append({
             'name': city_name,
@@ -267,7 +268,7 @@ def print_network_stats(conn, city_id: Optional[int] = None) -> None:
         # Basic counts
         nodes = count_nodes(conn, net_id)
         edges = count_edges(conn, net_id)
-        routes = count_routes(conn, net_id)
+        routes = count_trips(conn, net_id)
         
         print(f"   📊 Nodes: {nodes:,}")
         print(f"   📊 Edges: {edges:,}")
@@ -281,7 +282,7 @@ def print_network_stats(conn, city_id: Optional[int] = None) -> None:
         
         # Route statistics
         if routes > 0:
-            route_stats = get_route_stats(conn, net_id)
+            route_stats = get_trip_stats(conn, net_id)
             if route_stats:
                 print(f"   🚴 Avg trip duration: {route_stats['avg_duration']:.1f} minutes")
                 print(f"   🚴 Trip duration range: {route_stats['min_duration']:.1f} - {route_stats['max_duration']:.1f} minutes")

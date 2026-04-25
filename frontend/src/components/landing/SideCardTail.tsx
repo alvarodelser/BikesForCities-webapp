@@ -25,14 +25,32 @@ function computeLayout(
   viewportW: number,
   viewportH: number,
   preferred: 'auto' | 'left' | 'right',
+  layoutMode: 'default' | 'map' = 'default',
 ): Layout {
   const targetCX = target.left + target.width / 2;
   const targetCY = target.top + target.height / 2;
-  const side = preferred === 'auto' ? (targetCX < viewportW / 2 ? 'right' : 'left') : preferred;
+  let side: 'left' | 'right';
+  let cardLeft: number;
 
-  const cardLeft = side === 'right'
-    ? Math.min(viewportW - CARD_WIDTH - VIEWPORT_MARGIN, targetCX + CARD_MARGIN)
-    : Math.max(VIEWPORT_MARGIN, targetCX - CARD_MARGIN - CARD_WIDTH);
+  if (layoutMode === 'map') {
+    // Define two vertical lines: one over Canary Islands area and one off the East coast sea
+    // Moved a bit more to the center (18% and 82%) as requested
+    const leftLineX = viewportW * 0.18;
+    const rightLineX = viewportW * 0.82;
+
+    // Closest side logic: choose the line closest to the pin
+    const lineX = Math.abs(targetCX - leftLineX) < Math.abs(targetCX - rightLineX) ? leftLineX : rightLineX;
+    cardLeft = lineX - CARD_WIDTH / 2;
+
+    // Determine side based on target position relative to the line
+    // If target (pin) is to the right of the line, the card is to its LEFT.
+    side = targetCX > lineX ? 'left' : 'right';
+  } else {
+    side = preferred === 'auto' ? (targetCX < viewportW / 2 ? 'right' : 'left') : preferred;
+    cardLeft = side === 'right'
+      ? Math.min(viewportW - CARD_WIDTH - VIEWPORT_MARGIN, targetCX + CARD_MARGIN)
+      : Math.max(VIEWPORT_MARGIN, targetCX - CARD_MARGIN - CARD_WIDTH);
+  }
 
   const cardTop = Math.min(
     Math.max(VIEWPORT_MARGIN, targetCY - cardH / 2),
@@ -71,10 +89,11 @@ export interface SideCardTailProps {
   targetRef: RefObject<Element | null>;
   visible: boolean;
   side?: 'auto' | 'left' | 'right';
+  layoutMode?: 'default' | 'map';
   children: ReactNode;
 }
 
-export default function SideCardTail({ targetRef, visible, side = 'auto', children }: SideCardTailProps) {
+export default function SideCardTail({ targetRef, visible, side = 'auto', layoutMode = 'default', children }: SideCardTailProps) {
   const { isMobile } = useViewport();
   const cardRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<Layout | null>(null);
@@ -89,7 +108,7 @@ export default function SideCardTail({ targetRef, visible, side = 'auto', childr
     }
     const target = targetRef.current.getBoundingClientRect();
     const cardH = cardRef.current?.offsetHeight ?? 220;
-    setLayout(computeLayout(target, cardH, window.innerWidth, window.innerHeight, side));
+    setLayout(computeLayout(target, cardH, window.innerWidth, window.innerHeight, side, layoutMode));
   };
 
   useLayoutEffect(() => {
@@ -104,13 +123,14 @@ export default function SideCardTail({ targetRef, visible, side = 'auto', childr
       setMounted(false);
       return;
     }
+    setMounted(false);
     const timer = setTimeout(() => {
       recompute(visible);
       setMounted(true);
     }, 10);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, isMobile]);
+  }, [visible, isMobile, targetRef]);
 
   useEffect(() => {
     if (isMobile || !visible || !targetRef.current) return;
@@ -141,7 +161,12 @@ export default function SideCardTail({ targetRef, visible, side = 'auto', childr
       {/* SVG connector: two curved bezier lines from pin to card corners */}
       <svg
         className="absolute inset-0 h-full w-full"
-        style={{ overflow: 'visible', pointerEvents: 'none' }}
+        style={{ 
+          overflow: 'visible', 
+          pointerEvents: 'none',
+          opacity: mounted ? 1 : 0,
+          transition: 'opacity 220ms ease-out'
+        }}
       >
         <defs>
           <filter id="curve-glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -173,7 +198,7 @@ export default function SideCardTail({ targetRef, visible, side = 'auto', childr
             <path
               d={fillPath}
               fill="rgba(251,246,239,0.55)"
-              style={{ transition: 'all 240ms cubic-bezier(0.4,0,0.2,1)' }}
+              style={{ transition: 'all 280ms cubic-bezier(0.4,0,0.2,1)' }}
             />
           );
         })()}
@@ -185,7 +210,7 @@ export default function SideCardTail({ targetRef, visible, side = 'auto', childr
           stroke="rgba(255,255,255,0.6)"
           strokeWidth={1.5}
           filter="url(#curve-glow)"
-          style={{ transition: 'd 240ms cubic-bezier(0.4,0,0.2,1)' }}
+          style={{ transition: 'd 280ms cubic-bezier(0.4,0,0.2,1)' }}
         />
 
         {/* Bottom boundary curve */}
@@ -195,7 +220,7 @@ export default function SideCardTail({ targetRef, visible, side = 'auto', childr
           stroke="rgba(255,255,255,0.6)"
           strokeWidth={1.5}
           filter="url(#curve-glow)"
-          style={{ transition: 'd 240ms cubic-bezier(0.4,0,0.2,1)' }}
+          style={{ transition: 'd 280ms cubic-bezier(0.4,0,0.2,1)' }}
         />
 
         {/* Pin pulse ring */}

@@ -54,6 +54,16 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                 version: 8,
                 name: 'Clean',
                 sources: {
+                    'carto-nolabels': {
+                        type: 'raster',
+                        tiles: [
+                            'https://a.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
+                            'https://b.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
+                            'https://c.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}@2x.png',
+                        ],
+                        tileSize: 256,
+                        attribution: '© CARTO',
+                    },
                     'carto-labels': {
                         type: 'raster',
                         tiles: [
@@ -62,15 +72,15 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                             'https://c.basemaps.cartocdn.com/rastertiles/light_only_labels/{z}/{x}/{y}@2x.png',
                         ],
                         tileSize: 256,
-                        attribution: '© CARTO',
                     },
                 },
                 layers: [
                     { id: 'background', type: 'background', paint: { 'background-color': '#f0ece7' } } as any,
+                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'none' } } as any,
                 ],
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
-            zoom: 12,
+            zoom: 13,
             minZoom: 10,
             maxBounds: bounds || undefined,
             pitch: 0,
@@ -90,12 +100,6 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             mapInstance.touchZoomRotate.disableRotation();
             mapInstance.touchPitch.disable();
             mapInstance.keyboard.disableRotation();
-
-            // Labels layer (off by default)
-            mapInstance.addLayer({
-                id: 'carto-labels-layer', type: 'raster', source: 'carto-labels',
-                minzoom: 0, maxzoom: 19, layout: { visibility: 'none' },
-            });
 
             mapInstance.addSource('martin-features', {
                 type: 'vector',
@@ -171,6 +175,13 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     ],
                     'line-opacity': 0,
                 },
+            });
+
+            // Labels added last so they sit on top of all geometry layers by default.
+            // toggleBackground also calls moveLayer to keep them on top after mode layers are added.
+            mapInstance.addLayer({
+                id: 'carto-labels-layer', type: 'raster', source: 'carto-labels',
+                minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' },
             });
 
             setLoading(false);

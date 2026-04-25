@@ -105,7 +105,10 @@ def get_all_cities(conn) -> List[Tuple]:
                 c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
-                 WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) AS budget,
+                 WHERE cb.city_id = c.id 
+                 ORDER BY year DESC, 
+                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC 
+                 LIMIT 1) AS budget,
                 (SELECT coverage FROM city_metrics cm
                  WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
                 (SELECT total_kilometers FROM city_metrics cm
@@ -168,7 +171,10 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                 c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
-                 WHERE cb.city_id = c.id ORDER BY year DESC LIMIT 1) AS budget,
+                 WHERE cb.city_id = c.id 
+                 ORDER BY year DESC, 
+                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC 
+                 LIMIT 1) AS budget,
                 (SELECT coverage FROM city_metrics cm
                  WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
                 (SELECT total_kilometers FROM city_metrics cm
@@ -376,43 +382,63 @@ def put_city_budgets(
     conn,
     city_id: int,
     year: int,
-    total_income: int,
-    total_expenses: int,
-    public_debt: int,
-    lines_list: List[dict],
+    budget_type: str = 'planned',
+    total_income: Optional[int] = None,
+    total_expenses: Optional[int] = None,
+    public_debt: Optional[int] = None,
 ) -> int:
-    """
-    Upsert a yearly city budget and replace its breakdown lines.
-    lines_list: list of dicts {'category_name', 'line_type': 'INCOME'|'EXPENSE', 'amount'}
-    """
+    """Upsert a yearly city budget summary."""
     with conn.cursor() as cur:
         cur.execute(
             """
-            INSERT INTO city_budgets (city_id, year, total_income, total_expenses, public_debt)
-            VALUES (%s, %s, %s, %s, %s)
-            ON CONFLICT (city_id, year)
+            INSERT INTO city_budgets (city_id, year, budget_type, total_income, total_expenses, public_debt)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (city_id, year, budget_type)
             DO UPDATE SET
-                total_income   = EXCLUDED.total_income,
-                total_expenses = EXCLUDED.total_expenses,
-                public_debt    = EXCLUDED.public_debt
+                total_income   = COALESCE(EXCLUDED.total_income, city_budgets.total_income),
+                total_expenses = COALESCE(EXCLUDED.total_expenses, city_budgets.total_expenses),
+                public_debt    = COALESCE(EXCLUDED.public_debt, city_budgets.public_debt)
             RETURNING id
             """,
-            (city_id, year, total_income, total_expenses, public_debt),
+            (city_id, year, budget_type, total_income, total_expenses, public_debt),
         )
-        budget_id = cur.fetchone()[0]
-        cur.execute("DELETE FROM budget_lines WHERE budget_id = %s", (budget_id,))
-        if lines_list:
-            args_str = ",".join(
-                cur.mogrify(
-                    "(%s,%s,%s,%s)",
-                    (budget_id, line["category_name"], line["line_type"], line["amount"]),
-                ).decode("utf-8")
-                for line in lines_list
-            )
-            cur.execute(
-                f"INSERT INTO budget_lines (budget_id, category_name, line_type, amount) VALUES {args_str}"
-            )
-    return budget_id
+        return cur.fetchone()[0]
+
+
+def put_city_budget_categories(
+    conn,
+    city_id: int,
+    year: int,
+    budget_type: str,
+    lines_df: pd.DataFrame,
+):
+    """
+    Bulk insert functional budget categories for a city/year/type.
+    lines_df columns: ['category_code', 'category_name', 'amount']
+    """
+    if lines_df.empty:
+        return
+        
+    with conn.cursor() as cur:
+        # Clear existing lines for this city/year/type before re-ingesting
+        cur.execute(
+            "DELETE FROM city_budget_categories WHERE city_id = %s AND year = %s AND budget_type = %s",
+            (city_id, year, budget_type)
+        )
+        
+        args = [
+            (city_id, year, budget_type, str(row["category_code"]), row["category_name"], int(row["amount"]))
+            for _, row in lines_df.iterrows()
+        ]
+        
+        execute_values(
+            cur,
+            """
+            INSERT INTO city_budget_categories (city_id, year, budget_type, category_code, category_name, amount)
+            VALUES %s
+            """,
+            args
+        )
 
 
 TRAFFIC_MIN_EDGES   = 50   # minimum rows in edge_traffic to enable traffic mode
@@ -420,25 +446,27 @@ STATIONS_MIN_COUNT  = 3    # minimum non-merged stations to enable stations mode
 
 
 def refresh_city_modes(conn, city_id: int) -> dict:
-    """Recompute traffic and stations flags from actual data counts.
+    """Recompute all dynamic modes from actual data counts.
 
-    Single round-trip. Call after ingesting traffic or station data.
-    Returns the updated {'traffic': bool, 'stations': bool}.
+    Single round-trip. Call after ingesting any data.
+    Returns the updated modes.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            INSERT INTO city_modes (city_id, traffic, stations)
+            INSERT INTO city_modes (city_id, infrastructure, traffic, stations, accidents)
             SELECT
                 %(id)s,
-                (SELECT COUNT(*) >= %(t_min)s
-                 FROM edge_traffic WHERE city_id = %(id)s),
-                (SELECT COUNT(*) >= %(s_min)s
-                 FROM stations WHERE city_id = %(id)s AND merged_into_id IS NULL)
+                EXISTS (SELECT 1 FROM edges WHERE city_id = %(id)s),
+                (SELECT COUNT(*) >= %(t_min)s FROM edge_traffic WHERE city_id = %(id)s),
+                (SELECT COUNT(*) >= %(s_min)s FROM stations WHERE city_id = %(id)s AND merged_into_id IS NULL),
+                EXISTS (SELECT 1 FROM accidents WHERE city_id = %(id)s)
             ON CONFLICT (city_id) DO UPDATE SET
-                traffic  = EXCLUDED.traffic,
-                stations = EXCLUDED.stations
-            RETURNING traffic, stations
+                infrastructure = EXCLUDED.infrastructure,
+                traffic        = EXCLUDED.traffic,
+                stations       = EXCLUDED.stations,
+                accidents      = EXCLUDED.accidents
+            RETURNING infrastructure, traffic, stations, accidents
             """,
             {'id': city_id, 't_min': TRAFFIC_MIN_EDGES, 's_min': STATIONS_MIN_COUNT},
         )
@@ -472,19 +500,20 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
                 cb.total_expenses,
                 cb.public_debt,
                 COALESCE(
-                    json_agg(
+                    (SELECT json_agg(
                         json_build_object(
-                            'category_name', bl.category_name,
-                            'line_type', bl.line_type,
-                            'amount', bl.amount
+                            'category_code', cat.category_code,
+                            'category_name', cat.category_name,
+                            'amount', cat.amount,
+                            'budget_type', cat.budget_type
                         )
-                    ) FILTER (WHERE bl.id IS NOT NULL),
+                    ) FROM city_budget_categories cat
+                      WHERE cat.city_id = cb.city_id 
+                        AND cat.year = cb.year),
                     '[]'::json
                 ) AS lines
             FROM city_budgets cb
-            LEFT JOIN budget_lines bl ON bl.budget_id = cb.id
             WHERE cb.city_id = %s
-            GROUP BY cb.id
             ORDER BY cb.year DESC
             """,
             (city_id,),

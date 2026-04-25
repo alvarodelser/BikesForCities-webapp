@@ -173,4 +173,51 @@ export const fetchStationReach = async (
   return result.data;
 };
 
+export interface AccidentParticipant {
+  vehicle_type: string | null;
+  person_type: string | null;
+  injury_code: number | null;
+  injury_status: string | null;
+  alcohol_positive: boolean | null;
+  drugs_positive: boolean | null;
+}
 
+export interface AccidentFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'Point';
+    coordinates: [number, number];
+  };
+  properties: {
+    accident_id: string;
+    timestamp: string | null;
+    street: string | null;
+    street_number: string | null;
+    district: string | null;
+    accident_type: string | null;
+    weather: string | null;
+    total_involved: number;
+    injured: number;
+    killed: number;
+    cyclists_involved: number;
+    pedestrians_involved: number;
+    severity: 'fatal' | 'serious' | 'minor' | 'uninjured';
+    max_injury_code: number | null;
+    worst_injury_status: string | null;
+    participants?: AccidentParticipant[];
+  };
+}
+
+export interface AccidentsGeoJSON {
+  type: 'FeatureCollection';
+  features: AccidentFeature[];
+}
+
+export const fetchAccidents = async (cityId: number): Promise<AccidentsGeoJSON> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=true`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch accident data');
+  }
+  const result = await response.json();
+  return result.data;
+};

@@ -18,7 +18,8 @@ from backend.database.db_io import (
     connect_db, get_all_cities, get_city_center,
     get_nodes, get_edges, put_nodes, put_edges,
     put_features, count_features,
-    get_ingestion_status, upsert_ingestion_status, check_prerequisites
+    get_ingestion_status, upsert_ingestion_status, check_prerequisites,
+    refresh_city_modes
 )
 from datetime import datetime, timezone
 import osmnx as ox
@@ -115,7 +116,8 @@ def main():
                         print(f"   • {feature_type}: {count:,}")
 
                     
-            print(f"✅ Finished updating {city_name}")
+            refresh_city_modes(conn, city_id)
+            print(f"✅ Finished updating {city_name} and its modes")
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:
             upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)

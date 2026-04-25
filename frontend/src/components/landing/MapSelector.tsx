@@ -95,7 +95,7 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
       </div>
 
       {/* Side card tail — renders null internally when isMobile */}
-      <SideCardTail targetRef={selectedTargetRef} visible={!!selected}>
+      <SideCardTail targetRef={selectedTargetRef} visible={!!selected} layoutMode="map">
         {selected && (
           <CityCard
             city={selected}

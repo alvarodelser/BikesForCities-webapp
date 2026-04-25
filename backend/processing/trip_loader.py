@@ -8,7 +8,8 @@ from .route_strategy import shortest_path
 import json
 import pandas as pd
 from tqdm import tqdm
-from backend.database.db_io import put_routes, count_routes, get_edge_id_map, put_route_edges
+from backend.database.db_io import count_trips, get_edge_id_map
+from backend.database.db_io.trips import put_trips
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_PATH = PROJECT_ROOT / "logs" / "ingestion_log.json"
@@ -199,8 +200,8 @@ def process_all_csvs(
     Process all unprocessed CSV files using the provided graph.
     """
     # Check existing trips in database before processing
-    existing_routes = count_routes(conn, city_id)
-    print(f"📊 Current routes in database: {existing_routes:,}")
+    existing_routes = count_trips(conn, city_id)
+    print(f"📊 Current trips in database: {existing_routes:,}")
     
     # Get file progress overview
     processed_count, total_count, unprocessed_files = get_csv_progress(city, progress_dict=progress_dict)
@@ -315,27 +316,23 @@ def process_single_csv(
             row["idTrip"],
             startnode,
             endnode,
-            strategy,
             float(row["trip_minutes"]),
             row["unlock_date"],
             int(row["idBike"]),
-            startpoint[1],  # origin_lat
-            startpoint[0],  # origin_lon
-            endpoint[1],    # dest_lat
-            endpoint[0],    # dest_lon
-            row["lock_date"]
+            row["lock_date"],
+            'real',
         ))
         routes_processed += 1
 
         if len(routes_batch) >= batch_size:
-            put_routes(conn, routes_batch)
+            put_trips(conn, routes_batch)
             routes_saved += len(routes_batch)
             routes_batch.clear()
             pbar.set_postfix({'saved': f"{routes_saved:,}"})
 
     # Flush remaining
     if routes_batch:
-        put_routes(conn, routes_batch)
+        put_trips(conn, routes_batch)
         routes_saved += len(routes_batch)
 
     pbar.close()

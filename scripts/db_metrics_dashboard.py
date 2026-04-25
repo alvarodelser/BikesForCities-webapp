@@ -19,7 +19,7 @@ from backend.database.db_io import (
     get_all_cities,
     count_nodes,
     count_edges,
-    count_routes,
+    count_trips,
     has_traffic,
     get_latest_traffic_month,
     get_city_months_with_station_data,
@@ -234,7 +234,7 @@ def build_dashboard() -> str:
 
             nodes  = count_nodes(conn, city_id)
             edges  = count_edges(conn, city_id)
-            routes = count_routes(conn, city_id)
+            routes = count_trips(conn, city_id)
 
             station_months = get_city_months_with_station_data(conn, city_id)
             traffic_months = _get_traffic_months(conn, city_id)

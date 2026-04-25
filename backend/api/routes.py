@@ -11,9 +11,9 @@ from shapely.geometry import mapping
 
 from .models import (
     CityListResponse, CityDetailResponse, CityStatsResponse,
-    PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedRoutesResponse,
+    PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedTripsResponse,
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
-    NodeResponse, EdgeResponse, RouteResponse, FeatureResponse,
+    NodeResponse, EdgeResponse, TripResponse, FeatureResponse,
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
     StationResponse, StationListResponse, TrafficResponse, TrafficCount,
     EdgeRoutesResponse
@@ -24,13 +24,14 @@ from .dependencies import (
 )
 from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
-    count_routes, count_features, get_nodes, get_edges, get_features,
+    count_trips, count_features, get_nodes, get_edges, get_features,
     get_stations, get_edge_traffic, get_latest_traffic_month,
     get_city_details, get_city_bounds,
-    get_paginated_nodes, get_paginated_edges, get_paginated_routes,
+    get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_station_reachability,
-    get_edge_route_traces, get_edge_route_od
+    get_edge_route_traces, get_edge_route_od,
+    get_accidents_geojson,
 )
 
 logger = logging.getLogger(__name__)
@@ -164,17 +165,17 @@ async def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
         
         nodes_count = count_nodes(conn, city_id)
         edges_count = count_edges(conn, city_id)
-        routes_count = count_routes(conn, city_id)
+        trips_count = count_trips(conn, city_id)
         features_count = count_features(conn, city_id)
-        
+
         bounds = get_city_bounds(conn, city_id)
-        
+
         stats = NetworkStats(
             city_id=city_id,
             city_name=city_dict["name"] if city_dict else "Unknown",
             nodes_count=nodes_count,
             edges_count=edges_count,
-            routes_count=routes_count,
+            trips_count=trips_count,
             features_count=features_count,
             bounds=bounds
         )
@@ -267,44 +268,52 @@ async def get_network_edges(
         raise HTTPException(status_code=500, detail="Failed to retrieve edges")
 
 
-# Route endpoints
-@router.get("/cities/{city_id}/routes", response_model=PaginatedRoutesResponse)
-async def get_network_routes(
+# Trip endpoints
+@router.get("/cities/{city_id}/trips", response_model=PaginatedTripsResponse)
+@router.get("/cities/{city_id}/routes", response_model=PaginatedTripsResponse)  # backward compat
+async def get_network_trips(
     city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
-    strategy: Optional[str] = Query(None, description="Filter by routing strategy"),
+    generation_type: Optional[str] = Query(
+        None,
+        description="Filter by generation type: real | station_based | buildings_population",
+    ),
     min_duration: Optional[float] = Query(None, ge=0, description="Minimum trip duration in minutes"),
     max_duration: Optional[float] = Query(None, ge=0, description="Maximum trip duration in minutes"),
     conn=Depends(get_db_connection)
 ):
-    """Get city routes with pagination and filtering."""
+    """Get city trips (demand records) with pagination and filtering."""
     try:
         validate_network_exists(conn, city_id)
-        
+
         offset = (page - 1) * per_page
-        routes_data, total = get_paginated_routes(
-            conn, city_id, strategy=strategy, min_duration=min_duration,
-            max_duration=max_duration, limit=per_page, offset=offset
+        trips_data, total = get_paginated_trips(
+            conn, city_id,
+            generation_type=generation_type,
+            min_duration=min_duration,
+            max_duration=max_duration,
+            limit=per_page,
+            offset=offset,
         )
-        
+
         _, _, total_pages = calculate_pagination(page, per_page, total)
-        
-        routes = [RouteResponse(**row) for row in routes_data]
-        
-        return PaginatedRoutesResponse(
-            data=routes,
+
+        trips = [TripResponse(**row) for row in trips_data]
+
+        return PaginatedTripsResponse(
+            data=trips,
             page=page,
             per_page=per_page,
             total=total,
             pages=total_pages,
-            message="Routes retrieved successfully"
+            message="Trips retrieved successfully"
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting routes for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve routes")
+        logger.error(f"Error getting trips for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve trips")
 
 
 # Feature endpoints
@@ -683,6 +692,33 @@ async def get_edge_routes(
     except Exception as e:
         logger.error(f"Error getting routes for edge {edge_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve edge routes")
+
+
+# Accidents endpoint
+@router.get("/cities/{city_id}/accidents")
+async def get_city_accidents(
+    city_id: int,
+    cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
+    conn=Depends(get_db_connection),
+):
+    """Get accident data as GeoJSON for a city.
+
+    Returns a GeoJSON FeatureCollection of Point features.
+    Each feature has severity ('fatal', 'serious', 'minor', 'uninjured') and metadata.
+    """
+    try:
+        validate_network_exists(conn, city_id)
+        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only)
+        return {
+            "data": geojson,
+            "count": len(geojson["features"]),
+            "message": f"Retrieved {len(geojson['features'])} accidents",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting accidents for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve accident data")
 
 
 # Status endpoint

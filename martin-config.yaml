@@ -1,0 +1,24 @@
+postgres:
+  connection_string: "${DATABASE_URL}"
+
+tables:
+  public.features:
+    schema: public
+    table: features
+    srid: 4326
+    geometry_column: geometry
+    id_column: id
+    # buffer: 0 is the documented workaround for Martin issue #982:
+    # with SRID 4326 sources the buffer margin calculation produced an incorrect
+    # query bbox, causing specific tiles to return 204 even though adjacent zoom
+    # levels and neighbouring tiles have data. Setting buffer to 0 disables the
+    # margin expansion and uses the exact tile envelope for the PostGIS query.
+    buffer: 0
+
+  public.edges:
+    schema: public
+    table: edges
+    srid: 4326
+    geometry_column: geom
+    id_column: id
+    buffer: 0

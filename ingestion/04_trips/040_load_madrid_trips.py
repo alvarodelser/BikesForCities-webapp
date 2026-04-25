@@ -480,7 +480,10 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
                   leuven_map=None, graph_data=None, edge_id_map=None,
                   num_workers: int = 16) -> int:
     from concurrent.futures import ProcessPoolExecutor
-    from backend.database.db_io.routes import put_routes, put_map_matched_routes, put_route_edges_with_order
+    from backend.database.db_io.trips import put_trips
+    from backend.database.db_io.paths import (
+        put_map_matched_path, put_path_edges, put_path_nodes, link_trip_to_path,
+    )
     import osmnx as ox
 
     if len(df) == 0:
@@ -522,30 +525,35 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
 
     # Phase 2: serial DB insertion
     rows_inserted = 0
-    shortest_batch: list = []
-    mm_route_batch: list = []
-    mm_edges: dict[int, list] = {}
+    # (city_id, id_trip, origin_node, dest_node, trip_minutes,
+    #  datetime_unlock, id_bike, datetime_lock, generation_type)
+    trip_batch: list = []
+    # map-matched records: (df_idx, trip_id, matched_nodes, edge_seq)
+    mm_pending: list = []
 
     def _flush():
         nonlocal rows_inserted
-        n = len(shortest_batch)
-        if shortest_batch:
-            put_routes(conn, shortest_batch)
-        if mm_route_batch:
-            id_map = put_map_matched_routes(conn, mm_route_batch)
-            if mm_edges and edge_id_map:
-                edge_tuples = []
-                for b_idx, edge_seq in mm_edges.items():
-                    route_id = id_map.get(mm_route_batch[b_idx][1])
-                    if route_id:
-                        for edge_id, order in edge_seq:
-                            edge_tuples.append((route_id, edge_id, order))
-                if edge_tuples:
-                    put_route_edges_with_order(conn, edge_tuples)
+        n = len(trip_batch)
+        if trip_batch:
+            put_trips(conn, trip_batch)
+        # Map-matched: create path + path_edges + path_nodes + link to trip
+        for df_idx, trip_id, matched_nodes, edge_seq in mm_pending:
+            with conn.cursor() as cur:
+                cur.execute("SELECT id FROM trips WHERE id_trip = %s", (trip_id,))
+                row = cur.fetchone()
+            if not row:
+                continue
+            t_id = row[0]
+            path_id = put_map_matched_path(
+                conn, city_id, int(matched_nodes[0]), int(matched_nodes[-1])
+            )
+            if edge_seq:
+                put_path_edges(conn, path_id, edge_seq)
+            put_path_nodes(conn, path_id, [int(n) for n in matched_nodes])
+            link_trip_to_path(conn, t_id, path_id, city_id, processed=True)
         rows_inserted += n
-        shortest_batch.clear()
-        mm_route_batch.clear()
-        mm_edges.clear()
+        trip_batch.clear()
+        mm_pending.clear()
 
     pbar = tqdm(range(len(df)), desc=f"Inserting {fname}", unit="trips")
     for idx in pbar:
@@ -565,34 +573,26 @@ def _insert_trips(conn, city_id: int, df: pd.DataFrame, fname: str, graph,
         if d1 > 150.0 or d2 > 150.0:
             continue
 
-        shortest_batch.append((
-            city_id, trip_id, int(nu), int(nl), "shortest",
-            trip_minutes, unlock_date, id_bike, lock_date,
+        trip_batch.append((
+            city_id, trip_id, int(nu), int(nl),
+            trip_minutes, unlock_date, id_bike, lock_date, 'real',
         ))
 
         matched_nodes = matched_nodes_map.get(idx)
-        if matched_nodes:
-            mm_idx = len(mm_route_batch)
-            mm_route_batch.append((
-                city_id, trip_id,
-                int(matched_nodes[0]), int(matched_nodes[-1]),
-                "map_matched", trip_minutes, unlock_date, id_bike, lock_date,
-            ))
-            if edge_id_map:
-                edge_seq = [
-                    (eid, i)
-                    for i in range(len(matched_nodes) - 1)
-                    for eid in [edge_id_map.get((matched_nodes[i], matched_nodes[i + 1]))]
-                    if eid
-                ]
-                if edge_seq:
-                    mm_edges[mm_idx] = edge_seq
+        if matched_nodes and edge_id_map:
+            edge_seq = [
+                (eid, i)
+                for i in range(len(matched_nodes) - 1)
+                for eid in [edge_id_map.get((matched_nodes[i], matched_nodes[i + 1]))]
+                if eid
+            ]
+            mm_pending.append((idx, trip_id, matched_nodes, edge_seq))
 
-        if len(shortest_batch) >= BATCH_SIZE:
+        if len(trip_batch) >= BATCH_SIZE:
             _flush()
             pbar.set_postfix({"inserted": f"{rows_inserted:,}"})
 
-    if shortest_batch:
+    if trip_batch:
         _flush()
 
     pbar.close()

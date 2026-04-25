@@ -14,8 +14,8 @@ from backend.database.db_io import (
     get_edge_traffic,
     get_paginated_nodes,
     get_paginated_edges,
-    get_paginated_routes,
-    get_route_stats,
+    get_paginated_trips,
+    get_trip_stats,
 )
 
 # ---------------------------------------------------------------------------
@@ -179,10 +179,10 @@ def test_pagination_nodes_edges_routes(db_connection):
         assert total_edges == len(all_edges)
         assert len(page_edges) <= 50
 
-        routes_page, routes_total = get_paginated_routes(db_connection, city_id, limit=50, offset=0)
-        assert routes_total >= len(routes_page)
-        if routes_total > 0:
-            stats = get_route_stats(db_connection, city_id)
+        trips_page, trips_total = get_paginated_trips(db_connection, city_id, limit=50, offset=0)
+        assert trips_total >= len(trips_page)
+        if trips_total > 0:
+            stats = get_trip_stats(db_connection, city_id)
             assert stats is not None
             if stats.get("avg_duration") is not None:
                 assert stats["min_duration"] <= stats["avg_duration"] <= stats["max_duration"]

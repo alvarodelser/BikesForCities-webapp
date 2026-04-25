@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from dotenv import load_dotenv
 from backend.database.db_io import (
-    connect_db, 
-    get_all_cities, 
-    count_nodes, 
-    count_edges, 
-    count_routes
+    connect_db,
+    get_all_cities,
+    count_nodes,
+    count_edges,
+    count_trips,
 )
 
 
@@ -44,7 +44,7 @@ def main() -> None:
     # Process each city
     total_nodes = 0
     total_edges = 0
-    total_routes = 0
+    total_trips = 0
     
     for city_id, city_name, description in cities:
         print(f"\n🏙️  City: {city_name}")
@@ -56,16 +56,16 @@ def main() -> None:
             # Count nodes, edges, and routes for this city
             node_count = count_nodes(conn, city_id)
             edge_count = count_edges(conn, city_id)
-            route_count = count_routes(conn, city_id)
-            
+            trip_count = count_trips(conn, city_id)
+
             print(f"    🔗 Nodes:  {node_count:,}")
             print(f"    🛣️  Edges:  {edge_count:,}")
-            print(f"    🚴 Routes: {route_count:,}")
-            
+            print(f"    🚴 Trips:  {trip_count:,}")
+
             # Add to totals
             total_nodes += node_count
             total_edges += edge_count
-            total_routes += route_count
+            total_trips += trip_count
             
             # Check if this city meets sanity check requirements
             if node_count < 1000:
@@ -89,7 +89,7 @@ def main() -> None:
     print(f"    Total cities: {len(cities)}")
     print(f"    Total nodes:    {total_nodes:,}")
     print(f"    Total edges:    {total_edges:,}")
-    print(f"    Total routes:   {total_routes:,}")
+    print(f"    Total trips:    {total_trips:,}")
     print("=" * 80)
     print("✅ Query completed")
     
