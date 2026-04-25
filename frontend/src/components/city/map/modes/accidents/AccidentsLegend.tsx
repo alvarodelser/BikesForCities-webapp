@@ -1,4 +1,4 @@
-import React from 'react';
+
 
 const SEVERITY_LEGEND = [
     { label: 'Fatal (Fallecidos)', color: '#7f1d1d' },

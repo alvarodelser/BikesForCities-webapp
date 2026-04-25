@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { createRoot, Root } from 'react-dom/client';
+import { useEffect, useRef, useCallback } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { fetchAccidents } from '../../../../../services/api';
