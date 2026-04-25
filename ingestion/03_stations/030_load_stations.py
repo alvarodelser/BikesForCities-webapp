@@ -29,7 +29,7 @@ import numpy as np
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from backend.database.db_io import connect_db, get_ingestion_status, upsert_ingestion_status, get_city_id_by_name, check_prerequisites  # noqa: E402
+from backend.database.db_io import connect_db, get_ingestion_status, upsert_ingestion_status, get_city_id_by_name, check_prerequisites, refresh_city_modes  # noqa: E402
 from backend.database.db_io.stations import (
     has_station_readings_for_month,
     get_nearby_unmerged_station,
@@ -379,8 +379,9 @@ def main() -> None:
                         print(f"📈 Inserted {inserted:,} readings for {year}{month:02d}.", flush=True)
                     upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=yyyymm)
 
+                refresh_city_modes(conn, city_id)
                 upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
-                print(f"✅ Upserted ingestion status for {city_name}.")
+                print(f"✅ Upserted ingestion status and refreshed modes for {city_name}.")
             except Exception as e:
                 upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
                 print(f"❌ Error processing stations for {city_name}: {e}")

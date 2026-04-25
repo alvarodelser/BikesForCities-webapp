@@ -446,25 +446,27 @@ STATIONS_MIN_COUNT  = 3    # minimum non-merged stations to enable stations mode
 
 
 def refresh_city_modes(conn, city_id: int) -> dict:
-    """Recompute traffic and stations flags from actual data counts.
+    """Recompute all dynamic modes from actual data counts.
 
-    Single round-trip. Call after ingesting traffic or station data.
-    Returns the updated {'traffic': bool, 'stations': bool}.
+    Single round-trip. Call after ingesting any data.
+    Returns the updated modes.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            INSERT INTO city_modes (city_id, traffic, stations)
+            INSERT INTO city_modes (city_id, infrastructure, traffic, stations, accidents)
             SELECT
                 %(id)s,
-                (SELECT COUNT(*) >= %(t_min)s
-                 FROM edge_traffic WHERE city_id = %(id)s),
-                (SELECT COUNT(*) >= %(s_min)s
-                 FROM stations WHERE city_id = %(id)s AND merged_into_id IS NULL)
+                EXISTS (SELECT 1 FROM edges WHERE city_id = %(id)s),
+                (SELECT COUNT(*) >= %(t_min)s FROM edge_traffic WHERE city_id = %(id)s),
+                (SELECT COUNT(*) >= %(s_min)s FROM stations WHERE city_id = %(id)s AND merged_into_id IS NULL),
+                EXISTS (SELECT 1 FROM accidents WHERE city_id = %(id)s)
             ON CONFLICT (city_id) DO UPDATE SET
-                traffic  = EXCLUDED.traffic,
-                stations = EXCLUDED.stations
-            RETURNING traffic, stations
+                infrastructure = EXCLUDED.infrastructure,
+                traffic        = EXCLUDED.traffic,
+                stations       = EXCLUDED.stations,
+                accidents      = EXCLUDED.accidents
+            RETURNING infrastructure, traffic, stations, accidents
             """,
             {'id': city_id, 't_min': TRAFFIC_MIN_EDGES, 's_min': STATIONS_MIN_COUNT},
         )

@@ -67,6 +67,7 @@ if [ -f "05_accidents/050_load_madrid_accidents.py" ]; then
     python3 ingestion/05_accidents/050_load_madrid_accidents.py
 fi
 
+
 echo -e "\n${BLUE}======================================================${NC}"
 echo -e "${BLUE}🎯 Ingestion Pipeline Completed Successfully!${NC}"
 echo -e "${BLUE}======================================================${NC}"

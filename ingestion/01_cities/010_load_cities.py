@@ -31,10 +31,6 @@ def main():
     
     for city_key, city_info in data.items():
         modes_list = city_info.get("modes", [])
-        if not modes_list:
-            print(f"⏭️  Skipping {city_key} (no modes defined)")
-            skipped_count += 1
-            continue
         
         # Insert or update city
         city_id = get_or_create_city(
@@ -47,20 +43,21 @@ def main():
             wikidata_id=city_info.get("wikidata_id")
         )
         
-        # Build modes dictionary mapped to database columns
+        # Reset all modes to False at the beginning of ingestion
+        # Modes will be dynamically refreshed by their respective ingestion processes
         modes_dict = {
-            "infrastructure": "infrastructure" in modes_list,
-            "traffic": "traffic" in modes_list,
-            "accidents": "accidents" in modes_list,
-            "topography": "topography" in modes_list,
-            "intersections": "intersections" in modes_list,
-            "stations": "stations" in modes_list,
-            "forum": "forum" in modes_list
+            "infrastructure": False,
+            "traffic": False,
+            "accidents": False,
+            "topography": False,
+            "intersections": False,
+            "stations": False,
+            "forum": False
         }
         
         put_city_modes(conn, city_id, modes_dict)
         upsert_ingestion_status(conn, "010_load_cities", "SUCCESS", city_id=city_id)
-        print(f"✅ Loaded {city_key} (ID: {city_id}, WD: {city_info.get('wikidata_id', 'None')}) with modes: {modes_list}")
+        print(f"✅ Loaded {city_key} (ID: {city_id}, WD: {city_info.get('wikidata_id', 'None')})")
         loaded_count += 1
         
     print(f"\n🏁 Finished loading cities. {loaded_count} loaded, {skipped_count} skipped.")
