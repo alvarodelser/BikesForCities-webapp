@@ -4,7 +4,6 @@ import re
 import requests
 import pandas as pd
 import argparse
-import os
 from typing import Dict
 from io import BytesIO
 
@@ -51,35 +50,9 @@ def get_id_mapping(year: int, ttype: str, target_ine_codes: Dict[str, str]) -> D
                             mapping[eid] = cname
     return mapping
 
-def fetch_and_save_mapping(year: int, ttype: str, table_name: str, id_col: int, name_col: int, output_suffix: str):
-    filename = f"data/budget_{output_suffix}_mapping_{year}.json"
-    if os.path.exists(filename):
-        return
-    
-    print(f"  Downloading classification mapping: {output_suffix} ({year})...")
-    url = f"{BASE_URL}/{year}/{ttype}/{table_name}.sql.gz"
-    mapping = {}
-    for line in fetch_gzipped_lines(url):
-        if line.startswith(f'INSERT INTO "{table_name}"'):
-            match = re.search(r'VALUES \((.*)\);', line)
-            if match:
-                parts = re.findall(r"'[^']*'|[^,]+", match.group(1))
-                vals = [v.strip(" '") for v in parts]
-                if len(vals) >= max(id_col, name_col) + 1:
-                    mapping[vals[id_col]] = vals[name_col]
-    
-    if mapping:
-        with open(filename, 'w', encoding='utf-8') as f:
-            json.dump(mapping, f, ensure_ascii=False, indent=2)
-        print(f"  ✅ Saved mapping to {filename}")
-
 def extract_budgets_for_year(year: int):
     target_cities = get_target_cities()
     rows = []
-    
-    # Ensure we have the mappings for this year (fetching from 'planned' by default)
-    fetch_and_save_mapping(year, 'planned', 'tb_cuentasEconomica', 1, 2, 'economic')
-    fetch_and_save_mapping(year, 'planned', 'tb_cuentasProgramas', 0, 1, 'functional')
     
     for ttype in TYPES:
         print(f"\n--- Processing {year} {ttype} ---")
