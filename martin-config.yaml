@@ -8,11 +8,12 @@ tables:
     srid: 4326
     geometry_column: geometry
     id_column: id
-    # Disable Douglas-Peucker simplification so small features (buildings) are
-    # not dropped at lower zoom levels. Default is 10 tile-units which causes
-    # entire tiles to return 204 at zoom 12 when the tile contains only small
-    # building footprints that simplify away below the threshold.
-    simplification: 0
+    # buffer: 0 is the documented workaround for Martin issue #982:
+    # with SRID 4326 sources the buffer margin calculation produced an incorrect
+    # query bbox, causing specific tiles to return 204 even though adjacent zoom
+    # levels and neighbouring tiles have data. Setting buffer to 0 disables the
+    # margin expansion and uses the exact tile envelope for the PostGIS query.
+    buffer: 0
 
   public.edges:
     schema: public
@@ -20,4 +21,4 @@ tables:
     srid: 4326
     geometry_column: geom
     id_column: id
-    simplification: 0
+    buffer: 0
