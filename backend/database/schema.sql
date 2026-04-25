@@ -332,8 +332,7 @@ CREATE TABLE IF NOT EXISTS accidents (
     total_involved   INTEGER DEFAULT 0,
     injured          INTEGER DEFAULT 0,          -- lesividad not in (sin asistencia, ileso, se desconoce)
     killed           INTEGER DEFAULT 0,          -- lesividad = muerto
-    cyclists_involved INTEGER DEFAULT 0,         -- tipo_vehiculo contains 'bici'
-    pedestrians_involved INTEGER DEFAULT 0,      -- tipo_persona = peaton/peatón
+    vehicles_involved TEXT[],                    -- array of categorized vehicles (bike_vmu, moto, car, heavy, pedestrian)
     source           TEXT DEFAULT 'madrid_open_data',
     UNIQUE (city_id, accident_id)
 );

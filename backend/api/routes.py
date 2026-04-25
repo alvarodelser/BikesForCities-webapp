@@ -30,7 +30,8 @@ from backend.database.db_io import (
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_station_reachability,
-    get_edge_route_traces, get_edge_route_od
+    get_edge_route_traces, get_edge_route_od,
+    get_accidents_geojson,
 )
 
 logger = logging.getLogger(__name__)
@@ -691,6 +692,33 @@ async def get_edge_routes(
     except Exception as e:
         logger.error(f"Error getting routes for edge {edge_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve edge routes")
+
+
+# Accidents endpoint
+@router.get("/cities/{city_id}/accidents")
+async def get_city_accidents(
+    city_id: int,
+    cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
+    conn=Depends(get_db_connection),
+):
+    """Get accident data as GeoJSON for a city.
+
+    Returns a GeoJSON FeatureCollection of Point features.
+    Each feature has severity ('fatal', 'serious', 'minor', 'uninjured') and metadata.
+    """
+    try:
+        validate_network_exists(conn, city_id)
+        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only)
+        return {
+            "data": geojson,
+            "count": len(geojson["features"]),
+            "message": f"Retrieved {len(geojson['features'])} accidents",
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting accidents for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve accident data")
 
 
 # Status endpoint

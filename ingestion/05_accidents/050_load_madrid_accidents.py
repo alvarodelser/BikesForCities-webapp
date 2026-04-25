@@ -31,6 +31,7 @@ from backend.database.db_io import (
     get_or_create_city,
     upsert_ingestion_status,
     get_ingestion_status,
+    refresh_city_modes,
 )
 
 # ---------------------------------------------------------------------------
@@ -122,6 +123,59 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
         s = str(val).strip().upper()
         return s == 'S' or s == '1' or s == 'TRUE'
 
+    # Categorizations based on user requirements
+    def _categorize_vehicles(row):
+        v_type = str(row["tipo_vehiculo"]).lower().strip() if pd.notna(row["tipo_vehiculo"]) else ""
+        
+        is_bike_vmu = v_type in [
+            "bicicleta", "bicicleta epac (pedaleo asistido)", "vmu eléctrico", 
+            "ciclo", "patinete no eléctrico", "otros vehículos sin motor"
+        ]
+        
+        is_moto = v_type in [
+            "motocicleta hasta 125cc", "motocicleta > 125cc", "ciclomotor", 
+            "cuadriciclo ligero", "cuadriciclo no ligero", "moto de tres ruedas > 125cc", 
+            "moto de tres ruedas hasta 125cc", "ciclomotor de tres ruedas",
+            "ciclo de motor l1e-a", "ciclomotor de dos ruedas l1e-b"
+        ]
+        
+        is_car = v_type in [
+            "turismo", "furgoneta", "todo terreno"
+        ]
+        
+        is_heavy = v_type in [
+            "autobús", "camión rígido", "maquinaria de obras", "tractocamión", 
+            "vehículo articulado", "autobús articulado", "autobus emt", "autocaravana",
+            "remolque", "semiremolque", "ambulancia samur"
+        ]
+
+        # Everything else falls to generic / unknown unless we specifically want it.
+        # Person type for pedestrians
+        p_type = str(row["tipo_persona"]).lower() if pd.notna(row["tipo_persona"]) else ""
+        is_pedestrian = "peato" in p_type or "peatón" in p_type
+
+        return pd.Series({
+            "is_bike_vmu": is_bike_vmu,
+            "is_moto": is_moto,
+            "is_car": is_car,
+            "is_heavy": is_heavy,
+            "is_pedestrian": is_pedestrian
+        })
+
+    df_cats = df.apply(_categorize_vehicles, axis=1)
+    df = pd.concat([df, df_cats], axis=1)
+
+    def _categorize_accident(acc_type):
+        if pd.isna(acc_type): return "Otro"
+        t = str(acc_type).lower()
+        if "colisión" in t: return "Colisión"
+        if "alcance" in t: return "Alcance"
+        if "caída" in t: return "Caída"
+        if "atropello a persona" in t: return "Atropello a persona"
+        return "Otro"
+
+    df["accident_type_cat"] = df["accident_type"].apply(_categorize_accident)
+
     # Aggregation for main table
     grouped = df.groupby("num_expediente").agg(
         fecha=("fecha", "first"),
@@ -129,19 +183,25 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
         calle=("calle", "first"),
         numero=("numero", "first"),
         distrito=("distrito", "first"),
-        accident_type=("accident_type", "first"),
+        accident_type=("accident_type_cat", "first"),
         weather=("weather", "first"),
         coordenada_x_utm=("coordenada_x_utm", "first"),
         coordenada_y_utm=("coordenada_y_utm", "first"),
         is_injured=("is_injured", "sum"),
         is_killed=("is_killed", "sum"),
-        is_cyclist=("is_cyclist", "sum"),
-        is_pedestrian=("is_pedestrian", "sum"),
+        has_bike_vmu=("is_bike_vmu", "max"),
+        has_moto=("is_moto", "max"),
+        has_car=("is_car", "max"),
+        has_heavy=("is_heavy", "max"),
+        has_pedestrian=("is_pedestrian", "max"),
         total_involved=("num_expediente", "count")
     ).reset_index()
 
+    # Filter out accidents where no bike/vmu was involved to save DB space
+    grouped = grouped[grouped["has_bike_vmu"] == True]
+
     accidents_to_insert = []
-    print(f"   📍 Processing {len(grouped):,} accidents...")
+    print(f"   📍 Processing {len(grouped):,} cyclist accidents...")
     for _, row in tqdm(grouped.iterrows(), total=len(grouped), desc=f"Transforming {year}"):
         try:
             dt_str = f"{row['fecha']} {row['hora']}"
@@ -157,6 +217,13 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
         except Exception:
             timestamp, lat, lon = None, None, None
 
+        vehicles_arr = []
+        if row["has_bike_vmu"]: vehicles_arr.append("bike_vmu")
+        if row["has_pedestrian"]: vehicles_arr.append("pedestrian")
+        if row["has_moto"]: vehicles_arr.append("moto")
+        if row["has_car"]: vehicles_arr.append("car")
+        if row["has_heavy"]: vehicles_arr.append("heavy")
+
         accidents_to_insert.append((
             city_id,
             str(row["num_expediente"]),
@@ -170,8 +237,7 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
             int(row["total_involved"]),
             int(row["is_injured"]),
             int(row["is_killed"]),
-            int(row["is_cyclist"]),
-            int(row["is_pedestrian"])
+            vehicles_arr
         ))
 
     print(f"   🔌 Ingesting into DB...")
@@ -183,7 +249,7 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
             INSERT INTO accidents (
                 city_id, accident_id, timestamp, street, street_number,
                 district, accident_type, weather, geom, total_involved, injured,
-                killed, cyclists_involved, pedestrians_involved
+                killed, vehicles_involved
             )
             VALUES %s
             ON CONFLICT (city_id, accident_id) DO UPDATE SET
@@ -197,8 +263,7 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
                 total_involved = EXCLUDED.total_involved,
                 injured = EXCLUDED.injured,
                 killed = EXCLUDED.killed,
-                cyclists_involved = EXCLUDED.cyclists_involved,
-                pedestrians_involved = EXCLUDED.pedestrians_involved
+                vehicles_involved = EXCLUDED.vehicles_involved
         """, accidents_to_insert)
 
         # 2. Link to closest edge
@@ -238,20 +303,21 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
                 ))
         
         unique_accidents_in_batch = [str(r[1]) for r in accidents_to_insert]
-        cur.execute("""
-            DELETE FROM accident_participants 
-            WHERE accident_db_id IN (
-                SELECT id FROM accidents WHERE city_id = %s AND accident_id = ANY(%s)
-            )
-        """, (city_id, unique_accidents_in_batch))
+        if unique_accidents_in_batch:
+            cur.execute("""
+                DELETE FROM accident_participants 
+                WHERE accident_db_id IN (
+                    SELECT id FROM accidents WHERE city_id = %s AND accident_id = ANY(%s)
+                )
+            """, (city_id, unique_accidents_in_batch))
 
-        execute_values(cur, """
-            INSERT INTO accident_participants (
-                accident_db_id, person_type, age_range, sex, vehicle_type, 
-                injury_status, injury_code, alcohol_positive, drugs_positive, accident_type
-            )
-            VALUES %s
-        """, participants_to_insert)
+            execute_values(cur, """
+                INSERT INTO accident_participants (
+                    accident_db_id, person_type, age_range, sex, vehicle_type, 
+                    injury_status, injury_code, alcohol_positive, drugs_positive, accident_type
+                )
+                VALUES %s
+            """, participants_to_insert)
 
     conn.commit()
     return len(accidents_to_insert)
@@ -287,6 +353,7 @@ def main():
             total += n
             upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id, time_period=year_str)
 
+        refresh_city_modes(conn, city_id)
         upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id)
         print(f"\n🏁 Finished! {total:,} accidents ingested for Madrid.")
         

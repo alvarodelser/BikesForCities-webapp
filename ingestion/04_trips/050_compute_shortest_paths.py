@@ -36,6 +36,7 @@ from backend.database.db_io import (
     put_path_edges,
     put_path_nodes,
     bulk_link_trips_to_path,
+    refresh_city_modes,
 )
 from backend.processing.city_ops import build_graph
 from backend.processing.route_strategy import shortest_path
@@ -161,6 +162,7 @@ def process_city(conn, city_id: int, city_name: str,
         print(f"   ✅ Done – {total_trips_processed:,} trips, "
               f"{total_unique_paths:,} unique paths, {savings:.1f}% computation saved.")
 
+        refresh_city_modes(conn, city_id)
         upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id)
 
     except Exception as e:
