@@ -215,6 +215,10 @@ plots/
 *.njsproj
 *.sln
 *.sw?
+.superpowers/
+.playwright*
+.claude/
+.agent/
 
 # =============================================================================
 # OPERATING SYSTEM
@@ -291,9 +295,6 @@ docker-compose.override.yml
 # =============================================================================
 # PROJECT SPECIFIC
 # =============================================================================
-
-# Superpowers brainstorming sessions
-.superpowers/
 
 # Deprecated code
 deprecated_code/

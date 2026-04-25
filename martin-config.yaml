@@ -1,0 +1,23 @@
+postgres:
+  connection_string: "${DATABASE_URL}"
+
+tables:
+  public.features:
+    schema: public
+    table: features
+    srid: 4326
+    geometry_column: geometry
+    id_column: id
+    # Disable Douglas-Peucker simplification so small features (buildings) are
+    # not dropped at lower zoom levels. Default is 10 tile-units which causes
+    # entire tiles to return 204 at zoom 12 when the tile contains only small
+    # building footprints that simplify away below the threshold.
+    simplification: 0
+
+  public.edges:
+    schema: public
+    table: edges
+    srid: 4326
+    geometry_column: geom
+    id_column: id
+    simplification: 0
