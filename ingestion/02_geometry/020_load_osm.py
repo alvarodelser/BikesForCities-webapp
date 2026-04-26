@@ -82,7 +82,7 @@ def main():
         try:
             print(f"▶️  Downloading graph for '{city_name}' …", end=" ", flush=True)
             start_dl = time.perf_counter()
-            G = load_graph(city_name, dist=radius)
+            G = load_graph(city_name, dist=radius, lat=center_lat, lon=center_lon)
             dl_time = timedelta(seconds=time.perf_counter() - start_dl)
             print(f"done ({dl_time}) — {G.number_of_nodes():,} nodes / {G.number_of_edges():,} edges")
             

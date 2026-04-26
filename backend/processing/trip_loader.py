@@ -34,19 +34,24 @@ def _load_city_data() -> dict[str, dict]:
             _CITY_CACHE = json.load(fh)
     return _CITY_CACHE
 
-def load_graph(city_name: str, dist: int = 10_000) -> nx.MultiDiGraph:
-    """Download the bike city around *city_name*.
+def load_graph(
+    city_name: str,
+    dist: int = 10_000,
+    lat: float = None,
+    lon: float = None,
+) -> nx.MultiDiGraph:
+    """Download the bike network around *city_name*.
 
-    Latitude/longitude are pulled from ``data/spain_data.json``.  If the city
-    isn't found, a ``ValueError`` is raised.
+    If *lat*/*lon* are provided they are used directly; otherwise they are
+    looked up from ``data/spain_data.json`` by *city_name* key.
     """
 
-    city_data = _load_city_data().get(city_name)
-    if city_data is None:
-        raise ValueError(f"City '{city_name}' not found in spain_data.json")
-
-    lat = city_data["latitude"]
-    lon = city_data["longitude"]
+    if lat is None or lon is None:
+        city_data = _load_city_data().get(city_name)
+        if city_data is None:
+            raise ValueError(f"City '{city_name}' not found in spain_data.json")
+        lat = city_data["latitude"]
+        lon = city_data["longitude"]
 
     G_full = ox.graph_from_point(
         (lat, lon),

@@ -222,13 +222,21 @@ def _trips_from_json_record(record: dict, station_map: dict) -> Optional[dict]:
     }
 
 def _extract_stations_from_json(content: str) -> dict:
-    """Parses a BiciMAD station JSON dump and returns a map of {id: [lon, lat]}"""
+    """Parses a BiciMAD JSON file and returns a station map of {id: [lon, lat]}.
+
+    Handles two formats:
+    - Station directory records (have 'id'/'id_station' + 'geometry')
+    - Old trip records (have 'idunplug_station'/'idplug_station' + 'geolocation_unlock'/lock)
+      These seed the map so that later _movements files can look up station coords.
+    """
     station_map = {}
     try:
         data = json.loads(content)
         records = data.get("data", data.get("stations", data)) if isinstance(data, dict) else data
         for k in records:
             if not isinstance(k, dict): continue
+
+            # --- Station directory format ---
             s_id = str(k.get("id", k.get("id_station", k.get("_id", ""))))
             coords = None
             geom = k.get("geometry", {})
@@ -236,7 +244,6 @@ def _extract_stations_from_json(content: str) -> dict:
                 coords = [float(geom["coordinates"][0]), float(geom["coordinates"][1])]
             elif "latitude" in k and "longitude" in k:
                 coords = [float(k["longitude"]), float(k["latitude"])]
-            # BiciMAD format where coordinates are nested inside a 'stations' sub-document
             if coords is None:
                 nested = k.get("stations", {})
                 if isinstance(nested, dict):
@@ -247,23 +254,41 @@ def _extract_stations_from_json(content: str) -> dict:
                         coords = [float(nested["longitude"]), float(nested["latitude"])]
             if coords and s_id:
                 station_map[s_id] = coords
+
+            # --- Old trip format: learn station_id → coords from GPS fields ---
+            # Needed so that _movements files (which have station IDs but no GPS) can resolve coords.
+            for sid_key, geo_key in (
+                ("idunplug_station", "geolocation_unlock"),
+                ("idplug_station",   "geolocation_lock"),
+            ):
+                sid_raw = k.get(sid_key)
+                geo_raw = k.get(geo_key)
+                if not sid_raw or not geo_raw or not isinstance(geo_raw, str):
+                    continue
+                try:
+                    sid = str(int(float(sid_raw)))
+                    c = json.loads(geo_raw.replace("'", '"'))["coordinates"]
+                    station_map[sid] = [float(c[0]), float(c[1])]
+                except Exception:
+                    pass
+
     except Exception:
         pass
-    
+
     if station_map:
         mmap = load_master_map()
         mmap.update(station_map)
         save_master_map(mmap)
-        
+
     return station_map
 
 
-def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, force: bool = False) -> int:
+def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, force: bool = False, _indent: str = "   ") -> int:
     written = 0
+    skipped = 0
     members = sorted(zf.namelist())
-    
-    # First pass: extract station coordinates from ALL JSON files (station files may not have
-    # "station" in their filename, e.g. 202101.json contains station data for 2021)
+
+    # First pass: seed the station map from all JSON files in this archive.
     for member in members:
         if "__MACOSX" in member: continue
         if member.lower().endswith(".zip"):
@@ -279,32 +304,36 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
             content = zf.read(member).decode("utf-8", errors="replace")
             station_map.update(_extract_stations_from_json(content))
 
+    # Second pass: produce CSV trip files.
     for member in members:
         if "__MACOSX" in member: continue
-        
+
         if member.lower().endswith(".zip") and "station" not in member.lower():
-            print(f"     📦 Nested ZIP: {member}")
             try:
                 with zf.open(member) as nf:
                     with zipfile.ZipFile(io.BytesIO(nf.read())) as nzf:
-                        written += _process_archive(nzf, year_short, station_map, force)
-            except Exception as e: print(f"       ❌ Failed nested ZIP {member}: {e}")
+                        n = _process_archive(nzf, year_short, station_map, force, _indent=_indent)
+                        written += n
+            except Exception as e:
+                print(f"{_indent}❌ Could not open {Path(member).name}: {e}")
             continue
 
         is_json, is_csv = member.lower().endswith(".json"), member.lower().endswith(".csv")
         if not (is_json or is_csv): continue
         if "station" in member.lower(): continue
-        
+
         month = _detect_month(member) or _detect_month(str(Path(member).parent))
         if month is None:
             continue
-            
+
+        label = f"20{year_short}-{month:02d} ({Path(member).name})"
         csv_path = DATA_DIR / f"trips_{year_short}_{month:02d}.csv"
         if csv_path.exists():
-            if not force: continue
-            else: csv_path.unlink() # Delete the zombie csv so we don't accidentally preserve error-filled versions
+            if not force:
+                continue
+            else:
+                csv_path.unlink()
 
-        print(f"     📂 Processing {member}...")
         try:
             with zf.open(member) as f:
                 if is_json:
@@ -312,10 +341,9 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                     try:
                         data = json.loads(content)
                         recs = data.get("data", data.get("trips", data)) if isinstance(data, dict) else data
-                    except:
+                    except Exception:
                         recs = [json.loads(l) for l in content.splitlines() if l.strip()]
 
-                    # Skip files that are station records, not trip records
                     if isinstance(recs, list) and recs and isinstance(recs[0], dict):
                         first_keys = set(recs[0].keys())
                         trip_indicators = {'geolocation_unlock', 'geolocation_lock', 'idunplug_station', 'idplug_station', 'travel_time', 'trip_minutes'}
@@ -331,13 +359,22 @@ def _process_archive(zf: zipfile.ZipFile, year_short: str, station_map: dict, fo
                     recs = df.to_dict("records")
                     rows = [r for r in [_trips_from_json_record(rc, station_map) for rc in recs] if r]
 
-                if not rows and recs:
-                    print(f"       ⚠️  0 valid trips. Keys: {list(recs[0].keys())[:10]}")
-
                 if rows:
                     pd.DataFrame(rows).to_csv(csv_path, sep=";", index=False)
-                    written += 1; print(f"     ✅ Created {csv_path.name} ({len(rows):,} trips)")
-        except Exception as e: print(f"       ❌ Error {member}: {e}")
+                    written += 1
+                    print(f"{_indent}✅ {label} → {len(rows):,} trips")
+                elif recs:
+                    first_keys = set(recs[0].keys()) if isinstance(recs[0], dict) else set()
+                    has_gps = first_keys & {'geolocation_unlock', 'geolocation_lock'}
+                    reason = "no GPS coords, station lookup failed" if not has_gps else "all trips filtered out"
+                    print(f"{_indent}⏭️  {label} — {reason}")
+                    skipped += 1
+
+        except Exception as e:
+            print(f"{_indent}❌ {label}: {e}")
+
+    if written or skipped:
+        print(f"{_indent}   → {written} file(s) written, {skipped} skipped")
     return written
 
 
@@ -359,15 +396,15 @@ def ensure_data_present(year: int, force: bool = False) -> int:
     if list(DATA_DIR.glob(f"trips_{year_short}_*.csv")) and not force:
         return 0
 
-    print(f"\n📦 Fetching BiciMAD {year} dataset...")
+    print(f"\n📦 BiciMAD {year}")
     if raw_cache.exists():
-        print(f"   📂 Using cached raw ZIP: {raw_cache.name}")
+        print(f"   Using cached ZIP ({raw_cache.stat().st_size // 1_048_576} MB)")
         raw = raw_cache.read_bytes()
     else:
         raw = _download(url, f"BiciMAD {year}")
         raw_cache.write_bytes(raw)
-        print(f"   💾 Saved raw ZIP to {raw_cache.name}")
-    
+        print(f"   Saved {raw_cache.stat().st_size // 1_048_576} MB → {raw_cache.name}")
+
     station_map = {}
     with zipfile.ZipFile(io.BytesIO(raw)) as zf:
         return _process_archive(zf, year_short, station_map, force)
