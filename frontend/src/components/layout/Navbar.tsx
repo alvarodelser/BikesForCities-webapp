@@ -277,10 +277,7 @@ const Navbar: React.FC<NavbarProps> = () => {
           `}
         >
           <div className="flex items-center justify-center h-[60px] w-full px-8 max-w-[800px]">
-            <ScrollableCityList 
-              show={showCities} 
-              fadeColor={scrolled ? "rgba(251, 246, 239, 0.85)" : "rgba(251, 246, 239, 0.95)"}
-            >
+            <ScrollableCityList show={showCities}>
               {cities.map((city) => (
                 <Link
                   key={city.path}
