@@ -56,7 +56,7 @@ interface PillProps {
   modeId: MapMode;
   name: string;
   color: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   active: boolean;
   disabled: boolean;
   submode: string;

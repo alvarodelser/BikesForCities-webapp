@@ -112,7 +112,6 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
     
     const isFirst = rank === 1;
     const isSecond = rank === 2;
-    const isThird = rank === 3;
     
     const isSelected = selectedCityPaths.includes(city.path);
 

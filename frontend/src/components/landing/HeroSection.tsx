@@ -1,4 +1,5 @@
 import React from 'react';
+import ErrorContainer from '../ui/ErrorContainer';
 
 const FEATURES = [
   {
@@ -64,12 +65,19 @@ const HeroSection: React.FC = () => {
 
             {/* Subtle accent line */}
             <div
-              className="h-[2px] rounded-full mt-6"
+              className="h-[2px] rounded-full mt-6 mb-12"
               style={{
                 width: '40px',
                 background: 'var(--green)',
                 opacity: 0.3
               }}
+            />
+
+            <ErrorContainer
+              variant="inline"
+              title="Página en Desarrollo"
+              message="Esta plataforma se encuentra actualmente en fase de desarrollo. Algunos de los datos mostrados son estáticos o han sido fabricados con fines de demostración."
+              className="mt-4"
             />
           </div>
 

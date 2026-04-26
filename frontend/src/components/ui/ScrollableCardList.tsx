@@ -7,7 +7,7 @@ type Props = {
   fadeColor?: string;
 };
 
-const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var(--cream)" }) => {
+const ScrollableCardList: React.FC<Props> = ({ children, label }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);

@@ -21,8 +21,7 @@ import {
   Car, 
   MapPin, 
   Users,
-  Activity,
-  Bike
+  Activity
 } from 'lucide-react';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
