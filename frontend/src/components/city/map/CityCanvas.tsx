@@ -5,7 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { CityData } from '../../../constants/cities';
 import { TILE_SERVER_URL } from '../../../config/api';
 import ActiveLayer from './ActiveLayer';
-import Spinner from '../../ui/Spinner';
+import LoadingContainer from '../../ui/LoadingContainer';
 
 import { MAP_MODES } from '../../../constants/mapModes';
 
@@ -26,10 +26,10 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
     const [mapReady, setMapReady] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    const hasValidCoords = city.geoCoords && 
-                          city.geoCoords.latitude !== null && 
-                          city.geoCoords.longitude !== null &&
-                          (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
+    const hasValidCoords = city.geoCoords &&
+        city.geoCoords.latitude !== null &&
+        city.geoCoords.longitude !== null &&
+        (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
 
     // Calculate bounds based on mode (20km for infra, 50km for others)
     const bounds = useMemo(() => {
@@ -75,8 +75,8 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     },
                 },
                 layers: [
-                    { id: 'background', type: 'background', paint: { 'background-color': '#f0ece7' } } as any,
-                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'none' } } as any,
+                    { id: 'background', type: 'background', paint: { 'background-color': '#FBF6EF' } } as any,
+                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' } } as any,
                 ],
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
@@ -109,13 +109,13 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
 
             // Static background layers (shared across all modes)
             const baseLayers = [
-                { id: 'sea-layer',              type: 'fill', filter: ['all', ['==', ['get','feature_type'],'sea'],             ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
-                { id: 'coastline-layer',         type: 'line', filter: ['all', ['==', ['get','feature_type'],'coastline'],       ['==', ['get','city_id'], city.id as number]], paint: { 'line-color': '#a4b7ca', 'line-width': 1 } },
-                { id: 'waterways-layer',         type: 'fill', filter: ['all', ['==', ['get','feature_type'],'waterways'],      ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
-                { id: 'forest-layer',            type: 'fill', filter: ['all', ['==', ['get','feature_type'],'forest'],         ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#dde5e4' } },
-                { id: 'buildings-layer',         type: 'fill', filter: ['all', ['==', ['get','feature_type'],'buildings'],      ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
-                { id: 'bike-path-buildings-layer', type: 'fill', filter: ['all', ['==', ['get','feature_type'],'bike_path_buildings'], ['==', ['get','city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
-                { id: 'bike-paths-layer',        type: 'line', filter: ['all', ['==', ['get','feature_type'],'bike_paths'],    ['==', ['get','city_id'], city.id as number]], paint: { 'line-color': '#00cac3', 'line-width': 2 } },
+                { id: 'sea-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'sea'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
+                { id: 'coastline-layer', type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'coastline'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#a4b7ca', 'line-width': 1 } },
+                { id: 'waterways-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'waterways'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
+                { id: 'forest-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'forest'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#dde5e4' } },
+                { id: 'buildings-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'buildings'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
+                { id: 'bike-path-buildings-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'bike_path_buildings'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
+                { id: 'bike-paths-layer', type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'bike_paths'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#00cac3', 'line-width': 2 } },
             ];
 
             baseLayers.forEach(def => {
@@ -212,7 +212,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     <div ref={mapContainer} className="w-full h-full" />
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10 transition-all duration-500">
-                            <Spinner className="w-12 h-12" />
+                            <LoadingContainer className="w-12 h-12" />
                         </div>
                     )}
                     {/* ActiveLayer mounts only after map load — critical for MapLibre */}
@@ -225,7 +225,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     </div>
                     <h3 className="text-lg font-bold text-white tracking-tight">Geographic Data Unavailable</h3>
                     <p className="text-sm text-slate-400 leading-relaxed">
-                        The coordinates for <span className="text-[var(--blue)] font-bold">{city.name}</span> are not set in the database. 
+                        The coordinates for <span className="text-[var(--blue)] font-bold">{city.name}</span> are not set in the database.
                         Run the city ingestion script to update.
                     </p>
                 </div>

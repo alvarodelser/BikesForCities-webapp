@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import type { CityData } from '../../constants/cities';
-import ErrorState from '../ui/ErrorState';
+import ErrorContainer from '../ui/ErrorContainer';
 import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
 import { useViewport } from '../../hooks/useViewport';
 
@@ -308,7 +308,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
   if (error) {
     return (
       <div ref={rootRef} className={rootClassName} style={rootStyle}>
-        <ErrorState
+        <ErrorContainer
           title="Map Unavailable"
           message={error}
           showRetry={true}

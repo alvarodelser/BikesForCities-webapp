@@ -105,7 +105,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         <MapContext.Provider value={contextValue}>
             <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
                 <div
-                    className={`w-full relative overflow-hidden map-section-bg ${isMobile ? 'h-screen' : 'h-screen'}`}
+                    className={`w-full relative overflow-hidden map-section-bg h-full`}
                     style={{
                         '--mode-primary': colorScheme.primary,
                         '--mode-secondary': colorScheme.secondary,
@@ -181,7 +181,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     </div>
 
                     {/* Legend — floats over canvas */}
-                    <CityLegend bottomOffset={bottomOffset} defaultOpen={!isMobile ? true : false} />
+                    <CityLegend colorScheme={colorScheme} bottomOffset={bottomOffset} defaultOpen={!isMobile ? true : false} />
                 </div>
             </ThresholdsContext.Provider>
         </MapContext.Provider>

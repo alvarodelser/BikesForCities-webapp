@@ -12,11 +12,12 @@ import { commonLegendItems } from './modes/common';
  * On mobile, collapses to an icon-button with a glass popover to save space.
  */
 interface CityLegendProps {
+    colorScheme?: { primary: string; secondary: string; accent: string; light: string };
     bottomOffset?: number;
     defaultOpen?: boolean;
 }
 
-export default function CityLegend({ bottomOffset = 0, defaultOpen }: CityLegendProps) {
+export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen }: CityLegendProps) {
     const { mode } = useMapState();
     const { isMobile } = useViewport();
     const [open, setOpen] = useState(() => {
@@ -103,13 +104,17 @@ export default function CityLegend({ bottomOffset = 0, defaultOpen }: CityLegend
                 aria-label="Mostrar leyenda"
                 aria-expanded={open}
                 className={`
-                    h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl flex items-center justify-center 
-                    hover:bg-white transition-all duration-300 transform 
-                    ${open ? 'scale-0 opacity-0 pointer-events-none absolute' : 'scale-100 opacity-100'}
+                    p-3 rounded-full backdrop-blur-sm transition-all duration-300 transform 
+                    ${open ? 'scale-0 opacity-0 pointer-events-none absolute' : 'scale-100 opacity-100 shadow-xl'}
                     hover:scale-110
                 `}
+                style={{
+                    backgroundColor: colorScheme ? `${colorScheme.accent}20` : 'rgba(255,255,255,0.2)',
+                    color: colorScheme ? colorScheme.secondary : '#000',
+                    border: colorScheme ? `1px solid ${colorScheme.accent}60` : '1px solid rgba(0,0,0,0.1)',
+                }}
             >
-                <List className="w-4 h-4 text-black/70" />
+                <List className="w-5 h-5" />
             </button>
         </div>
     );

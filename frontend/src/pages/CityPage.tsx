@@ -5,8 +5,8 @@ import { fetchCities } from '../services/api';
 import { useViewport } from '../hooks/useViewport';
 import MapDesktop from '../components/city/MapDesktop';
 import MapMobile from '../components/city/MapMobile';
-import ErrorState from '../components/ui/ErrorState';
-import Spinner from '../components/ui/Spinner';
+import ErrorContainer from '../components/ui/ErrorContainer';
+import LoadingContainer from '../components/ui/LoadingContainer';
 
 const CityPage: React.FC = () => {
   const { cityName: rawCityName } = useParams<{ cityName: string }>();
@@ -45,7 +45,7 @@ const CityPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue-dark)] flex items-center justify-center">
-        <Spinner />
+        <LoadingContainer />
       </div>
     );
   }
@@ -53,7 +53,7 @@ const CityPage: React.FC = () => {
   if (error || !city) {
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[var(--blue-dark)]">
-        <ErrorState 
+        <ErrorContainer 
           title="City Not Found" 
           message={error || "The city you are looking for does not exist."} 
           showHome={true} 

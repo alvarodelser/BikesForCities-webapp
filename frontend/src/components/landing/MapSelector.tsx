@@ -8,8 +8,8 @@ import ScrollableCityCards from '../ui/ScrollableCityCards';
 import WaveBackground from '../ui/WaveBackground';
 import SideCardTail from './SideCardTail';
 import CityCard from '../ui/CityCard';
-import ErrorState from '../ui/ErrorState';
-import Spinner from '../ui/Spinner';
+import ErrorContainer from '../ui/ErrorContainer';
+import LoadingContainer from '../ui/LoadingContainer';
 
 // ─── Shared layout props ──────────────────────────────────────────────────────
 
@@ -208,7 +208,7 @@ const MapSelector: React.FC = () => {
   if (loading) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center bg-[var(--blue-dark)]">
-        <Spinner />
+        <LoadingContainer />
       </div>
     );
   }
@@ -216,7 +216,7 @@ const MapSelector: React.FC = () => {
   if (error) {
     return (
       <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[var(--blue-dark)]">
-        <ErrorState title="Error de Conexión" message={error} showRetry={true} />
+        <ErrorContainer title="Error de Conexión" message={error} showRetry={true} />
       </div>
     );
   }

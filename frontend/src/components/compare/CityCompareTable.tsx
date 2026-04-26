@@ -9,8 +9,8 @@ import {
   formatPercentage,
 } from '../../utils/formatters';
 import { GlassCard } from '../ui/GlassCard';
-import Spinner from '../ui/Spinner';
-import ErrorState from '../ui/ErrorState';
+import LoadingContainer from '../ui/LoadingContainer';
+import ErrorContainer from '../ui/ErrorContainer';
 import { ColumnGroupPicker } from './ColumnGroupPicker';
 import { MobileCompareRows } from './MobileCompareRows';
 import { 
@@ -397,8 +397,8 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
 
   const sorted = sortCities(cities, sortKey, sortDir);
 
-  if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
-  if (error) return <ErrorState title="Error" message={error} />;
+  if (loading) return <div className="flex justify-center py-16"><LoadingContainer /></div>;
+  if (error) return <ErrorContainer title="Error" message={error} />;
 
   if (isMobile) {
     return (
