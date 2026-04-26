@@ -88,10 +88,10 @@ function ExpandingPill({
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
       }`}
       style={{
-        backgroundColor: active ? color : 'rgba(255,255,255,0.7)',
-        borderColor:     active ? color : 'rgba(0,0,0,0.08)',
+        backgroundColor: active ? 'white' : 'rgba(255,255,255,0.15)',
+        borderColor:     active ? 'white' : 'rgba(255,255,255,0.2)',
         boxShadow: active
-          ? `0 8px 24px ${color}40, inset 0 1px 0 rgba(255,255,255,0.35)`
+          ? `0 8px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5)`
           : '0 2px 6px rgba(0,0,0,0.04)',
       }}
     >
@@ -100,8 +100,8 @@ function ExpandingPill({
 
       {/* Top half: icon + label */}
       <div className="relative z-10 flex items-center gap-2 justify-center px-3 py-3">
-        <Icon className={`w-4 h-4 ${active ? 'text-white' : 'text-[var(--blue-dark)]'}`} />
-        <span className={`text-sm font-semibold ${active ? 'text-white' : 'text-[var(--blue)]'}`}>
+        <Icon className="w-4 h-4" style={{ color: active ? color : 'white' }} />
+        <span className="text-sm font-semibold" style={{ color: active ? color : 'white' }}>
           {name}
         </span>
       </div>
@@ -110,7 +110,7 @@ function ExpandingPill({
       {active && modeId === MAP_MODES.TRAFFIC && viz?.requiresEdge && !edgeSelected && (
         <div
           className="relative z-10 border-t px-3 pb-2 text-[10px] italic text-center leading-tight"
-          style={{ borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)' }}
+          style={{ borderColor: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)' }}
           onClick={e => e.stopPropagation()}
         >
           Selecciona un tramo
@@ -121,7 +121,7 @@ function ExpandingPill({
       {showSubmodes && (
         <div
           className="relative z-10 flex border-t"
-          style={{ borderColor: 'rgba(255,255,255,0.3)' }}
+          style={{ borderColor: 'rgba(0,0,0,0.08)' }}
           onClick={e => e.stopPropagation()}
         >
           {viz!.items.map((s, i) => {
@@ -132,9 +132,9 @@ function ExpandingPill({
                 onClick={() => onSubmodeClick(s.id)}
                 className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors"
                 style={{
-                  backgroundColor: isActive ? 'rgba(255,255,255,0.22)' : 'transparent',
-                  color:           isActive ? 'white' : 'rgba(255,255,255,0.65)',
-                  borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.25)' : undefined,
+                  backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
+                  color:           isActive ? color : 'rgba(0,0,0,0.45)',
+                  borderLeft: i > 0 ? '1px solid rgba(0,0,0,0.08)' : undefined,
                 }}
               >
                 {s.label}
@@ -197,8 +197,8 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
   return (
     <section className="w-full">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-[var(--blue-dark)] mb-1">Herramientas de Análisis</h2>
-        <p className="text-base text-[var(--blue)] opacity-80">
+        <h2 className="text-2xl font-bold text-white mb-1">Herramientas de Análisis</h2>
+        <p className="text-base text-white/80">
           Selecciona un modo para analizar la infraestructura ciclista de {city.name}
         </p>
       </div>

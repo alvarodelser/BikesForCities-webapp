@@ -113,7 +113,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         <MapContext.Provider value={contextValue}>
             <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
                 <div
-                    className="w-full relative overflow-hidden h-full"
+                    className="w-full relative overflow-hidden h-full flex flex-col"
                     style={{
                         '--mode-primary': colorScheme.primary,
                         '--mode-secondary': colorScheme.secondary,
@@ -122,9 +122,9 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                 >
 
 
-                    {/* Floating header - hidden on mobile as MapMobile provides its own overlay */}
+                    {/* Separated header - hidden on mobile as MapMobile provides its own overlay */}
                     {!isMobile && (
-                        <div className="absolute top-0 left-0 right-0 z-20 p-4">
+                        <div className="z-20 pb-4 shrink-0">
                             <div
                                 className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
                                 style={{
@@ -172,11 +172,11 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     )}
 
                     {/* Map canvas */}
-                    <div className={`absolute inset-0 z-10 ${isMobile ? '' : 'pt-20 pb-4 px-4'}`}>
+                    <div className={`z-10 ${isMobile ? 'absolute inset-0' : 'relative flex-1 min-h-0 pb-4'}`}>
                         <div
                             className={`w-full h-full overflow-hidden transition-all duration-500 ${isMobile ? '' : 'rounded-2xl'}`}
                             style={isMobile ? {} : {
-                                boxShadow: `inset 0 1px 0 ${colorScheme.primary}, 0 12px 40px rgba(0,0,0,0.12), 0 0 0 1px ${colorScheme.primary}33`,
+                                border: '1px solid rgba(0, 0, 0, 0.25)',
                             }}
                         >
                             <CityCanvas city={city} onMapInstance={setMapInstance} />

@@ -11,6 +11,7 @@ interface CityStatsProps {
   subtitle: string;
   modeStats: ModeStats;
   compact?: boolean;
+  theme?: 'light' | 'dark';
 }
 
 // ── Traffic computation options ───────────────────────────────────────────────
@@ -94,7 +95,7 @@ function ComputationCard({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compact = false }) => {
+const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compact = false, theme = 'light' }) => {
   const { stats, insights, recommendations, overallScore } = modeStats;
   const { mode, generation, routing, setGeneration, setRouting } = useMapState();
   const isTraffic = mode === MAP_MODES.TRAFFIC;
@@ -106,8 +107,8 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compa
         {/* Header */}
         <div className={`flex items-center justify-between ${compact ? 'mb-4' : 'mb-8'}`}>
           <div>
-            <h2 className={`${compact ? 'text-xl' : 'text-3xl'} font-bold text-[var(--blue-dark)] mb-1`}>{title}</h2>
-            <p className={`text-[var(--blue)] opacity-80 ${compact ? 'text-xs' : 'text-base'}`}>{subtitle}</p>
+            <h2 className={`${compact ? 'text-xl' : 'text-3xl'} font-bold ${theme === 'dark' ? 'text-white' : 'text-[var(--blue-dark)]'} mb-1`}>{title}</h2>
+            <p className={`${theme === 'dark' ? 'text-white/80' : 'text-[var(--blue)] opacity-80'} ${compact ? 'text-xs' : 'text-base'}`}>{subtitle}</p>
           </div>
 
           <GlassCard
