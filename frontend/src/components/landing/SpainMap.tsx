@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import type { CityData } from '../../constants/cities';
+import CityCard from '../ui/CityCard';
 import ErrorContainer from '../ui/ErrorContainer';
+
 import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
 import { useViewport } from '../../hooks/useViewport';
 
@@ -121,9 +123,9 @@ interface PinProps {
 }
 
 const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover }: PinProps) {
-  const width = isMobile ? 20 : 26;
+  const width = isMobile ? 12 : 14;
   const height = isMobile ? 10 : 12;
-  const rx = height / 2;
+  const rx = 5; // Fixed small radius for pill shape
 
   // Navy blue border and label color
   const strokeColor = '#003849'; 
@@ -202,6 +204,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     width: widthProp,
     height: heightProp,
     onCityClick,
+    onCityNavigate,
     selectedCity,
     cities,
     className,
@@ -212,6 +215,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
   const [geoData, setGeoData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredCity, setHoveredCity] = useState<string | null>(null);
+  const { isMobile } = useViewport();
 
   // Size: driven by ResizeObserver on root div; fallback to props if provided
   const [size, setSize] = useState({
@@ -219,7 +223,10 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     height: heightProp ?? 700,
   });
 
-  const { isMobile } = useViewport();
+  const selectedCityData = useMemo(() => {
+    if (!selectedCity) return null;
+    return cities.find(c => c.name === selectedCity);
+  }, [selectedCity, cities]);
 
   // ResizeObserver to track actual rendered size — useLayoutEffect fires before paint to avoid
   // a flash from fallback size → measured size
@@ -295,6 +302,46 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .style('opacity', 1.0);
   }, [geoData, projection]);
 
+  // Calculate connector layout for desktop
+  const connector = useMemo(() => {
+    if (!selectedCityData || !projection || isMobile) return null;
+    
+    const [shiftedLon, shiftedLat] = transformCanaryCoords(
+      selectedCityData.geoCoords.longitude,
+      selectedCityData.geoCoords.latitude,
+      isMobile,
+    );
+    const p = projection([shiftedLon, shiftedLat]);
+    if (!p) return null;
+    const [px, py] = p;
+
+    // Logic for sea sections: East/West split by Madrid longitude
+    const isRight = selectedCityData.geoCoords.longitude > -3.7;
+    const isTop = selectedCityData.geoCoords.latitude > 40;
+
+    const cardW = 270;
+    const cardH = 310;
+    
+    // Position cards in the "sea" areas
+    const cardX = isRight ? size.width * 0.82 : size.width * 0.18;
+    const cardY = isTop ? size.height * 0.28 : size.height * 0.72;
+    
+    // Connector line points
+    const diagSize = 30;
+    const p2x = isRight ? px + diagSize : px - diagSize;
+    const p2y = py - diagSize;
+    
+    // Horizontal segment hits the card edge
+    const p3x = isRight ? cardX - cardW/2 : cardX + cardW/2;
+    const p3y = p2y;
+    
+    // Vertical segment up to the card top
+    const p4x = p3x;
+    const p4y = cardY - cardH/2;
+
+    return { px, py, p2x, p2y, p3x, p3y, p4x, p4y, cardX, cardY, cardW, cardH, isRight };
+  }, [selectedCityData, projection, isMobile, size]);
+
   // Stable per-component handlers so React.memo on Pin can bail out for non-hovered pins
   const handlePinClick = useCallback((cityName: string) => {
     onCityClick?.(cityName);
@@ -363,6 +410,20 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         {/* g.map-base is managed by D3 (see useEffect above) */}
         <g className="map-base" />
 
+        {/* Connector Line */}
+        {connector && (
+          <path
+            d={`M ${connector.px} ${connector.py} L ${connector.p2x} ${connector.p2y} L ${connector.p3x} ${connector.p3y} L ${connector.p4x} ${connector.p4y}`}
+            fill="none"
+            stroke="white"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.8}
+            className="transition-all duration-500"
+          />
+        )}
+
         {/* City Pins — inside SVG, sibling to g.map-base, not affected by D3 cleanup */}
         {projection &&
           getCityCoordinates(cities).map(city => {
@@ -392,6 +453,27 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
             );
           })}
       </svg>
+
+      {/* Floating City Card for Desktop */}
+      {!isMobile && selectedCityData && connector && (
+        <div 
+          className="absolute z-50 transition-all duration-500"
+          style={{ 
+            left: connector.cardX - connector.cardW / 2, 
+            top: connector.cardY - connector.cardH / 2,
+            width: connector.cardW,
+            height: connector.cardH,
+            pointerEvents: 'auto'
+          }}
+        >
+          <CityCard 
+            city={selectedCityData} 
+            position={0} 
+            panel={true} 
+            onCityNavigate={onCityNavigate}
+          />
+        </div>
+      )}
     </div>
   );
 };
