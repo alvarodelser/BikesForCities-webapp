@@ -1,15 +1,12 @@
 import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { useViewport } from '../../hooks/useViewport';
+import { useMapState } from '../../hooks/useMapState';
 import {
   Car,
   MapPin,
   Network,
-  Mountain,
-  TriangleAlert,
-  CircleDot,
 } from 'lucide-react';
-
 import { MAP_MODES } from '../../constants/mapModes';
 import type { MapMode } from '../../constants/mapModes';
 
@@ -18,101 +15,171 @@ interface MapFiltersProps {
   selectedMode: MapMode;
   onModeChange: (mode: MapMode) => void;
   isModeAvailable: (mode: MapMode) => boolean;
+  selectedEdgeId?: number | null;
 }
 
+interface VizSubmode { id: string; label: string }
 
-interface FilterMode {
-  id: MapMode;
+// Viz submodes per mode, with optional condition
+const VIZ_SUBMODES: Partial<Record<string, { items: VizSubmode[]; requiresEdge?: boolean }>> = {
+  [MAP_MODES.STATIONS]: {
+    items: [
+      { id: 'trips',    label: 'Viajes' },
+      { id: 'downtime', label: 'Tiempo' },
+      { id: 'reach',    label: 'Alcance' },
+    ],
+  },
+  [MAP_MODES.TRAFFIC]: {
+    items: [
+      { id: 'traces',  label: 'Trayecto' },
+      { id: 'heatmap', label: 'Calor' },
+    ],
+    requiresEdge: true,
+  },
+};
+
+// Default viz submode per mode
+const DEFAULT_SUBMODE: Partial<Record<string, string>> = {
+  [MAP_MODES.STATIONS]: 'trips',
+  [MAP_MODES.TRAFFIC]:  'traces',
+};
+
+const MODE_META = [
+  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', color: 'var(--blue)',   icon: Network       },
+  { id: MAP_MODES.TRAFFIC,        name: 'Tráfico',         color: 'var(--red)',    icon: Car           },
+  { id: MAP_MODES.STATIONS,       name: 'Estaciones',      color: 'var(--green)',  icon: MapPin        },
+] as const;
+
+// ── Desktop partitioned pill ──────────────────────────────────────────────────
+
+interface PillProps {
+  modeId: MapMode;
   name: string;
-  shortLabel: string;
-  icon: React.ComponentType<{ className?: string }>;
-  description: string;
-  available: boolean;
   color: string;
+  icon: React.ComponentType<{ className?: string }>;
+  active: boolean;
+  disabled: boolean;
+  submode: string;
+  edgeSelected: boolean;
+  onModeClick: () => void;
+  onSubmodeClick: (id: string) => void;
 }
 
-const filterModes: FilterMode[] = [
-  {
-    id: MAP_MODES.INFRASTRUCTURE,
-    name: 'Infraestructura',
-    shortLabel: 'Infra',
-    icon: Network,
-    description: 'Red de carriles bici y rutas ciclistas',
-    available: true,
-    color: 'var(--blue)'
-  },
-  {
-    id: MAP_MODES.TRAFFIC,
-    name: 'Tráfico',
-    shortLabel: 'Tráfico',
-    icon: Car,
-    description: 'Análisis de flujo de tráfico y congestión',
-    available: true,
-    color: 'var(--red)'
-  },
-  {
-    id: MAP_MODES.STATIONS,
-    name: 'Estaciones',
-    shortLabel: 'Est.',
-    icon: MapPin,
-    description: 'Estaciones de bicicletas compartidas',
-    available: true,
-    color: 'var(--green)'
-  },
-  {
-    id: MAP_MODES.TERRAIN,
-    name: 'Terreno',
-    shortLabel: 'Ter.',
-    icon: Mountain,
-    description: 'Datos de elevación y análisis del terreno',
-    available: true,
-    color: 'var(--orange)'
-  },
-  {
-    id: MAP_MODES.INTERSECTIONS,
-    name: 'Intersecciones',
-    shortLabel: 'Inter.',
-    icon: CircleDot,
-    description: 'Cruces y puntos de conflicto vial',
-    available: true,
-    color: 'var(--yellow)'
-  },
-  {
-    id: MAP_MODES.ACCIDENTS,
-    name: 'Accidentes',
-    shortLabel: 'Accid.',
-    icon: TriangleAlert,
-    description: 'Siniestralidad vial y puntos negros',
-    available: true,
-    color: 'var(--red)'
-  },
-];
+function ExpandingPill({
+  modeId, name, color, icon: Icon,
+  active, disabled, submode, edgeSelected,
+  onModeClick, onSubmodeClick,
+}: PillProps) {
+  const viz = VIZ_SUBMODES[modeId];
+  const showSubmodes = active && viz && (!viz.requiresEdge || edgeSelected);
 
-const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange, isModeAvailable }) => {
+  return (
+    <button
+      onClick={onModeClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`relative rounded-2xl border-2 transition-all duration-300 overflow-hidden text-left w-full ${
+        disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
+      }`}
+      style={{
+        backgroundColor: active ? 'white' : 'rgba(255,255,255,0.15)',
+        borderColor:     active ? 'white' : 'rgba(255,255,255,0.2)',
+        boxShadow: active
+          ? `0 8px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5)`
+          : '0 2px 6px rgba(0,0,0,0.04)',
+      }}
+    >
+      {/* Glass reflection */}
+      <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
+
+      {/* Top half: icon + label */}
+      <div className="relative z-10 flex items-center gap-2 justify-center px-3 py-3">
+        <Icon className="w-4 h-4" style={{ color: active ? color : 'white' }} />
+        <span className="text-sm font-semibold" style={{ color: active ? color : 'white' }}>
+          {name}
+        </span>
+      </div>
+
+      {/* Hint: traffic with no edge yet */}
+      {active && modeId === MAP_MODES.TRAFFIC && viz?.requiresEdge && !edgeSelected && (
+        <div
+          className="relative z-10 border-t px-3 pb-2 text-[10px] italic text-center leading-tight"
+          style={{ borderColor: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          Selecciona un tramo
+        </div>
+      )}
+
+      {/* Bottom half: viz submode row */}
+      {showSubmodes && (
+        <div
+          className="relative z-10 flex border-t"
+          style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {viz!.items.map((s, i) => {
+            const isActive = (submode || DEFAULT_SUBMODE[modeId]) === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => onSubmodeClick(s.id)}
+                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors"
+                style={{
+                  backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
+                  color:           isActive ? color : 'rgba(0,0,0,0.45)',
+                  borderLeft: i > 0 ? '1px solid rgba(0,0,0,0.08)' : undefined,
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
+const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange, isModeAvailable, selectedEdgeId = null }) => {
   const { isMobile } = useViewport();
+  const { submode, setMode, setSubmode } = useMapState();
 
+  const handleModeClick = (id: MapMode) => {
+    const defaultSub = DEFAULT_SUBMODE[id] ?? '';
+    setMode(id, defaultSub || undefined);
+  };
+
+  const handleSubmodeClick = (id: string) => {
+    setSubmode(id);
+  };
+
+  // ── Mobile: horizontal pill strip (unchanged layout, no expansion) ──
   if (isMobile) {
     return (
       <div className="flex gap-2 overflow-x-auto px-[var(--space-gutter)] py-2 bg-black/[0.03] border-b border-black/10">
-        {filterModes
-          .filter(mode => isModeAvailable(mode.id))
-          .map(mode => {
-            const isActive = selectedMode === mode.id;
+        {MODE_META
+          .filter(m => isModeAvailable(m.id))
+          .map(m => {
+            const isActive = selectedMode === m.id;
+            const Icon = m.icon;
             return (
               <button
-                key={mode.id}
-                onClick={() => onModeChange(mode.id)}
-                disabled={!mode.available}
+                key={m.id}
+                onClick={() => onModeChange(m.id)}
+                disabled={!isModeAvailable(m.id)}
                 aria-pressed={isActive}
-                style={isActive ? { backgroundColor: mode.color, borderColor: mode.color } : {}}
+                style={isActive ? { backgroundColor: m.color, borderColor: m.color } : {}}
                 className={`shrink-0 flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs font-semibold whitespace-nowrap transition-colors ${
                   isActive
                     ? 'text-white border-transparent'
                     : 'bg-white border-black/10 text-black/70'
                 }`}
               >
-                <mode.icon className="w-3.5 h-3.5" />
-                {mode.name}
+                <Icon className="w-3.5 h-3.5" />
+                {m.name}
               </button>
             );
           })}
@@ -120,83 +187,34 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
     );
   }
 
+  // ── Desktop: expanding pills grid ──
   return (
-    <section className="w-full px-[var(--space-gutter)] relative">
-      <div>
-        {/* Section Header */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-[var(--blue-dark)] mb-2">Herramientas de Análisis</h2>
-          <p className="text-lg text-[var(--blue)] opacity-80">Selecciona un modo para analizar diferentes aspectos de la infraestructura ciclista de {city.name}</p>
-        </div>
+    <section className="w-full">
+      <div className="mb-6">
+        <h2 className="text-2xl font-bold text-white mb-1">Herramientas de Análisis</h2>
+        <p className="text-base text-white/80">
+          Selecciona un modo para analizar la infraestructura ciclista de {city.name}
+        </p>
+      </div>
 
-        {/* Filter Modes Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          {filterModes
-            .filter(mode => isModeAvailable(mode.id))
-            .map((mode) => (
-            <button
-              key={mode.id}
-              onClick={() => onModeChange(mode.id)}
-              disabled={!mode.available}
-              className={`
-                relative p-4 rounded-2xl border-2 transition-all duration-300 group
-                ${selectedMode === mode.id 
-                  ? `shadow-lg scale-105` 
-                  : 'border-gray-300/40 bg-white/60 hover:bg-white/80 hover:scale-102'
-                }
-                ${!mode.available ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-              `}
-              style={{
-                backgroundColor: selectedMode === mode.id ? mode.color : undefined,
-                borderColor: selectedMode === mode.id ? mode.color : undefined,
-                boxShadow: selectedMode === mode.id ? `0 0 20px ${mode.color}40` : undefined
-              }}
-            >
-              {/* Glass reflection effect */}
-              <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
-              
-              <div className="relative z-10 text-center">
-                <div 
-                  className={`
-                    w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center
-                    ${selectedMode === mode.id 
-                      ? 'bg-white/20' 
-                      : 'bg-white/80 border border-gray-300/50'
-                    }
-                    group-hover:scale-110 transition-transform duration-300
-                  `}
-                >
-                  <mode.icon 
-                    className={`w-6 h-6 ${
-                      selectedMode === mode.id ? 'text-white' : 'text-[var(--blue-dark)]'
-                    }`} 
-                  />
-                </div>
-                <h3 className={`font-semibold text-sm ${
-                  selectedMode === mode.id ? 'text-white' : 'text-[var(--blue)]'
-                }`}>
-                  {mode.name}
-                </h3>
-                {!mode.available && (
-                  <span className="text-xs text-[var(--red)] mt-1 block">Próximamente</span>
-                )}
-              </div>
-              
-              {/* Bottom highlight */}
-              <div 
-                className={`absolute bottom-0 left-0 right-0 h-px ${
-                  selectedMode === mode.id ? 'opacity-100' : 'opacity-0'
-                }`}
-                style={{
-                  background: selectedMode === mode.id 
-                    ? `linear-gradient(to right, transparent, ${mode.color}60, transparent)`
-                    : undefined
-                }}
-              />
-            </button>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-start">
+        {MODE_META
+          .filter(m => isModeAvailable(m.id))
+          .map(m => (
+            <ExpandingPill
+              key={m.id}
+              modeId={m.id}
+              name={m.name}
+              color={m.color}
+              icon={m.icon}
+              active={selectedMode === m.id}
+              disabled={!isModeAvailable(m.id)}
+              submode={selectedMode === m.id ? submode : ''}
+              edgeSelected={selectedEdgeId !== null}
+              onModeClick={() => handleModeClick(m.id)}
+              onSubmodeClick={handleSubmodeClick}
+            />
           ))}
-        </div>
-
       </div>
     </section>
   );

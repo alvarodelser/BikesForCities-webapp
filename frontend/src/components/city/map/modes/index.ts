@@ -4,12 +4,6 @@ import StationsLayer from './stations/StationsLayer';
 import StationsLegend from './stations/StationsLegend';
 import TrafficLayer from './traffic/TrafficLayer';
 import TrafficLegend from './traffic/TrafficLegend';
-import TerrainLayer from './terrain/TerrainLayer';
-import TerrainLegend from './terrain/TerrainLegend';
-import AccidentsLayer from './accidents/AccidentsLayer';
-import AccidentsLegend from './accidents/AccidentsLegend';
-import IntersectionsLayer from './intersections/IntersectionsLayer';
-import IntersectionsLegend from './intersections/IntersectionsLegend';
 import type React from 'react';
 
 import { MAP_MODES } from '../../../../constants/mapModes';
@@ -43,23 +37,5 @@ export const MODES: Record<string, ModeConfig> = {
         legend:         TrafficLegend,
         submodes:       ['traces', 'heatmap'],
         defaultSubmode: 'traces',
-    },
-    [MAP_MODES.TERRAIN]: {
-        layer:          TerrainLayer,
-        legend:         TerrainLegend,
-        submodes:       [],
-        defaultSubmode: '',
-    },
-    [MAP_MODES.ACCIDENTS]: {
-        layer:          AccidentsLayer,
-        legend:         AccidentsLegend,
-        submodes:       [],
-        defaultSubmode: '',
-    },
-    [MAP_MODES.INTERSECTIONS]: {
-        layer:          IntersectionsLayer,
-        legend:         IntersectionsLegend,
-        submodes:       [],
-        defaultSubmode: '',
     },
 };

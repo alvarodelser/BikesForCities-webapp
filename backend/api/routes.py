@@ -15,7 +15,8 @@ from .models import (
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, TripResponse, FeatureResponse,
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
-    StationResponse, StationListResponse, TrafficResponse, TrafficCount,
+    StationResponse, StationListResponse,
+    TrafficResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
     EdgeRoutesResponse
 )
 from .dependencies import (
@@ -25,7 +26,7 @@ from .dependencies import (
 from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
     count_trips, count_features, get_nodes, get_edges, get_features,
-    get_stations, get_edge_traffic, get_latest_traffic_month,
+    get_stations, get_edge_traffic, get_traffic_stats, get_traffic_modes,
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
@@ -51,7 +52,7 @@ async def list_networks(conn=Depends(get_db_connection)):
              population, budget, coverage, cycling_network, 
              min_lat, max_lat, min_lon, max_lon,
              infra, traffic, accidents, topo, inter, stations, forum,
-             mayor, mayor_party, service_name, stations_count, monthly_trips) = row
+             mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
             
             bounds = None
             if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
@@ -88,6 +89,7 @@ async def list_networks(conn=Depends(get_db_connection)):
                 service_name=service_name,
                 stations_count=int(stations_count) if stations_count is not None else None,
                 monthly_trips=int(monthly_trips) if monthly_trips is not None else None,
+                bicycles_count=int(bicycles_count) if bicycles_count is not None else None,
                 bounds=bounds,
                 available_modes=available_modes
             ))
@@ -140,6 +142,7 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             service_name=city_dict.get("service_name"),
             stations_count=city_dict.get("stations_count"),
             monthly_trips=city_dict.get("monthly_trips"),
+            bicycles_count=city_dict.get("bicycles_count"),
             bounds=bounds_dict,
             available_modes=available_modes
         )
@@ -586,41 +589,66 @@ async def get_station_reach(
         raise HTTPException(status_code=500, detail="Failed to compute reachability")
 
 
-# Traffic endpoint
+# Traffic endpoints
+@router.get("/cities/{city_id}/traffic/modes", response_model=TrafficModesResponse)
+async def get_city_traffic_modes(
+    city_id: int,
+    conn=Depends(get_db_connection)
+):
+    """Return available (generation_type, algorithm) combinations for a city, sorted best-first."""
+    try:
+        validate_network_exists(conn, city_id)
+        rows = get_traffic_modes(conn, city_id)
+        return TrafficModesResponse(
+            data=[TrafficMode(generation_type=r[0], algorithm=r[1], edge_count=r[2]) for r in rows],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting traffic modes for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve traffic modes")
+
+
 @router.get("/cities/{city_id}/traffic", response_model=TrafficResponse)
 async def get_city_traffic(
     city_id: int,
-    month: Optional[str] = Query(None, description="Month filter YYYY-MM (defaults to latest)"),
+    generation_type: Optional[str] = Query(None, description="Filter: real | station_based | buildings_population"),
+    algorithm: Optional[str] = Query(None, description="Filter: map_matched | safest | shortest | grouped"),
+    month: Optional[str] = Query(None, description="Month YYYY-MM (defaults to latest for combination)"),
     conn=Depends(get_db_connection)
 ):
-    """Get trip counts per road segment for a city, optionally filtered by month."""
+    """Get trip counts per road segment. Defaults to best available (generation, algorithm) combination."""
     try:
         validate_network_exists(conn, city_id)
 
-        # Resolve month parameter
-        from datetime import date
-        month_date: Optional[date] = None
+        from datetime import date as date_type
+        month_date: Optional[date_type] = None
         if month:
             try:
-                month_date = date.fromisoformat(month + "-01")
+                month_date = date_type.fromisoformat(month + "-01")
             except ValueError:
-                from fastapi import HTTPException
                 raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
-        else:
-            # Default to latest month available
-            month_date = get_latest_traffic_month(conn, city_id)
 
-        rows = get_edge_traffic(conn, city_id, month=month_date)
+        rows, resolved_gen, resolved_algo, resolved_month = get_edge_traffic(
+            conn, city_id,
+            generation_type=generation_type,
+            algorithm=algorithm,
+            month=month_date,
+        )
 
-        traffic_data = [
-            TrafficCount(edge_id=row[0], trip_count=row[1], month=row[2])
-            for row in rows
-        ]
+        stats = None
+        if resolved_gen and resolved_algo and resolved_month:
+            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            if raw:
+                stats = TrafficStats(**raw)
 
         return TrafficResponse(
-            data=traffic_data,
-            count=len(traffic_data),
-            message=f"Traffic data retrieved successfully" + (f" for {month_date}" if month_date else "")
+            data=[TrafficCount(edge_id=r[0], trip_count=r[1], month=r[2]) for r in rows],
+            count=len(rows),
+            generation_type=resolved_gen,
+            algorithm=resolved_algo,
+            month=resolved_month,
+            stats=stats,
         )
     except HTTPException:
         raise

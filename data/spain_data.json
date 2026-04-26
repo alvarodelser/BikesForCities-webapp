@@ -1,15 +1,8 @@
 {
     "Madrid": {
         "name": "Madrid",
-        "modes": [
-            "infrastructure",
-            "traffic",
-            "stations"
-        ],
         "longitude": -3.695152,
         "latitude": 40.440087,
-        "angle": 0,
-        "population": 6642000,
         "raster": "north_spain",
         "citybikes_network_id": "bicimad",
         "wikidata_id": "Q2807",
@@ -17,14 +10,8 @@
     },
     "Barcelona": {
         "name": "Barcelona",
-        "modes": [
-            "infrastructure",
-            "stations"
-        ],
         "longitude": 2.18074,
         "latitude": 41.396466,
-        "angle": -45,
-        "population": 5566000,
         "raster": "north_spain",
         "citybikes_network_id": "bicing",
         "wikidata_id": "Q1492",
@@ -32,76 +19,58 @@
     },
     "Sevilla": {
         "name": "Sevilla",
-        "modes": [
-            "infrastructure",
-            "stations"
-        ],
         "longitude": -5.977224,
         "latitude": 37.385035,
-        "angle": 0,
-        "population": 688000,
         "raster": "south_spain",
         "citybikes_network_id": "sevici",
         "wikidata_id": "Q8717",
         "ine_code": "41091"
     },
     "Bilbao": {
-        "name": "Bilbao",
+        "name": "Bilbao / Bilbo",
         "longitude": -2.928968,
         "latitude": 43.260315,
-        "angle": 45,
-        "population": 345000,
         "raster": "north_spain",
         "wikidata_id": "Q8692",
         "ine_code": "48020"
     },
     "Alicante": {
-        "name": "Alicante",
+        "name": "Alacant / Alicante",
         "longitude": -0.484954,
         "latitude": 38.350403,
-        "angle": -45,
-        "population": 334000,
         "raster": "south_spain",
         "wikidata_id": "Q11959",
         "ine_code": "03014"
     },
     "Valencia": {
-        "name": "Valencia",
+        "name": "València",
         "longitude": -0.376543,
         "latitude": 39.474362,
-        "angle": 45,
-        "population": 798000,
         "raster": "south_spain",
         "citybikes_network_id": "valenbisi",
         "wikidata_id": "Q8818",
         "ine_code": "46250"
     },
     "Malaga": {
-        "name": "Malaga",
+        "name": "Málaga",
         "longitude": -4.422254,
         "latitude": 36.72317,
-        "angle": -45,
-        "population": 580000,
         "raster": "south_spain",
         "wikidata_id": "Q8851",
         "ine_code": "29067"
     },
     "Las Palmas": {
-        "name": "Las Palmas",
+        "name": "Las Palmas de Gran Canaria",
         "longitude": -15.431551,
         "latitude": 28.126855,
-        "angle": 0,
-        "population": 382000,
         "raster": "canary_spain",
-        "wikidata_id": "Q11969",
+        "wikidata_id": "Q11974",
         "ine_code": "35016"
     },
     "Zaragoza": {
         "name": "Zaragoza",
         "longitude": -0.887712,
         "latitude": 41.648822,
-        "angle": -45,
-        "population": 675000,
         "raster": "north_spain",
         "citybikes_network_id": "bizi-zaragoza",
         "wikidata_id": "Q10305",
@@ -111,28 +80,23 @@
         "name": "Murcia",
         "longitude": -1.130654,
         "latitude": 37.99224,
-        "angle": 15,
-        "population": 460000,
         "raster": "south_spain",
-        "wikidata_id": "Q12213",
+        "wikidata_id": "Q12225",
         "ine_code": "30030"
     },
     "Palma": {
         "name": "Palma",
         "longitude": 2.648983,
         "latitude": 39.589581,
-        "angle": 90,
         "population": 420000,
         "raster": "balear_spain",
-        "wikidata_id": "Q1706",
+        "wikidata_id": "Q8826",
         "ine_code": "07040"
     },
     "Cordoba": {
-        "name": "Cordoba",
+        "name": "Córdoba",
         "longitude": -4.779151,
         "latitude": 37.884727,
-        "angle": 90,
-        "population": 325000,
         "raster": "south_spain",
         "wikidata_id": "Q5818",
         "ine_code": "14021"
@@ -141,28 +105,22 @@
         "name": "Valladolid",
         "longitude": -4.724532,
         "latitude": 41.652778,
-        "angle": -30,
-        "population": 300000,
         "raster": "north_spain",
-        "wikidata_id": "Q8302",
+        "wikidata_id": "Q8356",
         "ine_code": "47186"
     },
     "Vigo": {
         "name": "Vigo",
         "longitude": -8.72472,
         "latitude": 42.240599,
-        "angle": -30,
-        "population": 300000,
         "raster": "north_spain",
         "wikidata_id": "Q8745",
         "ine_code": "36057"
     },
     "Gijon": {
-        "name": "Gijon",
+        "name": "Gijón / Xixón",
         "longitude": -5.664174,
         "latitude": 43.532201,
-        "angle": 90,
-        "population": 270000,
         "raster": "north_spain",
         "wikidata_id": "Q12273",
         "ine_code": "33024"
@@ -171,18 +129,14 @@
         "name": "A Coruña",
         "longitude": -8.40756,
         "latitude": 43.362343,
-        "angle": 30,
-        "population": 245000,
         "raster": "north_spain",
         "wikidata_id": "Q8366",
         "ine_code": "15030"
     },
     "Vitoria": {
-        "name": "Vitoria",
+        "name": "Vitoria-Gasteiz",
         "longitude": -2.67295,
         "latitude": 42.846718,
-        "angle": -70,
-        "population": 250000,
         "raster": "north_spain",
         "wikidata_id": "Q14318",
         "ine_code": "01059"
@@ -191,18 +145,14 @@
         "name": "Granada",
         "longitude": -3.598557,
         "latitude": 37.176487,
-        "angle": 15,
-        "population": 235000,
         "raster": "south_spain",
         "wikidata_id": "Q8810",
         "ine_code": "18087"
     },
     "Elche": {
-        "name": "Elche",
+        "name": "Elx / Elche",
         "longitude": -0.701071,
         "latitude": 38.269932,
-        "angle": 90,
-        "population": 230000,
         "raster": "south_spain",
         "wikidata_id": "Q10509",
         "ine_code": "03065"
@@ -211,25 +161,25 @@
         "name": "Toledo",
         "longitude": -4.016358,
         "latitude": 39.862058,
-        "angle": 0,
-        "population": 87000,
         "raster": "south_spain",
         "wikidata_id": "Q5836",
         "ine_code": "45168"
     },
     "Girona": {
         "name": "Girona",
-        "modes": [
-            "infrastructure",
-            "stations"
-        ],
         "longitude": 2.81666,
         "latitude": 41.98333,
-        "angle": 0,
-        "population": 100000,
         "raster": "north_spain",
         "citybikes_network_id": "girocleta",
         "wikidata_id": "Q7038",
         "ine_code": "17079"
+    },
+    "Leon": {
+        "name": "León",
+        "longitude": -5.566755,
+        "latitude": 42.598848,
+        "raster": "north_spain",
+        "wikidata_id": "Q15699",
+        "ine_code": "24089"
     }
 }

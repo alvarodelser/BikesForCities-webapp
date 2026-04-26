@@ -1,14 +1,14 @@
 import { useRef, useEffect } from 'react';
 
 // ─── Animation constants ───────────────────────────────────────────────────────
-const GRAVITY = 320;   // canvas-px / s² — scaled for visible swing
+const GRAVITY = 200;   // canvas-px / s² — scaled for visible swing
 const ARM2_LEN = 30;    // bicycle pendulum arm length (canvas px)
-const DAMPING = 0.998;
+const DAMPING = 0.99;
 const SUBSTEPS = 20;
 const WHEEL_SPEED = 3.2;   // constant wheel spin (rad/s), independent of physics
 
 // Parachute driven oscillation
-const PARA_AMP = Math.PI / 4;  // 45° peak
+const PARA_AMP = Math.PI / 6;  // 30° peak
 const PARA_SPEED = 2.4;           // rad/s — full swing ≈ 2.6 s
 
 // ─── SVG → canvas geometry ────────────────────────────────────────────────────
@@ -166,20 +166,20 @@ function drawBicycle(
   ctx.restore();
 }
 
-interface B4CSpinnerProps {
+interface SpinnerSVGProps {
   /** Any CSS color string */
   color?: string;
   className?: string;
 }
 
 /**
- * B4CSpinner component: A high-engagement, physics-driven animation 
+ * SpinnerSVG component: A high-engagement, physics-driven animation 
  * of a bicycle hanging from a parachute.
  */
-export default function B4CSpinner({
-  color = '#027A76', // Default to var(--green-dark)
+export default function SpinnerSVG({
+  color = '#FBF6EF', // Default to var(--cream)
   className = '',
-}: B4CSpinnerProps) {
+}: SpinnerSVGProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const a2Ref = useRef(0);      // bicycle pendulum angle
   const v2Ref = useRef(-0.2);   // initial leftward velocity

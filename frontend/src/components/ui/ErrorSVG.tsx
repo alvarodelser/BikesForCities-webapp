@@ -1,17 +1,17 @@
 import React from 'react';
 
 /**
- * B4CError – inline SVG version of ErrorIcon.svg.
+ * ErrorSVG – inline SVG version of ErrorIcon.svg.
  * Uses `currentColor` for all strokes and fills so CSS `color` controls the tint.
  * 
  * @example
- *   <B4CError className="h-12 w-12 text-[var(--red)]" />
+ *   <ErrorSVG className="h-12 w-12 text-[var(--red)]" />
  */
-interface B4CErrorProps extends React.SVGProps<SVGSVGElement> {
+interface ErrorSVGProps extends React.SVGProps<SVGSVGElement> {
   className?: string;
 }
 
-const B4CError: React.FC<B4CErrorProps> = ({ className = '', ...props }) => (
+const ErrorSVG: React.FC<ErrorSVGProps> = ({ className = '', ...props }) => (
   <svg
     viewBox="0 0 210 297"
     xmlns="http://www.w3.org/2000/svg"
@@ -93,4 +93,4 @@ const B4CError: React.FC<B4CErrorProps> = ({ className = '', ...props }) => (
   </svg>
 );
 
-export default B4CError;
+export default ErrorSVG;

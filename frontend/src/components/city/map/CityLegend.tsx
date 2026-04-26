@@ -5,6 +5,14 @@ import { useMapState } from '../../../hooks/useMapState';
 import { useViewport } from '../../../hooks/useViewport';
 import { commonLegendItems } from './modes/common';
 
+const SUBMODE_LABELS: Record<string, string> = {
+    trips:      'Viajes',
+    downtime:   'Tiempo',
+    reach:      'Alcance',
+    traces:     'Trayecto',
+    heatmap:    'Calor',
+};
+
 /**
  * Thin shell: resolves the active mode from URL, renders the matching Legend
  * component, and appends universal map legend items below it.
@@ -12,12 +20,13 @@ import { commonLegendItems } from './modes/common';
  * On mobile, collapses to an icon-button with a glass popover to save space.
  */
 interface CityLegendProps {
+    colorScheme?: { primary: string; secondary: string; accent: string; light: string };
     bottomOffset?: number;
     defaultOpen?: boolean;
 }
 
-export default function CityLegend({ bottomOffset = 0, defaultOpen }: CityLegendProps) {
-    const { mode } = useMapState();
+export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen }: CityLegendProps) {
+    const { mode, submode } = useMapState();
     const { isMobile } = useViewport();
     const [open, setOpen] = useState(() => {
         // If defaultOpen is explicitly provided (e.g. from props), use it.
@@ -85,7 +94,20 @@ export default function CityLegend({ bottomOffset = 0, defaultOpen }: CityLegend
                 `}
             >
                 <div className="flex items-center justify-between mb-3 border-b border-black/5 pb-1">
-                    <span className="text-sm font-bold text-black uppercase tracking-wider text-[11px] font-black opacity-40">Leyenda</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black text-black/40 uppercase tracking-wider">Leyenda</span>
+                        {submode && SUBMODE_LABELS[submode] && (
+                            <span
+                                className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                                style={{
+                                    backgroundColor: colorScheme ? `${colorScheme.primary}20` : 'rgba(0,0,0,0.06)',
+                                    color: colorScheme ? colorScheme.primary : 'rgba(0,0,0,0.5)',
+                                }}
+                            >
+                                {SUBMODE_LABELS[submode]}
+                            </span>
+                        )}
+                    </div>
                     <button
                         onClick={() => setOpen(false)}
                         aria-label="Cerrar leyenda"
@@ -103,13 +125,17 @@ export default function CityLegend({ bottomOffset = 0, defaultOpen }: CityLegend
                 aria-label="Mostrar leyenda"
                 aria-expanded={open}
                 className={`
-                    h-10 w-10 rounded-full bg-white/90 backdrop-blur-sm border border-black/10 shadow-xl flex items-center justify-center 
-                    hover:bg-white transition-all duration-300 transform 
-                    ${open ? 'scale-0 opacity-0 pointer-events-none absolute' : 'scale-100 opacity-100'}
+                    p-3 rounded-full backdrop-blur-sm transition-all duration-300 transform 
+                    ${open ? 'scale-0 opacity-0 pointer-events-none absolute' : 'scale-100 opacity-100 shadow-xl'}
                     hover:scale-110
                 `}
+                style={{
+                    backgroundColor: colorScheme ? `${colorScheme.accent}20` : 'rgba(255,255,255,0.2)',
+                    color: colorScheme ? colorScheme.secondary : '#000',
+                    border: colorScheme ? `1px solid ${colorScheme.accent}60` : '1px solid rgba(0,0,0,0.1)',
+                }}
             >
-                <List className="w-4 h-4 text-black/70" />
+                <List className="w-5 h-5" />
             </button>
         </div>
     );

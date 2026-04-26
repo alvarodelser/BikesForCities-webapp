@@ -5,11 +5,14 @@ import type { CityData } from '../../../constants/cities';
 export interface MapContextValue {
     map: maplibregl.Map | null;
     city: CityData | null;
-    // Control callbacks (formerly CityCanvasHandle via forwardRef)
+    // Control callbacks
     zoomIn: () => void;
     zoomOut: () => void;
     reset: () => void;
     toggleBackground: (show: boolean) => void;
+    // Edge selection — set by TrafficLayer, read by MapFilters pill
+    selectedEdgeId: number | null;
+    setSelectedEdgeId: (id: number | null) => void;
 }
 
 const noop = () => {};
@@ -21,6 +24,8 @@ export const MapContext = createContext<MapContextValue>({
     zoomOut: noop,
     reset: noop,
     toggleBackground: noop,
+    selectedEdgeId: null,
+    setSelectedEdgeId: noop,
 });
 
 export const useMap = () => useContext(MapContext);

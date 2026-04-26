@@ -5,7 +5,6 @@ import CityLegend from './map/CityLegend';
 import MapControls from './MapControls';
 import { ThresholdsContext } from './map/ThresholdsContext';
 import type { Thresholds } from './map/ThresholdsContext';
-import { MapPin } from 'lucide-react';
 import { MapContext, type MapContextValue } from './map/MapContext';
 import maplibregl from 'maplibre-gl';
 import { useCallback } from 'react';
@@ -18,15 +17,13 @@ interface CityMapProps {
     city: CityData;
     selectedColor?: string;
     bottomOffset?: number;
+    onEdgeSelect?: (id: number | null) => void;
 }
 
 const modeLabels: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura Ciclista',
     [MAP_MODES.STATIONS]: 'Estaciones de Bici',
     [MAP_MODES.TRAFFIC]: 'Tráfico Ciclista',
-    [MAP_MODES.TERRAIN]: 'Terreno',
-    [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
-    [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
 const getColorScheme = (colorVar: string) => {
@@ -47,10 +44,15 @@ const getColorScheme = (colorVar: string) => {
  * - Renders the header chrome, canvas, legend, and controls
  * - Holds NO mode/metric state — all derived from URL via useMapState
  */
-const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0 }) => {
+const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0, onEdgeSelect }) => {
     const { mode } = useMapState();
     const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
+    const [selectedEdgeId, setSelectedEdgeIdInternal] = useState<number | null>(null);
+    const setSelectedEdgeId = useCallback((id: number | null) => {
+        setSelectedEdgeIdInternal(id);
+        onEdgeSelect?.(id);
+    }, [onEdgeSelect]);
     const colorScheme = getColorScheme(selectedColor);
     const modeLabel = modeLabels[mode] || mode;
     const { isMobile } = useViewport();
@@ -98,6 +100,8 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         zoomOut,
         reset,
         toggleBackground,
+        selectedEdgeId,
+        setSelectedEdgeId,
     };
 
 
@@ -105,22 +109,18 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         <MapContext.Provider value={contextValue}>
             <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
                 <div
-                    className={`w-full relative overflow-hidden map-section-bg ${isMobile ? 'h-screen' : 'h-screen'}`}
+                    className="w-full relative overflow-hidden h-full flex flex-col"
                     style={{
                         '--mode-primary': colorScheme.primary,
                         '--mode-secondary': colorScheme.secondary,
                         '--mode-accent': colorScheme.accent,
                     } as React.CSSProperties}
                 >
-                    {/* Atmospheric background */}
-                    <div className="absolute inset-0 map-section-bg__base" />
-                    <div className="absolute inset-0 map-section-bg__radial" />
-                    <div className="absolute inset-0 map-section-bg__noise" />
 
 
-                    {/* Floating header - hidden on mobile as MapMobile provides its own overlay */}
+                    {/* Separated header - hidden on mobile as MapMobile provides its own overlay */}
                     {!isMobile && (
-                        <div className="absolute top-0 left-0 right-0 z-20 p-4">
+                        <div className="z-20 pb-4 shrink-0">
                             <div
                                 className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
                                 style={{
@@ -131,24 +131,13 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                     boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)',
                                 }}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div
-                                        className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-                                        style={{
-                                            background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})`,
-                                            boxShadow: `0 4px 12px ${colorScheme.primary}55`,
-                                        }}
+                                <div>
+                                    <h1
+                                        className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
+                                        style={{ color: '#ffffffee' }}
                                     >
-                                        <MapPin className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h1
-                                            className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
-                                            style={{ color: '#ffffffee' }}
-                                        >
-                                            {city.name} - {modeLabel}
-                                        </h1>
-                                    </div>
+                                        {city.name} - {modeLabel}
+                                    </h1>
                                 </div>
 
                                 {/* MapControls reads map instance from MapContext — hidden on mobile (rendered separately at bottom-right) */}
@@ -168,12 +157,11 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     )}
 
                     {/* Map canvas */}
-                    <div className={`absolute inset-0 z-10 ${isMobile ? '' : 'pt-24 pb-4 px-4'}`}>
+                    <div className={`z-10 ${isMobile ? 'absolute inset-0' : 'relative flex-1 min-h-0 pb-4'}`}>
                         <div
-                            className={`w-full h-full overflow-hidden transition-colors duration-500 ${isMobile ? '' : 'rounded-2xl shadow-2xl'}`}
+                            className={`w-full h-full overflow-hidden transition-all duration-500 ${isMobile ? '' : 'rounded-2xl'}`}
                             style={isMobile ? {} : {
-                                border: `2px solid ${colorScheme.primary}55`,
-                                boxShadow: `0 0 0 1px ${colorScheme.primary}22, 0 24px 64px rgba(0,0,0,0.35)`,
+                                border: '1px solid rgba(0, 0, 0, 0.25)',
                             }}
                         >
                             <CityCanvas city={city} onMapInstance={setMapInstance} />
@@ -181,7 +169,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     </div>
 
                     {/* Legend — floats over canvas */}
-                    <CityLegend bottomOffset={bottomOffset} defaultOpen={!isMobile ? true : false} />
+                    <CityLegend colorScheme={colorScheme} bottomOffset={bottomOffset} defaultOpen={!isMobile ? true : false} />
                 </div>
             </ThresholdsContext.Provider>
         </MapContext.Provider>

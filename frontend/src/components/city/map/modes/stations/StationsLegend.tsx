@@ -4,7 +4,7 @@ import { useMapState } from '../../../../../hooks/useMapState';
 
 export default function StationsLegend() {
     const { thresholds } = useThresholds();
-    const { submode, setSubmode } = useMapState();
+    const { submode } = useMapState();
     const metric = submode === 'downtime' ? 'downtime' : submode === 'reach' ? 'reach' : 'trips';
     const [showPolygon, setShowPolygon] = useState(true);
 
@@ -16,35 +16,10 @@ export default function StationsLegend() {
 
     return (
         <div className="flex flex-col gap-2 w-full">
-            {/* Header + metric toggle */}
-            <div className="flex flex-col gap-3 border-b border-black/5 pb-3 mb-2 font-[Archivo_Narrow]">
-                <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-black/60 uppercase tracking-widest leading-tight">
-                        {metric === 'trips' ? 'Frecuencia de Uso' : metric === 'downtime' ? 'Tiempo sin Bicis' : 'Alcance'}
-                    </span>
-                    <div className="flex p-0.5 bg-black/5 rounded-lg">
-                        <button
-                            onClick={() => setSubmode('trips')}
-                            className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${metric === 'trips' ? 'bg-white shadow-sm text-black' : 'text-black/40 hover:text-black/60'}`}
-                        >
-                            VIAJES
-                        </button>
-                        <button
-                            onClick={() => setSubmode('downtime')}
-                            className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${metric === 'downtime' ? 'bg-white shadow-sm text-black' : 'text-black/40 hover:text-black/60'}`}
-                        >
-                            TIEMPO
-                        </button>
-                        <button
-                            onClick={() => setSubmode('reach')}
-                            className={`px-2 py-0.5 text-[9px] font-bold rounded-md transition-all ${metric === 'reach' ? 'bg-white shadow-sm text-black' : 'text-black/40 hover:text-black/60'}`}
-                        >
-                            ALCANCE
-                        </button>
-                    </div>
-                </div>
+            {/* Metric label — submode is now set from the filter pill */}
+            <div className="border-b border-black/5 pb-2 mb-1">
                 <span className="text-[10px] font-medium text-black/40 italic">
-                    ({metric === 'trips' ? 'viajes/mes' : metric === 'downtime' ? 'minutos sin bicis / día' : '% cobertura (área alcanzable / círculo 1km)'})
+                    {metric === 'trips' ? 'viajes/mes' : metric === 'downtime' ? 'min sin bicis / día' : '% cobertura (1km)'}
                 </span>
             </div>
 

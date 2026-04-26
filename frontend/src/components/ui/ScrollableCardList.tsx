@@ -79,22 +79,6 @@ const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var
       )}
       
       <div className="relative flex items-center">
-        {/* Edge Fades - Fixed positioning */}
-        <div 
-          className="absolute left-0 top-0 bottom-0 w-[40px] z-10 pointer-events-none transition-opacity duration-300"
-          style={{
-            background: `linear-gradient(to right, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
-            opacity: canScrollLeft ? 1 : 0
-          }}
-        />
-        <div 
-          className="absolute right-0 top-0 bottom-0 w-[40px] z-10 pointer-events-none transition-opacity duration-300"
-          style={{
-            background: `linear-gradient(to left, ${fadeColor} 0%, color-mix(in srgb, ${fadeColor}, transparent 70%) 4px, transparent 8px)`,
-            opacity: canScrollRight ? 1 : 0
-          }}
-        />
-
         {/* Left Arrow */}
         <button
           onClick={() => scroll("left")}
@@ -106,7 +90,7 @@ const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var
           <ChevronLeft className="w-6 h-6 text-[var(--black)]" />
         </button>
 
-        {/* Scrollable Content */}
+        {/* Scrollable Content with Masking Fade */}
         <div
           ref={scrollRef}
           onMouseDown={handleMouseDown}
@@ -114,12 +98,14 @@ const ScrollableCardList: React.FC<Props> = ({ children, label, fadeColor = "var
           onMouseUp={handleMouseUp}
           onMouseMove={handleMouseMove}
           className={`
-            flex gap-6 overflow-x-auto no-scrollbar py-4 px-4 select-none
+            flex gap-6 overflow-x-auto no-scrollbar py-4 px-10 select-none
             ${isDragging ? "cursor-grabbing" : "cursor-grab"}
           `}
           style={{ 
             scrollBehavior: isDragging ? "auto" : "smooth",
-            WebkitOverflowScrolling: "touch"
+            WebkitOverflowScrolling: "touch",
+            WebkitMaskImage: 'linear-gradient(to right, transparent, black 60px, black calc(100% - 60px), transparent)',
+            maskImage: 'linear-gradient(to right, transparent, black 60px, black calc(100% - 60px), transparent)'
           }}
         >
           {children}

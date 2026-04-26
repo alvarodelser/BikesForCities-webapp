@@ -1,0 +1,296 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { 
+  Network, 
+  Car, 
+  MapPin, 
+  ArrowUp, 
+  ArrowDown
+} from 'lucide-react';
+import type { CityData } from '../../constants/cities';
+import { MAP_MODES, type MapMode } from '../../constants/mapModes';
+import { formatPopulation, formatDistance, formatPercentage } from '../../utils/formatters';
+import { fetchCities } from '../../services/api';
+import LoadingContainer from '../ui/LoadingContainer';
+import ErrorContainer from '../ui/ErrorContainer';
+
+interface CityLeaderboardProps {
+  selectedCityPaths: string[];
+  onToggleCity: (city: CityData) => void;
+}
+
+const MODE_META = [
+  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', icon: Network, color: 'var(--blue)' },
+  { id: MAP_MODES.STATIONS, name: 'Estaciones', icon: MapPin, color: 'var(--green)' },
+  { id: MAP_MODES.TRAFFIC, name: 'Tráfico', icon: Car, color: 'var(--red)' },
+] as const;
+
+type SortKey = keyof CityData;
+type SortDir = 'asc' | 'desc';
+
+interface MetricConfig {
+  key: SortKey;
+  label: string;
+  format: (val: any) => string;
+}
+
+const MODE_METRICS: Record<string, MetricConfig[]> = {
+  [MAP_MODES.INFRASTRUCTURE]: [
+    { key: 'cyclingNetwork', label: 'Red (km)', format: v => v ? `${formatDistance(v)} km` : '-' },
+    { key: 'coverage', label: 'Cobertura', format: v => v ? `${formatPercentage(v)}%` : '-' },
+  ],
+  [MAP_MODES.STATIONS]: [
+    { key: 'stations_count', label: 'Estaciones', format: v => v ? formatPopulation(v) : '-' },
+    { key: 'bicycles_count', label: 'Bicicletas', format: v => v ? formatPopulation(v) : '-' },
+    { key: 'monthly_trips', label: 'Viajes/mes', format: v => v ? formatPopulation(v) : '-' },
+  ],
+  [MAP_MODES.TRAFFIC]: [
+    { key: 'population', label: 'Población', format: v => v ? formatPopulation(v) : '-' },
+  ],
+};
+
+function sortCities(cities: CityData[], key: SortKey, dir: SortDir): CityData[] {
+  return [...cities].sort((a, b) => {
+    let va = a[key as keyof CityData];
+    let vb = b[key as keyof CityData];
+    if (va === undefined || va === null) return dir === 'asc' ? -1 : 1;
+    if (vb === undefined || vb === null) return dir === 'asc' ? 1 : -1;
+    if (typeof va === 'string' && typeof vb === 'string') {
+      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    }
+    return dir === 'asc' ? Number(va) - Number(vb) : Number(vb) - Number(va);
+  });
+}
+
+const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, onToggleCity }) => {
+  const [cities, setCities] = useState<CityData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [activeMode, setActiveMode] = useState<MapMode>(MAP_MODES.INFRASTRUCTURE);
+  const [sortKey, setSortKey] = useState<SortKey>('cyclingNetwork');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+
+  useEffect(() => {
+    fetchCities()
+      .then((data) => {
+        setCities(data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Error loading cities.');
+        setLoading(false);
+      });
+  }, []);
+
+  const handleModeChange = (mode: MapMode) => {
+    setActiveMode(mode);
+    const firstMetric = MODE_METRICS[mode as string][0].key;
+    setSortKey(firstMetric);
+    setSortDir('desc');
+  };
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortDir('desc'); // default new sort to descending since higher is usually better
+    }
+  };
+
+  const metrics = MODE_METRICS[activeMode as string] || MODE_METRICS[MAP_MODES.INFRASTRUCTURE];
+  const sortedCities = useMemo(() => sortCities(cities, sortKey, sortDir), [cities, sortKey, sortDir]);
+
+  if (loading) return <div className="flex justify-center py-16"><LoadingContainer /></div>;
+  if (error) return <ErrorContainer title="Error" message={error} />;
+
+  const topCities = sortedCities.slice(0, 3);
+  const activeColor = MODE_META.find(m => m.id === activeMode)?.color || 'var(--blue)';
+
+  const renderPodiumCard = (city: CityData | undefined, rank: number) => {
+    if (!city) return <div className="flex-1" />;
+    
+    const isFirst = rank === 1;
+    const isSecond = rank === 2;
+    const isThird = rank === 3;
+    
+    const isSelected = selectedCityPaths.includes(city.path);
+
+    const heightClass = isFirst ? 'h-72 md:h-80' : 'h-60 md:h-64';
+    const rankColors = isFirst 
+      ? 'from-yellow-400 to-yellow-600 shadow-yellow-500/20' 
+      : isSecond 
+        ? 'from-gray-300 to-gray-500 shadow-gray-500/20' 
+        : 'from-amber-600 to-amber-800 shadow-amber-700/20';
+
+    const primaryMetric = metrics.find(m => m.key === sortKey) || metrics[0];
+    const secondaryMetrics = metrics.filter(m => m.key !== primaryMetric.key).slice(0, 2);
+
+    return (
+      <div 
+        className={`relative rounded-t-xl flex flex-col justify-end p-4 transition-all duration-300 cursor-pointer ${heightClass} ${isSelected ? 'ring-2 ring-white scale-[1.02] z-20' : 'hover:scale-[1.01] hover:brightness-110 z-10'}`}
+        onClick={() => onToggleCity(city)}
+        style={{
+          background: `linear-gradient(to top, rgba(255,255,255,0.08), rgba(255,255,255,0.02))`,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1)'
+        }}
+      >
+        <div className={`absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full bg-gradient-to-br ${rankColors} flex items-center justify-center font-black text-lg text-white shadow-lg border-2 border-white/20 z-10`}>
+          {rank}
+        </div>
+        <div className="flex flex-col items-center text-center mt-6">
+          <span className="text-sm md:text-lg font-bold text-white mb-2 leading-tight">{city.name}</span>
+          <span className="text-2xl md:text-4xl font-black text-white tracking-tight mb-4" style={{ color: activeColor }}>
+            {primaryMetric.format(city[primaryMetric.key as keyof CityData])}
+          </span>
+          <div className="flex gap-4 text-xs text-white/60">
+             {secondaryMetrics.map((m, i) => (
+               <div key={i} className="flex flex-col items-center">
+                 <span className="uppercase text-[9px] md:text-[10px] tracking-wider opacity-70 mb-1">{m.label}</span>
+                 <span className="font-medium text-white/90">{m.format(city[m.key as keyof CityData])}</span>
+               </div>
+             ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="w-full flex flex-col gap-12">
+      
+      {/* 1. Mode Selector */}
+      <div className="flex justify-center w-full">
+        <div className="flex flex-wrap gap-2 justify-center bg-black/20 p-1.5 rounded-2xl md:rounded-full border border-white/10">
+          {MODE_META.map(m => {
+            const isActive = activeMode === m.id;
+            const Icon = m.icon;
+            return (
+              <button
+                key={m.id}
+                onClick={() => handleModeChange(m.id)}
+                className={`flex items-center gap-2 px-4 py-2 md:py-2.5 rounded-xl md:rounded-full text-sm font-semibold transition-all duration-300 ${isActive ? 'bg-white shadow-lg scale-105' : 'hover:bg-white/10 text-white/70 hover:text-white'}`}
+                style={isActive ? { color: m.color } : {}}
+              >
+                <Icon size={16} />
+                <span className="hidden md:inline">{m.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 2. Podium */}
+      <div className="max-w-4xl mx-auto w-full px-4">
+        <div className="flex items-end justify-center gap-2 md:gap-4 mt-8 h-80">
+          <div className="w-1/3 max-w-[240px]">
+            {renderPodiumCard(topCities[1], 2)}
+          </div>
+          <div className="w-1/3 max-w-[280px]">
+            {renderPodiumCard(topCities[0], 1)}
+          </div>
+          <div className="w-1/3 max-w-[240px]">
+            {renderPodiumCard(topCities[2], 3)}
+          </div>
+        </div>
+        <div className="h-1 w-full rounded-full bg-white/10 mt-2" />
+      </div>
+
+      {/* 3. Full Rankings Table */}
+      <div className="w-full overflow-x-auto custom-scrollbar bg-black/10 rounded-2xl border border-white/5 backdrop-blur-sm p-1">
+        <table className="w-full border-collapse text-left min-w-[600px]">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="py-5 px-6 text-[10px] font-bold uppercase tracking-widest text-white/40 w-16 text-center">#</th>
+              <th className="py-5 px-6 text-[10px] font-bold uppercase tracking-widest text-white/40">Ciudad</th>
+              {metrics.map(m => (
+                 <th 
+                   key={m.key} 
+                   onClick={() => handleSort(m.key)}
+                   className={`py-5 px-6 text-[10px] font-bold uppercase tracking-widest cursor-pointer transition-colors text-right select-none hover:text-white ${sortKey === m.key ? 'text-white' : 'text-white/40'}`}
+                 >
+                   <div className="flex items-center justify-end gap-2">
+                     {m.label}
+                     {sortKey === m.key ? (
+                       sortDir === 'desc' ? <ArrowDown size={14} className="text-white" /> : <ArrowUp size={14} className="text-white" />
+                     ) : (
+                       <ArrowDown size={14} className="opacity-0 group-hover:opacity-30" />
+                     )}
+                   </div>
+                 </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedCities.map((city, idx) => {
+              const isTop3 = idx < 3;
+              const selectionIndex = selectedCityPaths.indexOf(city.path);
+              const isSelected = selectionIndex !== -1;
+              
+              const getBg = () => {
+                if (isSelected) {
+                  return selectionIndex === 0
+                    ? 'rgba(225, 172, 85, 0.45)'
+                    : 'rgba(175, 71, 73, 0.45)';
+                }
+                return 'transparent';
+              };
+
+              return (
+                <tr 
+                  key={city.path} 
+                  onClick={() => onToggleCity(city)}
+                  style={{ backgroundColor: getBg() }}
+                  className={`
+                    border-b border-white/5 cursor-pointer transition-all duration-300
+                    ${isSelected ? '' : 'hover:bg-white/[0.04]'}
+                  `}
+                >
+                  <td className="py-4 px-6 text-center">
+                    {isTop3 ? (
+                      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold ${idx === 0 ? 'bg-yellow-500/20 text-yellow-400' : idx === 1 ? 'bg-gray-400/20 text-gray-300' : 'bg-amber-600/20 text-amber-500'}`}>
+                        {idx + 1}
+                      </span>
+                    ) : (
+                      <span className="text-white/30 text-xs font-medium">{idx + 1}</span>
+                    )}
+                  </td>
+                  <td className={`py-4 px-6 font-medium flex items-center gap-3 ${isTop3 ? 'text-white' : 'text-white/80'}`}>
+                    {isSelected && (
+                      <span 
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: selectionIndex === 0 ? 'rgb(225,172,85)' : 'rgb(175,71,73)' }}
+                      />
+                    )}
+                    {city.name}
+                  </td>
+                  {metrics.map(m => (
+                    <td 
+                      key={m.key} 
+                      className={`py-4 px-6 text-right tabular-nums ${sortKey === m.key ? 'text-white font-medium' : 'text-white/60'}`}
+                    >
+                      {m.format(city[m.key as keyof CityData])}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { 
+          background: rgba(255,255,255,0.1); 
+          border-radius: 20px; 
+          transition: background 0.3s;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+      `}</style>
+    </div>
+  );
+};
+
+export default CityLeaderboard;

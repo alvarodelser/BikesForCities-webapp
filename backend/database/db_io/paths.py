@@ -94,5 +94,5 @@ def bulk_link_trips_to_path(conn, city_id: int, trip_ids: List[int], path_id: in
             VALUES %s
             ON CONFLICT (trip_id, path_id) DO UPDATE SET processed = TRUE
             """,
-            [(city_id, trip_id, path_id) for trip_id in trip_ids],
+            [(city_id, trip_id, path_id, True) for trip_id in trip_ids],
         )

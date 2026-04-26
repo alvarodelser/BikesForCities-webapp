@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import type { CityData } from '../../constants/cities';
-import ErrorState from '../ui/ErrorState';
+import CityCard from '../ui/CityCard';
+import ErrorContainer from '../ui/ErrorContainer';
+
 import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
 import { useViewport } from '../../hooks/useViewport';
 
@@ -11,10 +13,9 @@ interface SpainMapProps {
   onCityClick?: (cityName: string) => void;
   onCityNavigate?: (cityName: string) => void;
   selectedCity?: string | null;
-  expandedCity?: string | null; // kept for backward compat, not used in new pin rendering
+  expandedCity?: string | null; 
   cities: CityData[];
   className?: string;
-  registerPinRef?: (cityName: string, el: SVGGElement | null) => void;
 }
 
 interface CityCoordinates {
@@ -119,25 +120,21 @@ interface PinProps {
   isMobile: boolean;
   onClick: (cityName: string) => void;
   onHover: (cityName: string, hovered: boolean) => void;
-  registerPinRef?: (cityName: string, el: SVGGElement | null) => void;
 }
 
-const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover, registerPinRef }: PinProps) {
-  const haloR = isMobile ? 10 : 12;
-  const ringR = isMobile ? 5 : 6;
-  const coreR = isMobile ? 2.5 : 3;
-  const scale = isActive ? 1.25 : 1;
+const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover }: PinProps) {
+  const width = isMobile ? 12 : 14;
+  const height = isMobile ? 10 : 12;
+  const rx = 5; // Fixed small radius for pill shape
 
-  // Stable ref callback — only fires on mount/unmount, not on re-render
-  const handleRef = useCallback((el: SVGGElement | null) => {
-    registerPinRef?.(cityName, el);
-  }, [cityName, registerPinRef]);
+  // Navy blue border and label color
+  const strokeColor = '#003849'; 
+  const labelColor = '#003849';
 
   return (
     <g
-      ref={handleRef}
       transform={`translate(${x},${y})`}
-      className="cursor-pointer focus:outline-none"
+      className="cursor-pointer focus:outline-none group"
       role="button"
       tabIndex={0}
       aria-label={city.name}
@@ -153,30 +150,44 @@ const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered,
       onFocus={() => onHover(cityName, true)}
       onBlur={() => onHover(cityName, false)}
     >
-      <circle
-        r={haloR * scale}
-        fill="#F4A24C"
-        opacity={isActive ? 0.3 : isHovered ? 0.25 : 0.15}
-        className="transition-all"
+      {/* Glow effect - animates to red when selected or hovered */}
+      <rect
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        rx={rx}
+        fill={isActive ? '#AF4749' : isHovered ? '#04c7c1' : '#027A76'}
+        opacity={isActive ? 0.4 : isHovered ? 0.25 : 0}
+        filter="blur(5px)"
+        className="transition-all duration-500"
       />
-      <circle r={ringR * scale} fill="none" stroke="#F4A24C" strokeWidth={1.5} />
-      <circle
-        r={coreR * scale}
-        fill={isActive ? '#F4A24C' : '#fff'}
-        stroke="#F4A24C"
-        strokeWidth={1.5}
+      
+      {/* Main Pill Shape with Navy Blue border and Gradient Fill */}
+      <rect
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        rx={rx}
+        fill={isActive ? 'url(#pin-gradient-selected)' : isHovered ? 'url(#pin-gradient-hover)' : 'url(#pin-gradient-default)'}
+        stroke={strokeColor}
+        strokeWidth={isActive ? 2 : 1.5}
+        className="transition-all duration-500 shadow-sm"
       />
+
       {!isMobile && (
         <text
-          y={haloR * scale + 12}
+          y={height / 2 + 14}
           textAnchor="middle"
+          className="transition-all duration-300 pointer-events-none"
           style={{
-            fontSize: isHovered ? 11 : 10,
+            fontSize: 11,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
-            fill: isActive ? '#fff' : 'rgba(255,255,255,0.85)',
-            fontWeight: isActive ? 700 : 500,
-            transition: 'font-size 160ms',
+            fill: labelColor,
+            fontWeight: 700,
+            textShadow: '0 0 2px rgba(255,255,255,0.8)',
           }}
         >
           {city.name}
@@ -193,11 +204,10 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     width: widthProp,
     height: heightProp,
     onCityClick,
+    onCityNavigate,
     selectedCity,
     cities,
     className,
-    registerPinRef,
-    // onCityNavigate and expandedCity kept for backward compat; not used in new SVG pin rendering
   } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -205,6 +215,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
   const [geoData, setGeoData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [hoveredCity, setHoveredCity] = useState<string | null>(null);
+  const { isMobile } = useViewport();
 
   // Size: driven by ResizeObserver on root div; fallback to props if provided
   const [size, setSize] = useState({
@@ -212,7 +223,10 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     height: heightProp ?? 700,
   });
 
-  const { isMobile } = useViewport();
+  const selectedCityData = useMemo(() => {
+    if (!selectedCity) return null;
+    return cities.find(c => c.name === selectedCity);
+  }, [selectedCity, cities]);
 
   // ResizeObserver to track actual rendered size — useLayoutEffect fires before paint to avoid
   // a flash from fallback size → measured size
@@ -288,6 +302,46 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .style('opacity', 1.0);
   }, [geoData, projection]);
 
+  // Calculate connector layout for desktop
+  const connector = useMemo(() => {
+    if (!selectedCityData || !projection || isMobile) return null;
+    
+    const [shiftedLon, shiftedLat] = transformCanaryCoords(
+      selectedCityData.geoCoords.longitude,
+      selectedCityData.geoCoords.latitude,
+      isMobile,
+    );
+    const p = projection([shiftedLon, shiftedLat]);
+    if (!p) return null;
+    const [px, py] = p;
+
+    // Logic for sea sections: East/West split by Madrid longitude
+    const isRight = selectedCityData.geoCoords.longitude > -3.7;
+    const isTop = selectedCityData.geoCoords.latitude > 40;
+
+    const cardW = 270;
+    const cardH = 310;
+    
+    // Position cards in the "sea" areas
+    const cardX = isRight ? size.width * 0.82 : size.width * 0.18;
+    const cardY = isTop ? size.height * 0.28 : size.height * 0.72;
+    
+    // Connector line points
+    const diagSize = 30;
+    const p2x = isRight ? px + diagSize : px - diagSize;
+    const p2y = py - diagSize;
+    
+    // Horizontal segment hits the card edge
+    const p3x = isRight ? cardX - cardW/2 : cardX + cardW/2;
+    const p3y = p2y;
+    
+    // Vertical segment up to the card top
+    const p4x = p3x;
+    const p4y = cardY - cardH/2;
+
+    return { px, py, p2x, p2y, p3x, p3y, p4x, p4y, cardX, cardY, cardW, cardH, isRight };
+  }, [selectedCityData, projection, isMobile, size]);
+
   // Stable per-component handlers so React.memo on Pin can bail out for non-hovered pins
   const handlePinClick = useCallback((cityName: string) => {
     onCityClick?.(cityName);
@@ -308,7 +362,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
   if (error) {
     return (
       <div ref={rootRef} className={rootClassName} style={rootStyle}>
-        <ErrorState
+        <ErrorContainer
           title="Map Unavailable"
           message={error}
           showRetry={true}
@@ -327,16 +381,48 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         viewBox={`0 0 ${size.width} ${size.height}`}
         style={{ overflow: 'visible' }}
       >
-        {/* Static gradient defs — React-owned, D3 no longer touches defs */}
+        {/* Pin Gradients and Map Gradient */}
         <defs>
           <linearGradient id="map-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#BFDDCE" />
             <stop offset="100%" stopColor="#FBF6EF" />
           </linearGradient>
+
+          {/* Default State: Dark Green Gradient */}
+          <linearGradient id="pin-gradient-default" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#04c7c1" />
+            <stop offset="100%" stopColor="#027A76" />
+          </linearGradient>
+
+          {/* Hover State: Vibrant Green-Teal Gradient */}
+          <linearGradient id="pin-gradient-hover" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#4dfcf6" />
+            <stop offset="100%" stopColor="#039692" />
+          </linearGradient>
+
+          {/* Selected State: Deep Red Gradient */}
+          <linearGradient id="pin-gradient-selected" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ff7073" />
+            <stop offset="100%" stopColor="#AF4749" />
+          </linearGradient>
         </defs>
 
         {/* g.map-base is managed by D3 (see useEffect above) */}
         <g className="map-base" />
+
+        {/* Connector Line */}
+        {connector && (
+          <path
+            d={`M ${connector.px} ${connector.py} L ${connector.p2x} ${connector.p2y} L ${connector.p3x} ${connector.p3y} L ${connector.p4x} ${connector.p4y}`}
+            fill="none"
+            stroke="white"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            opacity={0.8}
+            className="transition-all duration-500"
+          />
+        )}
 
         {/* City Pins — inside SVG, sibling to g.map-base, not affected by D3 cleanup */}
         {projection &&
@@ -363,11 +449,31 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
                 isMobile={isMobile}
                 onClick={handlePinClick}
                 onHover={handlePinHover}
-                registerPinRef={registerPinRef}
               />
             );
           })}
       </svg>
+
+      {/* Floating City Card for Desktop */}
+      {!isMobile && selectedCityData && connector && (
+        <div 
+          className="absolute z-50 transition-all duration-500"
+          style={{ 
+            left: connector.cardX - connector.cardW / 2, 
+            top: connector.cardY - connector.cardH / 2,
+            width: connector.cardW,
+            height: connector.cardH,
+            pointerEvents: 'auto'
+          }}
+        >
+          <CityCard 
+            city={selectedCityData} 
+            position={0} 
+            panel={true} 
+            onCityNavigate={onCityNavigate}
+          />
+        </div>
+      )}
     </div>
   );
 };

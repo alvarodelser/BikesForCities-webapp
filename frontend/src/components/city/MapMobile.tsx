@@ -123,9 +123,6 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   return (
     <div 
       className="relative h-dvh w-full overflow-hidden"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onWheel={handleWheel}
     >
       {/* ── MAP LAYER (full screen) ── */}
       <div className="absolute inset-0 z-0">
@@ -166,6 +163,9 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
       <div
         className={`absolute bottom-0 inset-x-0 z-30 bg-[var(--cream)] rounded-t-[28px] shadow-[0_-8px_40px_rgba(0,0,0,0.18)] flex flex-col transition-[height] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]`}
         style={{ height: `${currentHeight}px` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onWheel={handleWheel}
       >
         {/* Drag handle area — always visible, clickable to toggle */}
         <div

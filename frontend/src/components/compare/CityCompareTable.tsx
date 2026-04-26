@@ -9,8 +9,8 @@ import {
   formatPercentage,
 } from '../../utils/formatters';
 import { GlassCard } from '../ui/GlassCard';
-import Spinner from '../ui/Spinner';
-import ErrorState from '../ui/ErrorState';
+import LoadingContainer from '../ui/LoadingContainer';
+import ErrorContainer from '../ui/ErrorContainer';
 import { ColumnGroupPicker } from './ColumnGroupPicker';
 import { MobileCompareRows } from './MobileCompareRows';
 import { 
@@ -20,11 +20,9 @@ import {
   Network, 
   Car, 
   MapPin, 
-  Mountain, 
-  CircleDot, 
-  TriangleAlert,
   Users,
-  Activity
+  Activity,
+  Bike
 } from 'lucide-react';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
@@ -39,7 +37,7 @@ export interface ColumnGroup {
   icon: any;
 }
 
-type SortKey = keyof Pick<CityData, 'name' | 'population' | 'cyclingNetwork' | 'coverage' | 'stations_count' | 'monthly_trips'> | 'service_name';
+type SortKey = keyof Pick<CityData, 'name' | 'population' | 'cyclingNetwork' | 'coverage' | 'stations_count' | 'monthly_trips' | 'bicycles_count'> | 'service_name';
 type SortDir = 'asc' | 'desc';
 
 export interface Column {
@@ -67,9 +65,6 @@ const DATA_MODES: { id: MapMode; name: string; icon: any; color: string }[] = [
   { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', icon: Network, color: 'text-blue-400' },
   { id: MAP_MODES.TRAFFIC, name: 'Tráfico', icon: Car, color: 'text-red-400' },
   { id: MAP_MODES.STATIONS, name: 'Estaciones', icon: MapPin, color: 'text-green-400' },
-  { id: MAP_MODES.TERRAIN, name: 'Terreno', icon: Mountain, color: 'text-orange-400' },
-  { id: MAP_MODES.INTERSECTIONS, name: 'Intersecciones', icon: CircleDot, color: 'text-yellow-400' },
-  { id: MAP_MODES.ACCIDENTS, name: 'Accidentes', icon: TriangleAlert, color: 'text-red-500' },
 ];
 
 // ─── Column definitions ───────────────────────────────────────────────────────
@@ -160,6 +155,17 @@ const COLUMNS: Column[] = [
     ),
   },
   {
+    key: 'bicycles_count',
+    label: 'Bicicletas',
+    align: 'right',
+    group: 'Servicio Bici',
+    render: (city) => (
+      <span className="tabular-nums font-medium text-[var(--green-light)] px-4 block">
+        {(city.bicycles_count === 0 || city.bicycles_count === undefined) ? '-' : formatPopulation(Math.round(city.bicycles_count))}
+      </span>
+    ),
+  },
+  {
     key: 'monthly_trips',
     label: 'Viajes/mes',
     align: 'right',
@@ -190,7 +196,7 @@ const COLUMNS: Column[] = [
   },
 ];
 
-const SORTABLE_COLS = new Set<SortKey>(['name', 'population', 'cyclingNetwork', 'coverage', 'stations_count', 'monthly_trips', 'service_name']);
+const SORTABLE_COLS = new Set<SortKey>(['name', 'population', 'cyclingNetwork', 'coverage', 'stations_count', 'monthly_trips', 'bicycles_count', 'service_name']);
 
 function sortCities(cities: CityData[], key: SortKey, dir: SortDir): CityData[] {
   return [...cities].sort((a, b) => {
@@ -397,8 +403,8 @@ const CityCompareTable: React.FC<CityCompareTableProps> = ({ selectedCityPaths, 
 
   const sorted = sortCities(cities, sortKey, sortDir);
 
-  if (loading) return <div className="flex justify-center py-16"><Spinner /></div>;
-  if (error) return <ErrorState title="Error" message={error} />;
+  if (loading) return <div className="flex justify-center py-16"><LoadingContainer /></div>;
+  if (error) return <ErrorContainer title="Error" message={error} />;
 
   if (isMobile) {
     return (

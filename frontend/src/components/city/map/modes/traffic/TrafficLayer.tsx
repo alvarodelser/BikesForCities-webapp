@@ -2,7 +2,8 @@ import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
-import { fetchTraffic, fetchEdgeRoutes } from '../../../../../services/api';
+import { useMapState } from '../../../../../hooks/useMapState';
+import { fetchTraffic, fetchTrafficModes, fetchEdgeRoutes } from '../../../../../services/api';
 import type * as GeoJSON from 'geojson';
 
 const LAYER_ID = 'traffic-layer';
@@ -52,7 +53,7 @@ function buildEdgePopupDOM(
     const routeInfo = document.createElement('div');
     routeInfo.dataset.routeInfo = 'true';
     routeInfo.style.cssText = 'margin-top:6px;font-size:10px;color:rgba(0,0,0,0.4);';
-    routeInfo.textContent = 'Cargando rutas\u2026';
+    routeInfo.textContent = 'Cargando rutas…';
     container.appendChild(routeInfo);
 
     return container;
@@ -87,8 +88,9 @@ function buildOpacityExpr(q5: number): unknown[] {
 }
 
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
-    const { map, city } = useMap();
+    const { map, city, setSelectedEdgeId } = useMap();
     const { setThresholds } = useThresholds();
+    const { generation, routing, setGeneration, setRouting } = useMapState();
 
     const popupRef = useRef<maplibregl.Popup | null>(null);
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
@@ -154,7 +156,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         routeInfoRef.current = null;
         popupRef.current?.remove();
         clearOverlay();
-    }, [map, clearOverlay]);
+        setSelectedEdgeId(null);
+    }, [map, clearOverlay, setSelectedEdgeId]);
 
     const loadRoutes = useCallback(async (
         edgeId: number,
@@ -195,39 +198,60 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 );
                 stickyRef.current = null;
             }
+            setSelectedEdgeId(null);
             setThresholds(null);
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- Data fetch: traffic counts ---
+    // --- Initialize URL params from best available mode ---
     useEffect(() => {
-        if (!map || !city?.id) return;
+        if (!city?.id || (generation && routing)) return;
+        fetchTrafficModes(city.id).then(modes => {
+            if (!modes.length) return;
+            const best = modes[0]; // already sorted by priority from backend
+            if (!generation) setGeneration(best.generation_type);
+            if (!routing) setRouting(best.algorithm);
+        }).catch(err => console.error('Failed to load traffic modes:', err));
+    }, [city?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // --- Data fetch: traffic counts (re-runs when generation or routing change) ---
+    useEffect(() => {
+        if (!map || !city?.id || !generation || !routing) return;
         let cancelled = false;
-        fetchTraffic(city.id).then(trafficData => {
+
+        // Clear old feature states so stale edge colors don't persist across mode changes
+        if (map.getSource(SOURCE_ID)) {
+            map.removeFeatureState({ source: SOURCE_ID, sourceLayer: 'edges' });
+        }
+
+        fetchTraffic(city.id, generation, routing).then(result => {
             if (cancelled || !map) return;
-            trafficData.forEach(t => {
+
+            result.data.forEach(t => {
                 map.setFeatureState(
                     { source: SOURCE_ID, sourceLayer: 'edges', id: t.edge_id },
                     { trip_count: t.trip_count }
                 );
             });
+
             const dataMap = new Map<number, number>();
-            trafficData.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
+            result.data.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
             trafficDataRef.current = dataMap;
-            const counts = trafficData.map(t => t.trip_count).sort((a, b) => a - b);
-            if (counts.length > 0) {
-                const q5  = counts[Math.floor(counts.length * 0.05)];
-                const q50 = counts[Math.floor(counts.length * 0.5)];
-                const q95 = counts[Math.floor(counts.length * 0.95)];
-                setThresholds({ q5, q50, q95, max: Math.max(...counts), min: Math.min(...counts) });
+
+            if (result.stats) {
+                const { q5, q50, q95, min, max } = result.stats;
+                setThresholds({ q5, q50, q95, max, min });
                 if (map.getLayer(LAYER_ID)) {
                     map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
                     map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
                 }
+            } else {
+                setThresholds(null);
             }
         }).catch(err => console.error('Failed to load traffic:', err));
+
         return () => { cancelled = true; };
-    }, [map, city?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [map, city?.id, generation, routing]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Click handling ---
     useEffect(() => {
@@ -270,6 +294,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 { selected: true }
             );
             stickyRef.current = { edgeId, lngLat: e.lngLat };
+            setSelectedEdgeId(edgeId);
 
             const dom = buildEdgePopupDOM(edgeName, tripCount, () => doDeselect());
             popup.setLngLat(e.lngLat).setDOMContent(dom).addTo(map);
@@ -303,9 +328,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     useEffect(() => {
         if (!stickyRef.current) return;
         clearOverlay();
-        // Update the popup's route info line
         const routeInfoEl = routeInfoRef.current;
-        if (routeInfoEl) routeInfoEl.textContent = 'Cargando rutas\u2026';
+        if (routeInfoEl) routeInfoEl.textContent = 'Cargando rutas…';
         loadRoutes(stickyRef.current.edgeId, submode, routeInfoEl);
     }, [submode]); // intentionally omit clearOverlay/loadRoutes — only re-run on submode change
 

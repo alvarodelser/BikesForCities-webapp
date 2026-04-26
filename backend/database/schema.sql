@@ -285,13 +285,17 @@ CREATE TABLE IF NOT EXISTS station_readings (
     PRIMARY KEY (citybikes_network_id, station_id, observed_at)
 );
 
--- Traffic table for bike trips per road segment (one row per edge per month)
+-- Traffic table for bike trips per road segment (one row per edge per month per combination)
+-- generation_type: 'real' | 'station_based' | 'buildings_population'
+-- algorithm:       'map_matched' | 'shortest' | 'safest' | 'grouped'
 CREATE TABLE IF NOT EXISTS edge_traffic (
-    edge_id INTEGER REFERENCES edges(id) ON DELETE CASCADE,
-    city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
-    trip_count INTEGER DEFAULT 0,
-    month DATE NOT NULL,             -- first day of the month, e.g. 2024-01-01
-    PRIMARY KEY (edge_id, month)
+    edge_id         INTEGER REFERENCES edges(id) ON DELETE CASCADE,
+    city_id         INTEGER REFERENCES cities(id) ON DELETE CASCADE,
+    trip_count      INTEGER DEFAULT 0,
+    month           DATE NOT NULL,
+    generation_type TEXT NOT NULL DEFAULT 'real',
+    algorithm       TEXT NOT NULL DEFAULT 'map_matched',
+    PRIMARY KEY (edge_id, month, generation_type, algorithm)
 );
 CREATE INDEX IF NOT EXISTS idx_edge_traffic_city_id ON edge_traffic(city_id);
 CREATE INDEX IF NOT EXISTS idx_edge_traffic_month ON edge_traffic(month);
