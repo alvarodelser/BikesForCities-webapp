@@ -29,12 +29,12 @@ const LoadingContainer: React.FC<LoadingContainerProps> = ({
 
 
   return (
-    <div className={`flex flex-col items-center justify-center gap-2 ${finalClassName}`} style={style}>
+    <div className={`flex flex-col items-center justify-center gap-1 ${finalClassName}`} style={style}>
       <div className="w-full h-full relative flex-1">
         <SpinnerSVG color={color} className="absolute inset-0 w-full h-full" />
       </div>
       {text && (
-        <span className="text-xs font-medium tracking-wide opacity-80 mt-2" style={{ color }}>
+        <span className="text-xs font-medium tracking-wide opacity-80" style={{ color }}>
           {text}
         </span>
       )}

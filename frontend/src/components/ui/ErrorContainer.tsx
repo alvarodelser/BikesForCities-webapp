@@ -28,7 +28,7 @@ const ErrorContainer: React.FC<ErrorContainerProps> = ({
     return (
       <div className={`flex items-start gap-3 p-4 rounded-xl bg-[var(--red)]/5 border border-[var(--red)]/10 max-w-xl ${className}`}>
         <div className="p-2 rounded-lg bg-[var(--red)]/10 text-[var(--red)] shrink-0">
-          <ErrorSVG className="w-5 h-5" />
+          <ErrorSVG className="w-8 h-8" />
         </div>
         <div className="flex flex-col">
           {title && (
@@ -47,7 +47,7 @@ const ErrorContainer: React.FC<ErrorContainerProps> = ({
   return (
     <div className={`w-full h-full flex items-center justify-center p-4 ${className}`}>
       <div className="flex flex-col items-center text-center max-w-sm">
-        <ErrorSVG className="w-16 h-16 text-[var(--red)] mb-4 opacity-80" />
+        <ErrorSVG className="w-28 h-28 text-[var(--red)] mb-6 opacity-90" />
         
         <h3 className="text-xl font-bold text-white mb-2 font-heading">
           {title}
