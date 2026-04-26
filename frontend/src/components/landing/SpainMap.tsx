@@ -121,14 +121,13 @@ interface PinProps {
 }
 
 const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover }: PinProps) {
-  const scale = isActive ? 1.25 : isHovered ? 1.1 : 1;
-  const width = (isMobile ? 24 : 32) * scale;
-  const height = (isMobile ? 12 : 16) * scale;
+  const width = isMobile ? 20 : 26;
+  const height = isMobile ? 10 : 12;
   const rx = height / 2;
 
-  // Colors from theme.css
-  const fillColor = isActive ? '#AF4749' : '#027A76'; // --red / --green-dark
-  const strokeColor = '#FBF6EF'; // --cream
+  // Navy blue border and label color
+  const strokeColor = '#003849'; 
+  const labelColor = '#003849';
 
   return (
     <g
@@ -149,30 +148,30 @@ const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered,
       onFocus={() => onHover(cityName, true)}
       onBlur={() => onHover(cityName, false)}
     >
-      {/* Shadow/Glow effect */}
+      {/* Glow effect - animates to red when selected or hovered */}
       <rect
         x={-width / 2}
         y={-height / 2}
         width={width}
         height={height}
         rx={rx}
-        fill={fillColor}
-        opacity={isActive ? 0.4 : isHovered ? 0.3 : 0}
-        filter="blur(4px)"
-        className="transition-all duration-300"
+        fill={isActive ? '#AF4749' : isHovered ? '#04c7c1' : '#027A76'}
+        opacity={isActive ? 0.4 : isHovered ? 0.25 : 0}
+        filter="blur(5px)"
+        className="transition-all duration-500"
       />
       
-      {/* Main Pill Shape */}
+      {/* Main Pill Shape with Navy Blue border and Gradient Fill */}
       <rect
         x={-width / 2}
         y={-height / 2}
         width={width}
         height={height}
         rx={rx}
-        fill={fillColor}
+        fill={isActive ? 'url(#pin-gradient-selected)' : isHovered ? 'url(#pin-gradient-hover)' : 'url(#pin-gradient-default)'}
         stroke={strokeColor}
         strokeWidth={isActive ? 2 : 1.5}
-        className="transition-all duration-300 shadow-lg"
+        className="transition-all duration-500 shadow-sm"
       />
 
       {!isMobile && (
@@ -181,12 +180,12 @@ const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered,
           textAnchor="middle"
           className="transition-all duration-300 pointer-events-none"
           style={{
-            fontSize: isHovered || isActive ? 12 : 11,
+            fontSize: 11,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
-            fill: isActive ? '#fff' : 'rgba(255,255,255,0.9)',
-            fontWeight: isActive ? 800 : 600,
-            textShadow: '0 1px 4px rgba(0,0,0,0.4)',
+            fill: labelColor,
+            fontWeight: 700,
+            textShadow: '0 0 2px rgba(255,255,255,0.8)',
           }}
         >
           {city.name}
@@ -335,11 +334,29 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         viewBox={`0 0 ${size.width} ${size.height}`}
         style={{ overflow: 'visible' }}
       >
-        {/* Static gradient defs — React-owned, D3 no longer touches defs */}
+        {/* Pin Gradients and Map Gradient */}
         <defs>
           <linearGradient id="map-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#BFDDCE" />
             <stop offset="100%" stopColor="#FBF6EF" />
+          </linearGradient>
+
+          {/* Default State: Dark Green Gradient */}
+          <linearGradient id="pin-gradient-default" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#04c7c1" />
+            <stop offset="100%" stopColor="#027A76" />
+          </linearGradient>
+
+          {/* Hover State: Vibrant Green-Teal Gradient */}
+          <linearGradient id="pin-gradient-hover" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#4dfcf6" />
+            <stop offset="100%" stopColor="#039692" />
+          </linearGradient>
+
+          {/* Selected State: Deep Red Gradient */}
+          <linearGradient id="pin-gradient-selected" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ff7073" />
+            <stop offset="100%" stopColor="#AF4749" />
           </linearGradient>
         </defs>
 
