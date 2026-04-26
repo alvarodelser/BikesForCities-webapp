@@ -123,11 +123,58 @@ export interface TrafficCount {
   month?: string;
 }
 
-export const fetchTraffic = async (cityId: number): Promise<TrafficCount[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic`);
+export interface TrafficStats {
+  q5: number;
+  q50: number;
+  q95: number;
+  min: number;
+  max: number;
+}
+
+export interface TrafficMode {
+  generation_type: string;
+  algorithm: string;
+  edge_count: number;
+}
+
+export interface TrafficApiResponse {
+  data: TrafficCount[];
+  count: number;
+  generation_type: string | null;
+  algorithm: string | null;
+  month: string | null;
+  stats: TrafficStats | null;
+}
+
+export const fetchTraffic = async (
+  cityId: number,
+  generationType?: string,
+  algorithm?: string,
+  month?: string,
+): Promise<TrafficApiResponse> => {
+  const params = new URLSearchParams();
+  if (generationType) params.set('generation_type', generationType);
+  if (algorithm) params.set('algorithm', algorithm);
+  if (month) params.set('month', month);
+  const qs = params.toString();
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic${qs ? `?${qs}` : ''}`);
   if (!response.ok) {
     throw new Error('Failed to fetch traffic data');
   }
+  const result = await response.json();
+  return {
+    data: result.data,
+    count: result.count,
+    generation_type: result.generation_type ?? null,
+    algorithm: result.algorithm ?? null,
+    month: result.month ?? null,
+    stats: result.stats ?? null,
+  };
+};
+
+export const fetchTrafficModes = async (cityId: number): Promise<TrafficMode[]> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/modes`);
+  if (!response.ok) throw new Error('Failed to fetch traffic modes');
   const result = await response.json();
   return result.data;
 };
