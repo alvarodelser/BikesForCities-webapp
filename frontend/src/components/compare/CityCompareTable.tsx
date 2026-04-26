@@ -20,9 +20,6 @@ import {
   Network, 
   Car, 
   MapPin, 
-  Mountain, 
-  CircleDot, 
-  TriangleAlert,
   Users,
   Activity,
   Bike
@@ -68,9 +65,6 @@ const DATA_MODES: { id: MapMode; name: string; icon: any; color: string }[] = [
   { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', icon: Network, color: 'text-blue-400' },
   { id: MAP_MODES.TRAFFIC, name: 'Tráfico', icon: Car, color: 'text-red-400' },
   { id: MAP_MODES.STATIONS, name: 'Estaciones', icon: MapPin, color: 'text-green-400' },
-  { id: MAP_MODES.TERRAIN, name: 'Terreno', icon: Mountain, color: 'text-orange-400' },
-  { id: MAP_MODES.INTERSECTIONS, name: 'Intersecciones', icon: CircleDot, color: 'text-yellow-400' },
-  { id: MAP_MODES.ACCIDENTS, name: 'Accidentes', icon: TriangleAlert, color: 'text-red-500' },
 ];
 
 // ─── Column definitions ───────────────────────────────────────────────────────
