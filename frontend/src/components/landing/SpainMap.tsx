@@ -11,10 +11,9 @@ interface SpainMapProps {
   onCityClick?: (cityName: string) => void;
   onCityNavigate?: (cityName: string) => void;
   selectedCity?: string | null;
-  expandedCity?: string | null; // kept for backward compat, not used in new pin rendering
+  expandedCity?: string | null; 
   cities: CityData[];
   className?: string;
-  registerPinRef?: (cityName: string, el: SVGGElement | null) => void;
 }
 
 interface CityCoordinates {
@@ -119,25 +118,22 @@ interface PinProps {
   isMobile: boolean;
   onClick: (cityName: string) => void;
   onHover: (cityName: string, hovered: boolean) => void;
-  registerPinRef?: (cityName: string, el: SVGGElement | null) => void;
 }
 
-const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover, registerPinRef }: PinProps) {
-  const haloR = isMobile ? 10 : 12;
-  const ringR = isMobile ? 5 : 6;
-  const coreR = isMobile ? 2.5 : 3;
-  const scale = isActive ? 1.25 : 1;
+const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover }: PinProps) {
+  const scale = isActive ? 1.25 : isHovered ? 1.1 : 1;
+  const width = (isMobile ? 24 : 32) * scale;
+  const height = (isMobile ? 12 : 16) * scale;
+  const rx = height / 2;
 
-  // Stable ref callback — only fires on mount/unmount, not on re-render
-  const handleRef = useCallback((el: SVGGElement | null) => {
-    registerPinRef?.(cityName, el);
-  }, [cityName, registerPinRef]);
+  // Colors from theme.css
+  const fillColor = isActive ? '#AF4749' : '#027A76'; // --red / --green-dark
+  const strokeColor = '#FBF6EF'; // --cream
 
   return (
     <g
-      ref={handleRef}
       transform={`translate(${x},${y})`}
-      className="cursor-pointer focus:outline-none"
+      className="cursor-pointer focus:outline-none group"
       role="button"
       tabIndex={0}
       aria-label={city.name}
@@ -153,30 +149,44 @@ const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered,
       onFocus={() => onHover(cityName, true)}
       onBlur={() => onHover(cityName, false)}
     >
-      <circle
-        r={haloR * scale}
-        fill="#F4A24C"
-        opacity={isActive ? 0.3 : isHovered ? 0.25 : 0.15}
-        className="transition-all"
+      {/* Shadow/Glow effect */}
+      <rect
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        rx={rx}
+        fill={fillColor}
+        opacity={isActive ? 0.4 : isHovered ? 0.3 : 0}
+        filter="blur(4px)"
+        className="transition-all duration-300"
       />
-      <circle r={ringR * scale} fill="none" stroke="#F4A24C" strokeWidth={1.5} />
-      <circle
-        r={coreR * scale}
-        fill={isActive ? '#F4A24C' : '#fff'}
-        stroke="#F4A24C"
-        strokeWidth={1.5}
+      
+      {/* Main Pill Shape */}
+      <rect
+        x={-width / 2}
+        y={-height / 2}
+        width={width}
+        height={height}
+        rx={rx}
+        fill={fillColor}
+        stroke={strokeColor}
+        strokeWidth={isActive ? 2 : 1.5}
+        className="transition-all duration-300 shadow-lg"
       />
+
       {!isMobile && (
         <text
-          y={haloR * scale + 12}
+          y={height / 2 + 14}
           textAnchor="middle"
+          className="transition-all duration-300 pointer-events-none"
           style={{
-            fontSize: isHovered ? 11 : 10,
+            fontSize: isHovered || isActive ? 12 : 11,
             letterSpacing: 0.5,
             textTransform: 'uppercase',
-            fill: isActive ? '#fff' : 'rgba(255,255,255,0.85)',
-            fontWeight: isActive ? 700 : 500,
-            transition: 'font-size 160ms',
+            fill: isActive ? '#fff' : 'rgba(255,255,255,0.9)',
+            fontWeight: isActive ? 800 : 600,
+            textShadow: '0 1px 4px rgba(0,0,0,0.4)',
           }}
         >
           {city.name}
@@ -196,8 +206,6 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     selectedCity,
     cities,
     className,
-    registerPinRef,
-    // onCityNavigate and expandedCity kept for backward compat; not used in new SVG pin rendering
   } = props;
   const rootRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -363,7 +371,6 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
                 isMobile={isMobile}
                 onClick={handlePinClick}
                 onHover={handlePinHover}
-                registerPinRef={registerPinRef}
               />
             );
           })}

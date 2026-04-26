@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { fetchCities } from '../../services/api';
@@ -6,8 +6,6 @@ import { useViewport } from '../../hooks/useViewport';
 import SpainMap from './SpainMap';
 import ScrollableCityCards from '../ui/ScrollableCityCards';
 import WaveBackground from '../ui/WaveBackground';
-import SideCardTail from './SideCardTail';
-import CityCard from '../ui/CityCard';
 import ErrorContainer from '../ui/ErrorContainer';
 import LoadingContainer from '../ui/LoadingContainer';
 
@@ -23,30 +21,11 @@ interface LayoutProps {
 function DesktopLayout({ cities, onNavigate }: LayoutProps) {
   const [selected, setSelected] = useState<CityData | null>(null);
 
-  // One ref object per city, created lazily
-  const targetRefs = useRef<Record<string, { current: Element | null }>>({});
-
-  function getTargetRef(cityName: string) {
-    if (!targetRefs.current[cityName]) {
-      targetRefs.current[cityName] = { current: null };
-    }
-    return targetRefs.current[cityName];
-  }
-
-  // Dummy stable ref for when nothing is selected
-  const emptyRef = useRef<Element | null>(null);
-
-  const selectedTargetRef = selected
-    ? getTargetRef(selected.name)
-    : emptyRef;
-
   // Outside-click dismissal: clear selected when clicking empty section area
-  // Pin clicks have role="button" on a <g> element; SideCardTail wraps in data-sidecard-root
   function handleSectionClick(e: React.MouseEvent) {
     if (!selected) return;
     const target = e.target as Element;
     if (target.closest('g[role="button"]')) return; // pin click
-    if (target.closest('[data-sidecard-root]')) return; // card click
     setSelected(null);
   }
 
@@ -54,13 +33,6 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
     const city = cities.find(c => c.name === cityName) ?? null;
     setSelected(city);
   }, [cities]);
-
-  const handleRegisterPinRef = useCallback((name: string, el: SVGGElement | null) => {
-    if (!targetRefs.current[name]) {
-      targetRefs.current[name] = { current: null };
-    }
-    targetRefs.current[name].current = el;
-  }, []);
 
   return (
     <section
@@ -90,21 +62,8 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
           onCityNavigate={onNavigate}
           selectedCity={selected?.name ?? null}
           cities={cities}
-          registerPinRef={handleRegisterPinRef}
         />
       </div>
-
-      {/* Side card tail — renders null internally when isMobile */}
-      <SideCardTail targetRef={selectedTargetRef} visible={!!selected} layoutMode="map">
-        {selected && (
-          <CityCard
-            city={selected}
-            position={0}
-            panel
-            onCityNavigate={onNavigate}
-          />
-        )}
-      </SideCardTail>
 
       {/* Hint when nothing is selected */}
       {!selected && (

@@ -24,7 +24,8 @@ import {
   CircleDot, 
   TriangleAlert,
   Users,
-  Activity
+  Activity,
+  Bike
 } from 'lucide-react';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
@@ -39,7 +40,7 @@ export interface ColumnGroup {
   icon: any;
 }
 
-type SortKey = keyof Pick<CityData, 'name' | 'population' | 'cyclingNetwork' | 'coverage' | 'stations_count' | 'monthly_trips'> | 'service_name';
+type SortKey = keyof Pick<CityData, 'name' | 'population' | 'cyclingNetwork' | 'coverage' | 'stations_count' | 'monthly_trips' | 'bicycles_count'> | 'service_name';
 type SortDir = 'asc' | 'desc';
 
 export interface Column {
@@ -160,6 +161,17 @@ const COLUMNS: Column[] = [
     ),
   },
   {
+    key: 'bicycles_count',
+    label: 'Bicicletas',
+    align: 'right',
+    group: 'Servicio Bici',
+    render: (city) => (
+      <span className="tabular-nums font-medium text-[var(--green-light)] px-4 block">
+        {(city.bicycles_count === 0 || city.bicycles_count === undefined) ? '-' : formatPopulation(Math.round(city.bicycles_count))}
+      </span>
+    ),
+  },
+  {
     key: 'monthly_trips',
     label: 'Viajes/mes',
     align: 'right',
@@ -190,7 +202,7 @@ const COLUMNS: Column[] = [
   },
 ];
 
-const SORTABLE_COLS = new Set<SortKey>(['name', 'population', 'cyclingNetwork', 'coverage', 'stations_count', 'monthly_trips', 'service_name']);
+const SORTABLE_COLS = new Set<SortKey>(['name', 'population', 'cyclingNetwork', 'coverage', 'stations_count', 'monthly_trips', 'bicycles_count', 'service_name']);
 
 function sortCities(cities: CityData[], key: SortKey, dir: SortDir): CityData[] {
   return [...cities].sort((a, b) => {
