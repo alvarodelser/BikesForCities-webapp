@@ -26,6 +26,27 @@ def get_or_create_city(
     wikidata_id: Optional[str] = None,
 ) -> int:
     with conn.cursor() as cur:
+        if wikidata_id:
+            # wikidata_id is the stable key — update the matching row even if the name changed.
+            cur.execute(
+                """
+                UPDATE cities SET
+                    name        = %s,
+                    description = COALESCE(%s, description),
+                    center_lat  = COALESCE(%s, center_lat),
+                    center_lon  = COALESCE(%s, center_lon),
+                    radius      = COALESCE(%s, radius),
+                    angle       = COALESCE(%s, angle)
+                WHERE wikidata_id = %s
+                RETURNING id
+                """,
+                (name, description, center_lat, center_lon, radius, angle, wikidata_id),
+            )
+            row = cur.fetchone()
+            if row:
+                return row[0]
+
+        # No wikidata_id match (city is new or wikidata_id itself changed) — fall back to name.
         cur.execute(
             """
             INSERT INTO cities (name, description, center_lat, center_lon, radius, angle, wikidata_id)
@@ -36,7 +57,7 @@ def get_or_create_city(
                 center_lon   = COALESCE(EXCLUDED.center_lon, cities.center_lon),
                 radius       = COALESCE(EXCLUDED.radius, cities.radius),
                 angle        = COALESCE(EXCLUDED.angle, cities.angle),
-                wikidata_id  = COALESCE(EXCLUDED.wikidata_id, cities.wikidata_id)
+                wikidata_id  = EXCLUDED.wikidata_id
             RETURNING id
             """,
             (name, description, center_lat, center_lon, radius, angle, wikidata_id),
