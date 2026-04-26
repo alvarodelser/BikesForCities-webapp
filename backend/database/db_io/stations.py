@@ -189,14 +189,27 @@ def get_station_hourly_availability(conn, city_id: int, station_id: str, day_mod
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(f"""
+            WITH daily_samples AS (
+                SELECT DISTINCT ON (
+                    DATE(r.observed_at AT TIME ZONE 'UTC'),
+                    EXTRACT(hour FROM r.observed_at AT TIME ZONE 'UTC')
+                )
+                    EXTRACT(hour FROM r.observed_at AT TIME ZONE 'UTC') AS hour_of_day,
+                    r.available_bikes
+                FROM station_readings r
+                JOIN stations s ON s.citybikes_network_id = r.citybikes_network_id AND s.station_id = r.station_id
+                {where_clause}
+                ORDER BY 
+                    DATE(r.observed_at AT TIME ZONE 'UTC'),
+                    EXTRACT(hour FROM r.observed_at AT TIME ZONE 'UTC'),
+                    r.observed_at DESC
+            )
             SELECT 
-                EXTRACT(hour FROM r.observed_at AT TIME ZONE 'UTC') AS hour_of_day,
-                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS avg_bikes
-            FROM station_readings r
-            JOIN stations s ON s.citybikes_network_id = r.citybikes_network_id AND s.station_id = r.station_id
-            {where_clause}
-            GROUP BY 1
-            ORDER BY 1
+                hour_of_day,
+                PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY available_bikes) AS avg_bikes
+            FROM daily_samples
+            GROUP BY hour_of_day
+            ORDER BY hour_of_day
         """, params)
         return cur.fetchall()
 

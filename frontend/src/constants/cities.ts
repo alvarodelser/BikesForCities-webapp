@@ -15,6 +15,7 @@ export interface CityData {
   service_name?: string;
   stations_count?: number;
   monthly_trips?: number;
+  bicycles_count?: number;
   available_modes?: Record<string, boolean>;
   angle?: number;
 }

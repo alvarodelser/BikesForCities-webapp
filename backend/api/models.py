@@ -38,6 +38,7 @@ class CityResponse(NetworkBase):
     service_name: Optional[str] = None
     stations_count: Optional[int] = None
     monthly_trips: Optional[int] = None
+    bicycles_count: Optional[int] = None
     bounds: Optional[Dict[str, float]] = None
     available_modes: Optional[Dict[str, bool]] = None
 
@@ -290,10 +291,36 @@ class TrafficCount(BaseModel):
     trip_count: int
     month: Optional[date] = None
 
+
+class TrafficStats(BaseModel):
+    """Percentile statistics for colormap scaling."""
+    q5: float
+    q50: float
+    q95: float
+    min: float
+    max: float
+
+
+class TrafficMode(BaseModel):
+    """An available (generation_type, algorithm) combination for a city."""
+    generation_type: str
+    algorithm: str
+    edge_count: int
+
+
+class TrafficModesResponse(BaseResponse):
+    """Available traffic combinations for a city."""
+    data: List[TrafficMode]
+
+
 class TrafficResponse(BaseResponse):
     """Response model for edge traffic data."""
     data: List[TrafficCount]
     count: int
+    generation_type: Optional[str] = None
+    algorithm: Optional[str] = None
+    month: Optional[date] = None
+    stats: Optional[TrafficStats] = None
 
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""

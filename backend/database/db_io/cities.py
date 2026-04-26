@@ -128,7 +128,16 @@ def get_all_cities(conn) -> List[Tuple]:
                  WHERE et.city_id = c.id
                    AND et.observed_at > (SELECT MAX(observed_at)
                                          FROM estimated_trips_per_interval)
-                                        - INTERVAL '30 days') AS monthly_trips
+                                        - INTERVAL '30 days') AS monthly_trips,
+                (SELECT SUM(median_bikes)
+                 FROM (
+                     SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS median_bikes
+                     FROM station_readings r
+                     WHERE r.city_id = c.id
+                       AND EXTRACT(HOUR FROM r.observed_at AT TIME ZONE 'UTC') = 4
+                       AND r.observed_at > NOW() - INTERVAL '30 days'
+                     GROUP BY r.station_id
+                 ) s) AS bicycles_count
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             ORDER BY c.name
@@ -190,6 +199,15 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                                          FROM estimated_trips_per_interval
                                          WHERE city_id = c.id)
                                         - INTERVAL '30 days') AS monthly_trips,
+                (SELECT SUM(median_bikes)
+                 FROM (
+                     SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS median_bikes
+                     FROM station_readings r
+                     WHERE r.city_id = c.id
+                       AND EXTRACT(HOUR FROM r.observed_at AT TIME ZONE 'UTC') = 4
+                       AND r.observed_at > NOW() - INTERVAL '30 days'
+                     GROUP BY r.station_id
+                 ) s) AS bicycles_count,
                 m.infrastructure, m.traffic, m.accidents, m.topography,
                 m.intersections, m.stations, m.forum
             FROM cities c

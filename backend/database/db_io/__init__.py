@@ -89,7 +89,10 @@ from .stations import (
 from .traffic import (
     upsert_edge_traffic,
     upsert_edge_traffic_for_city,
+    get_traffic_modes,
+    get_best_traffic_mode,
     get_edge_traffic,
+    get_traffic_stats,
     get_latest_traffic_month,
     has_traffic,
 )
@@ -152,7 +155,9 @@ __all__ = [
     "get_station_hourly_availability", "update_station_reach_coverage",
     # traffic
     "upsert_edge_traffic", "upsert_edge_traffic_for_city",
-    "get_edge_traffic", "get_latest_traffic_month", "has_traffic",
+    "get_traffic_modes", "get_best_traffic_mode",
+    "get_edge_traffic", "get_traffic_stats",
+    "get_latest_traffic_month", "has_traffic",
     # edge routes
     "get_edge_route_traces", "get_edge_route_od",
     # accidents

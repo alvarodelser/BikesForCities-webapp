@@ -87,7 +87,7 @@ function buildOpacityExpr(q5: number): unknown[] {
 }
 
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
-    const { map, city } = useMap();
+    const { map, city, setSelectedEdgeId } = useMap();
     const { setThresholds } = useThresholds();
 
     const popupRef = useRef<maplibregl.Popup | null>(null);
@@ -154,7 +154,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         routeInfoRef.current = null;
         popupRef.current?.remove();
         clearOverlay();
-    }, [map, clearOverlay]);
+        setSelectedEdgeId(null);
+    }, [map, clearOverlay, setSelectedEdgeId]);
 
     const loadRoutes = useCallback(async (
         edgeId: number,
@@ -195,6 +196,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 );
                 stickyRef.current = null;
             }
+            setSelectedEdgeId(null);
             setThresholds(null);
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -270,6 +272,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 { selected: true }
             );
             stickyRef.current = { edgeId, lngLat: e.lngLat };
+            setSelectedEdgeId(edgeId);
 
             const dom = buildEdgePopupDOM(edgeName, tripCount, () => doDeselect());
             popup.setLngLat(e.lngLat).setDOMContent(dom).addTo(map);
