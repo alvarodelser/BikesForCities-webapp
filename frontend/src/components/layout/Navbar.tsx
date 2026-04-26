@@ -102,7 +102,7 @@ const Navbar: React.FC<NavbarProps> = () => {
   // ── Mobile layout ──────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div className="absolute left-0 right-0 z-[2000] flex justify-center w-full pointer-events-none top-6 px-4">
+      <div className="fixed left-0 right-0 z-[2000] flex justify-center w-full pointer-events-none top-6 px-4">
         <nav
           ref={navRef}
           className="pointer-events-auto backdrop-blur-md shadow-lg transition-all duration-500 ease-in-out flex flex-col items-center overflow-hidden border w-full bg-[var(--cream)]/85 border-black/5 rounded-[32px] max-w-[800px]"

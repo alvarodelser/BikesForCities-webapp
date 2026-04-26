@@ -72,9 +72,14 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
   // Lock page scroll for the mobile experience
   useEffect(() => {
+    // Reset scroll position to ensure navbar is visible
+    window.scrollTo(0, 0);
     document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    
     return () => {
       document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
     };
   }, []);
 

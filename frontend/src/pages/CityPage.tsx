@@ -44,7 +44,7 @@ const CityPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[var(--blue)] to-[var(--blue-dark)] flex items-center justify-center">
+      <div className="h-dvh bg-gradient-to-br from-[var(--blue)] to-[var(--blue-dark)] flex items-center justify-center">
         <LoadingContainer />
       </div>
     );
@@ -52,7 +52,7 @@ const CityPage: React.FC = () => {
 
   if (error || !city) {
     return (
-      <div className="w-full min-h-screen flex flex-col items-center justify-center bg-[var(--blue-dark)]">
+      <div className="w-full h-dvh flex flex-col items-center justify-center bg-[var(--blue-dark)]">
         <ErrorContainer 
           title="City Not Found" 
           message={error || "The city you are looking for does not exist."} 
@@ -63,7 +63,7 @@ const CityPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="h-dvh">
       {isMobile ? <MapMobile city={city} /> : <MapDesktop city={city} />}
     </div>
   );
