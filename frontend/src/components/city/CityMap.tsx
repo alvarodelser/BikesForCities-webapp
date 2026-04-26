@@ -5,7 +5,6 @@ import CityLegend from './map/CityLegend';
 import MapControls from './MapControls';
 import { ThresholdsContext } from './map/ThresholdsContext';
 import type { Thresholds } from './map/ThresholdsContext';
-import { MapPin } from 'lucide-react';
 import { MapContext, type MapContextValue } from './map/MapContext';
 import maplibregl from 'maplibre-gl';
 import { useCallback } from 'react';
@@ -25,9 +24,6 @@ const modeLabels: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura Ciclista',
     [MAP_MODES.STATIONS]: 'Estaciones de Bici',
     [MAP_MODES.TRAFFIC]: 'Tráfico Ciclista',
-    [MAP_MODES.TERRAIN]: 'Terreno',
-    [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
-    [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
 const getColorScheme = (colorVar: string) => {
@@ -135,24 +131,13 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                     boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)',
                                 }}
                             >
-                                <div className="flex items-center gap-4">
-                                    <div
-                                        className="w-11 h-11 rounded-xl flex items-center justify-center shadow-lg"
-                                        style={{
-                                            background: `linear-gradient(135deg, ${colorScheme.primary}, ${colorScheme.secondary})`,
-                                            boxShadow: `0 4px 12px ${colorScheme.primary}55`,
-                                        }}
+                                <div>
+                                    <h1
+                                        className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
+                                        style={{ color: '#ffffffee' }}
                                     >
-                                        <MapPin className="w-5 h-5 text-white" />
-                                    </div>
-                                    <div>
-                                        <h1
-                                            className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
-                                            style={{ color: '#ffffffee' }}
-                                        >
-                                            {city.name} - {modeLabel}
-                                        </h1>
-                                    </div>
+                                        {city.name} - {modeLabel}
+                                    </h1>
                                 </div>
 
                                 {/* MapControls reads map instance from MapContext — hidden on mobile (rendered separately at bottom-right) */}

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Route, TrendingUp, AlertTriangle, Mountain,
-  Crosshair, Bike, MessageSquare,
+  Route, TrendingUp, Bike, MessageSquare,
 } from 'lucide-react';
 import { fetchSystemStatus, type SystemStatus, type TimePeriodRow } from '../services/api';
 
@@ -23,9 +22,6 @@ const CITY_COLORS = ['#027A76','#3A6C7F','#7BA492','#F4A24C','#AF4749','#92BEC9'
 const MODE_META: { key: string; Icon: React.FC<{ size?: number; color?: string }>; label: string }[] = [
   { key: MAP_MODES.INFRASTRUCTURE, Icon: Route,          label: 'Infrastructure' },
   { key: MAP_MODES.TRAFFIC,        Icon: TrendingUp,     label: 'Traffic'        },
-  { key: MAP_MODES.ACCIDENTS,      Icon: AlertTriangle,  label: 'Accidents'      },
-  { key: MAP_MODES.TERRAIN,        Icon: Mountain,       label: 'Terrain'        },
-  { key: MAP_MODES.INTERSECTIONS,  Icon: Crosshair,      label: 'Intersections'  },
   { key: MAP_MODES.STATIONS,       Icon: Bike,           label: 'Stations'       },
   { key: 'forum',                  Icon: MessageSquare,  label: 'Forum'          },
 ];
