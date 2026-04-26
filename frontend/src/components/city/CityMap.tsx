@@ -18,6 +18,7 @@ interface CityMapProps {
     city: CityData;
     selectedColor?: string;
     bottomOffset?: number;
+    onEdgeSelect?: (id: number | null) => void;
 }
 
 const modeLabels: Record<string, string> = {
@@ -47,10 +48,15 @@ const getColorScheme = (colorVar: string) => {
  * - Renders the header chrome, canvas, legend, and controls
  * - Holds NO mode/metric state — all derived from URL via useMapState
  */
-const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0 }) => {
+const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0, onEdgeSelect }) => {
     const { mode } = useMapState();
     const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
+    const [selectedEdgeId, setSelectedEdgeIdInternal] = useState<number | null>(null);
+    const setSelectedEdgeId = useCallback((id: number | null) => {
+        setSelectedEdgeIdInternal(id);
+        onEdgeSelect?.(id);
+    }, [onEdgeSelect]);
     const colorScheme = getColorScheme(selectedColor);
     const modeLabel = modeLabels[mode] || mode;
     const { isMobile } = useViewport();
@@ -98,6 +104,8 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         zoomOut,
         reset,
         toggleBackground,
+        selectedEdgeId,
+        setSelectedEdgeId,
     };
 
 
@@ -105,17 +113,13 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         <MapContext.Provider value={contextValue}>
             <ThresholdsContext.Provider value={{ thresholds, setThresholds }}>
                 <div
-                    className={`w-full relative overflow-hidden map-section-bg h-full`}
+                    className="w-full relative overflow-hidden h-full"
                     style={{
                         '--mode-primary': colorScheme.primary,
                         '--mode-secondary': colorScheme.secondary,
                         '--mode-accent': colorScheme.accent,
                     } as React.CSSProperties}
                 >
-                    {/* Atmospheric background */}
-                    <div className="absolute inset-0 map-section-bg__base" />
-                    <div className="absolute inset-0 map-section-bg__radial" />
-                    <div className="absolute inset-0 map-section-bg__noise" />
 
 
                     {/* Floating header - hidden on mobile as MapMobile provides its own overlay */}
@@ -168,12 +172,11 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     )}
 
                     {/* Map canvas */}
-                    <div className={`absolute inset-0 z-10 ${isMobile ? '' : 'pt-24 pb-4 px-4'}`}>
+                    <div className={`absolute inset-0 z-10 ${isMobile ? '' : 'pt-20 pb-4 px-4'}`}>
                         <div
-                            className={`w-full h-full overflow-hidden transition-colors duration-500 ${isMobile ? '' : 'rounded-2xl shadow-2xl'}`}
+                            className={`w-full h-full overflow-hidden transition-all duration-500 ${isMobile ? '' : 'rounded-2xl'}`}
                             style={isMobile ? {} : {
-                                border: `2px solid ${colorScheme.primary}55`,
-                                boxShadow: `0 0 0 1px ${colorScheme.primary}22, 0 24px 64px rgba(0,0,0,0.35)`,
+                                boxShadow: `inset 0 1px 0 ${colorScheme.primary}, 0 12px 40px rgba(0,0,0,0.12), 0 0 0 1px ${colorScheme.primary}33`,
                             }}
                         >
                             <CityCanvas city={city} onMapInstance={setMapInstance} />

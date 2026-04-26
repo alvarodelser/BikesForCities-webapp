@@ -5,6 +5,14 @@ import { useMapState } from '../../../hooks/useMapState';
 import { useViewport } from '../../../hooks/useViewport';
 import { commonLegendItems } from './modes/common';
 
+const SUBMODE_LABELS: Record<string, string> = {
+    trips:      'Viajes',
+    downtime:   'Tiempo',
+    reach:      'Alcance',
+    traces:     'Trayecto',
+    heatmap:    'Calor',
+};
+
 /**
  * Thin shell: resolves the active mode from URL, renders the matching Legend
  * component, and appends universal map legend items below it.
@@ -18,7 +26,7 @@ interface CityLegendProps {
 }
 
 export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen }: CityLegendProps) {
-    const { mode } = useMapState();
+    const { mode, submode } = useMapState();
     const { isMobile } = useViewport();
     const [open, setOpen] = useState(() => {
         // If defaultOpen is explicitly provided (e.g. from props), use it.
@@ -86,7 +94,20 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
                 `}
             >
                 <div className="flex items-center justify-between mb-3 border-b border-black/5 pb-1">
-                    <span className="text-sm font-bold text-black uppercase tracking-wider text-[11px] font-black opacity-40">Leyenda</span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-black text-black/40 uppercase tracking-wider">Leyenda</span>
+                        {submode && SUBMODE_LABELS[submode] && (
+                            <span
+                                className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded"
+                                style={{
+                                    backgroundColor: colorScheme ? `${colorScheme.primary}20` : 'rgba(0,0,0,0.06)',
+                                    color: colorScheme ? colorScheme.primary : 'rgba(0,0,0,0.5)',
+                                }}
+                            >
+                                {SUBMODE_LABELS[submode]}
+                            </span>
+                        )}
+                    </div>
                     <button
                         onClick={() => setOpen(false)}
                         aria-label="Cerrar leyenda"
