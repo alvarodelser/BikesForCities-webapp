@@ -187,6 +187,8 @@ CREATE TABLE IF NOT EXISTS trips (
 );
 CREATE INDEX IF NOT EXISTS idx_trips_city_id         ON trips(city_id);
 CREATE INDEX IF NOT EXISTS idx_trips_generation_type ON trips(generation_type);
+CREATE INDEX IF NOT EXISTS idx_trips_origin_node      ON trips(origin_node);
+CREATE INDEX IF NOT EXISTS idx_trips_dest_node        ON trips(dest_node);
 
 -- ── Paths ──────────────────────────────────────────────────────────────────
 -- One row per unique computed path (edge sequence between two graph nodes).

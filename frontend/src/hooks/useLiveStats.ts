@@ -3,7 +3,14 @@ import type { ComponentType } from 'react';
 import { BarChart3, Bike, Clock, MapPin, TrendingUp, Calendar, Lock, Activity } from 'lucide-react';
 import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
-import { fetchStations, fetchTraffic, fetchTrafficModes, type TrafficMode } from '../services/api';
+import {
+  fetchStations,
+  fetchTraffic,
+  fetchTrafficModes,
+  fetchInfraStats,
+  fetchTrafficInfraCoverage,
+  type TrafficMode,
+} from '../services/api';
 
 export interface LiveStat {
   label: string;
@@ -47,15 +54,48 @@ export function useLiveStats(
       const kmPer100k = city.population > 0
         ? (city.cyclingNetwork / (city.population / 100_000)).toFixed(2)
         : '—';
-      setStats([
+
+      // Start with synchronous stats; kick off async infra stats fetch
+      const baseStats: LiveStat[] = [
         { label: 'Total km red', value: `${city.cyclingNetwork.toFixed(1)} km`, icon: BarChart3 },
         { label: 'Km / 100k hab.', value: `${kmPer100k} km`, icon: Activity },
         locked('Km / M€ en vías públicas'),
         { label: 'Cobertura', value: `${(city.coverage * 100).toFixed(1)} %`, icon: TrendingUp, trend: 'up' },
         locked('Cobertura componente principal'),
-      ]);
+      ];
+      setStats(baseStats);
       setTrafficModes([]);
       setLoading(false);
+
+      // Async fetch for BCC + budget
+      fetchInfraStats(city.id).then(infra => {
+        if (cancelled) return;
+        const kmPerMeur = infra.km_per_meur_vias != null
+          ? `${infra.km_per_meur_vias.toFixed(2)} km/M€`
+          : '—';
+        const gccVal = infra.gcc_fraction != null
+          ? `${(infra.gcc_fraction * 100).toFixed(1)} %`
+          : '—';
+        setStats([
+          baseStats[0],
+          baseStats[1],
+          {
+            label: `Km / M€ vías (${infra.vias_budget_year ?? '?'})`,
+            value: kmPerMeur,
+            icon: Activity,
+            comingSoon: infra.km_per_meur_vias == null,
+          },
+          baseStats[3],
+          {
+            label: 'Cobertura GCC',
+            value: gccVal,
+            icon: TrendingUp,
+            trend: infra.gcc_fraction != null ? 'up' : 'neutral',
+            comingSoon: infra.gcc_fraction == null,
+          },
+        ]);
+      }).catch(() => {});
+
       return;
     }
 
@@ -68,9 +108,10 @@ export function useLiveStats(
         let modes: TrafficMode[] = [];
 
         if (mode === MAP_MODES.TRAFFIC) {
-          const [traffic, fetchedModes] = await Promise.all([
+          const [traffic, fetchedModes, infraCov] = await Promise.all([
             fetchTraffic(city.id, generation || undefined, routing || undefined),
             fetchTrafficModes(city.id),
+            fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
           ]);
           modes = fetchedModes;
           const monthlyTrips = city.monthly_trips
@@ -79,11 +120,16 @@ export function useLiveStats(
           const median = traffic.stats != null
             ? Math.round(traffic.stats.q50).toLocaleString('es')
             : '—';
+          const infraVal = infraCov?.km_on_infra != null
+            ? `${infraCov.km_on_infra.toFixed(1)} km`
+            : null;
           result = [
             { label: 'Viajes estimados/mes', value: monthlyTrips, icon: TrendingUp },
             { label: 'Mediana viajes/tramo', value: `${median} v/mes`, icon: BarChart3 },
             { label: 'Período de datos', value: formatMonth(traffic.month), icon: Calendar },
-            locked('Km con infraestructura'),
+            infraVal
+              ? { label: 'Km con infraestructura', value: infraVal, icon: Activity, trend: 'up' as const }
+              : locked('Km con infraestructura'),
           ];
         } else if (mode === MAP_MODES.STATIONS) {
           const stations = await fetchStations(city.id);

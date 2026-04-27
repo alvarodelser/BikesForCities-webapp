@@ -328,3 +328,105 @@ class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""
     data: Dict[str, Any]   # GeoJSON FeatureCollection
     count: int
+
+
+# ── Infrastructure analytics models ──────────────────────────────────────────
+
+class InfraStatsResponse(BaseResponse):
+    """Infrastructure analytics: GCC coverage + budget cod.153."""
+    gcc_fraction: Optional[float] = None
+    gcc_km: Optional[float] = None
+    total_km: Optional[float] = None
+    n_components: int = 0
+    vias_budget_year: Optional[int] = None
+    vias_budget_type: Optional[str] = None
+    vias_budget_eur: Optional[int] = None
+    km_per_meur_vias: Optional[float] = None
+
+
+# ── Infrastructure components model ──────────────────────────────────────────
+
+class InfraComponentsResponse(BaseResponse):
+    """GeoJSON FeatureCollection of cycling edges with component_id property."""
+    data: Dict[str, Any]  # GeoJSON FeatureCollection
+
+
+# ── Traffic analytics models ──────────────────────────────────────────────────
+
+class TrafficInfraCoverage(BaseResponse):
+    """Fraction of simulated route-km on cycling infrastructure."""
+    infra_fraction: Optional[float] = None
+    km_on_infra: Optional[float] = None
+    generation_type: Optional[str] = None
+    algorithm: Optional[str] = None
+    month: Optional[date] = None
+
+
+class HistogramSeries(BaseModel):
+    bin_edges: List[float]
+    counts: List[int]
+
+
+class RouteHistogramSeries(BaseModel):
+    generation_type: str
+    algorithm: str
+    n_routes: int
+    length_km: HistogramSeries
+    infra_fraction: HistogramSeries
+
+
+class RouteHistogramResponse(BaseResponse):
+    data: List[RouteHistogramSeries]
+
+
+# ── Station monthly models ────────────────────────────────────────────────────
+
+class StationMonthlyPoint(BaseModel):
+    month: Optional[str] = None
+    estimated_trips: Optional[float] = None
+    actual_trips: Optional[float] = None
+    active_stations: int = 0
+
+
+class StationMonthlyResponse(BaseResponse):
+    data: List[StationMonthlyPoint]
+
+
+# ── Budget & political models ─────────────────────────────────────────────────
+
+class BudgetCategory(BaseModel):
+    category_code: str
+    category_name: Optional[str] = None
+    amount: int
+    budget_type: str
+
+
+class BudgetYear(BaseModel):
+    year: int
+    total_income: Optional[int] = None
+    total_expenses: Optional[int] = None
+    public_debt: Optional[int] = None
+    lines: List[BudgetCategory] = []
+
+
+class CityBudgetsResponse(BaseResponse):
+    data: List[BudgetYear]
+
+
+class MayorRecord(BaseModel):
+    name: str
+    party: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+
+
+class ElectionResult(BaseModel):
+    year: int
+    party: str
+    votes: Optional[int] = None
+    councilors: Optional[int] = None
+
+
+class MayorsTimelineResponse(BaseResponse):
+    mayors: List[MayorRecord]
+    elections: List[ElectionResult]

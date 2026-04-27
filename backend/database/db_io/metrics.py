@@ -267,3 +267,37 @@ def get_city_actual_vs_estimated(conn, city_id: int):
             ORDER BY metric_month
         """, (city_id,))
         return cur.fetchall()
+
+
+def get_station_monthly_agg(conn, city_id: int) -> list:
+    """Return city-level monthly station metrics: total estimated/actual trips.
+
+    Aggregates station_monthly rows across all stations for the city.
+    Returns rows ordered by month ascending.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                metric_month,
+                SUM(estimated_trips)  AS estimated_trips,
+                SUM(actual_trips)     AS actual_trips,
+                COUNT(DISTINCT station_id) AS active_stations
+            FROM station_monthly
+            WHERE city_id = %s
+            GROUP BY metric_month
+            ORDER BY metric_month
+            """,
+            (city_id,),
+        )
+        rows = cur.fetchall()
+
+    return [
+        {
+            "month": row[0].isoformat() if row[0] else None,
+            "estimated_trips": float(row[1]) if row[1] is not None else None,
+            "actual_trips":    float(row[2]) if row[2] is not None else None,
+            "active_stations": int(row[3]),
+        }
+        for row in rows
+    ]

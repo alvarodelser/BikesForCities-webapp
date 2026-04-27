@@ -564,3 +564,53 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
             (city_id,),
         )
         return [dict(r) for r in cur.fetchall()]
+
+
+def get_infra_budget(conn, city_id: int) -> dict:
+    """Return the latest Vías Públicas (functional code 153) budget for a city."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT year, budget_type, amount
+            FROM city_budget_categories
+            WHERE city_id = %s AND category_code = '153'
+            ORDER BY year DESC,
+                     CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END
+            LIMIT 1
+            """,
+            (city_id,),
+        )
+        row = cur.fetchone()
+    if not row:
+        return {"year": None, "budget_type": None, "amount_eur": None}
+    return {"year": row[0], "budget_type": row[1], "amount_eur": int(row[2])}
+
+
+def get_historical_mayors(conn, city_id: int) -> list:
+    """Return chronological list of mayors for a city."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT name, party, start_date, end_date
+            FROM historical_mayors
+            WHERE city_id = %s
+            ORDER BY start_date
+            """,
+            (city_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def get_city_elections_data(conn, city_id: int) -> list:
+    """Return electoral results per party per year."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT year, party, votes, councilors
+            FROM city_elections
+            WHERE city_id = %s
+            ORDER BY year, councilors DESC
+            """,
+            (city_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]

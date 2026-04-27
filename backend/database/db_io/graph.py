@@ -515,3 +515,102 @@ def compute_all_reach_coverages(
 
     return results
 
+
+
+def get_cycling_components_geojson(conn, city_id: int) -> dict:
+    """Return cycling edges as GeoJSON FeatureCollection with component_id per edge.
+
+    component_id is ranked by total km (0 = largest/GCC).
+    """
+    import networkx as nx
+    import json
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, u, v, length, ST_AsGeoJSON(geom) AS geojson
+            FROM edges
+            WHERE city_id = %s AND highway LIKE '%%cycleway%%'
+            """,
+            (city_id,),
+        )
+        edge_rows = cur.fetchall()
+
+    if not edge_rows:
+        return {"type": "FeatureCollection", "features": []}
+
+    G = nx.Graph()
+    for edge_id, u, v, length, _ in edge_rows:
+        w = float(length or 0)
+        G.add_edge(u, v, weight=w)
+
+    components = list(nx.connected_components(G))
+
+    def _comp_km(nodes):
+        return sum(G[u][v]["weight"] for u, v in G.subgraph(nodes).edges()) / 1000.0
+
+    ranked = sorted(components, key=_comp_km, reverse=True)
+    node_to_comp = {}
+    for comp_id, nodes in enumerate(ranked):
+        for node in nodes:
+            node_to_comp[node] = comp_id
+
+    features = []
+    seen: set = set()
+    for edge_id, u, v, _length, geojson_str in edge_rows:
+        if edge_id in seen:
+            continue
+        seen.add(edge_id)
+        features.append({
+            "type": "Feature",
+            "geometry": json.loads(geojson_str),
+            "properties": {"edge_id": edge_id, "component_id": node_to_comp.get(u, -1)},
+        })
+
+    return {"type": "FeatureCollection", "features": features}
+
+
+def get_gcc_coverage(conn, city_id: int) -> dict:
+    """Compute the Biggest Connected Component (GCC) of the cycling network.
+
+    Returns the fraction of cycling-network km in the largest connected component,
+    plus the absolute km and number of isolated components.
+    """
+    import networkx as nx
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT u, v, length
+            FROM edges
+            WHERE city_id = %s AND highway LIKE '%%cycleway%%'
+            """,
+            (city_id,),
+        )
+        edges = cur.fetchall()
+
+    if not edges:
+        return {"gcc_fraction": None, "gcc_km": None, "total_km": None, "n_components": 0}
+
+    G = nx.Graph()
+    for u, v, length in edges:
+        w = float(length or 0)
+        if G.has_edge(u, v):
+            G[u][v]["weight"] = max(G[u][v]["weight"], w)
+        else:
+            G.add_edge(u, v, weight=w)
+
+    components = list(nx.connected_components(G))
+    n_components = len(components)
+    total_km = sum(d["weight"] for _, _, d in G.edges(data=True)) / 1000.0
+
+    gcc_nodes = max(components, key=len)
+    gcc_subgraph = G.subgraph(gcc_nodes)
+    gcc_km = sum(d["weight"] for _, _, d in gcc_subgraph.edges(data=True)) / 1000.0
+
+    return {
+        "gcc_fraction": gcc_km / total_km if total_km > 0 else None,
+        "gcc_km": gcc_km,
+        "total_km": total_km,
+        "n_components": n_components,
+    }

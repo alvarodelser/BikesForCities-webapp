@@ -17,7 +17,12 @@ from .models import (
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
     StationResponse, StationListResponse,
     TrafficResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
-    EdgeRoutesResponse
+    EdgeRoutesResponse,
+    InfraStatsResponse, InfraComponentsResponse,
+    TrafficInfraCoverage, RouteHistogramResponse, RouteHistogramSeries, HistogramSeries,
+    StationMonthlyResponse, StationMonthlyPoint,
+    CityBudgetsResponse, BudgetYear, BudgetCategory,
+    MayorsTimelineResponse, MayorRecord, ElectionResult,
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
@@ -33,6 +38,11 @@ from backend.database.db_io import (
     get_station_hourly_availability, get_station_reachability,
     get_edge_route_traces, get_edge_route_od,
     get_accidents_geojson,
+    get_gcc_coverage, get_cycling_components_geojson, get_infra_budget,
+    get_traffic_infra_coverage, get_route_histogram,
+    get_station_monthly_agg,
+    get_city_budgets, get_historical_mayors, get_city_elections_data,
+    get_best_traffic_mode, get_latest_traffic_month,
 )
 
 logger = logging.getLogger(__name__)
@@ -752,6 +762,196 @@ async def get_city_accidents(
     except Exception as e:
         logger.error(f"Error getting accidents for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve accident data")
+
+
+# ── Infrastructure analytics ──────────────────────────────────────────────────
+
+@router.get("/cities/{city_id}/infrastructure/stats", response_model=InfraStatsResponse)
+async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)):
+    """Return infrastructure analytics: GCC coverage and Vías Públicas budget (cod. 153)."""
+    try:
+        validate_network_exists(conn, city_id)
+        gcc   = get_gcc_coverage(conn, city_id)
+        budget = get_infra_budget(conn, city_id)
+
+        total_km = gcc.get("total_km")
+        vias_eur = budget.get("amount_eur")
+        km_per_meur = (total_km / (vias_eur / 1_000_000)) if (total_km and vias_eur and vias_eur > 0) else None
+
+        return InfraStatsResponse(
+            message="Infrastructure stats retrieved",
+            gcc_fraction=gcc.get("gcc_fraction"),
+            gcc_km=gcc.get("gcc_km"),
+            total_km=total_km,
+            n_components=gcc.get("n_components", 0),
+            vias_budget_year=budget.get("year"),
+            vias_budget_type=budget.get("budget_type"),
+            vias_budget_eur=vias_eur,
+            km_per_meur_vias=round(km_per_meur, 3) if km_per_meur else None,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting infra stats for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve infrastructure stats")
+
+
+@router.get("/cities/{city_id}/infrastructure/components", response_model=InfraComponentsResponse)
+async def get_infrastructure_components(city_id: int, conn=Depends(get_db_connection)):
+    """Return cycling edges as GeoJSON with component_id (0 = largest component)."""
+    try:
+        validate_network_exists(conn, city_id)
+        geojson = get_cycling_components_geojson(conn, city_id)
+        return InfraComponentsResponse(message="Infrastructure components retrieved", data=geojson)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting infra components for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve infrastructure components")
+
+
+# ── Traffic analytics ─────────────────────────────────────────────────────────
+
+@router.get("/cities/{city_id}/traffic/infra-coverage", response_model=TrafficInfraCoverage)
+async def get_city_traffic_infra_coverage(
+    city_id: int,
+    generation_type: Optional[str] = Query(None),
+    algorithm: Optional[str] = Query(None),
+    month: Optional[str] = Query(None, description="YYYY-MM"),
+    conn=Depends(get_db_connection),
+):
+    """Return km of simulated trips on cycling infrastructure for a given (gen, algo, month)."""
+    try:
+        validate_network_exists(conn, city_id)
+
+        from datetime import date as date_type
+        if generation_type is None or algorithm is None:
+            best = get_best_traffic_mode(conn, city_id)
+            if not best:
+                return TrafficInfraCoverage(message="No traffic data")
+            generation_type, algorithm = best
+
+        month_date = None
+        if month:
+            month_date = date_type.fromisoformat(month + "-01")
+        if month_date is None:
+            month_date = get_latest_traffic_month(conn, city_id, generation_type, algorithm)
+        if month_date is None:
+            return TrafficInfraCoverage(message="No traffic data for this combination")
+
+        cov = get_traffic_infra_coverage(conn, city_id, generation_type, algorithm, month_date)
+        return TrafficInfraCoverage(
+            message="Traffic infrastructure coverage retrieved",
+            generation_type=generation_type,
+            algorithm=algorithm,
+            month=month_date,
+            **cov,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting traffic infra coverage for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve traffic infra coverage")
+
+
+@router.get("/cities/{city_id}/traffic/histogram", response_model=RouteHistogramResponse)
+async def get_city_route_histogram(
+    city_id: int,
+    bins: int = Query(20, ge=5, le=50, description="Number of histogram bins"),
+    conn=Depends(get_db_connection),
+):
+    """Return route-length and infra-fraction histograms for all available strategies."""
+    try:
+        validate_network_exists(conn, city_id)
+        data = get_route_histogram(conn, city_id, bins=bins)
+        series = [
+            RouteHistogramSeries(
+                generation_type=d["generation_type"],
+                algorithm=d["algorithm"],
+                n_routes=d["n_routes"],
+                length_km=HistogramSeries(**d["length_km"]),
+                infra_fraction=HistogramSeries(**d["infra_fraction"]),
+            )
+            for d in data
+        ]
+        return RouteHistogramResponse(data=series, message=f"{len(series)} series computed")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting route histogram for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve route histogram")
+
+
+# ── Station analytics ─────────────────────────────────────────────────────────
+
+@router.get("/cities/{city_id}/stations/monthly", response_model=StationMonthlyResponse)
+async def get_city_station_monthly(city_id: int, conn=Depends(get_db_connection)):
+    """Return monthly aggregated station trips (estimated + actual) for the city."""
+    try:
+        validate_network_exists(conn, city_id)
+        rows = get_station_monthly_agg(conn, city_id)
+        return StationMonthlyResponse(
+            data=[StationMonthlyPoint(**r) for r in rows],
+            message=f"{len(rows)} months returned",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting station monthly for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve station monthly data")
+
+
+# ── Budget & political data ───────────────────────────────────────────────────
+
+@router.get("/cities/{city_id}/budgets", response_model=CityBudgetsResponse)
+async def get_city_budgets_endpoint(city_id: int, conn=Depends(get_db_connection)):
+    """Return all budget years with functional category lines for sunburst visualization."""
+    try:
+        validate_network_exists(conn, city_id)
+        raw = get_city_budgets(conn, city_id)
+        years = [
+            BudgetYear(
+                year=r["year"],
+                total_income=r.get("total_income"),
+                total_expenses=r.get("total_expenses"),
+                public_debt=r.get("public_debt"),
+                lines=[
+                    BudgetCategory(
+                        category_code=ln["category_code"],
+                        category_name=ln.get("category_name"),
+                        amount=ln["amount"],
+                        budget_type=ln["budget_type"],
+                    )
+                    for ln in (r.get("lines") or [])
+                ],
+            )
+            for r in raw
+        ]
+        return CityBudgetsResponse(data=years, message=f"{len(years)} budget years returned")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting budgets for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve budgets")
+
+
+@router.get("/cities/{city_id}/mayors", response_model=MayorsTimelineResponse)
+async def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)):
+    """Return historical mayors list and electoral results for a timeline/Gantt chart."""
+    try:
+        validate_network_exists(conn, city_id)
+        mayors = get_historical_mayors(conn, city_id)
+        elections = get_city_elections_data(conn, city_id)
+        return MayorsTimelineResponse(
+            mayors=[MayorRecord(**m) for m in mayors],
+            elections=[ElectionResult(**e) for e in elections],
+            message=f"{len(mayors)} mayors, {len(elections)} election records",
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting mayors timeline for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve mayors timeline")
 
 
 # Status endpoint

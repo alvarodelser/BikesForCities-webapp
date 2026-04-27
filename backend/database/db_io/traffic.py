@@ -286,3 +286,120 @@ def has_traffic(conn, city_id: int) -> bool:
             (city_id,),
         )
         return cur.fetchone()[0]
+
+
+def get_traffic_infra_coverage(
+    conn,
+    city_id: int,
+    generation_type: str,
+    algorithm: str,
+    month: date,
+) -> dict:
+    """Return km of simulated trips that traverse cycling infrastructure.
+
+    Weights each edge's length by its trip_count (trip-weighted km).
+    Separate cycleway edges (highway LIKE '%cycleway%') from the rest.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                SUM(e.length * et.trip_count)
+                    FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_weighted,
+                SUM(e.length * et.trip_count)                    AS total_weighted,
+                SUM(e.length)
+                    FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_km_raw
+            FROM edge_traffic et
+            JOIN edges e ON e.id = et.edge_id
+            WHERE et.city_id        = %s
+              AND et.generation_type = %s
+              AND et.algorithm       = %s
+              AND et.month           = %s
+            """,
+            (city_id, generation_type, algorithm, month),
+        )
+        row = cur.fetchone()
+
+    if not row or row[1] is None or float(row[1]) == 0:
+        return {"infra_fraction": None, "km_on_infra": None}
+
+    infra_weighted = float(row[0] or 0)
+    total_weighted = float(row[1])
+    infra_km = float(row[2] or 0) / 1000.0
+
+    return {
+        "infra_fraction": infra_weighted / total_weighted if total_weighted > 0 else None,
+        "km_on_infra": round(infra_km, 2),
+    }
+
+
+def get_route_histogram(conn, city_id: int, bins: int = 20) -> list:
+    """Compute route-length and infra-fraction histograms per (generation_type, algorithm).
+
+    Returns a list of series objects ready for charting. Uses numpy for binning
+    after fetching per-path stats from path_edges. Capped at 100 k paths.
+    """
+    import numpy as np
+    from collections import defaultdict
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                t.generation_type,
+                p.algorithm,
+                SUM(e.length) / 1000.0 AS length_km,
+                SUM(CASE WHEN e.highway LIKE '%%cycleway%%' THEN e.length ELSE 0 END)
+                    / NULLIF(SUM(e.length), 0) AS infra_fraction
+            FROM paths p
+            JOIN path_edges pe ON pe.path_id  = p.id
+            JOIN edges      e  ON e.id        = pe.edge_id
+            JOIN routes     r  ON r.path_id   = p.id
+            JOIN trips      t  ON t.id        = r.trip_id
+            WHERE p.city_id = %s
+              AND t.city_id = %s
+            GROUP BY p.id, t.generation_type, p.algorithm
+            LIMIT 100000
+            """,
+            (city_id, city_id),
+        )
+        rows = cur.fetchall()
+
+    if not rows:
+        return []
+
+    groups: dict = defaultdict(lambda: {"lengths": [], "infra": []})
+    for gen_type, algo, length_km, infra_frac in rows:
+        key = (gen_type or "unknown", algo or "unknown")
+        if length_km is not None:
+            groups[key]["lengths"].append(float(length_km))
+        if infra_frac is not None:
+            groups[key]["infra"].append(float(infra_frac))
+
+    all_lengths = [v for g in groups.values() for v in g["lengths"]]
+    if not all_lengths:
+        return []
+
+    p1, p99 = float(np.percentile(all_lengths, 1)), float(np.percentile(all_lengths, 99))
+    len_edges  = np.linspace(p1, p99, bins + 1).tolist()
+    infra_edges = np.linspace(0.0, 1.0, bins + 1).tolist()
+
+    result = []
+    for (gen_type, algo), data in sorted(groups.items()):
+        clipped = [l for l in data["lengths"] if p1 <= l <= p99]
+        lc, _ = np.histogram(clipped, bins=len_edges)
+        ic, _ = np.histogram(data["infra"], bins=infra_edges)
+        result.append({
+            "generation_type": gen_type,
+            "algorithm": algo,
+            "n_routes": len(data["lengths"]),
+            "length_km": {
+                "bin_edges": [round(b, 3) for b in len_edges],
+                "counts": lc.tolist(),
+            },
+            "infra_fraction": {
+                "bin_edges": [round(b, 4) for b in infra_edges],
+                "counts": ic.tolist(),
+            },
+        })
+    return result

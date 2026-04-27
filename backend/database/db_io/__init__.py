@@ -27,6 +27,9 @@ from .cities import (
     put_city_councilors,
     put_city_budgets,
     get_city_budgets,
+    get_infra_budget,
+    get_historical_mayors,
+    get_city_elections_data,
 )
 
 from .graph import (
@@ -42,6 +45,8 @@ from .graph import (
     get_highway_distribution,
     get_station_reachability,
     compute_all_reach_coverages,
+    get_gcc_coverage,
+    get_cycling_components_geojson,
 )
 
 from .trips import (
@@ -95,6 +100,8 @@ from .traffic import (
     get_traffic_stats,
     get_latest_traffic_month,
     has_traffic,
+    get_traffic_infra_coverage,
+    get_route_histogram,
 )
 
 from .edge_routes import (
@@ -121,6 +128,7 @@ from .metrics import (
     calculate_osm_metrics,
     get_total_active_stations,
     upsert_city_metrics,
+    get_station_monthly_agg,
 )
 
 __all__ = [
@@ -133,11 +141,13 @@ __all__ = [
     "get_ingestion_status", "upsert_ingestion_status", "check_prerequisites",
     "put_historical_mayors", "put_city_elections", "put_city_councilors",
     "put_city_budgets", "get_city_budgets",
+    "get_infra_budget", "get_historical_mayors", "get_city_elections_data",
     # graph
     "put_nodes", "put_edges", "get_nodes", "get_edges",
     "get_edge_id_map", "count_nodes", "count_edges",
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
+    "get_gcc_coverage", "get_cycling_components_geojson",
     # trips
     "put_trips", "count_trips", "count_unrouted_trips", "get_unrouted_trip_groups",
     "city_has_real_trips", "get_paginated_trips", "get_trip_stats",
@@ -158,6 +168,7 @@ __all__ = [
     "get_traffic_modes", "get_best_traffic_mode",
     "get_edge_traffic", "get_traffic_stats",
     "get_latest_traffic_month", "has_traffic",
+    "get_traffic_infra_coverage", "get_route_histogram",
     # edge routes
     "get_edge_route_traces", "get_edge_route_od",
     # accidents
@@ -169,4 +180,5 @@ __all__ = [
     "upsert_estimated_trips_interval",
     "get_city_months_with_station_data", "calculate_osm_metrics",
     "get_total_active_stations", "upsert_city_metrics",
+    "get_station_monthly_agg",
 ]
