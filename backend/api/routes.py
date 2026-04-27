@@ -971,23 +971,29 @@ async def get_system_status(conn=Depends(get_db_connection)):
 
         city_stats = []
         for row in cities_data:
-            city_id, name = row[0], row[1]
+            (city_id, name, alt_name, slug, description, wikidata_id, 
+             center_lat, center_lon, radius, angle,
+             population, budget, coverage, cycling_network, 
+             min_lat, max_lat, min_lon, max_lon,
+             infra, traffic, accidents, topo, inter, stations, forum,
+             mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
+
             city_stats.append({
                 "id": city_id,
                 "name": name,
                 "nodes": count_nodes(conn, city_id),
                 "edges": count_edges(conn, city_id),
-                "routes": count_routes(conn, city_id),
-                "stations_count": int(row[26]) if row[26] is not None else 0,
-                "monthly_trips": int(row[27]) if row[27] is not None else 0,
+                "routes": count_trips(conn, city_id),
+                "stations_count": int(stations_count) if stations_count is not None else 0,
+                "monthly_trips": int(monthly_trips) if monthly_trips is not None else 0,
                 "available_modes": {
-                    "infrastructure": bool(row[16]),
-                    "traffic": bool(row[17]),
-                    "accidents": bool(row[18]),
-                    "terrain": bool(row[19]),
-                    "intersections": bool(row[20]),
-                    "stations": bool(row[21]),
-                    "forum": bool(row[22]),
+                    "infrastructure": bool(infra),
+                    "traffic": bool(traffic),
+                    "accidents": bool(accidents),
+                    "terrain": bool(topo),
+                    "intersections": bool(inter),
+                    "stations": bool(stations),
+                    "forum": bool(forum),
                 },
                 "features": feature_map.get(city_id, {}),
             })

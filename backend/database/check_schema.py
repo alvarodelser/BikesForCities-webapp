@@ -95,6 +95,8 @@ OK   = "\033[32m✓\033[0m"
 FAIL = "\033[31m✗\033[0m"
 WARN = "\033[33m~\033[0m"
 
+SYSTEM_TABLES = {"spatial_ref_sys"}  # PostGIS internals, not ours
+
 def check_tables(cur, expected):
     cur.execute("""
         SELECT table_name FROM information_schema.tables
@@ -102,7 +104,7 @@ def check_tables(cur, expected):
     """)
     existing = {r[0] for r in cur.fetchall()}
     missing = [t for t in expected if t not in existing]
-    extra   = [t for t in existing if t not in expected]
+    extra   = [t for t in existing if t not in expected and t not in SYSTEM_TABLES]
     return missing, extra
 
 def check_columns(cur, expected):
