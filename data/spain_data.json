@@ -192,7 +192,7 @@
         "raster": "south_spain",
         "wikidata_id": "Q10509",
         "ine_code": "03065",
-        "slug": "elche",
+        "slug": "elx",
         "alt_name": "Elche"
     },
     "Toledo": {
@@ -214,7 +214,7 @@
         "wikidata_id": "Q7038",
         "ine_code": "17079",
         "slug": "girona",
-        "alt_name": null
+        "alt_name": "gerona"
     },
     "Leon": {
         "name": "León",
