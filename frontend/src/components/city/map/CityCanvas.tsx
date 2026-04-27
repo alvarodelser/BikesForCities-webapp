@@ -212,7 +212,7 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
                     <div ref={mapContainer} className="w-full h-full" />
                     {loading && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10 transition-all duration-500">
-                            <LoadingContainer className="w-12 h-12" />
+                            <LoadingContainer className="w-36 h-36" />
                         </div>
                     )}
                     {/* ActiveLayer mounts only after map load — critical for MapLibre */}

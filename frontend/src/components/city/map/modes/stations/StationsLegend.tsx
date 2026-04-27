@@ -2,10 +2,17 @@ import { useState } from 'react';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 
+const STATION_SUBMODES = [
+    { id: 'trips',    label: 'Viajes' },
+    { id: 'downtime', label: 'Tiempo' },
+    { id: 'reach',    label: 'Alcance' },
+];
+
 export default function StationsLegend() {
     const { thresholds } = useThresholds();
-    const { submode } = useMapState();
+    const { submode, setSubmode } = useMapState();
     const metric = submode === 'downtime' ? 'downtime' : submode === 'reach' ? 'reach' : 'trips';
+    const activeSubmode = submode || 'trips';
     const [showPolygon, setShowPolygon] = useState(true);
 
     const handlePolygonToggle = () => {
@@ -16,11 +23,21 @@ export default function StationsLegend() {
 
     return (
         <div className="flex flex-col gap-2 w-full">
-            {/* Metric label — submode is now set from the filter pill */}
-            <div className="border-b border-black/5 pb-2 mb-1">
-                <span className="text-[10px] font-medium text-black/40 italic">
-                    {metric === 'trips' ? 'viajes/mes' : metric === 'downtime' ? 'min sin bicis / día' : '% cobertura (1km)'}
-                </span>
+            {/* Submode selector */}
+            <div className="flex gap-1 flex-wrap border-b border-black/5 pb-2 mb-1">
+                {STATION_SUBMODES.map(s => (
+                    <button
+                        key={s.id}
+                        onClick={() => setSubmode(s.id)}
+                        className={`px-2 py-0.5 rounded text-[9px] font-semibold border transition-colors ${
+                            activeSubmode === s.id
+                                ? 'bg-green-600 text-white border-green-600'
+                                : 'bg-white text-black/50 border-black/15 hover:border-black/30'
+                        }`}
+                    >
+                        {s.label}
+                    </button>
+                ))}
             </div>
 
             {/* Gradient bar + labels */}

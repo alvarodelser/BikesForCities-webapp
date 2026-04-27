@@ -20,12 +20,17 @@ const ALGORITHM_LABELS: Record<string, string> = {
 const GENERATION_ORDER = ['real', 'station_based', 'buildings_population'];
 const ALGORITHM_ORDER = ['map_matched', 'safest', 'shortest', 'grouped'];
 
+const TRAFFIC_SUBMODES = [
+    { id: 'traces',  label: 'Trayecto' },
+    { id: 'heatmap', label: 'Calor' },
+];
+
 export default function TrafficLegend() {
     const { thresholds } = useThresholds();
-    const { submode, generation, routing, setGeneration, setRouting } = useMapState();
+    const { submode, generation, routing, setGeneration, setRouting, setSubmode } = useMapState();
     const { city } = useMap();
     const [modes, setModes] = useState<TrafficMode[]>([]);
-    const displayMode = submode === 'heatmap' ? 'heatmap' : 'traces';
+    const activeSubmode = submode || 'traces';
 
     useEffect(() => {
         if (!city?.id) return;
@@ -90,8 +95,24 @@ export default function TrafficLegend() {
                         ))}
                     </div>
                 )}
+                {/* Route overlay submode — always visible so user knows what to expect on edge click */}
+                <div className="flex gap-1 flex-wrap">
+                    {TRAFFIC_SUBMODES.map(s => (
+                        <button
+                            key={s.id}
+                            onClick={() => setSubmode(s.id)}
+                            className={`px-2 py-0.5 rounded text-[9px] font-semibold border transition-colors ${
+                                activeSubmode === s.id
+                                    ? 'bg-teal-700 text-white border-teal-700'
+                                    : 'bg-white text-black/50 border-black/15 hover:border-black/30'
+                            }`}
+                        >
+                            {s.label}
+                        </button>
+                    ))}
+                </div>
                 <span className="text-[10px] font-medium text-black/40 italic">
-                    {displayMode === 'heatmap' ? 'mapa de calor' : 'viajes / mes — clic en tramo para rutas'}
+                    {activeSubmode === 'heatmap' ? 'mapa de calor al clic' : 'viajes / mes — clic en tramo para rutas'}
                 </span>
             </div>
 

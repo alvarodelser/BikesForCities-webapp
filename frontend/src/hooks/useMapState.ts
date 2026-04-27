@@ -37,9 +37,6 @@ export function useMapState(): MapState {
             } else {
                 next.delete('submode');
             }
-            // Clear computation params when mode changes
-            next.delete('generation');
-            next.delete('routing');
             return next;
         }, { replace: true });
     }, [setSearchParams]);
