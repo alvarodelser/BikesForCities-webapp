@@ -1,7 +1,7 @@
 import { type ReactNode, Children, isValidElement, useEffect, useState, useRef } from 'react';
 import { useViewport } from '../../hooks/useViewport';
 
-interface TabProps { id: string; label: string; children: ReactNode; }
+interface TabProps { id: string; label: ReactNode; children: ReactNode; }
 function Tab({ children }: TabProps) { return <>{children}</>; }
 
 interface MobileTabsProps {
@@ -29,7 +29,7 @@ function MobileTabs({ defaultTab, children }: MobileTabsProps) {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, []);
 
-  const tabs: { id: string; label: string; content: ReactNode }[] = [];
+  const tabs: { id: string; label: ReactNode; content: ReactNode }[] = [];
   Children.forEach(children, (child) => {
     if (!isValidElement(child) || child.type !== Tab) return;
     const props = child.props as TabProps;

@@ -1,0 +1,131 @@
+import { useState, useEffect } from 'react';
+import type { ComponentType } from 'react';
+import { BarChart3, Bike, Clock, MapPin, TrendingUp, Calendar, Lock, Activity } from 'lucide-react';
+import type { CityData } from '../constants/cities';
+import { MAP_MODES, type MapMode } from '../constants/mapModes';
+import { fetchStations, fetchTraffic, fetchTrafficModes, type TrafficMode } from '../services/api';
+
+export interface LiveStat {
+  label: string;
+  value: string;
+  icon: ComponentType<{ className?: string }>;
+  trend?: 'up' | 'down' | 'neutral';
+  comingSoon?: boolean;
+}
+
+export interface LiveStatsResult {
+  stats: LiveStat[];
+  trafficModes: TrafficMode[];
+  loading: boolean;
+}
+
+function locked(label: string): LiveStat {
+  return { label, value: 'Próximamente', icon: Lock, comingSoon: true };
+}
+
+function formatMonth(month: string | null): string {
+  if (!month) return '—';
+  const parts = month.split('-');
+  return new Date(Number(parts[0]), Number(parts[1]) - 1)
+    .toLocaleDateString('es', { month: 'long', year: 'numeric' });
+}
+
+export function useLiveStats(
+  city: CityData,
+  mode: MapMode,
+  generation: string,
+  routing: string,
+): LiveStatsResult {
+  const [stats, setStats] = useState<LiveStat[]>([]);
+  const [trafficModes, setTrafficModes] = useState<TrafficMode[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (mode === MAP_MODES.INFRASTRUCTURE) {
+      const kmPer100k = city.population > 0
+        ? (city.cyclingNetwork / (city.population / 100_000)).toFixed(2)
+        : '—';
+      setStats([
+        { label: 'Total km red', value: `${city.cyclingNetwork.toFixed(1)} km`, icon: BarChart3 },
+        { label: 'Km / 100k hab.', value: `${kmPer100k} km`, icon: Activity },
+        locked('Km / M€ en vías públicas'),
+        { label: 'Cobertura', value: `${(city.coverage * 100).toFixed(1)} %`, icon: TrendingUp, trend: 'up' },
+        locked('Cobertura componente principal'),
+      ]);
+      setTrafficModes([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    async function load() {
+      if (city.id === undefined) return;
+      try {
+        let result: LiveStat[] = [];
+        let modes: TrafficMode[] = [];
+
+        if (mode === MAP_MODES.TRAFFIC) {
+          const [traffic, fetchedModes] = await Promise.all([
+            fetchTraffic(city.id, generation || undefined, routing || undefined),
+            fetchTrafficModes(city.id),
+          ]);
+          modes = fetchedModes;
+          const monthlyTrips = city.monthly_trips
+            ? city.monthly_trips.toLocaleString('es')
+            : '—';
+          const median = traffic.stats != null
+            ? Math.round(traffic.stats.q50).toLocaleString('es')
+            : '—';
+          result = [
+            { label: 'Viajes estimados/mes', value: monthlyTrips, icon: TrendingUp },
+            { label: 'Mediana viajes/tramo', value: `${median} v/mes`, icon: BarChart3 },
+            { label: 'Período de datos', value: formatMonth(traffic.month), icon: Calendar },
+            locked('Km con infraestructura'),
+          ];
+        } else if (mode === MAP_MODES.STATIONS) {
+          const stations = await fetchStations(city.id);
+          const withDowntime = stations.filter(s => s.downtime_minutes !== null);
+          const meanDowntime = withDowntime.length > 0
+            ? Math.round(withDowntime.reduce((sum, s) => sum + (s.downtime_minutes ?? 0), 0) / withDowntime.length)
+            : null;
+          const withReach = stations.filter(s => (s.reach_coverage ?? 0) > 0);
+          const meanReach = withReach.length > 0
+            ? ((withReach.reduce((sum, s) => sum + (s.reach_coverage ?? 0), 0) / withReach.length) * 100).toFixed(1)
+            : null;
+          result = [
+            { label: 'Bicicletas totales', value: (city.bicycles_count ?? 0).toLocaleString('es'), icon: Bike },
+            { label: 'Estaciones', value: (city.stations_count ?? 0).toLocaleString('es'), icon: MapPin },
+            {
+              label: 'Tiempo parado medio',
+              value: meanDowntime !== null ? `${meanDowntime} min/día` : '—',
+              icon: Clock,
+            },
+            {
+              label: 'Cobertura por alcance',
+              value: meanReach !== null ? `${meanReach} %` : '—',
+              icon: TrendingUp,
+              trend: meanReach !== null ? 'up' : 'neutral',
+            },
+          ];
+        }
+
+        if (!cancelled) {
+          setStats(result);
+          setTrafficModes(modes);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('useLiveStats:', err);
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => { cancelled = true; };
+  }, [city.id, mode, generation, routing, city.cyclingNetwork, city.coverage, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
+
+  return { stats, trafficModes, loading };
+}

@@ -48,7 +48,8 @@ async def list_networks(conn=Depends(get_db_connection)):
         
         cities = []
         for row in networks_data:
-            (city_id, name, description, wikidata_id, center_lat, center_lon, radius, angle,
+            (city_id, name, alt_name, slug, description, wikidata_id, 
+             center_lat, center_lon, radius, angle,
              population, budget, coverage, cycling_network, 
              min_lat, max_lat, min_lon, max_lon,
              infra, traffic, accidents, topo, inter, stations, forum,
@@ -76,6 +77,8 @@ async def list_networks(conn=Depends(get_db_connection)):
             cities.append(CityResponse(
                 id=city_id,
                 name=name,
+                alt_name=alt_name,
+                slug=slug,
                 description=description,
                 center_lat=center_lat,
                 center_lon=center_lon,
@@ -129,6 +132,8 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
         city = CityResponse(
             id=city_dict["id"],
             name=city_dict["name"],
+            alt_name=city_dict.get("alt_name"),
+            slug=city_dict["slug"],
             description=city_dict.get("description"),
             center_lat=city_dict["center_lat"],
             center_lon=city_dict["center_lon"],

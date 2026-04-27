@@ -183,21 +183,31 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
           </div>
 
           {/* City name + mode — always visible in collapsed state */}
-          <div className="px-5 pb-3">
-            <div className="flex items-baseline gap-2">
-              <p className="text-xl font-bold text-[var(--blue-dark)] leading-tight">
-                {city.name}
-              </p>
-              <span className="text-xs font-semibold text-[var(--blue)]/70 uppercase tracking-wide">
-                {modeNames[mode] || mode}
-              </span>
+            <div className="px-5 pb-3">
+              <div className="flex items-baseline gap-2">
+                <p className="text-xl font-bold text-[var(--blue-dark)] leading-tight">
+                  {city.name}
+                </p>
+                <span className="text-xs font-semibold text-[var(--blue)]/70 uppercase tracking-wide">
+                  {modeNames[mode] || mode}
+                </span>
+              </div>
+              {city.altName && (
+                <p className="text-[12px] font-medium text-[var(--blue-dark)]/60 italic leading-tight">
+                  ({city.altName})
+                </p>
+              )}
+              {!isOpen && !city.altName && (
+                <p className="text-[11px] text-[var(--blue-dark)]/50 mt-0.5">
+                  Desliza hacia arriba para ver el análisis
+                </p>
+              )}
+              {!isOpen && city.altName && (
+                <p className="text-[10px] text-[var(--blue-dark)]/40 mt-1">
+                  Desliza para ver más
+                </p>
+              )}
             </div>
-            {!isOpen && (
-              <p className="text-[11px] text-[var(--blue-dark)]/50 mt-0.5">
-                Desliza hacia arriba para ver el análisis
-              </p>
-            )}
-          </div>
         </div>
 
         {/* Scrollable sheet content */}

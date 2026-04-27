@@ -57,7 +57,7 @@ export const MapSheetContent: React.FC<MapSheetContentProps> = ({ city }) => {
       </div>
 
       {/* Mode-specific stats */}
-      <CityStats title={title} subtitle={subtitle} modeStats={modeStats} compact={true} />
+      <CityStats city={city} title={title} subtitle={subtitle} modeStats={modeStats} compact={true} />
     </div>
   );
 };

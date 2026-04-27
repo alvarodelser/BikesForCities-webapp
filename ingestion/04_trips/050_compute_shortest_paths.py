@@ -156,7 +156,20 @@ def process_city(conn, city_id: int, city_name: str,
             if total_trips_processed > 0 else 0
         )
         print(f"   🔄 Updating edge traffic...")
-        upsert_edge_traffic_for_city(conn, city_id, city_name)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT t.generation_type, p.algorithm
+                FROM routes r
+                JOIN trips t ON t.id = r.trip_id
+                JOIN paths p ON p.id = r.path_id
+                WHERE t.city_id = %s
+                """,
+                (city_id,),
+            )
+            combinations = cur.fetchall()
+        for gen_type, algo in combinations:
+            upsert_edge_traffic_for_city(conn, city_id, city_name, gen_type, algo)
         conn.commit()
 
         print(f"   ✅ Done – {total_trips_processed:,} trips, "

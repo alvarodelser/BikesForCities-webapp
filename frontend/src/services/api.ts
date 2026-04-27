@@ -12,7 +12,9 @@ export const fetchCities = async (): Promise<CityData[]> => {
   return result.data.map((city: any) => ({
     id: city.id,
     name: city.name,
-    path: `/map/${city.name.toLowerCase()}`,
+    altName: city.alt_name,
+    slug: city.slug,
+    path: `/map/${city.slug}`,
     description: city.description,
     geoCoords: { longitude: city.center_lon, latitude: city.center_lat },
     maxBounds: city.bounds ? [

@@ -36,6 +36,8 @@ def main():
         city_id = get_or_create_city(
             conn,
             name=city_info["name"],
+            alt_name=city_info.get("alt_name"),
+            slug=city_info["slug"],
             center_lat=city_info.get("latitude"),
             center_lon=city_info.get("longitude"),
             angle=city_info.get("angle", 0.0),

@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router";
+import { Routes, Route, useLocation } from "react-router";
 
 import LandingPage from "./pages/LandingPage";
 import CityPage from "./pages/CityPage";
@@ -14,6 +14,8 @@ import { useViewport } from "./hooks/useViewport";
 
 function App() {
   const { isMobile } = useViewport();
+  const location = useLocation();
+  const isMapPage = location.pathname.startsWith('/map');
 
   return (
     <>
@@ -26,7 +28,7 @@ function App() {
         <Route path="/status" element={<StatusPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-      {!isMobile && <Footer />}
+      {!isMobile && !isMapPage && <Footer />}
     </>
   );
 }

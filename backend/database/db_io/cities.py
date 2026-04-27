@@ -18,6 +18,8 @@ from psycopg2.extras import execute_values, RealDictCursor
 def get_or_create_city(
     conn,
     name: str,
+    slug: str,
+    alt_name: Optional[str] = None,
     description: Optional[str] = None,
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
@@ -31,16 +33,18 @@ def get_or_create_city(
             cur.execute(
                 """
                 UPDATE cities SET
-                    name        = %s,
-                    description = COALESCE(%s, description),
-                    center_lat  = COALESCE(%s, center_lat),
-                    center_lon  = COALESCE(%s, center_lon),
-                    radius      = COALESCE(%s, radius),
-                    angle       = COALESCE(%s, angle)
+                    name          = %s,
+                    alt_name      = %s,
+                    slug          = %s,
+                    description   = COALESCE(%s, description),
+                    center_lat    = COALESCE(%s, center_lat),
+                    center_lon    = COALESCE(%s, center_lon),
+                    radius        = COALESCE(%s, radius),
+                    angle         = COALESCE(%s, angle)
                 WHERE wikidata_id = %s
                 RETURNING id
                 """,
-                (name, description, center_lat, center_lon, radius, angle, wikidata_id),
+                (name, alt_name, slug, description, center_lat, center_lon, radius, angle, wikidata_id),
             )
             row = cur.fetchone()
             if row:
@@ -49,18 +53,20 @@ def get_or_create_city(
         # No wikidata_id match (city is new or wikidata_id itself changed) — fall back to name.
         cur.execute(
             """
-            INSERT INTO cities (name, description, center_lat, center_lon, radius, angle, wikidata_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (name) DO UPDATE SET
-                description  = COALESCE(EXCLUDED.description, cities.description),
-                center_lat   = COALESCE(EXCLUDED.center_lat, cities.center_lat),
-                center_lon   = COALESCE(EXCLUDED.center_lon, cities.center_lon),
-                radius       = COALESCE(EXCLUDED.radius, cities.radius),
-                angle        = COALESCE(EXCLUDED.angle, cities.angle),
-                wikidata_id  = EXCLUDED.wikidata_id
+            INSERT INTO cities (name, alt_name, slug, description, center_lat, center_lon, radius, angle, wikidata_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (slug) DO UPDATE SET
+                name          = EXCLUDED.name,
+                alt_name      = EXCLUDED.alt_name,
+                description   = COALESCE(EXCLUDED.description, cities.description),
+                center_lat    = COALESCE(EXCLUDED.center_lat, cities.center_lat),
+                center_lon    = COALESCE(EXCLUDED.center_lon, cities.center_lon),
+                radius        = COALESCE(EXCLUDED.radius, cities.radius),
+                angle         = COALESCE(EXCLUDED.angle, cities.angle),
+                wikidata_id   = EXCLUDED.wikidata_id
             RETURNING id
             """,
-            (name, description, center_lat, center_lon, radius, angle, wikidata_id),
+            (name, alt_name, slug, description, center_lat, center_lon, radius, angle, wikidata_id),
         )
         return cur.fetchone()[0]
 
@@ -122,7 +128,7 @@ def get_all_cities(conn) -> List[Tuple]:
         cur.execute(
             """
             SELECT
-                c.id, c.name, c.description, c.wikidata_id,
+                c.id, c.name, c.alt_name, c.slug, c.description, c.wikidata_id,
                 c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
@@ -197,7 +203,7 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
         cur.execute(
             """
             SELECT
-                c.id, c.name, c.description, c.wikidata_id,
+                c.id, c.name, c.alt_name, c.slug, c.description, c.wikidata_id,
                 c.center_lat, c.center_lon, c.radius, c.angle,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb

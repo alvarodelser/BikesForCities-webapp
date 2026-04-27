@@ -19,6 +19,8 @@ class BaseResponse(BaseModel):
 class NetworkBase(BaseModel):
     """Base city model."""
     name: str
+    alt_name: Optional[str] = None
+    slug: str
     description: Optional[str] = None
     center_lat: Optional[float] = None
     center_lon: Optional[float] = None

@@ -6,7 +6,9 @@
         "raster": "north_spain",
         "citybikes_network_id": "bicimad",
         "wikidata_id": "Q2807",
-        "ine_code": "28079"
+        "ine_code": "28079",
+        "slug": "madrid",
+        "alt_name": null
     },
     "Barcelona": {
         "name": "Barcelona",
@@ -15,7 +17,9 @@
         "raster": "north_spain",
         "citybikes_network_id": "bicing",
         "wikidata_id": "Q1492",
-        "ine_code": "08019"
+        "ine_code": "08019",
+        "slug": "barcelona",
+        "alt_name": null
     },
     "Sevilla": {
         "name": "Sevilla",
@@ -24,23 +28,29 @@
         "raster": "south_spain",
         "citybikes_network_id": "sevici",
         "wikidata_id": "Q8717",
-        "ine_code": "41091"
+        "ine_code": "41091",
+        "slug": "sevilla",
+        "alt_name": null
     },
     "Bilbao": {
-        "name": "Bilbao / Bilbo",
+        "name": "Bilbo",
         "longitude": -2.928968,
         "latitude": 43.260315,
         "raster": "north_spain",
         "wikidata_id": "Q8692",
-        "ine_code": "48020"
+        "ine_code": "48020",
+        "slug": "bilbao",
+        "alt_name": "Bilbao"
     },
     "Alicante": {
-        "name": "Alacant / Alicante",
+        "name": "Alacant",
         "longitude": -0.484954,
         "latitude": 38.350403,
         "raster": "south_spain",
         "wikidata_id": "Q11959",
-        "ine_code": "03014"
+        "ine_code": "03014",
+        "slug": "alicante",
+        "alt_name": "Alicante"
     },
     "Valencia": {
         "name": "València",
@@ -49,7 +59,9 @@
         "raster": "south_spain",
         "citybikes_network_id": "valenbisi",
         "wikidata_id": "Q8818",
-        "ine_code": "46250"
+        "ine_code": "46250",
+        "slug": "valencia",
+        "alt_name": null
     },
     "Malaga": {
         "name": "Málaga",
@@ -57,7 +69,9 @@
         "latitude": 36.72317,
         "raster": "south_spain",
         "wikidata_id": "Q8851",
-        "ine_code": "29067"
+        "ine_code": "29067",
+        "slug": "malaga",
+        "alt_name": null
     },
     "Las Palmas": {
         "name": "Las Palmas de Gran Canaria",
@@ -65,7 +79,9 @@
         "latitude": 28.126855,
         "raster": "canary_spain",
         "wikidata_id": "Q11974",
-        "ine_code": "35016"
+        "ine_code": "35016",
+        "slug": "las-palmas",
+        "alt_name": null
     },
     "Zaragoza": {
         "name": "Zaragoza",
@@ -74,7 +90,9 @@
         "raster": "north_spain",
         "citybikes_network_id": "bizi-zaragoza",
         "wikidata_id": "Q10305",
-        "ine_code": "50297"
+        "ine_code": "50297",
+        "slug": "zaragoza",
+        "alt_name": null
     },
     "Murcia": {
         "name": "Murcia",
@@ -82,7 +100,9 @@
         "latitude": 37.99224,
         "raster": "south_spain",
         "wikidata_id": "Q12225",
-        "ine_code": "30030"
+        "ine_code": "30030",
+        "slug": "murcia",
+        "alt_name": null
     },
     "Palma": {
         "name": "Palma",
@@ -91,7 +111,9 @@
         "population": 420000,
         "raster": "balear_spain",
         "wikidata_id": "Q8826",
-        "ine_code": "07040"
+        "ine_code": "07040",
+        "slug": "palma",
+        "alt_name": null
     },
     "Cordoba": {
         "name": "Córdoba",
@@ -99,7 +121,9 @@
         "latitude": 37.884727,
         "raster": "south_spain",
         "wikidata_id": "Q5818",
-        "ine_code": "14021"
+        "ine_code": "14021",
+        "slug": "cordoba",
+        "alt_name": null
     },
     "Valladolid": {
         "name": "Valladolid",
@@ -107,7 +131,9 @@
         "latitude": 41.652778,
         "raster": "north_spain",
         "wikidata_id": "Q8356",
-        "ine_code": "47186"
+        "ine_code": "47186",
+        "slug": "valladolid",
+        "alt_name": null
     },
     "Vigo": {
         "name": "Vigo",
@@ -115,15 +141,19 @@
         "latitude": 42.240599,
         "raster": "north_spain",
         "wikidata_id": "Q8745",
-        "ine_code": "36057"
+        "ine_code": "36057",
+        "slug": "vigo",
+        "alt_name": null
     },
     "Gijon": {
-        "name": "Gijón / Xixón",
+        "name": "Xixón",
         "longitude": -5.664174,
         "latitude": 43.532201,
         "raster": "north_spain",
         "wikidata_id": "Q12273",
-        "ine_code": "33024"
+        "ine_code": "33024",
+        "slug": "xixon",
+        "alt_name": "Gijón"
     },
     "A Coruña": {
         "name": "A Coruña",
@@ -131,7 +161,9 @@
         "latitude": 43.362343,
         "raster": "north_spain",
         "wikidata_id": "Q8366",
-        "ine_code": "15030"
+        "ine_code": "15030",
+        "slug": "a-coruna",
+        "alt_name": null
     },
     "Vitoria": {
         "name": "Vitoria-Gasteiz",
@@ -139,7 +171,9 @@
         "latitude": 42.846718,
         "raster": "north_spain",
         "wikidata_id": "Q14318",
-        "ine_code": "01059"
+        "ine_code": "01059",
+        "slug": "vitoria",
+        "alt_name": null
     },
     "Granada": {
         "name": "Granada",
@@ -147,15 +181,19 @@
         "latitude": 37.176487,
         "raster": "south_spain",
         "wikidata_id": "Q8810",
-        "ine_code": "18087"
+        "ine_code": "18087",
+        "slug": "granada",
+        "alt_name": null
     },
     "Elche": {
-        "name": "Elx / Elche",
+        "name": "Elx",
         "longitude": -0.701071,
         "latitude": 38.269932,
         "raster": "south_spain",
         "wikidata_id": "Q10509",
-        "ine_code": "03065"
+        "ine_code": "03065",
+        "slug": "elche",
+        "alt_name": "Elche"
     },
     "Toledo": {
         "name": "Toledo",
@@ -163,7 +201,9 @@
         "latitude": 39.862058,
         "raster": "south_spain",
         "wikidata_id": "Q5836",
-        "ine_code": "45168"
+        "ine_code": "45168",
+        "slug": "toledo",
+        "alt_name": null
     },
     "Girona": {
         "name": "Girona",
@@ -172,7 +212,9 @@
         "raster": "north_spain",
         "citybikes_network_id": "girocleta",
         "wikidata_id": "Q7038",
-        "ine_code": "17079"
+        "ine_code": "17079",
+        "slug": "girona",
+        "alt_name": null
     },
     "Leon": {
         "name": "León",
@@ -180,6 +222,8 @@
         "latitude": 42.598848,
         "raster": "north_spain",
         "wikidata_id": "Q15699",
-        "ine_code": "24089"
+        "ine_code": "24089",
+        "slug": "leon",
+        "alt_name": null
     }
 }

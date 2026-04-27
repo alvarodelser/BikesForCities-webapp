@@ -189,6 +189,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                             className="flex items-center font-[500] text-sm min-h-[36px] px-3 rounded-xl hover:bg-black/5 transition-colors text-[var(--green-dark)]"
                           >
                             {city.name}
+                            {city.altName && <span className="text-[10px] opacity-60 ml-1 italic font-normal">({city.altName})</span>}
                           </Link>
                         ))}
                       </div>
@@ -286,6 +287,7 @@ const Navbar: React.FC<NavbarProps> = () => {
                   className="text-xs font-[500] whitespace-nowrap snap-start px-3 py-1.5 rounded-full hover:bg-black/5 transition-colors text-[var(--green-dark)]"
                 >
                   {city.name}
+                  {city.altName && <span className="text-[10px] opacity-40 ml-1 italic font-normal">({city.altName})</span>}
                 </Link>
               ))}
             </ScrollableCityList>

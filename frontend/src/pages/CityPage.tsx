@@ -26,13 +26,14 @@ const CityPage: React.FC = () => {
         return;
       }
       const found = cities.find(c => 
-        c.name.toLowerCase().replace(/\s+/g, '') === cityName?.toLowerCase().replace(/\s+/g, '') ||
-        c.path.split('/').pop() === cityName
+        c.slug === cityName ||
+        c.name.toLowerCase().replace(/\s+/g, '') === cityName?.toLowerCase().replace(/\s+/g, '')
       );
       if (!found) {
         setError(`The city "${cityName}" could not be found.`);
       } else {
         setCity(found);
+        document.title = `${found.name}${found.altName ? ` (${found.altName})` : ''} | BikesForCities`;
       }
       setLoading(false);
     }).catch(err => {

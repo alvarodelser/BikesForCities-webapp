@@ -6,6 +6,7 @@ import type { CityData } from '../../constants/cities';
 // Sample city data for the story
 const sampleCity: CityData = {
   name: 'Madrid',
+  slug: 'madrid',
   path: '/map/madrid',
   mapCoords: { x: 639.4, y: 241.6 },
   geoCoords: { longitude: -3.7038, latitude: 40.4168 },

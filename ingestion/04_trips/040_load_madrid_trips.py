@@ -29,7 +29,7 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.database.db_io import (
     connect_db,
-    get_or_create_city,
+    get_city_id_by_name,
     upsert_ingestion_status,
     get_ingestion_status,
 )
@@ -680,7 +680,9 @@ def main():
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = connect_db()
-    city_id = get_or_create_city(conn, "Madrid")
+    city_id = get_city_id_by_name(conn, "Madrid")
+    if city_id is None:
+        raise RuntimeError("Madrid not found in DB — run 010_load_cities.py first")
     PROCESS_NAME = "040_load_madrid_trips"
 
     try:

@@ -5,28 +5,37 @@ import { BarChart3, Network, Route } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
+import { useLiveStats } from '../../hooks/useLiveStats';
+import type { CityData } from '../../constants/cities';
+import type { TrafficMode } from '../../services/api';
 
-interface CityStatsProps {
-  title: string;
-  subtitle: string;
-  modeStats: ModeStats;
-  compact?: boolean;
-  theme?: 'light' | 'dark';
+// ── Traffic computation labels (matches backend keys from TrafficLegend) ──────
+
+const GENERATION_LABELS: Record<string, string> = {
+  real:                 'GPS real',
+  station_based:        'Estaciones',
+  buildings_population: 'Población',
+};
+const ALGORITHM_LABELS: Record<string, string> = {
+  map_matched: 'Map-matched',
+  safest:      'Ruta segura',
+  shortest:    'Ruta corta',
+  grouped:     'Agrupado',
+};
+const GENERATION_ORDER = ['real', 'station_based', 'buildings_population'];
+const ALGORITHM_ORDER  = ['map_matched', 'safest', 'shortest', 'grouped'];
+
+function computationOptions(trafficModes: TrafficMode[], generation: string) {
+  const gens = GENERATION_ORDER
+    .filter(g => trafficModes.some(m => m.generation_type === g))
+    .map(g => ({ id: g, label: GENERATION_LABELS[g] ?? g }));
+  const algos = ALGORITHM_ORDER
+    .filter(a => trafficModes.some(m => m.generation_type === generation && m.algorithm === a))
+    .map(a => ({ id: a, label: ALGORITHM_LABELS[a] ?? a }));
+  return { gens, algos };
 }
 
-// ── Traffic computation options ───────────────────────────────────────────────
-
-const GENERATION_OPTIONS = [
-  { id: 'population', label: 'Población'  },
-  { id: 'pois',       label: 'POIs'       },
-  { id: 'mixed',      label: 'Mixto'      },
-];
-
-const ROUTING_OPTIONS = [
-  { id: 'fastest',  label: 'Más rápida'  },
-  { id: 'safest',   label: 'Más segura'  },
-  { id: 'balanced', label: 'Equilibrada' },
-];
+// ── Computation card ──────────────────────────────────────────────────────────
 
 interface ComputationCardProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -46,7 +55,7 @@ function ComputationCard({
   const active = value || defaultValue;
   return (
     <div
-      className={`rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden transition-all duration-300 ${compact ? '' : ''}`}
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden"
       style={{
         borderColor: 'rgba(0,0,0,0.08)',
         boxShadow: `inset 0 1px 0 ${accent}, 0 4px 16px rgba(0,0,0,0.04)`,
@@ -68,7 +77,7 @@ function ComputationCard({
         </div>
       </div>
       <div className={`${compact ? 'px-4 pb-4' : 'px-5 pb-5'}`}>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className={`grid gap-1.5`} style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
           {options.map(opt => {
             const isActive = active === opt.id;
             return (
@@ -93,17 +102,63 @@ function ComputationCard({
   );
 }
 
+// ── Stat card skeleton ────────────────────────────────────────────────────────
+
+function StatSkeleton({ compact }: { compact: boolean }) {
+  return (
+    <div
+      className={`${compact ? 'p-3' : 'p-6'} rounded-2xl border border-black/5 bg-white/40 animate-pulse`}
+      style={{ minHeight: compact ? 90 : 140 }}
+    />
+  );
+}
+
+// ── Grid column class by stat count ──────────────────────────────────────────
+
+function gridCols(n: number): string {
+  if (n <= 3) return 'grid-cols-1 sm:grid-cols-3';
+  if (n === 5) return 'grid-cols-2 md:grid-cols-3 lg:grid-cols-5';
+  return 'grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compact = false, theme = 'light' }) => {
-  const { stats, insights, recommendations, overallScore } = modeStats;
+interface CityStatsProps {
+  city: CityData;
+  title: string;
+  subtitle: string;
+  modeStats: ModeStats;
+  compact?: boolean;
+  theme?: 'light' | 'dark';
+}
+
+const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats, compact = false, theme = 'light' }) => {
+  const { insights, recommendations, overallScore } = modeStats;
   const { mode, generation, routing, setGeneration, setRouting } = useMapState();
   const isTraffic = mode === MAP_MODES.TRAFFIC;
-  const accent = '#AF4749'; // var(--red) resolved
+  const accent = '#AF4749';
+
+  const { stats: liveStats, trafficModes, loading } = useLiveStats(city, mode, generation, routing);
+  const { gens, algos } = computationOptions(trafficModes, generation);
+
+  const handleSetGeneration = (gen: string) => {
+    setGeneration(gen);
+    const algosForGen = ALGORITHM_ORDER.filter(a =>
+      trafficModes.some(m => m.generation_type === gen && m.algorithm === a)
+    );
+    if (algosForGen.length > 0 && !algosForGen.includes(routing)) {
+      setRouting(algosForGen[0]);
+    }
+  };
+
+  const showLiveStats = liveStats.length > 0;
+  const statsToRender = showLiveStats ? liveStats : modeStats.stats;
+  const colClass = showLiveStats ? gridCols(liveStats.length) : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
 
   return (
     <div className={`w-full ${compact ? 'bg-transparent' : ''}`}>
       <div className={`max-w-7xl mx-auto ${compact ? 'px-0 py-4' : 'py-4'}`}>
+
         {/* Header */}
         <div className={`flex items-center justify-between ${compact ? 'mb-4' : 'mb-8'}`}>
           <div>
@@ -125,27 +180,27 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compa
           </GlassCard>
         </div>
 
-        {/* Traffic computation cards */}
-        {isTraffic && (
+        {/* Traffic computation cards — dynamic options from backend */}
+        {isTraffic && gens.length > 0 && (
           <div className={`grid grid-cols-1 md:grid-cols-2 ${compact ? 'gap-3 mb-4' : 'gap-4 mb-8'}`}>
             <ComputationCard
               icon={Network}
               title="Generación de viajes"
               description="Cómo se estima la demanda origen→destino"
-              options={GENERATION_OPTIONS}
+              options={gens}
               value={generation}
-              defaultValue={GENERATION_OPTIONS[0].id}
+              defaultValue={gens[0]?.id ?? ''}
               accent={accent}
-              onChange={setGeneration}
+              onChange={handleSetGeneration}
               compact={compact}
             />
             <ComputationCard
               icon={Route}
               title="Cálculo de rutas"
               description="Algoritmo para asignar rutas a la red"
-              options={ROUTING_OPTIONS}
+              options={algos}
               value={routing}
-              defaultValue={ROUTING_OPTIONS[0].id}
+              defaultValue={algos[0]?.id ?? ''}
               accent={accent}
               onChange={setRouting}
               compact={compact}
@@ -154,30 +209,43 @@ const CityStats: React.FC<CityStatsProps> = ({ title, subtitle, modeStats, compa
         )}
 
         {/* Statistics Grid */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 ${compact ? 'gap-3' : 'gap-6'}`}>
-          {stats.map((stat, index) => {
-            const TrendIcon = getTrendIcon(stat.trend);
-            return (
-              <GlassCard
-                key={index}
-                surface="glass"
-                interactive
-                tint="rgba(255, 255, 255, 0.8)"
-                className={`${compact ? 'p-3' : 'p-6'} group`}
-              >
-                <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-4'}`}>
-                  <div className={`${compact ? 'w-8 h-8' : 'w-12 h-12'} bg-[var(--green)]/20 rounded-full flex items-center justify-center`}>
-                    <stat.icon className={`${compact ? 'w-4 h-4' : 'w-6 h-6'} text-[var(--green)]`} />
-                  </div>
-                  <div className={`flex items-center gap-1 ${getTrendColor(stat.trend)}`}>
-                    <TrendIcon className={`${compact ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                  </div>
-                </div>
-                <h3 className={`${compact ? 'text-sm' : 'text-lg'} font-semibold text-[var(--blue-dark)] mb-1`}>{stat.label}</h3>
-                <p className={`${compact ? 'text-xl' : 'text-3xl'} font-bold text-[var(--blue-dark)]`}>{stat.value}</p>
-              </GlassCard>
-            );
-          })}
+        <div className={`grid ${colClass} ${compact ? 'gap-3' : 'gap-6'}`}>
+          {loading
+            ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} compact={compact} />)
+            : statsToRender.map((stat, index) => {
+                const isLive = showLiveStats;
+                const comingSoon = isLive && (stat as any).comingSoon;
+                const trend = (stat as any).trend ?? 'neutral';
+                const TrendIcon = getTrendIcon(trend);
+                return (
+                  <GlassCard
+                    key={index}
+                    surface="glass"
+                    interactive={!comingSoon}
+                    tint={comingSoon ? 'rgba(0,0,0,0.02)' : 'rgba(255, 255, 255, 0.8)'}
+                    className={`${compact ? 'p-3' : 'p-6'} group`}
+                  >
+                    <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-4'}`}>
+                      <div className={`${compact ? 'w-8 h-8' : 'w-12 h-12'} rounded-full flex items-center justify-center ${comingSoon ? 'bg-black/5' : 'bg-[var(--green)]/20'}`}>
+                        <stat.icon className={`${compact ? 'w-4 h-4' : 'w-6 h-6'} ${comingSoon ? 'text-black/20' : 'text-[var(--green)]'}`} />
+                      </div>
+                      {!comingSoon && (
+                        <div className={`flex items-center gap-1 ${getTrendColor(trend)}`}>
+                          <TrendIcon className={`${compact ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                        </div>
+                      )}
+                    </div>
+                    <h3 className={`${compact ? 'text-sm' : 'text-lg'} font-semibold ${comingSoon ? 'text-black/35' : 'text-[var(--blue-dark)]'} mb-1`}>
+                      {stat.label}
+                    </h3>
+                    {comingSoon ? (
+                      <p className={`${compact ? 'text-sm' : 'text-base'} text-black/20 italic font-medium`}>Próximamente</p>
+                    ) : (
+                      <p className={`${compact ? 'text-xl' : 'text-3xl'} font-bold text-[var(--blue-dark)]`}>{stat.value}</p>
+                    )}
+                  </GlassCard>
+                );
+              })}
         </div>
 
         {/* Insights + Recommendations */}

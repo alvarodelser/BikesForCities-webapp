@@ -62,9 +62,15 @@ const CityCard: React.FC<CityCardProps> = ({
         onClick={onClick}
       >
         {/* City name */}
-        <h2 className="font-bold text-white text-xl text-center relative z-10 drop-shadow-lg mb-4">
+        <h2 className="font-bold text-white text-xl text-center relative z-10 drop-shadow-lg">
           {city.name}
         </h2>
+        {city.altName && (
+          <p className="text-white/70 text-sm text-center relative z-10 mb-4 italic">
+            ({city.altName})
+          </p>
+        )}
+        {!city.altName && <div className="mb-4" />}
 
         {/* Stats grid */}
         <div className="grid grid-rows-2 grid-cols-2 gap-3 relative z-10 flex-1 mb-4">
@@ -149,11 +155,19 @@ const CityCard: React.FC<CityCardProps> = ({
         `}
       >
         
-        <h2 className={`font-bold text-white text-center relative z-10 drop-shadow-lg mb-3 ${
+        <h2 className={`font-bold text-white text-center relative z-10 drop-shadow-lg ${
           distance === 0 ? 'text-xl' : distance === 1 ? 'text-lg' : 'text-base'
         }`}>
           {city.name}
         </h2>
+        {city.altName && (
+          <p className={`text-white/70 text-center relative z-10 italic mb-2 ${
+            distance === 0 ? 'text-sm' : 'text-xs'
+          }`}>
+            ({city.altName})
+          </p>
+        )}
+        {!city.altName && <div className="mb-3" />}
         
         <div className="grid grid-rows-2 grid-cols-2 gap-3 relative z-10 flex-1 mb-3">
           <GlassCard surface="inset" size="sm" depth="lg" className="text-center h-[65px]">

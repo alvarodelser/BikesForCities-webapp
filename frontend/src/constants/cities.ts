@@ -1,6 +1,8 @@
 export interface CityData {
   id?: number;
   name: string;
+  altName?: string;
+  slug: string;
   path: string;
   description?: string;
   mapCoords?: { x: number; y: number }; // Legacy pixel coordinates (deprecated)

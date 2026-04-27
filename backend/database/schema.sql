@@ -2,7 +2,9 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 CREATE TABLE IF NOT EXISTS cities (
     id SERIAL PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    alt_name TEXT,
+    slug TEXT UNIQUE NOT NULL,
     description TEXT,
     center_lat DOUBLE PRECISION,
     center_lon DOUBLE PRECISION,

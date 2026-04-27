@@ -64,11 +64,17 @@ function CityHero({ city, selectedColor }: { city: CityData, selectedColor: stri
                     Análisis de movilidad ciclista
                 </p>
                 <h1
-                    className="text-5xl md:text-6xl font-bold text-[var(--blue-dark)] mb-8 leading-tight"
+                    className="text-5xl md:text-6xl font-bold text-[var(--blue-dark)] mb-2 leading-tight"
                     style={{ fontFamily: 'var(--heading)' }}
                 >
                     {city.name}
                 </h1>
+                {city.altName && (
+                    <p className="text-2xl md:text-3xl font-semibold text-[var(--blue)] opacity-60 mb-8 italic">
+                        {city.altName}
+                    </p>
+                )}
+                {!city.altName && <div className="mb-8" />}
 
                 {/* Quick stats row */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -158,7 +164,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     );
     const statsEl = (
         <div className="px-[var(--space-gutter)] py-10">
-            <CityStats title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
+            <CityStats city={city} title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
         </div>
     );
 
@@ -182,7 +188,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     </DualPanel.Left>
                     <DualPanel.Right>
                         <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] py-6">
-                            <CityStats title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
+                            <CityStats city={city} title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
                         </div>
                     </DualPanel.Right>
                 </DualPanel>

@@ -138,7 +138,13 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
           {rank}
         </div>
         <div className="flex flex-col items-center text-center mt-6">
-          <span className="text-sm md:text-lg font-bold text-white mb-2 leading-tight">{city.name}</span>
+          <span className="text-sm md:text-lg font-bold text-white leading-tight">{city.name}</span>
+          {city.altName && (
+            <span className="text-[10px] md:text-xs font-medium text-white/60 italic mb-2">
+              ({city.altName})
+            </span>
+          )}
+          {!city.altName && <div className="mb-2" />}
           <span className="text-2xl md:text-4xl font-black text-white tracking-tight mb-4" style={{ color: activeColor }}>
             {primaryMetric.format(city[primaryMetric.key as keyof CityData])}
           </span>
@@ -261,7 +267,14 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
                         style={{ backgroundColor: selectionIndex === 0 ? 'rgb(225,172,85)' : 'rgb(175,71,73)' }}
                       />
                     )}
-                    {city.name}
+                    <div className="flex flex-col">
+                      <span className={isTop3 ? 'text-white' : 'text-white/80'}>{city.name}</span>
+                      {city.altName && (
+                        <span className="text-[10px] text-white/40 italic font-normal">
+                          ({city.altName})
+                        </span>
+                      )}
+                    </div>
                   </td>
                   {metrics.map(m => (
                     <td 
