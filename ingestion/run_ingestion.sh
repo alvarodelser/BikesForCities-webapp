@@ -47,7 +47,7 @@ python3 ingestion/03_stations/030_load_stations.py
 python3 ingestion/03_stations/031_calculate_traffic.py
 python3 ingestion/03_stations/032_calculate_reach.py
 
-# 4. Trips & Traffic
+# 4. Trips
 echo -e "\n${GREEN}--- Phase 4: Trips & Traffic ---${NC}"
 # 040 – Real trips from bike-share data (Madrid / BiciMAD)
 if [ -d "data/bicimad_trips" ]; then
@@ -58,13 +58,16 @@ fi
 python3 ingestion/04_trips/041_generate_station_trips.py
 # 042 – Synthetic trips from buildings + population density (stub)
 python3 ingestion/04_trips/042_generate_pop_trips.py
-# 050 – Compute shortest paths for all unrouted trips
-python3 ingestion/04_trips/050_compute_shortest_paths.py
 
-# 5. Accidents
-if [ -f "05_accidents/050_load_madrid_accidents.py" ]; then
-    echo -e "\n${GREEN}--- Phase 5: Accidents ---${NC}"
-    python3 ingestion/05_accidents/050_load_madrid_accidents.py
+# 5. Routes
+echo -e "\n${GREEN}--- Phase 5: Routes ---${NC}"
+# 050 – Compute shortest paths for all unrouted trips
+python3 ingestion/05_routes/050_compute_shortest_paths.py
+
+# 6. Accidents
+if [ -f "06_accidents/060_load_madrid_accidents.py" ]; then
+    echo -e "\n${GREEN}--- Phase 6: Accidents ---${NC}"
+    python3 ingestion/06_accidents/060_load_madrid_accidents.py
 fi
 
 
