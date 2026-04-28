@@ -9,7 +9,7 @@ export interface CityData {
   geoCoords: { longitude: number; latitude: number }; // Real geographic coordinates
   maxBounds?: [[number, number], [number, number]]; // [sw[lng, lat], ne[lng, lat]]
   population: number;
-  budget: number;
+  budget: number | null;
   cyclingNetwork: number;
   coverage: number;
   mayor?: string;

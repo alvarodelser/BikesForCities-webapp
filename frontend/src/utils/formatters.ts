@@ -45,6 +45,7 @@ export const formatPercentage = (num: number): string => {
 /**
  * Formats currency (budget) consistently with population using spaces.
  */
-export const formatCurrency = (num: number, suffix: string = '€'): string => {
+export const formatCurrency = (num: number | null | undefined, suffix: string = '€'): string => {
+  if (num == null) return '-';
   return formatPopulation(num) + suffix;
 };

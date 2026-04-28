@@ -22,7 +22,7 @@ export const fetchCities = async (): Promise<CityData[]> => {
       [city.bounds.max_lon, city.bounds.max_lat]
     ] : undefined,
     population: city.population || 0,
-    budget: city.budget || 0,
+    budget: city.budget ?? null,
     cyclingNetwork: city.cycling_network || 0,
     coverage: city.coverage || 0,
     mayor: city.mayor,
