@@ -134,6 +134,12 @@ def process_year(conn, year, db_cities):
             put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=total_exp)
             
             df_lines = pd.DataFrame(rows)
+            # Deduplicate: source data can have the same category_code multiple times;
+            # keep the first name and sum amounts to avoid unique constraint violations.
+            df_lines = (
+                df_lines.groupby('category_code', as_index=False)
+                .agg(category_name=('category_name', 'first'), amount=('amount', 'sum'))
+            )
             put_city_budget_categories(conn, cid, year, ttype, df_lines)
             
             upsert_ingestion_status(conn, status_key, "SUCCESS", city_id=cid, time_period=str(year))

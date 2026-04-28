@@ -484,6 +484,10 @@ def put_city_budget_categories(
             """
             INSERT INTO city_budget_categories (city_id, year, budget_type, category_code, category_name, amount)
             VALUES %s
+            ON CONFLICT (city_id, year, budget_type, category_code)
+            DO UPDATE SET
+                category_name = EXCLUDED.category_name,
+                amount        = city_budget_categories.amount + EXCLUDED.amount
             """,
             args
         )
