@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 # Add project root to python path to import backend
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
-from backend.database.db_io import connect_db, get_or_create_city, put_city_modes, upsert_ingestion_status
+from backend.database.db_io import connect_db, get_or_create_city, refresh_city_modes, upsert_ingestion_status
 
 load_dotenv()
 
@@ -45,19 +45,8 @@ def main():
             wikidata_id=city_info.get("wikidata_id")
         )
         
-        # Reset all modes to False at the beginning of ingestion
-        # Modes will be dynamically refreshed by their respective ingestion processes
-        modes_dict = {
-            "infrastructure": False,
-            "traffic": False,
-            "accidents": False,
-            "topography": False,
-            "intersections": False,
-            "stations": False,
-            "forum": False
-        }
-        
-        put_city_modes(conn, city_id, modes_dict)
+        # Recompute all modes from current DB state (idempotent refresh)
+        refresh_city_modes(conn, city_id)
         upsert_ingestion_status(conn, "010_load_cities", "SUCCESS", city_id=city_id)
         print(f"✅ Loaded {city_key} (ID: {city_id}, WD: {city_info.get('wikidata_id', 'None')})")
         loaded_count += 1

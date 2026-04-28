@@ -217,6 +217,12 @@ interface StationsLayerProps {
     submode: string;
 }
 
+const PERIOD_OPTIONS = [
+    { id: 'all', label: 'Todo' },
+    { id: 'weekdays', label: 'Entre semana' },
+    { id: 'weekends', label: 'Fin de semana' },
+];
+
 const SOURCE_ID = 'stations-source';
 const LAYER_ID  = 'stations-layer';
 const REACH_SOURCE_ID  = 'reach-source';
@@ -534,7 +540,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     ] : [
                         { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
                     ],
-                    periodOptions: metric === 'downtime' ? periodOptions : undefined,
+                    periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
                     activePeriod: activePeriod,
                     onPeriodChange: (period: string) => setActivePeriod(period),
                 };
@@ -596,12 +602,6 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             dispatchSelection(null);
         };
     }, [map, metric, thresholds, city, isReach, loadReach, cleanupReachLayers, dispatchSelection]);
-    // Update SelectionPanel when metric/thresholds change while a station is selected
-    const periodOptions = [
-        { id: 'all', label: 'Todo' },
-        { id: 'weekdays', label: 'Entre semana' },
-        { id: 'weekends', label: 'Fin de semana' },
-    ];
 
     const updateSelectionPanel = useCallback(() => {
         if (!stickyRef.current || isReach) return;
@@ -619,7 +619,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             rows: metric === 'downtime'
                 ? [{ label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` }]
                 : [{ label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` }],
-            periodOptions: metric === 'downtime' ? periodOptions : undefined,
+            periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
             activePeriod: activePeriod,
             onPeriodChange: (period: string) => setActivePeriod(period),
         };
@@ -665,7 +665,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         }
     }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection]);
 
-    useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel]);
+    useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel, city]);
 
     return null;
 }

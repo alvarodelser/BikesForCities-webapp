@@ -36,6 +36,7 @@ EXPECTED_COLUMNS = [
     ("cities",        "center_lon",      "double precision"),
     ("trips",         "origin_node",     "bigint"),
     ("trips",         "dest_node",       "bigint"),
+    ("city_modes",    "traffic_combinations", "jsonb"),
     ("trips",         "generation_type", "text"),
     ("edge_traffic",  "generation_type", "text"),
     ("edge_traffic",  "algorithm",       "text"),

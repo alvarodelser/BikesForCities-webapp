@@ -42,7 +42,7 @@ class CityResponse(NetworkBase):
     monthly_trips: Optional[int] = None
     bicycles_count: Optional[int] = None
     bounds: Optional[Dict[str, float]] = None
-    available_modes: Optional[Dict[str, bool]] = None
+    available_modes: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True

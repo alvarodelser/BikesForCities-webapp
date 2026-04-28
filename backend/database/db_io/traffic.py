@@ -118,17 +118,8 @@ def upsert_edge_traffic_for_city(
         rows = cur.rowcount
         print(f"   ✅ Upserted {rows} edge-traffic records.")
 
-        # Update city_modes.traffic: True if any combination has enough distinct edges
-        from .cities import TRAFFIC_MIN_EDGES
-        cur.execute(
-            """
-            INSERT INTO city_modes (city_id, traffic)
-            SELECT %(id)s, (COUNT(DISTINCT edge_id) >= %(min)s)
-            FROM edge_traffic WHERE city_id = %(id)s
-            ON CONFLICT (city_id) DO UPDATE SET traffic = EXCLUDED.traffic
-            """,
-            {'id': city_id, 'min': TRAFFIC_MIN_EDGES},
-        )
+    from .cities import refresh_city_modes
+    refresh_city_modes(conn, city_id)
 
 
 # ---------------------------------------------------------------------------

@@ -182,6 +182,23 @@ export default function SelectionPanel({
                                 ))}
                             </div>
                         )}
+                        {selection.submodeOptions && selection.submodeOptions.length > 0 && (
+                            <div className="flex gap-1 mt-2">
+                                {selection.submodeOptions.map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        onClick={() => selection.onSubmodeChange?.(opt.id)}
+                                        className={`text-[9px] font-bold px-2 py-1 rounded transition-all flex-1 ${
+                                            selection.activeSubmode === opt.id
+                                                ? 'bg-black/20 text-black/90'
+                                                : 'bg-black/5 text-black/50 hover:bg-black/10'
+                                        }`}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {selection.chart && (
                             <div className="mt-2" ref={el => {
                                 if (el) {

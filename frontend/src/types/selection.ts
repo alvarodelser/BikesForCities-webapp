@@ -10,4 +10,7 @@ export interface SelectionDetail {
     periodOptions?: Array<{ id: string; label: string }>;
     activePeriod?: string;
     onPeriodChange?: (period: string) => void;
+    submodeOptions?: Array<{ id: string; label: string }>;
+    activeSubmode?: string;
+    onSubmodeChange?: (submode: string) => void;
 }

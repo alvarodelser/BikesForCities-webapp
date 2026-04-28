@@ -58,13 +58,13 @@ async def list_networks(conn=Depends(get_db_connection)):
         
         cities = []
         for row in networks_data:
-            (city_id, name, alt_name, slug, description, wikidata_id, 
+            (city_id, name, alt_name, slug, description, wikidata_id,
              center_lat, center_lon, radius, angle,
-             population, budget, coverage, cycling_network, 
+             population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, accidents, topo, inter, stations, forum,
+             infra, traffic, traffic_combos, accidents, topo, inter, stations, forum,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
-            
+
             bounds = None
             if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
                 bounds = {
@@ -77,6 +77,7 @@ async def list_networks(conn=Depends(get_db_connection)):
             available_modes = {
                 "infrastructure": bool(infra),
                 "traffic": bool(traffic),
+                "traffic_combinations": traffic_combos or [],
                 "accidents": bool(accidents),
                 "terrain": bool(topo),
                 "intersections": bool(inter),
@@ -132,6 +133,7 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
         available_modes = {
             "infrastructure": bool(city_dict.get("infrastructure")),
             "traffic": bool(city_dict.get("traffic")),
+            "traffic_combinations": city_dict.get("traffic_combinations") or [],
             "accidents": bool(city_dict.get("accidents")),
             "terrain": bool(city_dict.get("topography")),
             "intersections": bool(city_dict.get("intersections")),
@@ -984,11 +986,11 @@ async def get_system_status(conn=Depends(get_db_connection)):
 
         city_stats = []
         for row in cities_data:
-            (city_id, name, alt_name, slug, description, wikidata_id, 
+            (city_id, name, alt_name, slug, description, wikidata_id,
              center_lat, center_lon, radius, angle,
-             population, budget, coverage, cycling_network, 
+             population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, accidents, topo, inter, stations, forum,
+             infra, traffic, traffic_combos, accidents, topo, inter, stations, forum,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
 
             city_stats.append({
@@ -1002,6 +1004,7 @@ async def get_system_status(conn=Depends(get_db_connection)):
                 "available_modes": {
                     "infrastructure": bool(infra),
                     "traffic": bool(traffic),
+                    "traffic_combinations": traffic_combos or [],
                     "accidents": bool(accidents),
                     "terrain": bool(topo),
                     "intersections": bool(inter),

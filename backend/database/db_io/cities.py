@@ -72,26 +72,29 @@ def get_or_create_city(
 
 
 def put_city_modes(conn, city_id: int, modes_dict: dict):
+    combos = modes_dict.get("traffic_combinations", [])
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO city_modes (
-                city_id, infrastructure, traffic, accidents,
-                topography, intersections, stations, forum
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                city_id, infrastructure, traffic, traffic_combinations,
+                accidents, topography, intersections, stations, forum
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (city_id) DO UPDATE SET
-                infrastructure = EXCLUDED.infrastructure,
-                traffic        = EXCLUDED.traffic,
-                accidents      = EXCLUDED.accidents,
-                topography     = EXCLUDED.topography,
-                intersections  = EXCLUDED.intersections,
-                stations       = EXCLUDED.stations,
-                forum          = EXCLUDED.forum
+                infrastructure       = EXCLUDED.infrastructure,
+                traffic              = EXCLUDED.traffic,
+                traffic_combinations = EXCLUDED.traffic_combinations,
+                accidents            = EXCLUDED.accidents,
+                topography           = EXCLUDED.topography,
+                intersections        = EXCLUDED.intersections,
+                stations             = EXCLUDED.stations,
+                forum                = EXCLUDED.forum
             """,
             (
                 city_id,
                 modes_dict.get("infrastructure", False),
                 modes_dict.get("traffic", False),
+                json.dumps(combos),
                 modes_dict.get("accidents", False),
                 modes_dict.get("topography", False),
                 modes_dict.get("intersections", False),
@@ -144,7 +147,7 @@ def get_all_cities(conn) -> List[Tuple]:
                 (SELECT MAX(lat) FROM nodes WHERE city_id = c.id) AS max_lat,
                 (SELECT MIN(lon) FROM nodes WHERE city_id = c.id) AS min_lon,
                 (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) AS max_lon,
-                m.infrastructure, m.traffic, m.accidents,
+                m.infrastructure, m.traffic, m.traffic_combinations, m.accidents,
                 m.topography, m.intersections, m.stations, m.forum,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
@@ -235,8 +238,8 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                        AND r.observed_at > NOW() - INTERVAL '30 days'
                      GROUP BY r.station_id
                  ) s) AS bicycles_count,
-                m.infrastructure, m.traffic, m.accidents, m.topography,
-                m.intersections, m.stations, m.forum
+                m.infrastructure, m.traffic, m.traffic_combinations,
+                m.accidents, m.topography, m.intersections, m.stations, m.forum
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             WHERE c.id = %s
@@ -493,27 +496,66 @@ STATIONS_MIN_COUNT  = 3    # minimum non-merged stations to enable stations mode
 def refresh_city_modes(conn, city_id: int) -> dict:
     """Recompute all dynamic modes from actual data counts.
 
-    Single round-trip. Call after ingesting any data.
-    Returns the updated modes.
+    Two round-trips: first resolves the available traffic combinations, then
+    writes the full city_modes row. Call after ingesting any data.
+    Returns the updated modes dict.
     """
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            INSERT INTO city_modes (city_id, infrastructure, traffic, stations, accidents)
+            SELECT generation_type, algorithm
+            FROM edge_traffic
+            WHERE city_id = %s
+            GROUP BY generation_type, algorithm
+            HAVING COUNT(DISTINCT edge_id) >= %s
+            ORDER BY
+                CASE generation_type
+                    WHEN 'real'                 THEN 1
+                    WHEN 'station_based'        THEN 2
+                    WHEN 'buildings_population' THEN 3
+                    ELSE 4
+                END,
+                CASE algorithm
+                    WHEN 'map_matched' THEN 1
+                    WHEN 'shortest'    THEN 2
+                    ELSE 3
+                END
+            """,
+            (city_id, TRAFFIC_MIN_EDGES),
+        )
+        combos = [
+            {"generation_type": r["generation_type"], "algorithm": r["algorithm"]}
+            for r in cur.fetchall()
+        ]
+
+        cur.execute(
+            """
+            INSERT INTO city_modes (
+                city_id, infrastructure, traffic, traffic_combinations,
+                stations, accidents
+            )
             SELECT
                 %(id)s,
                 EXISTS (SELECT 1 FROM edges WHERE city_id = %(id)s),
-                (SELECT COUNT(*) >= %(t_min)s FROM edge_traffic WHERE city_id = %(id)s),
-                (SELECT COUNT(*) >= %(s_min)s FROM stations WHERE city_id = %(id)s AND merged_into_id IS NULL),
+                %(has_traffic)s,
+                %(combos)s::jsonb,
+                (SELECT COUNT(*) >= %(s_min)s FROM stations
+                 WHERE city_id = %(id)s AND merged_into_id IS NULL),
                 EXISTS (SELECT 1 FROM accidents WHERE city_id = %(id)s)
             ON CONFLICT (city_id) DO UPDATE SET
-                infrastructure = EXCLUDED.infrastructure,
-                traffic        = EXCLUDED.traffic,
-                stations       = EXCLUDED.stations,
-                accidents      = EXCLUDED.accidents
-            RETURNING infrastructure, traffic, stations, accidents
+                infrastructure       = EXCLUDED.infrastructure,
+                traffic              = EXCLUDED.traffic,
+                traffic_combinations = EXCLUDED.traffic_combinations,
+                stations             = EXCLUDED.stations,
+                accidents            = EXCLUDED.accidents
+            RETURNING infrastructure, traffic, traffic_combinations, stations, accidents
             """,
-            {'id': city_id, 't_min': TRAFFIC_MIN_EDGES, 's_min': STATIONS_MIN_COUNT},
+            {
+                'id': city_id,
+                'has_traffic': len(combos) > 0,
+                'combos': json.dumps(combos),
+                's_min': STATIONS_MIN_COUNT,
+            },
         )
         return dict(cur.fetchone())
 
@@ -523,8 +565,8 @@ def get_city_modes(conn, city_id: int) -> Optional[dict]:
         cur.execute(
             """
             SELECT
-                infrastructure, traffic, accidents,
-                topography, intersections, stations, forum
+                infrastructure, traffic, traffic_combinations,
+                accidents, topography, intersections, stations, forum
             FROM city_modes
             WHERE city_id = %s
             """,

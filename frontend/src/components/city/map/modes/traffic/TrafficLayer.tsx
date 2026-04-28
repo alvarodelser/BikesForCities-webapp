@@ -98,7 +98,7 @@ interface OverlayHandle {
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const { map, city, setSelectedEdgeId } = useMap();
     const { setThresholds } = useThresholds();
-    const { generation, routing, setGeneration, setRouting } = useMapState();
+    const { generation, routing, setGeneration, setRouting, setSubmode } = useMapState();
 
     const overlayRef = useRef<OverlayHandle | null>(null);
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
@@ -443,6 +443,12 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     ? { text: `${Math.round(tripCount)} v/mes`, color: '#027A76' }
                     : { text: 'Sin datos', color: '#9ca3af' },
                 rows: [{ label: 'Rutas', value: 'Cargando…' }],
+                submodeOptions: [
+                    { id: 'traces', label: 'Trayecto' },
+                    { id: 'heatmap', label: 'Calor' },
+                ],
+                activeSubmode: submodeRef.current,
+                onSubmodeChange: (id: string) => setSubmode(id),
             };
             lastSelectionRef.current = detail;
             window.dispatchEvent(new CustomEvent('map-selection', { detail }));

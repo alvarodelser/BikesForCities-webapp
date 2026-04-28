@@ -18,14 +18,15 @@ CREATE TABLE IF NOT EXISTS cities (
 );
 
 CREATE TABLE IF NOT EXISTS city_modes (
-    city_id INTEGER PRIMARY KEY REFERENCES cities(id) ON DELETE CASCADE,
-    infrastructure BOOLEAN DEFAULT FALSE,
-    traffic BOOLEAN DEFAULT FALSE,
-    accidents BOOLEAN DEFAULT FALSE,
-    topography BOOLEAN DEFAULT FALSE,
-    intersections BOOLEAN DEFAULT FALSE,
-    stations BOOLEAN DEFAULT FALSE,
-    forum BOOLEAN DEFAULT FALSE
+    city_id              INTEGER PRIMARY KEY REFERENCES cities(id) ON DELETE CASCADE,
+    infrastructure       BOOLEAN DEFAULT FALSE,
+    traffic              BOOLEAN DEFAULT FALSE,
+    traffic_combinations JSONB   DEFAULT '[]',
+    accidents            BOOLEAN DEFAULT FALSE,
+    topography           BOOLEAN DEFAULT FALSE,
+    intersections        BOOLEAN DEFAULT FALSE,
+    stations             BOOLEAN DEFAULT FALSE,
+    forum                BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS ingestion_status (
