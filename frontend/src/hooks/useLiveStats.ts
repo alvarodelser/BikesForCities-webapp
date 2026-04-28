@@ -118,11 +118,17 @@ export function useLiveStats(
             fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
           ]);
           modes = fetchedModes;
-          // Extract available periods from the response (assumes backend supports multiple period fetches)
-          // For now, store the current period. A future optimization would batch-fetch all periods.
+
+          // Get current period from response
           const currentPeriod = traffic.month || '';
-          if (currentPeriod) {
-            setAvailablePeriods([currentPeriod]);
+          const periods = currentPeriod ? [currentPeriod] : [];
+
+          // TODO: Enhance to fetch all available periods from backend
+          // For now, we set the periods to at least the current period
+          // Backend should provide an endpoint like /cities/{id}/traffic/periods
+          // that returns all available periods for this city
+          if (periods.length > 0) {
+            setAvailablePeriods(periods);
           }
           const monthlyTrips = city.monthly_trips
             ? city.monthly_trips.toLocaleString('es')
