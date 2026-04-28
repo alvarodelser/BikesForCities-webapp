@@ -336,7 +336,7 @@ def main():
     if city_id is None:
         raise RuntimeError("Madrid not found in DB — run 010_load_cities.py first")
     
-    PROCESS_NAME = "050_load_madrid_accidents"
+    PROCESS_NAME = "060_load_madrid_accidents"
     upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id)
 
     try:

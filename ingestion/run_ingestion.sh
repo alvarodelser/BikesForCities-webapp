@@ -65,7 +65,7 @@ echo -e "\n${GREEN}--- Phase 5: Routes ---${NC}"
 python3 ingestion/05_routes/050_compute_shortest_paths.py
 
 # 6. Accidents
-if [ -f "06_accidents/060_load_madrid_accidents.py" ]; then
+if [ -f "ingestion/06_accidents/060_load_madrid_accidents.py" ]; then
     echo -e "\n${GREEN}--- Phase 6: Accidents ---${NC}"
     python3 ingestion/06_accidents/060_load_madrid_accidents.py
 fi
