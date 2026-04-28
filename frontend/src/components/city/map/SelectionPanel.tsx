@@ -90,6 +90,32 @@ export default function SelectionPanel({
     return (
         <div ref={rootRef} className="mb-2 transition-all duration-300 ease-in-out" style={{ width: PANEL_WIDTH }}>
             <div className="rounded-2xl overflow-hidden" style={glassStyle}>
+                {/* Submode buttons (traffic mode) - at the very top */}
+                {selection.submodeOptions && selection.submodeOptions.length > 0 && (
+                    <div
+                        className="relative z-10 flex border-b"
+                        style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+                    >
+                        {selection.submodeOptions.map((s, i) => {
+                            const isActive = selection.activeSubmode === s.id;
+                            return (
+                                <button
+                                    key={s.id}
+                                    onClick={() => selection.onSubmodeChange?.(s.id)}
+                                    className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
+                                    style={{
+                                        backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
+                                        color: isActive ? accent : 'rgba(0,0,0,0.45)',
+                                        borderLeft: i > 0 ? '1px solid rgba(0,0,0,0.08)' : undefined,
+                                    }}
+                                >
+                                    {s.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className={`flex items-center justify-between px-3 h-10 select-none ${isMinimized ? '' : 'border-b border-black/5'}`}>
                     <div className="flex items-center gap-2 min-w-0">
@@ -173,23 +199,6 @@ export default function SelectionPanel({
                                         onClick={() => selection.onPeriodChange?.(opt.id)}
                                         className={`text-[9px] font-bold px-2 py-1 rounded transition-all flex-1 ${
                                             selection.activePeriod === opt.id
-                                                ? 'bg-black/20 text-black/90'
-                                                : 'bg-black/5 text-black/50 hover:bg-black/10'
-                                        }`}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                        {selection.submodeOptions && selection.submodeOptions.length > 0 && (
-                            <div className="flex gap-1 mt-2">
-                                {selection.submodeOptions.map(opt => (
-                                    <button
-                                        key={opt.id}
-                                        onClick={() => selection.onSubmodeChange?.(opt.id)}
-                                        className={`text-[9px] font-bold px-2 py-1 rounded transition-all flex-1 ${
-                                            selection.activeSubmode === opt.id
                                                 ? 'bg-black/20 text-black/90'
                                                 : 'bg-black/5 text-black/50 hover:bg-black/10'
                                         }`}
