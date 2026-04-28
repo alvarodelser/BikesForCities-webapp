@@ -74,7 +74,8 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
     const LegendContent = config.legend;
     const submodes = config.submodes;
     const activeSubmode = submode || config.defaultSubmode;
-    const hasSubmodes = submodes.length > 0;
+    // Traffic submode (Trayecto/Calor) is shown at the top of SelectionPanel instead
+    const hasSubmodes = submodes.length > 0 && mode !== MAP_MODES.TRAFFIC;
     const hasSelection = !!selection;
 
     const accent = colorScheme?.primary ?? '#027A76';

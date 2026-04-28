@@ -26,6 +26,29 @@ const MODE_META: { key: string; Icon: React.FC<{ size?: number; color?: string }
   { key: 'forum',                  Icon: MessageSquare,  label: 'Forum'          },
 ];
 
+const GEN_SHORT: Record<string, string> = {
+  real: 'GPS',
+  station_based: 'stations',
+  buildings_population: 'pop',
+};
+const ALGO_SHORT: Record<string, string> = {
+  map_matched: 'matched',
+  shortest: 'short',
+  safest: 'safe',
+  grouped: 'grouped',
+};
+
+type Combo = { generation_type: string; algorithm: string };
+
+function trafficModeTitle(modes: Record<string, unknown>): string {
+  const combos = modes.traffic_combinations as Combo[] | undefined;
+  if (!combos?.length) return 'Traffic (no data)';
+  const lines = combos.map(c =>
+    `${GEN_SHORT[c.generation_type] ?? c.generation_type}/${ALGO_SHORT[c.algorithm] ?? c.algorithm}`
+  );
+  return `Traffic: ${lines.join(', ')}`;
+}
+
 function fmt(n: number | undefined | null) { return (n ?? 0).toLocaleString('es-ES'); }
 
 // ─── Small components ────────────────────────────────────────────────────────
@@ -84,9 +107,12 @@ function CityTable({ cities }: { cities: SystemStatus['cities'] }) {
               <td className="px-4 py-3">
                 <div className="flex items-center gap-1">
                   {MODE_META.map(({ key, Icon, label }) => {
-                    const on = city.available_modes?.[key];
+                    const on = !!city.available_modes?.[key];
+                    const title = key === MAP_MODES.TRAFFIC && city.available_modes
+                      ? trafficModeTitle(city.available_modes)
+                      : label;
                     return (
-                      <span key={key} title={label}>
+                      <span key={key} title={title}>
                         <Icon size={14} color={on ? 'var(--green-dark)' : '#cbd5e1'} />
                       </span>
                     );

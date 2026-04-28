@@ -18,6 +18,6 @@ export interface CityData {
   stations_count?: number;
   monthly_trips?: number;
   bicycles_count?: number;
-  available_modes?: Record<string, boolean>;
+  available_modes?: Record<string, unknown>;
   angle?: number;
 }

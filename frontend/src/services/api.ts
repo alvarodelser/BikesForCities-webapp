@@ -71,7 +71,7 @@ export interface SystemStatusCity {
   routes: number;
   stations_count: number;
   monthly_trips: number;
-  available_modes: Record<string, boolean>;
+  available_modes: Record<string, unknown>;
   features: Record<string, number>;
 }
 

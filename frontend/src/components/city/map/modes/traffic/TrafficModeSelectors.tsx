@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { useMap } from '../../MapContext';
-import { fetchTrafficModes, type TrafficMode } from '../../../../../services/api';
 
 const GENERATION_LABELS: Record<string, string> = {
     real: 'GPS real',
@@ -19,6 +17,8 @@ const ALGORITHM_LABELS: Record<string, string> = {
 const GENERATION_ORDER = ['real', 'station_based', 'buildings_population'];
 const ALGORITHM_ORDER = ['map_matched', 'safest', 'shortest', 'grouped'];
 
+type Combo = { generation_type: string; algorithm: string };
+
 interface TrafficModeSelectorsProps {
     accent?: string;
 }
@@ -26,14 +26,8 @@ interface TrafficModeSelectorsProps {
 export default function TrafficModeSelectors({ accent = '#027A76' }: TrafficModeSelectorsProps) {
     const { generation, routing, setGeneration, setRouting } = useMapState();
     const { city } = useMap();
-    const [modes, setModes] = useState<TrafficMode[]>([]);
 
-    useEffect(() => {
-        if (!city?.id) return;
-        fetchTrafficModes(city.id)
-            .then(setModes)
-            .catch(err => console.error('TrafficModeSelectors: failed to load modes:', err));
-    }, [city?.id]);
+    const modes = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
 
     const availableGenerations = GENERATION_ORDER.filter(g =>
         modes.some(m => m.generation_type === g)

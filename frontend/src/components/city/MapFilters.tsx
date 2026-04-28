@@ -103,6 +103,43 @@ function ExpandingPill({
         </span>
       </div>
 
+      {/* Hint: traffic with no edge yet */}
+      {active && modeId === MAP_MODES.TRAFFIC && viz?.requiresEdge && !edgeSelected && (
+        <div
+          className="relative z-10 border-t px-3 pb-2 text-[10px] italic text-center leading-tight"
+          style={{ borderColor: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          Selecciona un tramo
+        </div>
+      )}
+
+      {/* Bottom half: viz submode row */}
+      {showSubmodes && (
+        <div
+          className="relative z-10 flex border-t"
+          style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+          onClick={e => e.stopPropagation()}
+        >
+          {viz!.items.map((s, i) => {
+            const isActive = (submode || DEFAULT_SUBMODE[modeId]) === s.id;
+            return (
+              <button
+                key={s.id}
+                onClick={() => onSubmodeClick(s.id)}
+                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
+                style={{
+                  backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
+                  color:           isActive ? color : 'rgba(0,0,0,0.45)',
+                  borderLeft: i > 0 ? '1px solid rgba(0,0,0,0.08)' : undefined,
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
