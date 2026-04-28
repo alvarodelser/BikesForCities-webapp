@@ -173,11 +173,6 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
         <div className="w-full min-h-screen transition-colors duration-300" style={{ backgroundColor: selectedColor }}>
             <CityHero city={city} selectedColor={selectedColor} />
 
-            {/* Filters always span full width above the map/stats content */}
-            <div className="px-[var(--space-gutter)] pt-8 pb-4">
-                {filtersEl}
-            </div>
-
             {isUltrawide ? (
                 /* Ultrawide C1: map 50% left, scrollable stats 50% right */
                 <DualPanel leftRatio={0.5}>
@@ -188,13 +183,20 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     </DualPanel.Left>
                     <DualPanel.Right>
                         <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] py-6">
+                            {/* Filters at top of right column */}
+                            <div className="mb-8">
+                                {filtersEl}
+                            </div>
                             <CityStats city={city} title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
                         </div>
                     </DualPanel.Right>
                 </DualPanel>
             ) : (
-                /* Standard desktop B1: linear scroll */
+                /* Standard desktop B1: linear scroll with filters above */
                 <>
+                    <div className="px-[var(--space-gutter)] pt-8 pb-4">
+                        {filtersEl}
+                    </div>
                     {mapEl}
                     {statsEl}
                 </>

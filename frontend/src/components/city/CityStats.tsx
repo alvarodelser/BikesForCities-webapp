@@ -160,24 +160,9 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
       <div className={`max-w-7xl mx-auto ${compact ? 'px-0 py-4' : 'py-4'}`}>
 
         {/* Header */}
-        <div className={`flex items-center justify-between ${compact ? 'mb-4' : 'mb-8'}`}>
-          <div>
-            <h2 className={`${compact ? 'text-xl' : 'text-3xl'} font-bold ${theme === 'dark' ? 'text-white' : 'text-[var(--blue-dark)]'} mb-1`}>{title}</h2>
-            <p className={`${theme === 'dark' ? 'text-white/80' : 'text-[var(--blue)] opacity-80'} ${compact ? 'text-xs' : 'text-base'}`}>{subtitle}</p>
-          </div>
-
-          <GlassCard
-            surface="glass"
-            tint="rgba(123, 164, 146, 0.9)"
-            className={`${compact ? 'p-3' : 'p-6'} text-white shadow-lg`}
-          >
-            <div className={`flex items-center ${compact ? 'gap-2 mb-1' : 'gap-3 mb-2'}`}>
-              <BarChart3 className={`${compact ? 'w-4 h-4' : 'w-6 h-6'}`} />
-              <h3 className={`${compact ? 'text-xs' : 'text-base'} font-semibold`}>Puntuación</h3>
-            </div>
-            <p className={`${compact ? 'text-xl' : 'text-3xl'} font-bold`}>{overallScore.score}/100</p>
-            <p className={`${compact ? 'text-[10px]' : 'text-sm'} opacity-90`}>{overallScore.label}</p>
-          </GlassCard>
+        <div className={`${compact ? 'mb-4' : 'mb-8'}`}>
+          <h2 className={`${compact ? 'text-xl' : 'text-3xl'} font-bold ${theme === 'dark' ? 'text-white' : 'text-[var(--blue-dark)]'} mb-1`}>{title}</h2>
+          <p className={`${theme === 'dark' ? 'text-white/80' : 'text-[var(--blue)] opacity-80'} ${compact ? 'text-xs' : 'text-base'}`}>{subtitle}</p>
         </div>
 
         {/* Traffic computation cards — dynamic options from backend */}
@@ -209,7 +194,7 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
         )}
 
         {/* Statistics Grid */}
-        <div className={`grid ${colClass} ${compact ? 'gap-3' : 'gap-6'}`}>
+        <div className={`grid ${colClass} ${compact ? 'gap-2.5' : 'gap-3'}`}>
           {loading
             ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} compact={compact} />)
             : statsToRender.map((stat, index) => {
@@ -218,32 +203,27 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
                 const trend = (stat as any).trend ?? 'neutral';
                 const TrendIcon = getTrendIcon(trend);
                 return (
-                  <GlassCard
+                  <div
                     key={index}
-                    surface="glass"
-                    interactive={!comingSoon}
-                    tint={comingSoon ? 'rgba(0,0,0,0.02)' : 'rgba(255, 255, 255, 0.8)'}
-                    className={`${compact ? 'p-3' : 'p-6'} group`}
+                    className={`rounded-xl border border-white/20 bg-white/10 backdrop-blur-sm overflow-hidden transition-all hover:bg-white/15 hover:border-white/30 ${compact ? 'p-2.5' : 'p-3'} group ${comingSoon ? 'opacity-50' : ''}`}
                   >
-                    <div className={`flex items-center justify-between ${compact ? 'mb-2' : 'mb-4'}`}>
-                      <div className={`${compact ? 'w-8 h-8' : 'w-12 h-12'} rounded-full flex items-center justify-center ${comingSoon ? 'bg-black/5' : 'bg-[var(--green)]/20'}`}>
-                        <stat.icon className={`${compact ? 'w-4 h-4' : 'w-6 h-6'} ${comingSoon ? 'text-black/20' : 'text-[var(--green)]'}`} />
+                    <div className={`flex items-center justify-between ${compact ? 'mb-1.5' : 'mb-2'}`}>
+                      <div className={`${compact ? 'w-6 h-6' : 'w-7 h-7'} rounded-lg flex items-center justify-center flex-shrink-0 ${comingSoon ? 'bg-white/5' : 'bg-white/15'}`}>
+                        <stat.icon className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${comingSoon ? 'text-white/30' : 'text-white'}`} />
                       </div>
                       {!comingSoon && (
-                        <div className={`flex items-center gap-1 ${getTrendColor(trend)}`}>
-                          <TrendIcon className={`${compact ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                        </div>
+                        <TrendIcon className={`w-3 h-3 ${getTrendColor(trend).replace('flex', '').trim()}`} />
                       )}
                     </div>
-                    <h3 className={`${compact ? 'text-sm' : 'text-lg'} font-semibold ${comingSoon ? 'text-black/35' : 'text-[var(--blue-dark)]'} mb-1`}>
+                    <h3 className={`${compact ? 'text-xs' : 'text-sm'} font-semibold ${comingSoon ? 'text-white/40' : 'text-white/90'} mb-0.5 leading-tight`}>
                       {stat.label}
                     </h3>
                     {comingSoon ? (
-                      <p className={`${compact ? 'text-sm' : 'text-base'} text-black/20 italic font-medium`}>Próximamente</p>
+                      <p className={`${compact ? 'text-xs' : 'text-xs'} text-white/30 italic`}>Pronto</p>
                     ) : (
-                      <p className={`${compact ? 'text-xl' : 'text-3xl'} font-bold text-[var(--blue-dark)]`}>{stat.value}</p>
+                      <p className={`${compact ? 'text-base' : 'text-lg'} font-bold text-white leading-tight`}>{stat.value}</p>
                     )}
-                  </GlassCard>
+                  </div>
                 );
               })}
         </div>
