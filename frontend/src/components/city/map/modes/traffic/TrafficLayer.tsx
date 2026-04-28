@@ -98,7 +98,7 @@ interface OverlayHandle {
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const { map, city, setSelectedEdgeId } = useMap();
     const { setThresholds } = useThresholds();
-    const { generation, routing, setGeneration, setRouting, setSubmode } = useMapState();
+    const { generation, routing, period, setGeneration, setRouting, setSubmode } = useMapState();
 
     const overlayRef = useRef<OverlayHandle | null>(null);
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
@@ -111,6 +111,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     // Track previous generation/routing to detect actual mode changes vs. initial auto-resolve
     const prevGenRef = useRef<string>('');
     const prevRouteRef = useRef<string>('');
+    // Aborts in-flight pagination loops when the selection or filters change
+    const routeLoadAbortRef = useRef<AbortController | null>(null);
 
 
     useEffect(() => { submodeRef.current = submode; }, [submode]);
@@ -128,40 +130,54 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
     const renderOverlay = useCallback((geojson: GeoJSON.FeatureCollection, mode: string) => {
         if (!map) return;
-        clearOverlay();
         if (mode === 'heatmap') {
-            map.addSource(OD_SOURCE, { type: 'geojson', data: geojson });
-            map.addLayer({
-                id: OD_LAYER,
-                type: 'heatmap',
-                source: OD_SOURCE,
-                paint: {
-                    'heatmap-radius': 22,
-                    'heatmap-opacity': 0.75,
-                    'heatmap-color': [
-                        'interpolate', ['linear'], ['heatmap-density'],
-                        0,   'rgba(0,0,0,0)',
-                        0.2, '#BFDDCE',
-                        0.45,'#7BA492',
-                        0.75,'#027A76',
-                        1.0, '#014440',
-                    ],
-                },
-            });
+            // Drop traces if switching modes mid-load
+            if (map.getLayer(TRACES_LAYER)) map.removeLayer(TRACES_LAYER);
+            if (map.getSource(TRACES_SOURCE)) map.removeSource(TRACES_SOURCE);
+            const existing = map.getSource(OD_SOURCE) as maplibregl.GeoJSONSource | undefined;
+            if (existing) {
+                existing.setData(geojson);
+            } else {
+                map.addSource(OD_SOURCE, { type: 'geojson', data: geojson });
+                map.addLayer({
+                    id: OD_LAYER,
+                    type: 'heatmap',
+                    source: OD_SOURCE,
+                    paint: {
+                        'heatmap-radius': 22,
+                        'heatmap-opacity': 0.75,
+                        'heatmap-color': [
+                            'interpolate', ['linear'], ['heatmap-density'],
+                            0,   'rgba(0,0,0,0)',
+                            0.2, '#BFDDCE',
+                            0.45,'#7BA492',
+                            0.75,'#027A76',
+                            1.0, '#014440',
+                        ],
+                    },
+                });
+            }
         } else {
-            map.addSource(TRACES_SOURCE, { type: 'geojson', data: geojson });
-            map.addLayer({
-                id: TRACES_LAYER,
-                type: 'line',
-                source: TRACES_SOURCE,
-                paint: {
-                    'line-color': '#027A76',
-                    'line-width': 1.5,
-                    'line-opacity': 0.35,
-                },
-            }, LAYER_ID);
+            if (map.getLayer(OD_LAYER)) map.removeLayer(OD_LAYER);
+            if (map.getSource(OD_SOURCE)) map.removeSource(OD_SOURCE);
+            const existing = map.getSource(TRACES_SOURCE) as maplibregl.GeoJSONSource | undefined;
+            if (existing) {
+                existing.setData(geojson);
+            } else {
+                map.addSource(TRACES_SOURCE, { type: 'geojson', data: geojson });
+                map.addLayer({
+                    id: TRACES_LAYER,
+                    type: 'line',
+                    source: TRACES_SOURCE,
+                    paint: {
+                        'line-color': '#027A76',
+                        'line-width': 1.5,
+                        'line-opacity': 0.35,
+                    },
+                }, LAYER_ID);
+            }
         }
-    }, [map, clearOverlay]);
+    }, [map]);
 
     // --- Custom popup overlay (fixed top-right panel + SVG connecting line) ---
     const updateLine = useCallback(() => {
@@ -227,6 +243,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
     const doDeselect = useCallback(() => {
         if (!map || !stickyRef.current) return;
+        routeLoadAbortRef.current?.abort();
+        routeLoadAbortRef.current = null;
         map.setFeatureState(
             { source: SOURCE_ID, sourceLayer: 'edges', id: stickyRef.current.edgeId },
             { selected: false }
@@ -245,32 +263,95 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     }, [map, clearOverlay, setSelectedEdgeId, removePopupOverlay]);
 
 
+    const ROUTE_PAGE_SIZE = 100;
+
+    /**
+     * Iteratively loads all routes for an edge in pages of ROUTE_PAGE_SIZE,
+     * appending features to the map source and updating the selection-panel
+     * label as progress advances ("123 / 4567 rutas"). Cancels via AbortController
+     * when the user picks a different edge or changes filters.
+     */
     const loadRoutes = useCallback(async (
         edgeId: number,
         mode: string,
         routeInfoEl: HTMLElement | null,
     ) => {
         if (!city?.id) return;
-        try {
-            const result = await fetchEdgeRoutes(city.id, edgeId, mode as 'traces' | 'heatmap');
-            // Bail if the user has already moved to a different edge
-            if (!stickyRef.current || stickyRef.current.edgeId !== edgeId) return;
-            const routeLabel = result.count > 0 ? `${result.count} rutas` : 'Sin rutas';
-            if (routeInfoEl) routeInfoEl.textContent = routeLabel;
-            // Update SelectionPanel row
+
+        // Cancel any in-flight pagination loop and start a fresh one
+        routeLoadAbortRef.current?.abort();
+        const controller = new AbortController();
+        routeLoadAbortRef.current = controller;
+
+        // Drop any stale overlay (different edge or different filters) so the
+        // first batch of the new load isn't painted on top of the old data.
+        clearOverlay();
+
+        const accumulated: GeoJSON.Feature[] = [];
+        let offset = 0;
+        let total = 0;
+
+        const updateLabel = (loaded: number, knownTotal: number) => {
+            if (knownTotal === 0) {
+                const label = 'Sin rutas';
+                if (routeInfoEl) routeInfoEl.textContent = label;
+                const prev = lastSelectionRef.current;
+                if (prev && prev.type === 'edge') {
+                    window.dispatchEvent(new CustomEvent('map-selection', { detail: {
+                        ...prev,
+                        rows: [{ label: 'Rutas', value: label }],
+                    } as SelectionDetail }));
+                }
+                return;
+            }
+            const label = loaded >= knownTotal
+                ? `${knownTotal} rutas`
+                : `${loaded} / ${knownTotal} rutas`;
+            if (routeInfoEl) routeInfoEl.textContent = label;
             const prev = lastSelectionRef.current;
             if (prev && prev.type === 'edge') {
                 window.dispatchEvent(new CustomEvent('map-selection', { detail: {
                     ...prev,
-                    rows: [{ label: 'Rutas', value: routeLabel }],
+                    rows: [{ label: 'Rutas', value: label }],
                 } as SelectionDetail }));
             }
-            if (result.count > 0) renderOverlay(result.data, mode);
+        };
+
+        try {
+            do {
+                if (controller.signal.aborted) return;
+                const result = await fetchEdgeRoutes(city.id, edgeId, {
+                    mode: mode as 'traces' | 'heatmap',
+                    limit: ROUTE_PAGE_SIZE,
+                    offset,
+                    generationType: generation || undefined,
+                    algorithm: routing || undefined,
+                    month: period || undefined,
+                });
+
+                if (controller.signal.aborted) return;
+                if (!stickyRef.current || stickyRef.current.edgeId !== edgeId) return;
+
+                total = result.total;
+                accumulated.push(...result.data.features);
+
+                if (accumulated.length > 0) {
+                    renderOverlay(
+                        { type: 'FeatureCollection', features: accumulated },
+                        mode,
+                    );
+                }
+                updateLabel(accumulated.length, total);
+
+                if (result.count === 0) break;
+                offset += ROUTE_PAGE_SIZE;
+            } while (accumulated.length < total);
         } catch (err) {
+            if (controller.signal.aborted) return;
             console.error('Failed to fetch edge routes:', err);
             if (routeInfoEl) routeInfoEl.textContent = '';
         }
-    }, [city?.id, renderOverlay]);
+    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period]);
 
 
     // --- Mount: show layer, hide others ---
@@ -334,7 +415,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
         }
 
-        fetchTraffic(city.id, generation || undefined, routing || undefined).then(result => {
+        fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined).then(result => {
             if (cancelled || !map) return;
 
             // On first load with empty URL params, write resolved values back so the
@@ -387,7 +468,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         }).catch(err => console.error('Failed to load traffic:', err));
 
         return () => { cancelled = true; };
-    }, [map, city?.id, generation, routing]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [map, city?.id, generation, routing, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Click handling ---
     useEffect(() => {
@@ -484,14 +565,16 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         };
     }, [map, loadRoutes, clearOverlay, doDeselect, removePopupOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // --- Submode change: re-fetch overlay if an edge is selected ---
+    // --- Submode / filter change: re-fetch overlay if an edge is selected ---
+    // Re-runs when the user toggles Trayecto/Calor or changes generation/algorithm/month
+    // while an edge is selected. loadRoutes itself aborts the previous loop and clears
+    // the overlay before starting the new pagination.
     useEffect(() => {
         if (!stickyRef.current) return;
-        clearOverlay();
         const routeInfoEl = routeInfoRef.current;
         if (routeInfoEl) routeInfoEl.textContent = 'Cargando rutas…';
         loadRoutes(stickyRef.current.edgeId, submode, routeInfoEl);
-    }, [submode]); // intentionally omit clearOverlay/loadRoutes — only re-run on submode change
+    }, [submode, generation, routing, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return null;
 }

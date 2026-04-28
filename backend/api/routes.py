@@ -36,7 +36,7 @@ from backend.database.db_io import (
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_station_reachability,
-    get_edge_route_traces, get_edge_route_od,
+    get_edge_route_traces, get_edge_route_od, count_edge_routes,
     get_accidents_geojson,
     get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson, get_infra_budget,
     get_traffic_infra_coverage, get_route_histogram,
@@ -679,13 +679,20 @@ async def get_edge_routes(
     city_id: int,
     edge_id: int,
     mode: Literal["traces", "heatmap"] = Query("traces", description="Visualisation mode: traces or heatmap"),
-    limit: int = Query(500, ge=1, le=1000, description="Max routes to return"),
+    limit: int = Query(100, ge=1, le=1000, description="Page size"),
+    offset: int = Query(0, ge=0, description="Pagination offset"),
+    generation_type: Optional[str] = Query(None, description="Trip generation filter"),
+    algorithm: Optional[str] = Query(None, description="Path algorithm filter"),
+    month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
     conn=Depends(get_db_connection),
 ):
     """Return routes passing through a specific edge as GeoJSON.
 
     mode=traces  → FeatureCollection of LineString geometries (one per route).
     mode=heatmap → FeatureCollection of Point geometries (origin + dest per route).
+
+    Supports pagination via limit+offset and filtering by generation/algorithm/month
+    so the client can iteratively load all matching routes.
     """
     try:
         validate_network_exists(conn, city_id)
@@ -699,8 +706,21 @@ async def get_edge_routes(
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Edge not found in this city")
 
+        total = count_edge_routes(
+            conn, city_id, edge_id,
+            generation_type=generation_type,
+            algorithm=algorithm,
+            month=month,
+        )
+
         if mode == "heatmap":
-            rows = get_edge_route_od(conn, city_id, edge_id, limit=limit)
+            rows = get_edge_route_od(
+                conn, city_id, edge_id,
+                limit=limit, offset=offset,
+                generation_type=generation_type,
+                algorithm=algorithm,
+                month=month,
+            )
             features = []
             for row in rows:
                 features.append({
@@ -715,7 +735,13 @@ async def get_edge_routes(
                 })
             count = len(rows)
         else:
-            geom_strings = get_edge_route_traces(conn, city_id, edge_id, limit=limit)
+            geom_strings = get_edge_route_traces(
+                conn, city_id, edge_id,
+                limit=limit, offset=offset,
+                generation_type=generation_type,
+                algorithm=algorithm,
+                month=month,
+            )
             features = [
                 {"type": "Feature", "geometry": json.loads(g), "properties": {}}
                 for g in geom_strings
@@ -730,7 +756,9 @@ async def get_edge_routes(
         return EdgeRoutesResponse(
             data=feature_collection,
             count=count,
-            message=f"{count} routes found for edge {edge_id}",
+            total=total,
+            offset=offset,
+            message=f"{count}/{total} routes returned for edge {edge_id}",
         )
     except HTTPException:
         raise

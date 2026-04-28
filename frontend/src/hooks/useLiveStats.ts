@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { ComponentType } from 'react';
-import { BarChart3, Bike, Clock, MapPin, TrendingUp, Calendar, Lock, Activity } from 'lucide-react';
+import { BarChart3, Bike, Clock, MapPin, TrendingUp, Lock, Activity } from 'lucide-react';
 import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import {
@@ -142,7 +142,6 @@ export function useLiveStats(
           result = [
             { label: 'Viajes estimados/mes', value: monthlyTrips, icon: TrendingUp },
             { label: 'Mediana viajes/tramo', value: `${median} v/mes`, icon: BarChart3 },
-            { label: 'Período de datos', value: formatMonth(traffic.month), icon: Calendar },
             infraVal
               ? { label: 'Km con infraestructura', value: infraVal, icon: Activity, trend: 'up' as const }
               : locked('Km con infraestructura'),

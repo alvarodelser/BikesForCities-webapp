@@ -29,8 +29,11 @@ function computationOptions(trafficModes: TrafficMode[], generation: string) {
   const gens = GENERATION_ORDER
     .filter(g => trafficModes.some(m => m.generation_type === g))
     .map(g => ({ id: g, label: GENERATION_LABELS[g] ?? g }));
+  // Fall back to the first available generation when none is selected so the
+  // routing panel renders algorithms on initial load instead of being empty.
+  const effectiveGen = generation || gens[0]?.id || '';
   const algos = ALGORITHM_ORDER
-    .filter(a => trafficModes.some(m => m.generation_type === generation && m.algorithm === a))
+    .filter(a => trafficModes.some(m => m.generation_type === effectiveGen && m.algorithm === a))
     .map(a => ({ id: a, label: ALGORITHM_LABELS[a] ?? a }));
   return { gens, algos };
 }

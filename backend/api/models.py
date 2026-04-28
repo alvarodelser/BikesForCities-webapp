@@ -327,7 +327,9 @@ class TrafficResponse(BaseResponse):
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""
     data: Dict[str, Any]   # GeoJSON FeatureCollection
-    count: int
+    count: int             # number of routes returned in this page
+    total: int = 0         # total number of routes matching filters
+    offset: int = 0        # offset of this page
 
 
 # ── Infrastructure analytics models ──────────────────────────────────────────

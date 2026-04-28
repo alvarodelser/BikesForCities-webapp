@@ -109,6 +109,7 @@ from .traffic import (
 from .edge_routes import (
     get_edge_route_traces,
     get_edge_route_od,
+    count_edge_routes,
 )
 
 from .accidents import (
@@ -172,7 +173,7 @@ __all__ = [
     "get_latest_traffic_month", "has_traffic",
     "get_traffic_infra_coverage", "get_route_histogram",
     # edge routes
-    "get_edge_route_traces", "get_edge_route_od",
+    "get_edge_route_traces", "get_edge_route_od", "count_edge_routes",
     # accidents
     "get_accidents_geojson",
     # metrics

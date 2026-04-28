@@ -183,21 +183,43 @@ export const fetchTrafficModes = async (cityId: number): Promise<TrafficMode[]> 
 
 export interface EdgeRoutesResult {
   count: number;
+  total: number;
+  offset: number;
   data: GeoJSON.FeatureCollection;
+}
+
+export interface EdgeRoutesParams {
+  mode?: 'traces' | 'heatmap';
+  limit?: number;
+  offset?: number;
+  generationType?: string;
+  algorithm?: string;
+  month?: string;
 }
 
 export const fetchEdgeRoutes = async (
   cityId: number,
   edgeId: number,
-  mode: 'traces' | 'heatmap' = 'traces',
-  limit: number = 500,
+  params: EdgeRoutesParams = {},
 ): Promise<EdgeRoutesResult> => {
+  const qs = new URLSearchParams();
+  qs.set('mode', params.mode ?? 'traces');
+  qs.set('limit', String(params.limit ?? 100));
+  qs.set('offset', String(params.offset ?? 0));
+  if (params.generationType) qs.set('generation_type', params.generationType);
+  if (params.algorithm) qs.set('algorithm', params.algorithm);
+  if (params.month) qs.set('month', params.month);
   const response = await fetch(
-    `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?mode=${mode}&limit=${limit}`
+    `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?${qs.toString()}`
   );
   if (!response.ok) throw new Error('Failed to fetch edge routes');
   const envelope = await response.json();
-  return { data: envelope.data, count: envelope.count };
+  return {
+    data: envelope.data,
+    count: envelope.count,
+    total: envelope.total ?? envelope.count,
+    offset: envelope.offset ?? 0,
+  };
 };
 
 
