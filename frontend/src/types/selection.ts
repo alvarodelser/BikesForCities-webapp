@@ -7,4 +7,7 @@ export interface SelectionDetail {
     badge?: { text: string; color: string; textColor?: string };
     loading?: boolean;
     chart?: HTMLElement | null;
+    periodOptions?: Array<{ id: string; label: string }>;
+    activePeriod?: string;
+    onPeriodChange?: (period: string) => void;
 }

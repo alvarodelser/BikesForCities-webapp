@@ -534,19 +534,32 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     ] : [
                         { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
                     ],
+                    periodOptions: metric === 'downtime' ? periodOptions : undefined,
+                    activePeriod: activePeriod,
+                    onPeriodChange: (period: string) => setActivePeriod(period),
                 };
 
                 // Fetch hourly data for downtime chart
                 if (metric === 'downtime' && city.id !== undefined) {
-                    fetchStationHourlyAvailability(city.id, props.id, activePeriod)
-                        .then(data => {
-                            const chart = buildLinePlotDOM(data);
-                            dispatchSelection({ ...selectionDetail, chart });
-                        })
-                        .catch(err => {
-                            console.error('Failed to fetch hourly data:', err);
-                            dispatchSelection(selectionDetail);
-                        });
+                    const stationCache = hourlyCache.current.get(props.id) || {};
+                    const cached = stationCache[activePeriod];
+
+                    if (cached) {
+                        const chart = buildLinePlotDOM(cached);
+                        dispatchSelection({ ...selectionDetail, chart });
+                    } else {
+                        dispatchSelection({ ...selectionDetail, loading: true });
+                        fetchStationHourlyAvailability(city.id, props.id, activePeriod)
+                            .then(data => {
+                                hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
+                                const chart = data.length > 0 ? buildLinePlotDOM(data) : null;
+                                dispatchSelection({ ...selectionDetail, chart, loading: false });
+                            })
+                            .catch(err => {
+                                console.error('Failed to fetch hourly data:', err);
+                                dispatchSelection({ ...selectionDetail, loading: false });
+                            });
+                    }
                 } else {
                     dispatchSelection(selectionDetail);
                 }
@@ -584,6 +597,12 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         };
     }, [map, metric, thresholds, city, isReach, loadReach, cleanupReachLayers, dispatchSelection]);
     // Update SelectionPanel when metric/thresholds change while a station is selected
+    const periodOptions = [
+        { id: 'all', label: 'Todo' },
+        { id: 'weekdays', label: 'Entre semana' },
+        { id: 'weekends', label: 'Fin de semana' },
+    ];
+
     const updateSelectionPanel = useCallback(() => {
         if (!stickyRef.current || isReach) return;
         const { props } = stickyRef.current;
@@ -600,25 +619,53 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             rows: metric === 'downtime'
                 ? [{ label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` }]
                 : [{ label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` }],
+            periodOptions: metric === 'downtime' ? periodOptions : undefined,
+            activePeriod: activePeriod,
+            onPeriodChange: (period: string) => setActivePeriod(period),
         };
 
         // Fetch hourly data for downtime chart when switching to downtime metric
         if (metric === 'downtime' && city.id !== undefined) {
-            fetchStationHourlyAvailability(city.id, props.id, activePeriod)
-                .then(data => {
-                    const chart = buildLinePlotDOM(data);
-                    dispatchSelection({ ...selectionDetail, chart });
-                })
-                .catch(err => {
-                    console.error('Failed to fetch hourly data:', err);
-                    dispatchSelection(selectionDetail);
-                });
+            const stationCache = hourlyCache.current.get(props.id) || {};
+            const cached = stationCache[activePeriod];
+
+            if (cached) {
+                // Use cached data
+                const chart = buildLinePlotDOM(cached);
+                dispatchSelection({ ...selectionDetail, chart });
+            } else {
+                // Show loading state
+                dispatchSelection({ ...selectionDetail, loading: true });
+
+                // Fetch new data
+                fetchStationHourlyAvailability(city.id, props.id, activePeriod)
+                    .then(data => {
+                        // Update cache
+                        hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
+
+                        // Only update if this is still the selected station
+                        if (stickyRef.current?.id === props.id) {
+                            const chart = data.length > 0 ? buildLinePlotDOM(data) : null;
+                            dispatchSelection({
+                                ...selectionDetail,
+                                chart,
+                                loading: false
+                            });
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Failed to fetch hourly data:', err);
+                        if (stickyRef.current?.id === props.id) {
+                            dispatchSelection({ ...selectionDetail, loading: false });
+                        }
+                    });
+            }
         } else {
             dispatchSelection(selectionDetail);
         }
     }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection]);
 
-    useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds]);
+    useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel]);
 
     return null;
 }

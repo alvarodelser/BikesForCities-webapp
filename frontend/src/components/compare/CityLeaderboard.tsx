@@ -141,7 +141,7 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
           <span className="text-sm md:text-lg font-bold text-white leading-tight">{city.name}</span>
           {city.altName && (
             <span className="text-[10px] md:text-xs font-medium text-white/60 italic mb-2">
-              ({city.altName})
+              {city.altName}
             </span>
           )}
           {!city.altName && <div className="mb-2" />}
@@ -271,7 +271,7 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
                       <span className={isTop3 ? 'text-white' : 'text-white/80'}>{city.name}</span>
                       {city.altName && (
                         <span className="text-[10px] text-white/40 italic font-normal">
-                          ({city.altName})
+                          {city.altName}
                         </span>
                       )}
                     </div>
