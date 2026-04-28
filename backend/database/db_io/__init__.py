@@ -26,6 +26,7 @@ from .cities import (
     put_city_elections,
     put_city_councilors,
     put_city_budgets,
+    put_city_budget_categories,
     get_city_budgets,
     get_infra_budget,
     get_historical_mayors,
@@ -141,7 +142,7 @@ __all__ = [
     "get_or_create_city", "put_city_modes", "get_city_modes", "refresh_city_modes", "update_city_wikidata",
     "get_ingestion_status", "upsert_ingestion_status", "check_prerequisites",
     "put_historical_mayors", "put_city_elections", "put_city_councilors",
-    "put_city_budgets", "get_city_budgets",
+    "put_city_budgets", "put_city_budget_categories", "get_city_budgets",
     "get_infra_budget", "get_historical_mayors", "get_city_elections_data",
     # graph
     "put_nodes", "put_edges", "get_nodes", "get_edges",
