@@ -219,8 +219,8 @@ interface StationsLayerProps {
 
 const PERIOD_OPTIONS = [
     { id: 'all', label: 'Todo' },
-    { id: 'weekdays', label: 'Entre semana' },
-    { id: 'weekends', label: 'Fin de semana' },
+    { id: 'week', label: 'Entre semana' },
+    { id: 'weekend', label: 'Fin de semana' },
 ];
 
 const SOURCE_ID = 'stations-source';
