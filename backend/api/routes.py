@@ -38,7 +38,7 @@ from backend.database.db_io import (
     get_station_hourly_availability, get_station_reachability,
     get_edge_route_traces, get_edge_route_od,
     get_accidents_geojson,
-    get_gcc_coverage, get_cycling_components_geojson, get_infra_budget,
+    get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson, get_infra_budget,
     get_traffic_infra_coverage, get_route_histogram,
     get_station_monthly_agg,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
@@ -808,6 +808,19 @@ async def get_infrastructure_components(city_id: int, conn=Depends(get_db_connec
     except Exception as e:
         logger.error(f"Error getting infra components for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve infrastructure components")
+
+
+@router.get("/cities/{city_id}/infrastructure/building-coverage", response_model=InfraComponentsResponse)
+async def get_infrastructure_building_coverage(city_id: int, conn=Depends(get_db_connection)):
+    """Return bike_path_buildings as GeoJSON with component_id based on 150m buffer connectivity."""
+    try:
+        geojson = get_building_coverage_components_geojson(conn, city_id)
+        return InfraComponentsResponse(message="Building coverage components retrieved", data=geojson)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting building coverage components for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve building coverage components")
 
 
 # ── Traffic analytics ─────────────────────────────────────────────────────────

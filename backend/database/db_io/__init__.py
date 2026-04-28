@@ -47,6 +47,7 @@ from .graph import (
     compute_all_reach_coverages,
     get_gcc_coverage,
     get_cycling_components_geojson,
+    get_building_coverage_components_geojson,
 )
 
 from .trips import (
@@ -147,7 +148,7 @@ __all__ = [
     "get_edge_id_map", "count_nodes", "count_edges",
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
-    "get_gcc_coverage", "get_cycling_components_geojson",
+    "get_gcc_coverage", "get_cycling_components_geojson", "get_building_coverage_components_geojson",
     # trips
     "put_trips", "count_trips", "count_unrouted_trips", "get_unrouted_trip_groups",
     "city_has_real_trips", "get_paginated_trips", "get_trip_stats",

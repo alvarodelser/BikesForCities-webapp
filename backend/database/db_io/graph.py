@@ -570,6 +570,63 @@ def get_cycling_components_geojson(conn, city_id: int) -> dict:
     return {"type": "FeatureCollection", "features": features}
 
 
+def get_building_coverage_components_geojson(conn, city_id: int) -> dict:
+    """Return bike_path_buildings as GeoJSON with component_id based on geometric buffer connectivity.
+
+    Algorithm:
+    1. Buffer all bike_paths geometries by 150m (PostGIS geography for metric units)
+    2. ST_Union the buffers to merge overlapping areas
+    3. ST_Dump to split into separate polygons (= disconnected components)
+    4. Rank by area descending (component_id 0 = largest)
+    5. Spatial join bike_path_buildings; buildings not touching any buffer get component_id -1
+    """
+    import json
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH bike_lanes AS (
+                SELECT geometry FROM features
+                WHERE feature_type = 'bike_paths' AND city_id = %s
+            ),
+            buffered AS (
+                SELECT ST_Buffer(geometry::geography, 150)::geometry AS buf
+                FROM bike_lanes
+            ),
+            unioned AS (
+                SELECT (ST_Dump(ST_Union(buf))).geom AS component_geom
+                FROM buffered
+            ),
+            ranked AS (
+                SELECT component_geom,
+                       (ROW_NUMBER() OVER (ORDER BY ST_Area(component_geom::geography) DESC) - 1)::integer AS component_id
+                FROM unioned
+            ),
+            buildings AS (
+                SELECT id, ST_AsGeoJSON(geometry) AS geojson
+                FROM features
+                WHERE feature_type = 'bike_path_buildings' AND city_id = %s
+            )
+            SELECT b.id, b.geojson, COALESCE(MIN(r.component_id), -1) AS component_id
+            FROM buildings b
+            LEFT JOIN ranked r ON ST_Intersects(b.geometry, r.component_geom)
+            GROUP BY b.id, b.geojson
+            """,
+            (city_id, city_id),
+        )
+        rows = cur.fetchall()
+
+    features = []
+    for building_id, geojson_str, component_id in rows:
+        features.append({
+            "type": "Feature",
+            "geometry": json.loads(geojson_str),
+            "properties": {"building_id": building_id, "component_id": component_id},
+        })
+
+    return {"type": "FeatureCollection", "features": features}
+
+
 def get_gcc_coverage(conn, city_id: int) -> dict:
     """Compute the Biggest Connected Component (GCC) of the cycling network.
 

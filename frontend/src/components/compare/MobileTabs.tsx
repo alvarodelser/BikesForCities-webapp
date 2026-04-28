@@ -64,7 +64,14 @@ function MobileTabs({ defaultTab, children }: MobileTabsProps) {
       <div
         role="tablist"
         className="flex border-b border-white/10 relative"
-        style={{ backgroundColor: 'rgba(0,56,73,0.6)' }}
+        style={{
+          backgroundColor: 'rgba(0,56,73,0.85)',
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          position: 'sticky',
+          top: 'var(--navbar-height)',
+          zIndex: 40,
+        }}
       >
         {tabs.map((t) => {
           const isActive = t.id === current.id;

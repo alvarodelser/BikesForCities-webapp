@@ -5,6 +5,7 @@ import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchTraffic, fetchEdgeRoutes } from '../../../../../services/api';
 import type * as GeoJSON from 'geojson';
+import type { SelectionDetail } from '../../../../../types/selection';
 
 const LAYER_ID = 'traffic-layer';
 const SOURCE_ID = 'edges-source';
@@ -104,11 +105,13 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const submodeRef = useRef<string>(submode);
     const trafficDataRef = useRef<Map<number, number>>(new Map());
     const routeInfoRef = useRef<HTMLElement | null>(null);
+    const lastSelectionRef = useRef<SelectionDetail | null>(null);
     // Stores the latest percentile stats so doDeselect can restore the opacity expression
     const thresholdsRef = useRef<{ q5: number; q50: number; q95: number; min: number; max: number } | null>(null);
     // Track previous generation/routing to detect actual mode changes vs. initial auto-resolve
     const prevGenRef = useRef<string>('');
     const prevRouteRef = useRef<string>('');
+
 
     useEffect(() => { submodeRef.current = submode; }, [submode]);
 
@@ -228,14 +231,17 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         );
         stickyRef.current = null;
         routeInfoRef.current = null;
+        lastSelectionRef.current = null;
         removePopupOverlay();
         clearOverlay();
         setSelectedEdgeId(null);
+        window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         // Restore full traffic opacity (re-show all edges above P5)
         if (map.getLayer(LAYER_ID) && thresholdsRef.current) {
             map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(thresholdsRef.current.q5));
         }
     }, [map, clearOverlay, setSelectedEdgeId, removePopupOverlay]);
+
 
     const loadRoutes = useCallback(async (
         edgeId: number,
@@ -247,10 +253,15 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             const result = await fetchEdgeRoutes(city.id, edgeId, mode as 'traces' | 'heatmap');
             // Bail if the user has already moved to a different edge
             if (!stickyRef.current || stickyRef.current.edgeId !== edgeId) return;
-            if (routeInfoEl) {
-                routeInfoEl.textContent = result.count > 0
-                    ? `${result.count} rutas`
-                    : 'Sin rutas registradas';
+            const routeLabel = result.count > 0 ? `${result.count} rutas` : 'Sin rutas';
+            if (routeInfoEl) routeInfoEl.textContent = routeLabel;
+            // Update SelectionPanel row
+            const prev = lastSelectionRef.current;
+            if (prev && prev.type === 'edge') {
+                window.dispatchEvent(new CustomEvent('map-selection', { detail: {
+                    ...prev,
+                    rows: [{ label: 'Rutas', value: routeLabel }],
+                } as SelectionDetail }));
             }
             if (result.count > 0) renderOverlay(result.data, mode);
         } catch (err) {
@@ -258,6 +269,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (routeInfoEl) routeInfoEl.textContent = '';
         }
     }, [city?.id, renderOverlay]);
+
 
     // --- Mount: show layer, hide others ---
     useEffect(() => {
@@ -420,7 +432,17 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
 
             const dom = buildEdgePopupDOM(edgeName, tripCount, () => doDeselect());
-            showPopupOverlay(dom, e.lngLat);
+            // Dispatch to React SelectionPanel
+            const detail: SelectionDetail = {
+                type: 'edge',
+                title: edgeName ?? 'Tramo sin nombre',
+                badge: tripCount != null
+                    ? { text: `${Math.round(tripCount)} v/mes`, color: '#027A76' }
+                    : { text: 'Sin datos', color: '#9ca3af' },
+                rows: [{ label: 'Rutas', value: 'Cargando…' }],
+            };
+            lastSelectionRef.current = detail;
+            window.dispatchEvent(new CustomEvent('map-selection', { detail }));
 
             const routeInfoEl = dom.querySelector<HTMLElement>('[data-route-info]');
             routeInfoRef.current = routeInfoEl;
@@ -433,19 +455,25 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (!hits?.length) doDeselect();
         };
 
+
+        const onPanelClose = () => { doDeselect(); };
+
         map.on('mouseenter', LAYER_ID, onMouseEnter);
         map.on('mouseleave', LAYER_ID, onMouseLeave);
         map.on('click', LAYER_ID, onClick);
         map.on('click', onMapClick);
+        window.addEventListener('map-selection-close', onPanelClose);
+
 
         return () => {
             map.off('mouseenter', LAYER_ID, onMouseEnter);
             map.off('mouseleave', LAYER_ID, onMouseLeave);
             map.off('click', LAYER_ID, onClick);
             map.off('click', onMapClick);
+            window.removeEventListener('map-selection-close', onPanelClose);
             removePopupOverlay();
         };
-    }, [map, loadRoutes, clearOverlay, doDeselect, showPopupOverlay, removePopupOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [map, loadRoutes, clearOverlay, doDeselect, removePopupOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Submode change: re-fetch overlay if an edge is selected ---
     useEffect(() => {

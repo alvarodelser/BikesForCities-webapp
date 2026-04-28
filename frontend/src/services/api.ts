@@ -292,6 +292,13 @@ export const fetchInfraComponents = async (cityId: number): Promise<GeoJSON.Feat
   return result.data;
 };
 
+export const fetchBuildingCoverageComponents = async (cityId: number): Promise<GeoJSON.FeatureCollection> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/building-coverage`);
+  if (!response.ok) throw new Error('Failed to fetch building coverage components');
+  const result = await response.json();
+  return result.data;
+};
+
 export const fetchInfraStats = async (cityId: number): Promise<InfraStats> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
   if (!response.ok) throw new Error('Failed to fetch infrastructure stats');
