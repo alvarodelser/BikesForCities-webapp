@@ -165,6 +165,13 @@ export default function SelectionPanel({
                                 ))}
                             </div>
                         )}
+                        {selection.chart && (
+                            <div className="mt-2" ref={el => {
+                                if (el && el.children.length === 0 && selection.chart) {
+                                    el.appendChild(selection.chart.cloneNode(true));
+                                }
+                            }} />
+                        )}
                         {extraContent}
                     </div>
                 )}

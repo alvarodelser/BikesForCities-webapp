@@ -524,7 +524,8 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 const q5 = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
                 const color = getMetricColor(val, q5, q50, q95, metric);
                 const textColor = ['#042F2E','#450A0A','#065F46','#7F1D1D'].includes(color) ? 'white' : 'black';
-                dispatchSelection({
+
+                const selectionDetail: SelectionDetail = {
                     type: 'station',
                     title: props.name,
                     badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
@@ -533,7 +534,22 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     ] : [
                         { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
                     ],
-                });
+                };
+
+                // Fetch hourly data for downtime chart
+                if (metric === 'downtime' && city.id !== undefined) {
+                    fetchStationHourlyAvailability(city.id, props.id, activePeriod)
+                        .then(data => {
+                            const chart = buildLinePlotDOM(data);
+                            dispatchSelection({ ...selectionDetail, chart });
+                        })
+                        .catch(err => {
+                            console.error('Failed to fetch hourly data:', err);
+                            dispatchSelection(selectionDetail);
+                        });
+                } else {
+                    dispatchSelection(selectionDetail);
+                }
             }
         };
 
@@ -576,15 +592,31 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         const q5 = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
         const color = getMetricColor(val, q5, q50, q95, metric);
         const textColor = ['#042F2E','#450A0A','#065F46','#7F1D1D'].includes(color) ? 'white' : 'black';
-        window.dispatchEvent(new CustomEvent('map-selection', { detail: {
+
+        const selectionDetail: SelectionDetail = {
             type: 'station',
             title: props.name,
             badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
             rows: metric === 'downtime'
                 ? [{ label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` }]
                 : [{ label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` }],
-        } }));
-    }, [metric, thresholds, isReach]);
+        };
+
+        // Fetch hourly data for downtime chart when switching to downtime metric
+        if (metric === 'downtime' && city.id !== undefined) {
+            fetchStationHourlyAvailability(city.id, props.id, activePeriod)
+                .then(data => {
+                    const chart = buildLinePlotDOM(data);
+                    dispatchSelection({ ...selectionDetail, chart });
+                })
+                .catch(err => {
+                    console.error('Failed to fetch hourly data:', err);
+                    dispatchSelection(selectionDetail);
+                });
+        } else {
+            dispatchSelection(selectionDetail);
+        }
+    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection]);
 
     useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds]);
 

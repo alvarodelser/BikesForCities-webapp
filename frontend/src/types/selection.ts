@@ -6,4 +6,5 @@ export interface SelectionDetail {
     rows?: Array<{ label: string; value: string; accent?: string }>;
     badge?: { text: string; color: string; textColor?: string };
     loading?: boolean;
+    chart?: HTMLElement | null;
 }
