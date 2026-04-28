@@ -43,10 +43,10 @@ def get_mapping_dict(year, ttype, table_name, id_col, name_col):
     url = f"{BASE_URL}/{year}/{ttype}/{table_name}.sql.gz"
     mapping = {}
     for line in fetch_gzipped_lines(url):
-        if line.startswith(f'INSERT INTO "{table_name}"'):
-            match = re.search(r'VALUES \((.*)\);', line)
-            if match:
-                parts = re.findall(r"'[^']*'|[^,]+", match.group(1))
+        if f'INSERT INTO "{table_name}"' in line:
+            tuples = re.findall(r"\(([^)]+)\)", line)
+            for t in tuples:
+                parts = re.findall(r"'[^']*'|[^,]+", t)
                 vals = [v.strip(" '") for v in parts]
                 if len(vals) >= max(id_col, name_col) + 1:
                     mapping[vals[id_col]] = vals[name_col]
@@ -69,15 +69,16 @@ def get_entity_id_to_city_id_map(conn, year, ttype, db_cities):
 
     entity_to_cid = {}
     for line in fetch_gzipped_lines(url):
-        if line.startswith('INSERT INTO "tb_inventario"'):
-            match = re.search(r'VALUES \((.*)\);', line)
-            if match:
-                parts = re.findall(r"'[^']*'|[^,]+", match.group(1))
+        if 'INSERT INTO "tb_inventario"' in line:
+            tuples = re.findall(r"\(([^)]+)\)", line)
+            for t in tuples:
+                parts = re.findall(r"'[^']*'|[^,]+", t)
                 vals = [v.strip(" '") for v in parts]
                 if len(vals) >= 6:
                     eid = vals[0]
                     codbdgel = vals[1]
                     for ine, cid in ine_to_cid.items():
+                        # We only take the main municipality entity (codbdgel ends with AA000)
                         if codbdgel.startswith(ine) and codbdgel.endswith("AA000"):
                             entity_to_cid[eid] = cid
     return entity_to_cid
@@ -105,21 +106,28 @@ def process_year(conn, year, db_cities):
         city_rows = {cid: [] for cid in id_to_cid.values()}
         
         for line in fetch_gzipped_lines(url_func):
-            if line.startswith('INSERT INTO "tb_funcional"'):
-                match = re.search(r'VALUES \((.*)\);', line)
-                if match:
-                    parts = re.findall(r"'[^']*'|[^,]+", match.group(1))
+            if 'INSERT INTO "tb_funcional"' in line:
+                # Find all tuples (...) in the line. Gobierto dumps use multi-row inserts.
+                tuples = re.findall(r"\(([^)]+)\)", line)
+                for t in tuples:
+                    parts = re.findall(r"'[^']*'|[^,]+", t)
                     vals = [v.strip(" '") for v in parts]
-                    eid = vals[1]
-                    if eid in id_to_cid:
-                        cid = id_to_cid[eid]
-                        code = vals[3]
-                        amount = float(vals[4]) if vals[4] else 0.0
-                        city_rows[cid].append({
-                            "category_code": code,
-                            "category_name": func_map.get(code, "Unknown"),
-                            "amount": amount
-                        })
+                    if len(vals) >= 5:
+                        eid = vals[1]
+                        if eid in id_to_cid:
+                            cid = id_to_cid[eid]
+                            code = vals[3]
+                            try:
+                                amount_str = vals[4].lower()
+                                amount = float(amount_str) if amount_str != 'null' else 0.0
+                            except (ValueError, IndexError):
+                                amount = 0.0
+                            
+                            city_rows[cid].append({
+                                "category_code": str(code),
+                                "category_name": func_map.get(code, "Unknown"),
+                                "amount": amount
+                            })
 
         for cid, rows in city_rows.items():
             if not rows: continue
@@ -127,19 +135,18 @@ def process_year(conn, year, db_cities):
             city_name = next(c[1] for c in db_cities if c[0] == cid)
             upsert_ingestion_status(conn, status_key, "RUNNING", city_id=cid, time_period=str(year))
             
-            print(f"  💾 Loading {len(rows)} functional lines for {city_name} ({ttype})...")
-            
-            # Update summary (total expenses for this year/type)
-            total_exp = sum(r['amount'] for r in rows if len(str(r['category_code'])) == 1)
-            put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=total_exp)
-            
+            # Aggregate: sum amounts for same code (some cities have multiple rows per code in raw data)
             df_lines = pd.DataFrame(rows)
-            # Deduplicate: source data can have the same category_code multiple times;
-            # keep the first name and sum amounts to avoid unique constraint violations.
             df_lines = (
                 df_lines.groupby('category_code', as_index=False)
                 .agg(category_name=('category_name', 'first'), amount=('amount', 'sum'))
             )
+            
+            # Total expenses: sum of 1-digit functional codes
+            total_exp = df_lines[df_lines['category_code'].str.len() == 1]['amount'].sum()
+            print(f"  💾 Loading {len(df_lines)} aggregated lines for {city_name} ({ttype}). Total: {total_exp:,.0f}€")
+            
+            put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=total_exp)
             put_city_budget_categories(conn, cid, year, ttype, df_lines)
             
             upsert_ingestion_status(conn, status_key, "SUCCESS", city_id=cid, time_period=str(year))

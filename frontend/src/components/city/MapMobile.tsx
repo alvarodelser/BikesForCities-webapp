@@ -116,7 +116,6 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
   const isModeAvailable = (m: string | null): boolean => {
     if (!m) return false;
-    if (m === MAP_MODES.INFRASTRUCTURE || m === MAP_MODES.TRAFFIC) return true;
     if (!modeNames[m]) return false;
     if (city.available_modes) return city.available_modes[m] === true;
     if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
