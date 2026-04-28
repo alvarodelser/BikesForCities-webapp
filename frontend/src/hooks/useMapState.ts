@@ -8,10 +8,12 @@ export interface MapState {
     submode: string;
     generation: string;
     routing: string;
+    period: string;
     setMode: (newMode: MapMode, newSubmode?: string) => void;
     setSubmode: (newSubmode: string) => void;
     setGeneration: (value: string) => void;
     setRouting: (value: string) => void;
+    setPeriod: (value: string) => void;
 }
 
 /**
@@ -27,6 +29,7 @@ export function useMapState(): MapState {
     const submode    = searchParams.get('submode') ?? '';
     const generation = searchParams.get('generation') ?? '';
     const routing    = searchParams.get('routing') ?? '';
+    const period     = searchParams.get('period') ?? '';
 
     const setMode = useCallback((newMode: MapMode, newSubmode?: string) => {
         setSearchParams(prev => {
@@ -65,5 +68,13 @@ export function useMapState(): MapState {
         }, { replace: true });
     }, [setSearchParams]);
 
-    return { cityName, mode, submode, generation, routing, setMode, setSubmode, setGeneration, setRouting };
+    const setPeriod = useCallback((value: string) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (value) next.set('period', value); else next.delete('period');
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
+
+    return { cityName, mode, submode, generation, routing, period, setMode, setSubmode, setGeneration, setRouting, setPeriod };
 }

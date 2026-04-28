@@ -118,10 +118,12 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     // --- Overlay helpers ---
     const clearOverlay = useCallback(() => {
         if (!map) return;
-        if (map.getLayer(TRACES_LAYER)) map.removeLayer(TRACES_LAYER);
-        if (map.getSource(TRACES_SOURCE)) map.removeSource(TRACES_SOURCE);
-        if (map.getLayer(OD_LAYER)) map.removeLayer(OD_LAYER);
-        if (map.getSource(OD_SOURCE)) map.removeSource(OD_SOURCE);
+        try {
+            if (map.getLayer(TRACES_LAYER)) map.removeLayer(TRACES_LAYER);
+            if (map.getSource(TRACES_SOURCE)) map.removeSource(TRACES_SOURCE);
+            if (map.getLayer(OD_LAYER)) map.removeLayer(OD_LAYER);
+            if (map.getSource(OD_SOURCE)) map.removeSource(OD_SOURCE);
+        } catch { /* map may have been removed */ }
     }, [map]);
 
     const renderOverlay = useCallback((geojson: GeoJSON.FeatureCollection, mode: string) => {
@@ -278,20 +280,21 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', 'none');
         if (map.getLayer('bike-paths-layer')) map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
         return () => {
-            if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
-            clearOverlay();
+            try {
+                if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
+                clearOverlay();
+                if (stickyRef.current) {
+                    map.setFeatureState(
+                        { source: SOURCE_ID, sourceLayer: 'edges', id: stickyRef.current.edgeId },
+                        { selected: false }
+                    );
+                }
+                if (map.getSource(SOURCE_ID)) {
+                    map.removeFeatureState({ source: SOURCE_ID, sourceLayer: 'edges' });
+                }
+            } catch { /* map may have been removed */ }
             removePopupOverlay();
-            if (stickyRef.current) {
-                map.setFeatureState(
-                    { source: SOURCE_ID, sourceLayer: 'edges', id: stickyRef.current.edgeId },
-                    { selected: false }
-                );
-                stickyRef.current = null;
-            }
-            // Clear all feature states so they don't linger while the layer is hidden
-            if (map.getSource(SOURCE_ID)) {
-                map.removeFeatureState({ source: SOURCE_ID, sourceLayer: 'edges' });
-            }
+            stickyRef.current = null;
             prevGenRef.current = '';
             prevRouteRef.current = '';
             setSelectedEdgeId(null);

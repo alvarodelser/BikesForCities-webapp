@@ -23,9 +23,11 @@ export default function InfrastructureLayer() {
         }
 
         return () => {
-            if (map.getLayer('bike-paths-layer')) {
-                map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
-            }
+            try {
+                if (map.getLayer('bike-paths-layer')) {
+                    map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
+                }
+            } catch { /* map may have been removed */ }
         };
     }, [map, city]);
 

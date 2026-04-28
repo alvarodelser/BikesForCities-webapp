@@ -1,7 +1,7 @@
 import React from 'react';
 import type { ModeStats } from '../../constants/cityStats';
 import { getTrendColor, getTrendIcon } from '../../constants/cityStats';
-import { BarChart3, Network, Route } from 'lucide-react';
+import { BarChart3, Network, Route, Calendar } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
@@ -134,11 +134,11 @@ interface CityStatsProps {
 
 const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats, compact = false, theme = 'light' }) => {
   const { insights, recommendations, overallScore } = modeStats;
-  const { mode, generation, routing, setGeneration, setRouting } = useMapState();
+  const { mode, generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
   const isTraffic = mode === MAP_MODES.TRAFFIC;
   const accent = '#AF4749';
 
-  const { stats: liveStats, trafficModes, loading } = useLiveStats(city, mode, generation, routing);
+  const { stats: liveStats, trafficModes, availablePeriods, loading } = useLiveStats(city, mode, generation, routing, period);
   const { gens, algos } = computationOptions(trafficModes, generation);
 
   const handleSetGeneration = (gen: string) => {
@@ -167,7 +167,18 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
 
         {/* Traffic computation cards — dynamic options from backend */}
         {isTraffic && gens.length > 0 && (
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${compact ? 'gap-3 mb-4' : 'gap-4 mb-8'}`}>
+          <div className={`grid grid-cols-1 md:grid-cols-3 ${compact ? 'gap-3 mb-4' : 'gap-4 mb-8'}`}>
+            <ComputationCard
+              icon={Calendar}
+              title="Período de datos"
+              description="Mes/período de datos disponibles"
+              options={availablePeriods.map(p => ({ id: p, label: formatMonth(p) }))}
+              value={period}
+              defaultValue={availablePeriods[0] ?? ''}
+              accent={accent}
+              onChange={setPeriod}
+              compact={compact}
+            />
             <ComputationCard
               icon={Network}
               title="Generación de viajes"

@@ -88,9 +88,11 @@ export default function InfrastructureLegend() {
         if (!map || !map.getLayer(BUILDINGS_LAYER_ID)) return;
         map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
         return () => {
-            if (map.getLayer(BUILDINGS_LAYER_ID)) {
-                map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', '#ead5c5');
-            }
+            try {
+                if (map.getLayer(BUILDINGS_LAYER_ID)) {
+                    map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', '#ead5c5');
+                }
+            } catch { /* map may have been removed */ }
         };
     }, [map, showBikePathBuildings]);
 
@@ -145,8 +147,10 @@ export default function InfrastructureLegend() {
 
         return () => {
             controller.abort();
-            if (map.getLayer(COVERAGE_LAYER_ID)) map.removeLayer(COVERAGE_LAYER_ID);
-            if (map.getSource(COVERAGE_SOURCE_ID)) map.removeSource(COVERAGE_SOURCE_ID);
+            try {
+                if (map.getLayer(COVERAGE_LAYER_ID)) map.removeLayer(COVERAGE_LAYER_ID);
+                if (map.getSource(COVERAGE_SOURCE_ID)) map.removeSource(COVERAGE_SOURCE_ID);
+            } catch { /* map may have been removed */ }
         };
     }, [map, city, showCoverage]);
 

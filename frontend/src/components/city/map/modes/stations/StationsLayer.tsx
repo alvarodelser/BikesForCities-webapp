@@ -243,14 +243,16 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
 
     const cleanupReachLayers = useCallback(() => {
         if (!map) return;
-        for (const [lid, sid] of [
-            [REACH_LAYER_ID, REACH_SOURCE_ID],
-            [REACH_CIRCLE_LAYER_ID, REACH_CIRCLE_SOURCE_ID],
-            [REACH_POLY_LAYER_ID, REACH_POLY_SOURCE_ID],
-        ]) {
-            if (map.getLayer(lid)) map.removeLayer(lid);
-            if (map.getSource(sid)) map.removeSource(sid);
-        }
+        try {
+            for (const [lid, sid] of [
+                [REACH_LAYER_ID, REACH_SOURCE_ID],
+                [REACH_CIRCLE_LAYER_ID, REACH_CIRCLE_SOURCE_ID],
+                [REACH_POLY_LAYER_ID, REACH_POLY_SOURCE_ID],
+            ]) {
+                if (map.getLayer(lid)) map.removeLayer(lid);
+                if (map.getSource(sid)) map.removeSource(sid);
+            }
+        } catch { /* map may have been removed */ }
     }, [map]);
 
     // --- Mount ---
@@ -260,8 +262,10 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         if (map.getLayer('bike-paths-layer'))  map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
         if (map.getLayer('traffic-layer'))     map.setLayoutProperty('traffic-layer', 'visibility', 'none');
         return () => {
-            if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
-            cleanupReachLayers();
+            try {
+                if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
+                cleanupReachLayers();
+            } catch { /* map may have been removed */ }
             setThresholds(null);
         };
     }, [map]);

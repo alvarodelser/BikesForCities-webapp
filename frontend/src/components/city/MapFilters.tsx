@@ -74,10 +74,13 @@ function ExpandingPill({
   const showSubmodes = active && viz && (!viz.requiresEdge || edgeSelected);
 
   return (
-    <button
-      onClick={onModeClick}
-      disabled={disabled}
+    <div
+      role="button"
+      tabIndex={disabled ? -1 : 0}
       aria-pressed={active}
+      aria-disabled={disabled}
+      onClick={disabled ? undefined : onModeClick}
+      onKeyDown={disabled ? undefined : (e) => (e.key === 'Enter' || e.key === ' ') && onModeClick()}
       className={`relative rounded-2xl border-2 transition-all duration-300 overflow-hidden text-left w-full ${
         disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
       }`}
@@ -124,7 +127,7 @@ function ExpandingPill({
               <button
                 key={s.id}
                 onClick={() => onSubmodeClick(s.id)}
-                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors"
+                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
                 style={{
                   backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
                   color:           isActive ? color : 'rgba(0,0,0,0.45)',
@@ -137,7 +140,7 @@ function ExpandingPill({
           })}
         </div>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -197,7 +200,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 items-start">
         {MODE_META
           .filter(m => isModeAvailable(m.id))
           .map(m => (

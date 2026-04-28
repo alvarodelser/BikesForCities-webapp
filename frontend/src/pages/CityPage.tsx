@@ -12,38 +12,39 @@ const CityPage: React.FC = () => {
   const { cityName: rawCityName } = useParams<{ cityName: string }>();
   const cityName = rawCityName?.replace(/\/$/, "");
   const [city, setCity] = React.useState<CityData | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  // true only on the very first load (no city yet); city transitions keep the map mounted
+  const [initialLoading, setInitialLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const { isMobile } = useViewport();
 
   React.useEffect(() => {
-    setLoading(true);
     setError(null);
     fetchCities().then(cities => {
       if (!cities || cities.length === 0) {
         setError("Unable to find city data. The database might be empty or unreachable.");
-        setLoading(false);
+        setInitialLoading(false);
         return;
       }
-      const found = cities.find(c => 
+      const found = cities.find(c =>
         c.slug === cityName ||
         c.name.toLowerCase().replace(/\s+/g, '') === cityName?.toLowerCase().replace(/\s+/g, '')
       );
       if (!found) {
         setError(`The city "${cityName}" could not be found.`);
+        setInitialLoading(false);
       } else {
         setCity(found);
+        setInitialLoading(false);
         document.title = `${found.name}${found.altName ? ` (${found.altName})` : ''} | BikesForCities`;
       }
-      setLoading(false);
     }).catch(err => {
       console.error(err);
       setError("Unable to reach the database. Please ensure the backend is running.");
-      setLoading(false);
+      setInitialLoading(false);
     });
   }, [cityName]);
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="h-dvh bg-gradient-to-br from-[var(--blue)] to-[var(--blue-dark)] flex items-center justify-center">
         <LoadingContainer />
@@ -54,10 +55,10 @@ const CityPage: React.FC = () => {
   if (error || !city) {
     return (
       <div className="w-full h-dvh flex flex-col items-center justify-center bg-[var(--blue-dark)]">
-        <ErrorContainer 
-          title="City Not Found" 
-          message={error || "The city you are looking for does not exist."} 
-          showHome={true} 
+        <ErrorContainer
+          title="City Not Found"
+          message={error || "The city you are looking for does not exist."}
+          showHome={true}
         />
       </div>
     );

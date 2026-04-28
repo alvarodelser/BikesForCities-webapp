@@ -191,10 +191,14 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
 
         return () => {
             onMapInstance(null);
-            mapInstance.remove();
             mapRef.current = null;
             setMapReady(false);
             setLoading(true);
+            // Defer removal so React can finish running all child cleanup effects
+            // before map.style is destroyed. Synchronous removal causes layer
+            // components to crash when their cleanup calls map.getLayer().
+            const mapToRemove = mapInstance;
+            setTimeout(() => mapToRemove.remove(), 0);
         };
     }, [city.geoCoords.latitude, city.geoCoords.longitude, city.id]);
 

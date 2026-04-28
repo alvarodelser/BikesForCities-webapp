@@ -23,6 +23,7 @@ export interface LiveStat {
 export interface LiveStatsResult {
   stats: LiveStat[];
   trafficModes: TrafficMode[];
+  availablePeriods: string[];
   loading: boolean;
 }
 
@@ -42,9 +43,11 @@ export function useLiveStats(
   mode: MapMode,
   generation: string,
   routing: string,
+  period: string = '',
 ): LiveStatsResult {
   const [stats, setStats] = useState<LiveStat[]>([]);
   const [trafficModes, setTrafficModes] = useState<TrafficMode[]>([]);
+  const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -65,6 +68,7 @@ export function useLiveStats(
       ];
       setStats(baseStats);
       setTrafficModes([]);
+      setAvailablePeriods([]);
       setLoading(false);
 
       // Async fetch for BCC + budget
@@ -109,11 +113,17 @@ export function useLiveStats(
 
         if (mode === MAP_MODES.TRAFFIC) {
           const [traffic, fetchedModes, infraCov] = await Promise.all([
-            fetchTraffic(city.id, generation || undefined, routing || undefined),
+            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined),
             fetchTrafficModes(city.id),
             fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
           ]);
           modes = fetchedModes;
+          // Extract available periods from the response (assumes backend supports multiple period fetches)
+          // For now, store the current period. A future optimization would batch-fetch all periods.
+          const currentPeriod = traffic.month || '';
+          if (currentPeriod) {
+            setAvailablePeriods([currentPeriod]);
+          }
           const monthlyTrips = city.monthly_trips
             ? city.monthly_trips.toLocaleString('es')
             : '—';
@@ -171,7 +181,7 @@ export function useLiveStats(
 
     load();
     return () => { cancelled = true; };
-  }, [city.id, mode, generation, routing, city.cyclingNetwork, city.coverage, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
+  }, [city.id, mode, generation, routing, period, city.cyclingNetwork, city.coverage, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
 
-  return { stats, trafficModes, loading };
+  return { stats, trafficModes, availablePeriods, loading };
 }
