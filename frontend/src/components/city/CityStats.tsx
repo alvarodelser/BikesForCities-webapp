@@ -5,7 +5,7 @@ import { BarChart3, Network, Route, Calendar } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
-import { useLiveStats } from '../../hooks/useLiveStats';
+import { useLiveStats, formatMonth } from '../../hooks/useLiveStats';
 import type { CityData } from '../../constants/cities';
 import type { TrafficMode } from '../../services/api';
 

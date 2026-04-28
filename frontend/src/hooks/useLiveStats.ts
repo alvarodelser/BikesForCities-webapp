@@ -31,7 +31,7 @@ function locked(label: string): LiveStat {
   return { label, value: 'Próximamente', icon: Lock, comingSoon: true };
 }
 
-function formatMonth(month: string | null): string {
+export function formatMonth(month: string | null): string {
   if (!month) return '—';
   const parts = month.split('-');
   return new Date(Number(parts[0]), Number(parts[1]) - 1)
