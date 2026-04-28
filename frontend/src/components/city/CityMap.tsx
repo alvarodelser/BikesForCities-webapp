@@ -133,8 +133,8 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                             >
                                 <div>
                                     <h1
-                                        className="text-xl font-bold font-[Archivo_Narrow] leading-tight"
-                                        style={{ color: '#ffffffee' }}
+                                        className="text-xl font-bold leading-tight"
+                                        style={{ color: '#ffffffee', fontFamily: "'Archivo Narrow', sans-serif" }}
                                     >
                                         {city.name} - {modeLabel}
                                     </h1>

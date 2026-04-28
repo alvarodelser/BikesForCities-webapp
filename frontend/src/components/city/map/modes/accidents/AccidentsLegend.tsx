@@ -10,7 +10,7 @@ const SEVERITY_LEGEND = [
 export default function AccidentsLegend() {
     return (
         <div className="flex flex-col gap-y-3">
-            <h3 className="text-sm font-bold font-[Archivo_Narrow] text-slate-800 border-b border-black/5 pb-1 mb-1">
+            <h3 className="text-sm font-bold text-slate-800 border-b border-black/5 pb-1 mb-1" style={{ fontFamily: "'Archivo Narrow', sans-serif" }}>
                 Accidentes Ciclistas
             </h3>
             
