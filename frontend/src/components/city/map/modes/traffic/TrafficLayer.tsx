@@ -144,8 +144,29 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     type: 'heatmap',
                     source: OD_SOURCE,
                     paint: {
-                        'heatmap-radius': 22,
-                        'heatmap-opacity': 0.75,
+                        // Radius grows with zoom so blobs stay readable at any scale
+                        'heatmap-radius': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 6,
+                            13, 14,
+                            16, 28,
+                            19, 60,
+                        ],
+                        // Intensity climbs with zoom to keep density visible as points spread out
+                        'heatmap-intensity': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 0.6,
+                            13, 1.0,
+                            16, 1.6,
+                            19, 2.4,
+                        ],
+                        // Fade slightly when zoomed in so individual points don't drown the basemap
+                        'heatmap-opacity': [
+                            'interpolate', ['linear'], ['zoom'],
+                            10, 0.85,
+                            16, 0.7,
+                            19, 0.55,
+                        ],
                         'heatmap-color': [
                             'interpolate', ['linear'], ['heatmap-density'],
                             0,   'rgba(0,0,0,0)',
