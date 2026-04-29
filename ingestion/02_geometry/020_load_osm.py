@@ -29,6 +29,7 @@ ox.settings.use_cache = True
 def main():
     parser = argparse.ArgumentParser(description="Load OSM network and features")
     parser.add_argument("--force", action="store_true", help="Force re-download even if downloaded within 365 days")
+    parser.add_argument("--city", type=str, help="Filter by city name (case-insensitive)")
     args = parser.parse_args()
 
     load_dotenv()
@@ -51,6 +52,10 @@ def main():
         
     for city_row in cities:
         city_id, city_name, *rest = city_row
+        
+        if args.city and args.city.lower() not in city_name.lower():
+            continue
+            
         print(f"\n==============================================")
         print(f"🗺  Processing OSM Data for {city_name} (ID: {city_id})")
         print(f"==============================================")
