@@ -12,6 +12,7 @@ import LineAreaChart from '../components/city/plots/LineAreaChart';
 import ScoreDonut from '../components/city/plots/ScoreDonut';
 import BarHistogram from '../components/city/plots/BarHistogram';
 import StackedBarMatrix from '../components/city/plots/StackedBarMatrix';
+import BuildingsDensityHistogram from '../components/city/plots/BuildingsDensityHistogram';
 
 const CityPage: React.FC = () => {
   const { cityName: rawCityName } = useParams<{ cityName: string }>();
@@ -161,6 +162,10 @@ const CityPage: React.FC = () => {
             subtitle="Población por proximidad"
             gradient
           />
+        </div>
+        <div className="col-span-1">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Building Density</h2>
+          <BuildingsDensityHistogram cityId={1} />
         </div>
         <div className="col-span-1 md:col-span-2">
           <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Safety Matrix</h2>
