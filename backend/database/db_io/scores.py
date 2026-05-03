@@ -95,13 +95,9 @@ def _compute_infra_scores(rows: List[Dict], city_id: int) -> Optional[Dict[str, 
         return None
 
     # --- gcc_fraction metric (50%) ---
-    # Use gcc_km_ratio as proxy for gcc_fraction; fall back to coverage
-    gcc_vals = []
-    for r in rows:
-        gkr = r.get("gcc_km_ratio")
-        cov = r.get("coverage")
-        gcc_vals.append(gkr if gkr is not None else cov)
-    target_gcc = target.get("gcc_km_ratio") if target.get("gcc_km_ratio") is not None else target.get("coverage")
+    # Use gcc_km_ratio only; missing data → segment value = 0
+    gcc_vals = [r.get("gcc_km_ratio") for r in rows]
+    target_gcc = target.get("gcc_km_ratio")
 
     # --- coverage metric (25%) ---
     cov_vals = [r.get("coverage") for r in rows]
