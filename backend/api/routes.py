@@ -23,6 +23,7 @@ from .models import (
     StationMonthlyResponse, StationMonthlyPoint,
     CityBudgetsResponse, BudgetYear, BudgetCategory,
     MayorsTimelineResponse, MayorRecord, ElectionResult,
+    MayorTermResponse, BudgetCategoryResponse, CityContextResponse,
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
@@ -1023,6 +1024,58 @@ async def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)
     except Exception as e:
         logger.error(f"Error getting mayors timeline for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve mayors timeline")
+
+
+@router.get("/cities/{city_id}/context", response_model=CityContextResponse)
+def get_city_context(city_id: int, conn=Depends(get_db_connection)):
+    """Return city context: historical mayors and latest budget categories."""
+    try:
+        validate_network_exists(conn, city_id)
+
+        # Fetch mayors
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT name, party, start_date, end_date FROM historical_mayors WHERE city_id = %s ORDER BY start_date ASC",
+                (city_id,),
+            )
+            mayors = [
+                MayorTermResponse(name=r[0], party=r[1], start_date=r[2], end_date=r[3])
+                for r in cur.fetchall()
+            ]
+
+        # Fetch latest budget year
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(year) FROM city_budget_categories WHERE city_id = %s",
+                (city_id,),
+            )
+            row = cur.fetchone()
+            budget_year = row[0] if row else None
+
+        # Fetch budget categories for that year
+        budget_categories: Dict[str, List[BudgetCategoryResponse]] = {}
+        if budget_year is not None:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT budget_type, category_code AS code, category_name AS name, amount "
+                    "FROM city_budget_categories WHERE city_id = %s AND year = %s ORDER BY category_code",
+                    (city_id, budget_year),
+                )
+                for budget_type, code, name, amount in cur.fetchall():
+                    budget_categories.setdefault(budget_type, []).append(
+                        BudgetCategoryResponse(code=code, name=name, amount=amount)
+                    )
+
+        return CityContextResponse(
+            mayors=mayors,
+            budget_year=budget_year,
+            budget_categories=budget_categories,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting city context for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve city context")
 
 
 # Status endpoint

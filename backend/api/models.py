@@ -424,6 +424,25 @@ class MayorRecord(BaseModel):
     end_date: Optional[str] = None
 
 
+class MayorTermResponse(BaseModel):
+    name: str
+    party: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None   # None = current incumbent
+
+
+class BudgetCategoryResponse(BaseModel):
+    code: str
+    name: str
+    amount: int
+
+
+class CityContextResponse(BaseModel):
+    mayors: List[MayorTermResponse]
+    budget_year: Optional[int] = None
+    budget_categories: Dict[str, List[BudgetCategoryResponse]]  # key = 'planned' | 'executed'
+
+
 class ElectionResult(BaseModel):
     year: int
     party: str
