@@ -324,7 +324,8 @@ export const fetchBuildingCoverageComponents = async (cityId: number): Promise<G
 export const fetchInfraStats = async (cityId: number): Promise<InfraStats> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
   if (!response.ok) throw new Error('Failed to fetch infrastructure stats');
-  return response.json();
+  const result = await response.json();
+  return result.data;
 };
 
 // ── Traffic analytics ─────────────────────────────────────────────────────────
