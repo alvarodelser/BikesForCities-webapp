@@ -104,6 +104,3 @@ const MetricPill: React.FC<MetricPillProps> = ({
 };
 
 export default MetricPill;
-
-
-export default MetricPill;
