@@ -8,7 +8,11 @@ import GlassCard from '../../ui/GlassCard';
 interface MayorsGanttChartProps {
   terms: MayorTerm[];
   title?: string;
+<<<<<<< HEAD
   subtitle?: string;
+=======
+  partyColors?: Record<string, string>;
+>>>>>>> 91955f4 (feat: add GeneralContext section (mayors Gantt + budget sunburst))
 }
 
 interface TooltipState {
@@ -36,8 +40,13 @@ const formatDate = timeFormat('%b %Y');
 
 export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
   terms,
+<<<<<<< HEAD
   title = 'Historial de Alcaldía',
   subtitle,
+=======
+  title = 'Mayor History',
+  partyColors,
+>>>>>>> 91955f4 (feat: add GeneralContext section (mayors Gantt + budget sunburst))
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -138,6 +147,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
         )}
       </div>
 
+<<<<<<< HEAD
       <div ref={containerRef} className="flex-1 relative min-h-[300px]">
         {width > 0 && xScale && (
           <svg width={width} height={chartHeight} style={{ display: 'block', overflow: 'visible' }}>
@@ -146,6 +156,45 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
               {yearTicks.map((tick, i) => {
                 const x = xScale(tick);
                 return (
+=======
+      <svg width={width} height={totalHeight} style={{ display: 'block' }}>
+        <g transform={`translate(${PADDING_LEFT}, ${PADDING_TOP})`}>
+          {/* Bars */}
+          {terms.map((term, i) => {
+            const startDate = parseDate(term.start_date);
+            const endDate = parseDate(term.end_date);
+            const isCurrentIncumbent = term.end_date === null;
+
+            const x = xScale(startDate);
+            const barEndX = xScale(endDate);
+            const barWidth = Math.max(barEndX - x, 2);
+            const y = i * (BAR_HEIGHT + BAR_GAP);
+
+            const color = partyColors && term.party
+              ? (partyColors[term.party] ?? getPartyColor(term.party))
+              : getPartyColor(term.party);
+            const label = `${term.name}${term.party ? ` (${term.party})` : ''}`;
+
+            return (
+              <g key={`${term.name}-${i}`}>
+                {/* Background bar (full width, no dash) */}
+                <rect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={BAR_HEIGHT}
+                  fill={color}
+                  fillOpacity={0.85}
+                  rx={4}
+                  onMouseEnter={e => handleMouseEnter(e, term)}
+                  onMouseMove={handleMouseMove}
+                  onMouseLeave={handleMouseLeave}
+                  style={{ cursor: 'pointer' }}
+                />
+
+                {/* Dashed right border for current incumbent */}
+                {isCurrentIncumbent && (
+>>>>>>> 91955f4 (feat: add GeneralContext section (mayors Gantt + budget sunburst))
                   <line
                     key={`grid-${i}`}
                     x1={x}
