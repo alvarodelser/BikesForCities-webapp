@@ -448,3 +448,35 @@ export const fetchMayorsTimeline = async (cityId: number): Promise<MayorsTimelin
   if (!response.ok) throw new Error('Failed to fetch mayors timeline');
   return response.json();
 };
+
+// ── City context (mayors + budget breakdown) ──────────────────────────────────
+
+export interface MayorTerm {
+  name: string;
+  party: string | null;
+  start_date: string | null;
+  end_date: string | null; // null = current incumbent
+}
+
+export interface ContextBudgetCategory {
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export interface CityContextData {
+  mayors: MayorTerm[];
+  budget_year: number | null;
+  budget_categories: {
+    planned?: ContextBudgetCategory[];
+    executed?: ContextBudgetCategory[];
+  };
+}
+
+export async function fetchCityContext(cityId: number): Promise<CityContextData> {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/context`);
+  if (!response.ok) throw new Error('Failed to fetch city context');
+  const result = await response.json();
+  // Unwrap .data envelope if present (consistent with other endpoints)
+  return result.data ?? result;
+}
