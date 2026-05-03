@@ -20,4 +20,15 @@ export interface CityData {
   bicycles_count?: number;
   available_modes?: Record<string, unknown>;
   angle?: number;
+  mode_scores?: {
+    [mode: string]: {
+      overall: number;
+      segments: {
+        label: string;
+        weight: number;
+        value: number;
+        color: string;
+      }[];
+    };
+  };
 }

@@ -146,6 +146,7 @@ export interface TrafficApiResponse {
   algorithm: string | null;
   month: string | null;
   stats: TrafficStats | null;
+  available_periods?: string[];  // YYYY-MM strings desc-sorted
 }
 
 export const fetchTraffic = async (
@@ -171,6 +172,7 @@ export const fetchTraffic = async (
     algorithm: result.algorithm ?? null,
     month: result.month ?? null,
     stats: result.stats ?? null,
+    available_periods: result.available_periods,
   };
 };
 
