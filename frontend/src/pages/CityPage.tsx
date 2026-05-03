@@ -7,7 +7,6 @@ import MapDesktop from '../components/city/MapDesktop';
 import MapMobile from '../components/city/MapMobile';
 import ErrorContainer from '../components/ui/ErrorContainer';
 import LoadingContainer from '../components/ui/LoadingContainer';
-import InfraStats from '../components/city/map/modes/infrastructure/InfraStats';
 
 const CityPage: React.FC = () => {
   const { cityName: rawCityName } = useParams<{ cityName: string }>();
@@ -66,15 +65,8 @@ const CityPage: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="h-dvh">
-        {isMobile ? <MapMobile city={city} /> : <MapDesktop city={city} />}
-      </div>
-      {/* TEMP: InfraStats preview for UI iteration */}
-      <div className="w-full bg-[var(--blue)] px-[var(--space-gutter)] py-12">
-        <h2 className="text-2xl font-bold text-white mb-8">Infraestructura — preview</h2>
-        <InfraStats city={city} />
-      </div>
+    <div className="h-dvh">
+      {isMobile ? <MapMobile city={city} /> : <MapDesktop city={city} />}
     </div>
   );
 };
