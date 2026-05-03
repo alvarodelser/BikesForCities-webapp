@@ -1,13 +1,15 @@
 import React from 'react';
 import type { ModeStats } from '../../constants/cityStats';
 import { getTrendColor, getTrendIcon } from '../../constants/cityStats';
-import { BarChart3, Network, Route, Calendar } from 'lucide-react';
+import { BarChart3, Network, Route, Calendar, TrendingUp, Activity } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
 import { useLiveStats, formatMonth } from '../../hooks/useLiveStats';
 import type { CityData } from '../../constants/cities';
 import type { TrafficMode } from '../../services/api';
+import MetricPill from './pills/MetricPill';
+import ServiceNamePill from './pills/ServiceNamePill';
 
 // ── Traffic computation labels (matches backend keys from TrafficLegend) ──────
 
@@ -139,6 +141,7 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
   const { insights, recommendations, overallScore } = modeStats;
   const { mode, generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
   const isTraffic = mode === MAP_MODES.TRAFFIC;
+  const isInfra = mode === MAP_MODES.INFRASTRUCTURE;
   const accent = '#AF4749';
 
   const { stats: liveStats, trafficModes, availablePeriods, loading } = useLiveStats(city, mode, generation, routing, period);
@@ -206,9 +209,51 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
             />
           </div>
         )}
+        {/* Infrastructure special pills */}
+        {isInfra && (
+          <div className="mb-8 space-y-6">
+            {city.service_name && (
+              <div className="flex justify-start">
+                <ServiceNamePill serviceName={city.service_name} />
+              </div>
+            )}
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <MetricPill
+                value={liveStats[0]?.value || `${city.cyclingNetwork.toFixed(1)} km`}
+                label="Longitud total"
+                sublabel="Red ciclista"
+                icon={BarChart3}
+                helpContent="Longitud total de la red de carriles bici e infraestructura ciclista detectada en la ciudad."
+              />
+              <MetricPill
+                value={liveStats[3]?.value || `${(city.coverage * 100).toFixed(1)} %`}
+                label="Cobertura poblacional"
+                sublabel="Accesibilidad"
+                icon={TrendingUp}
+                helpContent="Porcentaje de la población que vive a menos de 150 metros de un carril bici."
+              />
+              <MetricPill
+                value={liveStats[4]?.value || '—'}
+                label="Cobertura GCC"
+                sublabel="Conectividad"
+                icon={Network}
+                helpContent="Cobertura de la 'Gran Componente Conexa' (GCC). Indica el porcentaje de población servido por la red continua más grande, sin saltos."
+              />
+              <MetricPill
+                value={liveStats[2]?.value || '—'}
+                label="Eficiencia presupuestaria"
+                sublabel="Inversión"
+                icon={Activity}
+                helpContent="Kilómetros de infraestructura por cada millón de euros invertido en el programa de Vías Públicas."
+              />
+            </div>
+          </div>
+        )}
 
         {/* Statistics Grid */}
-        <div className={`grid ${colClass} ${compact ? 'gap-2.5' : 'gap-3'}`}>
+        {!isInfra && (
+          <div className={`grid ${colClass} ${compact ? 'gap-2.5' : 'gap-3'}`}>
           {loading
             ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} compact={compact} />)
             : statsToRender.map((stat, index) => {
@@ -240,7 +285,8 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
                   </div>
                 );
               })}
-        </div>
+          </div>
+        )}
 
         {/* Insights + Recommendations */}
         <div className={`${compact ? 'mt-4' : 'mt-8'} grid grid-cols-1 lg:grid-cols-2 ${compact ? 'gap-3' : 'gap-6'}`}>
