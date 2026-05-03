@@ -3,8 +3,8 @@ import type { CityData } from '../../../constants/cities';
 import { useInfraStats } from '../../../hooks/useInfraStats';
 import MetricPill from '../pills/MetricPill';
 import { BuildingsDensityHistogram } from '../plots/BuildingsDensityHistogram';
-import { ScoreDonut } from '../plots/ScoreDonut';
-import { CityRankTable } from '../plots/CityRankTable';
+import ScoreDonut from '../plots/ScoreDonut';
+import CityRankTable from '../plots/CityRankTable';
 
 export interface InfraStatsProps {
   city: CityData;
@@ -18,15 +18,12 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
 const InfraStats: React.FC<InfraStatsProps> = ({ city }) => {
   const { totalKm, coverage, gccFraction, loading } = useInfraStats(city.id ?? null);
 
-  // Derive kmPer100k from totalKm + city.population
   const kmPer100k: number | null =
     totalKm !== null && city.population > 0
       ? totalKm / (city.population / 100_000)
       : null;
 
-  // kmPerMeur requires budget data — placeholder until wired
   const kmPerMeur: number | null = null;
-
   const displayLoading = loading;
 
   const totalKmStr = displayLoading ? '—' : fmt(totalKm, 1, 'km');
@@ -37,44 +34,41 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city }) => {
 
   const infraSegments = city.mode_scores?.infrastructure?.segments ?? [];
   const infraOverall = city.mode_scores?.infrastructure?.overall ?? 0;
+  const ACCENT = '#3b82f6';
 
   return (
-    <div className="w-full flex flex-col gap-6 bg-blue-900/80 rounded-2xl p-5 text-white">
-
+    <div className="w-full flex flex-col gap-8">
       {/* Pills section */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Column 1 */}
-        <div className="flex flex-col gap-3">
-          <MetricPill
-            size="main"
-            value={totalKmStr}
-            label="Total red ciclista"
-          />
-          <MetricPill
-            size="sub"
-            value={kmPer100kStr}
-            label="Densidad poblacional"
-          />
-          <MetricPill
-            size="sub"
-            value={kmPerMeurStr}
-            label="Eficiencia presupuestaria"
-          />
-        </div>
-
-        {/* Column 2 */}
-        <div className="flex flex-col gap-3">
-          <MetricPill
-            size="main"
-            value={coverageStr}
-            label="Cobertura total"
-          />
-          <MetricPill
-            size="sub"
-            value={gccStr}
-            label="GCC"
-          />
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <MetricPill
+          value={totalKmStr}
+          label="Total red ciclista"
+          accent={ACCENT}
+          helpContent="Longitud total de la red de carriles bici detectada."
+        />
+        <MetricPill
+          value={kmPer100kStr}
+          label="Densidad"
+          sublabel="Km por cada 100k hab."
+          accent={ACCENT}
+        />
+        <MetricPill
+          value={kmPerMeurStr}
+          label="Eficiencia"
+          sublabel="Inversión por km"
+          accent={ACCENT}
+        />
+        <MetricPill
+          value={coverageStr}
+          label="Cobertura total"
+          accent={ACCENT}
+        />
+        <MetricPill
+          value={gccStr}
+          label="GCC"
+          sublabel="Conectividad de red"
+          accent={ACCENT}
+        />
       </div>
 
       {/* Chart section */}
@@ -83,25 +77,17 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city }) => {
       </div>
 
       {/* Score section */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Left: ScoreDonut */}
-        <div className="bg-white/10 rounded-xl p-4">
-          <ScoreDonut
-            segments={infraSegments}
-            overallScore={infraOverall}
-            accent="#3b82f6"
-            cityName={city.name}
-          />
-        </div>
-
-        {/* Right: CityRankTable */}
-        <div className="bg-white/10 rounded-xl p-4">
-          {/* TODO: wire rank data from API */}
-          <CityRankTable
-            cities={[]}
-            accent="#3b82f6"
-          />
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <ScoreDonut
+          segments={infraSegments}
+          overallScore={infraOverall}
+          accent={ACCENT}
+          cityName={city.name}
+        />
+        <CityRankTable
+          cities={[]} // TODO: wire rank data
+          accent={ACCENT}
+        />
       </div>
     </div>
   );
