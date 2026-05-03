@@ -48,6 +48,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
     const { mode } = useMapState();
     const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
+
     const [selectedEdgeId, setSelectedEdgeIdInternal] = useState<number | null>(null);
     const setSelectedEdgeId = useCallback((id: number | null) => {
         setSelectedEdgeIdInternal(id);

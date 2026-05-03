@@ -75,6 +75,7 @@ const CoverageColorSquare = ({ active }: { active: boolean }) => (
     </div>
 );
 
+
 export default function InfrastructureLegend() {
     const [showBikePathBuildings, setShowBikePathBuildings] = useState(true);
     const [showCoverage, setShowCoverage] = useState(false);
@@ -158,6 +159,7 @@ export default function InfrastructureLegend() {
 
     return (
         <div className="flex flex-col gap-y-2.5">
+
             <LegendItem type="line" color="#00cac3" label="Carril Bici" />
 
             <div className="flex flex-col gap-y-0.5">

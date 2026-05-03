@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
 import { useMap } from '../../MapContext';
 
-
-
-export default function InfrastructureLayer() {
+export default function InfrastructureLayer({ submode: _submode }: { submode: string }) {
     const { map, city } = useMap();
 
     useEffect(() => {

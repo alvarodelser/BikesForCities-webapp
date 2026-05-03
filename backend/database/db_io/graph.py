@@ -603,7 +603,7 @@ def get_building_coverage_components_geojson(conn, city_id: int) -> dict:
                 FROM unioned
             ),
             buildings AS (
-                SELECT id, ST_AsGeoJSON(geometry) AS geojson
+                SELECT id, geometry, ST_AsGeoJSON(geometry) AS geojson
                 FROM features
                 WHERE feature_type = 'bike_path_buildings' AND city_id = %s
             )
