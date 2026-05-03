@@ -43,6 +43,7 @@ from backend.database.db_io import (
     get_station_monthly_agg,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
     get_best_traffic_mode, get_latest_traffic_month,
+    compute_mode_scores,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ async def list_networks(conn=Depends(get_db_connection)):
                 "forum": bool(forum)
             }
 
-            cities.append(CityResponse(
+            city_obj = CityResponse(
                 id=city_id,
                 name=name,
                 alt_name=alt_name,
@@ -106,8 +107,13 @@ async def list_networks(conn=Depends(get_db_connection)):
                 bicycles_count=int(bicycles_count) if bicycles_count is not None else None,
                 bounds=bounds,
                 available_modes=available_modes
-            ))
-        
+            )
+            try:
+                city_obj.mode_scores = compute_mode_scores(conn, city_id)
+            except Exception as scores_err:
+                logger.warning(f"Could not compute mode scores for city {city_id}: {scores_err}")
+            cities.append(city_obj)
+
         return CityListResponse(
             data=cities,
             count=len(cities),
@@ -163,7 +169,11 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             bounds=bounds_dict,
             available_modes=available_modes
         )
-        
+        try:
+            city.mode_scores = compute_mode_scores(conn, city_id)
+        except Exception as scores_err:
+            logger.warning(f"Could not compute mode scores for city {city_id}: {scores_err}")
+
         return CityDetailResponse(
             data=city,
             message="City retrieved successfully"
@@ -659,6 +669,23 @@ async def get_city_traffic(
             if raw:
                 stats = TrafficStats(**raw)
 
+        # Distinct available months for this city
+        available_periods = None
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT TO_CHAR(month, 'YYYY-MM') AS period
+                    FROM edge_traffic
+                    WHERE city_id = %s
+                    ORDER BY period DESC
+                    """,
+                    (city_id,),
+                )
+                available_periods = [r[0] for r in cur.fetchall()]
+        except Exception as periods_err:
+            logger.warning(f"Could not fetch available traffic periods for city {city_id}: {periods_err}")
+
         return TrafficResponse(
             data=[TrafficCount(edge_id=r[0], trip_count=r[1], month=r[2]) for r in rows],
             count=len(rows),
@@ -666,6 +693,7 @@ async def get_city_traffic(
             algorithm=resolved_algo,
             month=resolved_month,
             stats=stats,
+            available_periods=available_periods,
         )
     except HTTPException:
         raise

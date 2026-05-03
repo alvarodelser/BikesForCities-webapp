@@ -10,6 +10,8 @@ import LoadingContainer from '../components/ui/LoadingContainer';
 import CityRankTable from '../components/city/plots/CityRankTable';
 import LineAreaChart from '../components/city/plots/LineAreaChart';
 import ScoreDonut from '../components/city/plots/ScoreDonut';
+import BarHistogram from '../components/city/plots/BarHistogram';
+import StackedBarMatrix from '../components/city/plots/StackedBarMatrix';
 
 const CityPage: React.FC = () => {
   const { cityName: rawCityName } = useParams<{ cityName: string }>();
@@ -90,6 +92,36 @@ const CityPage: React.FC = () => {
     { label: 'Intermodalidad', weight: 0.3, value: 0.45, color: '#FACC15' },
   ];
 
+  const demoHistogramData = [
+    { label: '0-50m', value: 120 },
+    { label: '50-100m', value: 340 },
+    { label: '100-150m', value: 560 },
+    { label: '150-200m', value: 210 },
+    { label: '200m+', value: 90 },
+  ];
+
+  const demoMatrixRows = [
+    {
+      label: 'Comercial',
+      total: 1000,
+      segments: [
+        { value: 400, color: '#4ADE80', label: 'Seguro' },
+        { value: 350, color: '#FACC15', label: 'Neutral' },
+        { value: 250, color: '#F87171', label: 'Inseguro' },
+      ]
+    },
+    {
+      label: 'Residencial',
+      total: 2500,
+      segments: [
+        { value: 1500, color: '#4ADE80', label: 'Seguro' },
+        { value: 700, color: '#FACC15', label: 'Neutral' },
+        { value: 300, color: '#F87171', label: 'Inseguro' },
+      ]
+    },
+  ];
+  const demoMatrixLabels = ['Seguro', 'Neutral', 'Inseguro'];
+
   return (
     <div className="h-dvh flex flex-col overflow-auto bg-gray-50">
       {/* PROVISIONAL DEMO SECTION */}
@@ -118,6 +150,25 @@ const CityPage: React.FC = () => {
             cityName={city.name} 
             overallScore={78} 
             accent="#AF4749" 
+          />
+        </div>
+        <div className="col-span-1">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Coverage Histogram</h2>
+          <BarHistogram 
+            data={demoHistogramData} 
+            accent="#AF4749" 
+            title="Distancia a red"
+            subtitle="Población por proximidad"
+            gradient
+          />
+        </div>
+        <div className="col-span-1 md:col-span-2">
+          <h2 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Safety Matrix</h2>
+          <StackedBarMatrix 
+            rows={demoMatrixRows} 
+            segmentLabels={demoMatrixLabels}
+            title="Percepción por zona"
+            subtitle="Distribución de seguridad percibida"
           />
         </div>
       </div>

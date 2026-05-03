@@ -43,6 +43,7 @@ class CityResponse(NetworkBase):
     bicycles_count: Optional[int] = None
     bounds: Optional[Dict[str, float]] = None
     available_modes: Optional[Dict[str, Any]] = None
+    mode_scores: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
@@ -323,6 +324,7 @@ class TrafficResponse(BaseResponse):
     algorithm: Optional[str] = None
     month: Optional[date] = None
     stats: Optional[TrafficStats] = None
+    available_periods: Optional[List[str]] = None  # YYYY-MM strings desc-sorted
 
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""
