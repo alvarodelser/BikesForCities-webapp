@@ -1,4 +1,5 @@
 import React from 'react';
+import type { CityData } from '../../constants/cities';
 import type { ModeStats } from '../../constants/cityStats';
 import { getTrendColor, getTrendIcon } from '../../constants/cityStats';
 import { BarChart3, Network, Route, Calendar, TrendingUp, Activity } from 'lucide-react';
@@ -14,18 +15,18 @@ import ServiceNamePill from './pills/ServiceNamePill';
 // ── Traffic computation labels (matches backend keys from TrafficLegend) ──────
 
 const GENERATION_LABELS: Record<string, string> = {
-  real:                 'GPS real',
-  station_based:        'Estaciones',
+  real: 'GPS real',
+  station_based: 'Estaciones',
   buildings_population: 'Población',
 };
 const ALGORITHM_LABELS: Record<string, string> = {
   map_matched: 'Map-matched',
-  safest:      'Ruta segura',
-  shortest:    'Ruta corta',
-  grouped:     'Agrupado',
+  safest: 'Ruta segura',
+  shortest: 'Ruta corta',
+  grouped: 'Agrupado',
 };
 const GENERATION_ORDER = ['real', 'station_based', 'buildings_population'];
-const ALGORITHM_ORDER  = ['map_matched', 'safest', 'shortest', 'grouped'];
+const ALGORITHM_ORDER = ['map_matched', 'safest', 'shortest', 'grouped'];
 
 function computationOptions(trafficModes: TrafficMode[], generation: string) {
   const gens = GENERATION_ORDER
@@ -92,9 +93,9 @@ function ComputationCard({
                 className={`${compact ? 'px-2 py-1.5 text-[10px]' : 'px-2 py-2 text-xs'} rounded-xl font-semibold transition-all border`}
                 style={{
                   backgroundColor: isActive ? accent : 'white',
-                  borderColor:     isActive ? accent : 'rgba(0,0,0,0.08)',
-                  color:           isActive ? 'white' : 'var(--blue-dark)',
-                  boxShadow:       isActive ? `0 4px 12px ${accent}40` : undefined,
+                  borderColor: isActive ? accent : 'rgba(0,0,0,0.08)',
+                  color: isActive ? 'white' : 'var(--blue-dark)',
+                  boxShadow: isActive ? `0 4px 12px ${accent}40` : undefined,
                 }}
               >
                 {opt.label}
@@ -130,9 +131,9 @@ function gridCols(n: number): string {
 
 interface CityStatsProps {
   city: CityData;
-  title: string;
-  subtitle: string;
-  modeStats: ModeStats;
+  title?: string;
+  subtitle?: string;
+  modeStats?: ModeStats;
   compact?: boolean;
   theme?: 'light' | 'dark';
 }
@@ -217,7 +218,7 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
                 <ServiceNamePill serviceName={city.service_name} />
               </div>
             )}
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricPill
                 value={liveStats[0]?.value || `${city.cyclingNetwork.toFixed(1)} km`}
@@ -254,9 +255,9 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
         {/* Statistics Grid */}
         {!isInfra && (
           <div className={`grid ${colClass} ${compact ? 'gap-2.5' : 'gap-3'}`}>
-          {loading
-            ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} compact={compact} />)
-            : statsToRender.map((stat, index) => {
+            {loading
+              ? Array.from({ length: 4 }).map((_, i) => <StatSkeleton key={i} compact={compact} />)
+              : statsToRender.map((stat, index) => {
                 const isLive = showLiveStats;
                 const comingSoon = isLive && (stat as any).comingSoon;
                 const trend = (stat as any).trend ?? 'neutral';
