@@ -355,7 +355,8 @@ export const fetchTrafficInfraCoverage = async (
     `${API_BASE_URL}/cities/${cityId}/traffic/infra-coverage${qs ? `?${qs}` : ''}`
   );
   if (!response.ok) throw new Error('Failed to fetch traffic infra coverage');
-  return response.json();
+  const r = await response.json();
+  return r.data;
 };
 
 export interface HistogramSeries {
