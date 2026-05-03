@@ -198,6 +198,8 @@ logs/
 
 # Generated plots and images
 plots/
+# But allow source component plots directories
+!frontend/src/components/**/plots/
 
 # CSV files (data)
 *.csv
