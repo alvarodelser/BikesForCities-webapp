@@ -166,7 +166,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   }, [root]);
 
   return (
-    <GlassCard className="flex flex-col h-full">
+    <GlassCard surface="glass" className="flex flex-col h-full">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
@@ -254,8 +254,5 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     </GlassCard>
   );
 };
-
-export default BudgetSunburst;
-
 
 export default BudgetSunburst;

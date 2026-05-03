@@ -5,7 +5,7 @@ export interface MetricPillProps {
   value: string;
   label: string;
   sublabel?: string;
-  icon?: ComponentType<{ className?: string }>;
+  icon?: ComponentType<{ className?: string; style?: React.CSSProperties }>;
   helpContent?: ReactNode;
   accent?: string;
 }

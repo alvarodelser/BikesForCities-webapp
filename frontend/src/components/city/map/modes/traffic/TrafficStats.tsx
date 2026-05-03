@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import type { CityData } from '../../../constants/cities';
-import type { TrafficOptions } from '../../../hooks/useTrafficStats';
-import { useTrafficStats } from '../../../hooks/useTrafficStats';
-import { fetchTraffic, fetchTrafficInfraCoverage } from '../../../services/api';
-import MetricPill from '../pills/MetricPill';
-import RouteHistograms from '../plots/RouteHistograms';
-import LineAreaChart from '../plots/LineAreaChart';
-import ScoreDonut from '../plots/ScoreDonut';
-import CityRankTable from '../plots/CityRankTable';
+import type { CityData } from '../../../../../constants/cities';
+import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
+import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
+import { fetchTraffic, fetchTrafficInfraCoverage } from '../../../../../services/api';
+import MetricPill from '../../../pills/MetricPill';
+import RouteHistograms from '../../../plots/RouteHistograms';
+import LineAreaChart from '../../../plots/LineAreaChart';
+import ScoreDonut from '../../../plots/ScoreDonut';
+import CityRankTable from '../../../plots/CityRankTable';
 
 export interface TrafficStatsProps {
   city: CityData;
@@ -26,32 +26,6 @@ const ALGORITHM_OPTIONS: { value: TrafficOptions['algorithm']; label: string }[]
   { value: 'shortest', label: 'Ruta corta' },
   { value: 'safest', label: 'Ruta segura' },
 ];
-
-// ── small selector button ───────────────────────────────────────────────────────
-
-interface SelectorButtonProps {
-  value: string | undefined;
-  current: string | undefined;
-  label: string;
-  onClick: (v: string | undefined) => void;
-}
-
-function SelectorButton({ value, current, label, onClick }: SelectorButtonProps) {
-  const active = value === current;
-  return (
-    <button
-      type="button"
-      onClick={() => onClick(value)}
-      className={`px-2 py-0.5 rounded text-xs font-medium transition-colors ${
-        active
-          ? 'bg-green-600 text-white'
-          : 'bg-white/15 text-white/70 hover:bg-white/25 hover:text-white'
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
 
 // ── helpers ─────────────────────────────────────────────────────────────────────
 

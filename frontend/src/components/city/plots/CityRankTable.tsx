@@ -1,5 +1,5 @@
 // CityRankTable.tsx
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 
 interface CityEntry {
   id: number;

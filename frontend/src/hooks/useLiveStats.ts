@@ -51,6 +51,7 @@ export function useLiveStats(
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (city.id === undefined) return;
     let cancelled = false;
 
     if (mode === MAP_MODES.INFRASTRUCTURE) {

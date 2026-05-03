@@ -117,19 +117,19 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .data(d => d)
       .enter()
       .append('rect')
-      .attr('y', d => y(d.data.label)!)
-      .attr('x', d => x(d[0]))
-      .attr('width', d => x(d[1]) - x(d[0]))
+      .attr('y', (d: any) => y(String(d.data.label))!)
+      .attr('x', (d: any) => x(d[0]))
+      .attr('width', (d: any) => x(d[1]) - x(d[0]))
       .attr('height', y.bandwidth())
-      .attr('fill', (d, i, nodes) => {
+      .attr('fill', (d: any, i, nodes) => {
         const key = (d3.select(nodes[i].parentNode as any).datum() as any).key;
         return d.data[`${key}_color`];
       })
       .attr('cursor', onRowClick ? 'pointer' : 'default')
-      .on('click', (event, d) => {
-        if (onRowClick) onRowClick(d.data.label);
+      .on('click', (_event, d: any) => {
+        if (onRowClick) onRowClick(String(d.data.label));
       })
-      .on('mousemove', (event, d, nodes) => {
+      .on('mousemove', (event: any, d: any) => {
         if (tooltipRef.current) {
           const key = (d3.select((event.currentTarget as any).parentNode).datum() as any).key;
           const segIdx = parseInt(key.replace('seg_', ''), 10);
@@ -168,12 +168,12 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .enter()
       .append('text')
       .attr('class', 'total-label')
-      .attr('x', d => x(100) + 8)
+      .attr('x', () => x(100) + 8)
       .attr('y', d => y(d.label)! + y.bandwidth() / 2)
       .attr('dominant-baseline', 'middle')
       .attr('font-size', '11px')
       .attr('fill', '#6b7280')
-      .text(d => d.total);
+      .text((d: any) => d.total);
 
   }, [rows, segmentLabels, width, onRowClick]);
 

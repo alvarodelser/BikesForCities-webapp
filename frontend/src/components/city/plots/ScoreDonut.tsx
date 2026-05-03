@@ -41,7 +41,7 @@ export const ScoreDonut: React.FC<ScoreDonutProps> = ({
 
     let currentRadius = innerRadiusBase;
 
-    segments.forEach((seg, i) => {
+    segments.forEach((seg) => {
       const segBandWidth = (seg.weight / totalWeight) * bandWidth;
       const inner = currentRadius;
       const outer = currentRadius + segBandWidth - 1.5; // small gap

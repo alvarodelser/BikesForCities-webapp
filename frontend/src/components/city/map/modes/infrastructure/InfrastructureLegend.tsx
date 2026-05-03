@@ -63,7 +63,7 @@ function buildColorExpression() {
         expr.push(i, color);
     });
     expr.push(FALLBACK_COLOR);
-    return expr;
+    return expr as any;
 }
 
 // Mini multi-color square shown on the Edificios row when coverage is active
@@ -113,6 +113,7 @@ export default function InfrastructureLegend() {
         setLoadingCoverage(true);
         setCoverageError(false);
 
+        if (city.id === undefined) return;
         fetchBuildingCoverageComponents(city.id)
             .then(geojson => {
                 if (controller.signal.aborted || !map) return;
@@ -130,7 +131,7 @@ export default function InfrastructureLegend() {
                         type: 'fill',
                         source: COVERAGE_SOURCE_ID,
                         paint: {
-                            'fill-color': buildColorExpression(),
+                            'fill-color': buildColorExpression() as any,
                             'fill-opacity': 1,
                         },
                     }, beforeLayer);

@@ -1,12 +1,12 @@
 import React from 'react';
-import type { CityData } from '../../../constants/cities';
-import { useStationsStats } from '../../../hooks/useStationsStats';
-import MetricPill from '../pills/MetricPill';
-import ServiceNamePill from '../pills/ServiceNamePill';
-import StationMonthlyChart from '../plots/StationMonthlyChart';
-import StationHistograms from '../plots/StationHistograms';
-import ScoreDonut from '../plots/ScoreDonut';
-import CityRankTable from '../plots/CityRankTable';
+import type { CityData } from '../../../../../constants/cities';
+import { useStationsStats } from '../../../../../hooks/useStationsStats';
+import MetricPill from '../../../pills/MetricPill';
+import ServiceNamePill from '../../../pills/ServiceNamePill';
+import StationMonthlyChart from '../../../plots/StationMonthlyChart';
+import StationHistograms from '../../../plots/StationHistograms';
+import ScoreDonut from '../../../plots/ScoreDonut';
+import CityRankTable from '../../../plots/CityRankTable';
 
 export interface StationsStatsProps {
   city: CityData;

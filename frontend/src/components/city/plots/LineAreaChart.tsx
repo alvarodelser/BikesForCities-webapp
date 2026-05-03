@@ -1,5 +1,5 @@
 // LineAreaChart.tsx
-import React, { useEffect, useRef, useMemo, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import * as d3 from 'd3';
 import GlassCard from '../../ui/GlassCard';
@@ -156,8 +156,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
     });
 
     // Tooltip logic
-    const bisect = d3.bisector((d: any) => d[xKey]).center;
-    const overlay = svg.append('rect')
+    svg.append('rect')
       .attr('width', width)
       .attr('height', height)
       .attr('fill', 'transparent')

@@ -7,7 +7,6 @@ import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
 import { useLiveStats, formatMonth } from '../../hooks/useLiveStats';
-import type { CityData } from '../../constants/cities';
 import type { TrafficMode } from '../../services/api';
 import MetricPill from './pills/MetricPill';
 import ServiceNamePill from './pills/ServiceNamePill';
@@ -139,8 +138,8 @@ interface CityStatsProps {
 }
 
 const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats, compact = false, theme = 'light' }) => {
-  const { insights, recommendations, overallScore } = modeStats;
   const { mode, generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
+  const { insights = { primary: '', secondary: '' }, recommendations = { primary: '', secondary: '' } } = modeStats || {};
   const isTraffic = mode === MAP_MODES.TRAFFIC;
   const isInfra = mode === MAP_MODES.INFRASTRUCTURE;
   const accent = '#AF4749';
@@ -159,7 +158,7 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
   };
 
   const showLiveStats = liveStats.length > 0;
-  const statsToRender = showLiveStats ? liveStats : modeStats.stats;
+  const statsToRender = showLiveStats ? liveStats : (modeStats?.stats || []);
   const colClass = showLiveStats ? gridCols(liveStats.length) : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
 
   return (

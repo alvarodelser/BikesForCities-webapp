@@ -1,10 +1,10 @@
 import React from 'react';
-import type { CityData } from '../../../constants/cities';
-import { useInfraStats } from '../../../hooks/useInfraStats';
-import MetricPill from '../pills/MetricPill';
-import { BuildingsDensityHistogram } from '../plots/BuildingsDensityHistogram';
-import ScoreDonut from '../plots/ScoreDonut';
-import CityRankTable from '../plots/CityRankTable';
+import type { CityData } from '../../../../../constants/cities';
+import { useInfraStats } from '../../../../../hooks/useInfraStats';
+import MetricPill from '../../../pills/MetricPill';
+import { BuildingsDensityHistogram } from '../../../plots/BuildingsDensityHistogram';
+import ScoreDonut from '../../../plots/ScoreDonut';
+import CityRankTable from '../../../plots/CityRankTable';
 
 export interface InfraStatsProps {
   city: CityData;

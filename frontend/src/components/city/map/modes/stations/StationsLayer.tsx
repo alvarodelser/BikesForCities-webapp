@@ -56,40 +56,6 @@ const getViridisColor = (distance: number, maxDistance: number) => {
 
 // ---- DOM-based popup builders ----
 
-function buildBasicDOM(name: string, val: number, unit: string, color: string, textColor: string) {
-    const container = document.createElement('div');
-    container.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:2px;";
-
-    const header = document.createElement('div');
-    header.style.cssText = 'font-weight:700;font-size:13px;margin-bottom:6px;color:#1a202c;border-bottom:1px solid rgba(0,0,0,0.05);padding-bottom:4px;';
-    header.textContent = name;
-    container.appendChild(header);
-
-    const badge = document.createElement('div');
-    badge.style.cssText = `background:${color};color:${textColor};padding:4px 10px;border-radius:6px;font-size:13px;font-weight:800;display:inline-block;box-shadow:0 2px 4px rgba(0,0,0,0.1);`;
-    const valSpan = document.createTextNode(`${Math.round(val)} `);
-    badge.appendChild(valSpan);
-    const unitSpan = document.createElement('span');
-    unitSpan.style.cssText = 'font-size:10px;font-weight:500;opacity:0.9;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.4);';
-    unitSpan.textContent = unit;
-    badge.appendChild(unitSpan);
-    container.appendChild(badge);
-
-    return container;
-}
-
-function buildLoadingDOM() {
-    const row = document.createElement('div');
-    row.id = 'popup-loader';
-    row.style.cssText = 'margin-top:14px;display:flex;align-items:center;gap:6px;font-size:11px;color:#718096;';
-    const spinner = document.createElement('div');
-    spinner.style.cssText = 'width:12px;height:12px;border:2px solid #CBD5E0;border-top-color:#718096;border-radius:50%;animation:popupSpin .6s linear infinite;';
-    row.appendChild(spinner);
-    const text = document.createElement('span');
-    text.textContent = 'Cargando disponibilidad\u2026';
-    row.appendChild(text);
-    return row;
-}
 
 function buildLinePlotDOM(data: HourlyAvailability[]) {
     const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -201,7 +167,9 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
         svg.appendChild(circle);
     });
 
-    return svg;
+    const container = document.createElement('div');
+    container.appendChild(svg);
+    return container;
 }
 
 let spinnerInjected = false;
@@ -243,7 +211,6 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
     const metric = submode === 'downtime' ? 'downtime' : 'trips';
 
     const stickyRef = useRef<{ id: string | null; coords: [number, number]; props: any } | null>(null);
-    const popupRef = useRef<maplibregl.Popup | null>(null);
     const hourlyCache = useRef<Map<string, Record<string, HourlyAvailability[]>>>(new Map());
     const reachAbortRef = useRef<AbortController | null>(null);
 
@@ -388,7 +355,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
     }, [map]);
 
     // --- Reach: load & render ---
-    const loadReach = useCallback((stationId: string, infoContainer?: HTMLElement) => {
+    const loadReach = useCallback((stationId: string) => {
         if (!map || !city || !city.id) return;
         if (reachAbortRef.current) reachAbortRef.current.abort();
         const controller = new AbortController();
@@ -489,14 +456,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         if (!map) return;
         ensureSpinnerCSS();
 
-        const getColors = (val: number) => {
-            const q5  = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
-            const color = getMetricColor(val, q5, q50, q95, metric);
-            const textColor = ['#042F2E','#450A0A','#065F46','#7F1D1D'].includes(color) ? 'white' : 'black';
-            return { color, textColor };
-        };
-
-        const onMouseEnter = (e: maplibregl.MapLayerMouseEvent) => {
+        const onMouseEnter = () => {
             if (stickyRef.current) return;
             map.getCanvas().style.cursor = 'pointer';
         };
@@ -546,7 +506,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 };
 
                 // Fetch hourly data for downtime chart
-                if (metric === 'downtime' && city.id !== undefined) {
+                if (metric === 'downtime' && city?.id !== undefined) {
                     const stationCache = hourlyCache.current.get(props.id) || {};
                     const cached = stationCache[activePeriod];
 
@@ -555,7 +515,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         dispatchSelection({ ...selectionDetail, chart });
                     } else {
                         dispatchSelection({ ...selectionDetail, loading: true });
-                        fetchStationHourlyAvailability(city.id, props.id, activePeriod)
+                        fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                             .then(data => {
                                 hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
                                 const chart = data.length > 0 ? buildLinePlotDOM(data) : null;
@@ -625,7 +585,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         };
 
         // Fetch hourly data for downtime chart when switching to downtime metric
-        if (metric === 'downtime' && city.id !== undefined) {
+        if (metric === 'downtime' && city?.id !== undefined) {
             const stationCache = hourlyCache.current.get(props.id) || {};
             const cached = stationCache[activePeriod];
 
@@ -638,7 +598,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 dispatchSelection({ ...selectionDetail, loading: true });
 
                 // Fetch new data
-                fetchStationHourlyAvailability(city.id, props.id, activePeriod)
+                fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                     .then(data => {
                         // Update cache
                         hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
