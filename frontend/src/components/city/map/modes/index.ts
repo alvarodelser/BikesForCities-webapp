@@ -1,3 +1,5 @@
+import AccidentsLayer from './accidents/AccidentsLayer';
+import AccidentsLegend from './accidents/AccidentsLegend';
 import InfrastructureLayer from './infrastructure/InfrastructureLayer';
 import InfrastructureLegend from './infrastructure/InfrastructureLegend';
 import StationsLayer from './stations/StationsLayer';
@@ -20,6 +22,12 @@ export interface ModeConfig {
 }
 
 export const MODES: Record<string, ModeConfig> = {
+    [MAP_MODES.ACCIDENTS]: {
+        layer:          AccidentsLayer,
+        legend:         AccidentsLegend,
+        submodes:       [],
+        defaultSubmode: '',
+    },
     [MAP_MODES.INFRASTRUCTURE]: {
         layer:          InfrastructureLayer,
         legend:         InfrastructureLegend,
