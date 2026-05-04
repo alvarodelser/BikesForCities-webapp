@@ -119,7 +119,7 @@ const AccidentPopupContent = ({ props, onClose }: { props: AccidentFeature['prop
 };
 
 export default function AccidentsLayer() {
-    const { map, city } = useMap();
+    const { map, city, setLayerState, setLayerRetry } = useMap();
     const popupRef = useRef<maplibregl.Popup | null>(null);
     const rootRef = useRef<Root | null>(null);
     const activeIdRef = useRef<string | null>(null);
@@ -172,120 +172,137 @@ export default function AccidentsLayer() {
         
         let cancelled = false;
 
-        fetchAccidents(city.id).then(geojson => {
-            if (cancelled || !map) return;
+        const loadData = () => {
+            if (cancelled) return;
+            setLayerState?.('loading');
 
-            // Ensure source exists or create it
-            if (!map.getSource(SOURCE_ID)) {
-                // Promote accident_id to feature.id for state tracking
-                map.addSource(SOURCE_ID, {
-                    type: 'geojson',
-                    data: geojson,
-                    promoteId: 'accident_id'
-                });
-            } else {
-                (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(geojson);
-            }
+            fetchAccidents(city.id).then(geojson => {
+                if (cancelled || !map) return;
 
-            // Ensure layer exists
-            if (!map.getLayer(LAYER_ID)) {
-                map.addLayer({
-                    id: LAYER_ID,
-                    type: 'circle',
-                    source: SOURCE_ID,
-                    paint: {
-                        'circle-radius': [
-                            'case',
-                            ['boolean', ['feature-state', 'selected'], false],
-                            10,
-                            ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8]
-                        ],
-                        'circle-color': [
-                            'match',
-                            ['get', 'severity'],
-                            'fatal', SEVERITY_COLORS.fatal,
-                            'serious', SEVERITY_COLORS.serious,
-                            'minor', SEVERITY_COLORS.minor,
-                            'uninjured', SEVERITY_COLORS.uninjured,
-                            '#9ca3af' // fallback
-                        ],
-                        'circle-opacity': [
-                            'case',
-                            ['boolean', ['feature-state', 'selected'], false],
-                            1,
-                            0.75
-                        ],
-                        'circle-stroke-width': [
-                            'case',
-                            ['boolean', ['feature-state', 'selected'], false],
-                            3,
-                            1.5
-                        ],
-                        'circle-stroke-color': '#ffffff'
-                    }
-                });
+                if (!geojson.features || geojson.features.length === 0) {
+                    setLayerState?.('empty');
+                } else {
+                    setLayerState?.('idle');
+                }
 
-                // Set up interactions
-                map.on('mouseenter', LAYER_ID, () => {
-                    map.getCanvas().style.cursor = 'pointer';
-                });
-
-                map.on('mouseleave', LAYER_ID, () => {
-                    map.getCanvas().style.cursor = '';
-                });
-
-                map.on('click', LAYER_ID, (e) => {
-                    const feature = e.features?.[0];
-                    if (!feature || !feature.id) return;
-
-                    const accidentId = String(feature.id);
-                    
-                    if (activeIdRef.current === accidentId) return; // Already selected
-                    
-                    clearPopup();
-                    
-                    activeIdRef.current = accidentId;
-                    map.setFeatureState(
-                        { source: SOURCE_ID, id: accidentId },
-                        { selected: true }
-                    );
-
-                    const popup = new maplibregl.Popup({
-                        closeButton: false,
-                        closeOnClick: false,
-                        maxWidth: '320px'
+                // Ensure source exists or create it
+                if (!map.getSource(SOURCE_ID)) {
+                    // Promote accident_id to feature.id for state tracking
+                    map.addSource(SOURCE_ID, {
+                        type: 'geojson',
+                        data: geojson,
+                        promoteId: 'accident_id'
                     });
-                    
-                    popupRef.current = popup;
+                } else {
+                    (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(geojson);
+                }
 
-                    const popupNode = document.createElement('div');
-                    const root = createRoot(popupNode);
-                    rootRef.current = root;
-                    
-                    root.render(
-                        <AccidentPopupContent 
-                            props={feature.properties as AccidentFeature['properties']} 
-                            onClose={() => clearPopup()} 
-                        />
-                    );
-                    
-                    popup.setLngLat((feature.geometry as any).coordinates).setDOMContent(popupNode).addTo(map);
-                });
+                // Ensure layer exists
+                if (!map.getLayer(LAYER_ID)) {
+                    map.addLayer({
+                        id: LAYER_ID,
+                        type: 'circle',
+                        source: SOURCE_ID,
+                        paint: {
+                            'circle-radius': [
+                                'case',
+                                ['boolean', ['feature-state', 'selected'], false],
+                                10,
+                                ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8]
+                            ],
+                            'circle-color': [
+                                'match',
+                                ['get', 'severity'],
+                                'fatal', SEVERITY_COLORS.fatal,
+                                'serious', SEVERITY_COLORS.serious,
+                                'minor', SEVERITY_COLORS.minor,
+                                'uninjured', SEVERITY_COLORS.uninjured,
+                                '#9ca3af' // fallback
+                            ],
+                            'circle-opacity': [
+                                'case',
+                                ['boolean', ['feature-state', 'selected'], false],
+                                1,
+                                0.75
+                            ],
+                            'circle-stroke-width': [
+                                'case',
+                                ['boolean', ['feature-state', 'selected'], false],
+                                3,
+                                1.5
+                            ],
+                            'circle-stroke-color': '#ffffff'
+                        }
+                    });
 
-                map.on('click', (e) => {
-                    if (!activeIdRef.current) return;
-                    const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-                    if (!hits?.length) clearPopup();
-                });
-            }
-        }).catch(err => {
-            console.error('Failed to load accidents:', err);
-        });
+                    // Set up interactions
+                    map.on('mouseenter', LAYER_ID, () => {
+                        map.getCanvas().style.cursor = 'pointer';
+                    });
+
+                    map.on('mouseleave', LAYER_ID, () => {
+                        map.getCanvas().style.cursor = '';
+                    });
+
+                    map.on('click', LAYER_ID, (e) => {
+                        const feature = e.features?.[0];
+                        if (!feature || !feature.id) return;
+
+                        const accidentId = String(feature.id);
+                        
+                        if (activeIdRef.current === accidentId) return; // Already selected
+                        
+                        clearPopup();
+                        
+                        activeIdRef.current = accidentId;
+                        map.setFeatureState(
+                            { source: SOURCE_ID, id: accidentId },
+                            { selected: true }
+                        );
+
+                        const popup = new maplibregl.Popup({
+                            closeButton: false,
+                            closeOnClick: false,
+                            maxWidth: '320px'
+                        });
+                        
+                        popupRef.current = popup;
+
+                        const popupNode = document.createElement('div');
+                        const root = createRoot(popupNode);
+                        rootRef.current = root;
+                        
+                        root.render(
+                            <AccidentPopupContent 
+                                props={feature.properties as AccidentFeature['properties']} 
+                                onClose={() => clearPopup()} 
+                            />
+                        );
+                        
+                        popup.setLngLat((feature.geometry as any).coordinates).setDOMContent(popupNode).addTo(map);
+                    });
+
+                    map.on('click', (e) => {
+                        if (!activeIdRef.current) return;
+                        const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
+                        if (!hits?.length) clearPopup();
+                    });
+                }
+            }).catch(err => {
+                if (cancelled) return;
+                console.error('Failed to load accidents:', err);
+                setLayerState?.('error');
+            });
+        };
+
+        setLayerRetry?.(loadData);
+        loadData();
 
         return () => {
             cancelled = true;
+            setLayerState?.('idle');
         };
-    }, [map, city?.id, clearPopup]);
+    }, [map, city?.id, clearPopup, setLayerState, setLayerRetry]);
 
     return null;
 }

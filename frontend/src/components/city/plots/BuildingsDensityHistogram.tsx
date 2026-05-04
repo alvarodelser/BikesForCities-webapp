@@ -4,6 +4,8 @@ import BarHistogram from './BarHistogram';
 
 interface BuildingsDensityHistogramProps {
   cityId: number;
+  variant?: 'light' | 'darkTint';
+  accent?: string;
 }
 
 const BINS: {
@@ -68,7 +70,7 @@ function computeHistogram(edges: { length_m: number; building_count: number }[])
   }));
 }
 
-export const BuildingsDensityHistogram: React.FC<BuildingsDensityHistogramProps> = ({ cityId }) => {
+export const BuildingsDensityHistogram: React.FC<BuildingsDensityHistogramProps> = ({ cityId, variant, accent = '#3b82f6' }) => {
   const [bins, setBins] = useState<{ label: string; shortLabel: string; subLabel: string; value: number; description: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,10 +103,11 @@ export const BuildingsDensityHistogram: React.FC<BuildingsDensityHistogramProps>
   return (
     <BarHistogram
       data={bins}
-      accent="#3b82f6"
+      accent={accent}
       title="Efectividad de la red ciclista"
       subtitle="Km de carril por tipología según edificios cercanos (<150 m)"
       yUnit="km"
+      variant={variant}
       helpContent={
         <p>
           Cada barra representa los kilómetros de carril bici de la ciudad que pasan por una tipología urbana determinada,

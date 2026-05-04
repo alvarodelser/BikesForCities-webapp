@@ -20,7 +20,8 @@ interface LineAreaChartProps {
   title: string;
   subtitle?: string;
   helpContent?: ReactNode;
-  theme?: 'light' | 'dark'; // kept for API compat; both render the same white card
+  variant?: 'light' | 'darkTint';
+  accent?: string;
 }
 
 export const LineAreaChart: React.FC<LineAreaChartProps> = ({
@@ -30,6 +31,8 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
   title,
   subtitle,
   helpContent,
+  variant = 'light',
+  accent = '#3b82f6',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -56,8 +59,9 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
   useEffect(() => {
     if (!svgRef.current || !containerRef.current || !data.length || width === 0) return;
 
-    const axisColor = '#6b7280';
-    const gridColor = 'rgba(0,0,0,0.05)';
+    const isDarkTint = variant === 'darkTint';
+    const axisColor = isDarkTint ? 'var(--blue-dark)' : '#6b7280';
+    const gridColor = isDarkTint ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.05)';
 
     const height = 260;
     const margin = { top: 20, right: series.some(s => s.axis === 'secondary') ? 50 : 20, bottom: 30, left: 50 };
@@ -113,7 +117,8 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
       .call(g => g.select('.domain').attr('stroke', 'rgba(0,0,0,0.1)'))
       .selectAll('text')
       .attr('font-size', '10px')
-      .attr('fill', axisColor);
+      .attr('fill', axisColor)
+      .attr('opacity', isDarkTint ? 0.5 : 1);
 
     svg.append('g')
       .attr('transform', `translate(${margin.left},0)`)
@@ -121,7 +126,8 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
       .call(g => g.select('.domain').remove())
       .selectAll('text')
       .attr('font-size', '10px')
-      .attr('fill', axisColor);
+      .attr('fill', axisColor)
+      .attr('opacity', isDarkTint ? 0.5 : 1);
 
     if (yRight) {
       svg.append('g')
@@ -130,7 +136,8 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
         .call(g => g.select('.domain').remove())
         .selectAll('text')
         .attr('font-size', '10px')
-        .attr('fill', axisColor);
+        .attr('fill', axisColor)
+        .attr('opacity', isDarkTint ? 0.5 : 1);
     }
 
     // Render series
@@ -204,21 +211,33 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
 
   return (
     <div
-      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 w-full flex flex-col gap-4 transition-all hover:bg-white/90"
-      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+      className={`rounded-2xl border p-5 w-full flex flex-col gap-4 transition-all ${
+        variant === 'darkTint'
+          ? 'backdrop-blur-md hover:brightness-95'
+          : 'bg-white/80 backdrop-blur-sm hover:bg-white/90'
+      }`}
+      style={{
+        borderColor: variant === 'darkTint' ? `color-mix(in srgb, ${accent} 30%, transparent)` : 'rgba(0,0,0,0.08)',
+        boxShadow: variant === 'darkTint' ? 'none' : '0 4px 16px rgba(0,0,0,0.04)',
+        ...(variant === 'darkTint' ? { backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)` } : {})
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-bold text-gray-900 leading-tight">{title}</h3>
-          {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
+          <h3 className={`text-sm font-bold leading-tight ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-gray-900'}`}>{title}</h3>
+          {subtitle && <p className={`mt-0.5 text-xs ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-gray-500'}`}>{subtitle}</p>}
         </div>
         {helpContent && (
           <button
             onClick={() => { clearTimer(); setShowHelp(v => !v); }}
-            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600 transition-all"
+            className={`w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+              variant === 'darkTint'
+                ? 'bg-black/5 hover:bg-black/10 text-[var(--blue-dark)]/40 hover:text-[var(--blue-dark)]/70'
+                : 'bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600'
+            }`}
             aria-label={showHelp ? 'Cerrar ayuda' : 'Mostrar ayuda'}
           >
             {showHelp ? <X className="w-3.5 h-3.5" /> : <HelpCircle className="w-3.5 h-3.5" />}
@@ -243,7 +262,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
               className={`h-0.5 w-4 ${s.dashed ? 'border-t-2 border-dashed' : ''}`}
               style={{ borderColor: s.color, backgroundColor: s.dashed ? 'transparent' : s.color }}
             />
-            <span className="text-[10px] font-medium text-gray-500">{s.label}</span>
+            <span className={`text-[10px] font-medium ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500'}`}>{s.label}</span>
           </div>
         ))}
       </div>
@@ -251,8 +270,8 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
       {/* Expandable help section */}
       {helpContent && showHelp && (
         <>
-          <div className="border-t border-black/10" />
-          <div className="text-[11px] leading-relaxed text-gray-500">
+          <div className={`border-t ${variant === 'darkTint' ? 'border-[var(--blue-dark)]/10' : 'border-black/10'}`} />
+          <div className={`text-[11px] leading-relaxed ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-gray-500'}`}>
             {helpContent}
           </div>
         </>

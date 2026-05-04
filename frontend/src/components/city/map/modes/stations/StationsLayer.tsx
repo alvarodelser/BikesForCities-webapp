@@ -202,7 +202,7 @@ const REACH_POLY_LAYER_ID    = 'reach-poly-layer';
 const MAX_REACH_DISTANCE = 1000;
 
 export default function StationsLayer({ submode }: StationsLayerProps) {
-    const { map, city } = useMap();
+    const { map, city, setLayerState, setLayerRetry } = useMap();
     const { thresholds, setThresholds } = useThresholds();
     const [stations, setStations] = useState<any[]>([]);
     const [activePeriod, setActivePeriod] = useState<string>('all');
@@ -250,34 +250,56 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         if (!map || !city?.id) return;
         let cancelled = false;
 
-        fetchStations(city.id).then(data => {
-            if (cancelled || !map) return;
-            setStations(data);
+        const loadData = () => {
+            if (cancelled) return;
+            setLayerState?.('loading');
 
-            const features = data.map(s => {
-                let normalizedName = (s.name || 'Sin nombre')
-                    .replace(/^[^a-zA-Z\xC0-\xFF]+/, '')
-                    .toLowerCase().split(/[\s_-]+/)
-                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                return {
-                    type: 'Feature' as const,
-                    geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
-                    properties: {
-                        name: normalizedName,
-                        id: s.station_id,
-                        usage: s.estimated_monthly_trips || 0,
-                        downtime: s.downtime_minutes || 0,
-                        reach_coverage: s.reach_coverage || 0,
-                    },
-                };
+            fetchStations(city.id).then(data => {
+                if (cancelled || !map) return;
+
+                if (!data || data.length === 0) {
+                    setLayerState?.('empty');
+                    setStations([]);
+                    return;
+                }
+                setLayerState?.('idle');
+                setStations(data);
+
+                const features = data.map(s => {
+                    let normalizedName = (s.name || 'Sin nombre')
+                        .replace(/^[^a-zA-Z\xC0-\xFF]+/, '')
+                        .toLowerCase().split(/[\s_-]+/)
+                        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                    return {
+                        type: 'Feature' as const,
+                        geometry: { type: 'Point' as const, coordinates: [s.lon, s.lat] },
+                        properties: {
+                            name: normalizedName,
+                            id: s.station_id,
+                            usage: s.estimated_monthly_trips || 0,
+                            downtime: s.downtime_minutes || 0,
+                            reach_coverage: s.reach_coverage || 0,
+                        },
+                    };
+                });
+
+                const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
+                if (source) source.setData({ type: 'FeatureCollection', features });
+            }).catch(err => {
+                if (cancelled) return;
+                console.error('Failed to load stations:', err);
+                setLayerState?.('error');
             });
+        };
 
-            const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource;
-            if (source) source.setData({ type: 'FeatureCollection', features });
-        }).catch(err => console.error('Failed to load stations:', err));
+        setLayerRetry?.(loadData);
+        loadData();
 
-        return () => { cancelled = true; };
-    }, [map, city?.id]);
+        return () => { 
+            cancelled = true; 
+            setLayerState?.('idle');
+        };
+    }, [map, city?.id, setLayerState, setLayerRetry]);
 
     // --- Thresholds (trips/downtime) ---
     useEffect(() => {

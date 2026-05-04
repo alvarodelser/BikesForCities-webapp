@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useMap } from '../../MapContext';
 
 export default function InfrastructureLayer({ submode: _submode }: { submode: string }) {
-    const { map, city } = useMap();
+    const { map, city, setLayerState } = useMap();
 
     useEffect(() => {
         if (!map || !city) return;
@@ -19,6 +19,8 @@ export default function InfrastructureLayer({ submode: _submode }: { submode: st
         if (map.getLayer('traffic-layer')) {
             map.setLayoutProperty('traffic-layer', 'visibility', 'none');
         }
+        
+        setLayerState?.('idle');
 
         return () => {
             try {

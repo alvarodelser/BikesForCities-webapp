@@ -22,8 +22,11 @@ interface CityMapProps {
 
 const modeLabels: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura Ciclista',
-    [MAP_MODES.STATIONS]: 'Estaciones de Bici',
-    [MAP_MODES.TRAFFIC]: 'Tráfico Ciclista',
+    [MAP_MODES.STATIONS]:       'Servicios de Bici',
+    [MAP_MODES.TRAFFIC]:        'Tráfico Ciclista',
+    [MAP_MODES.ACCIDENTS]:      'Accidentalidad',
+    [MAP_MODES.TERRAIN]:        'Análisis de Terreno',
+    [MAP_MODES.INTERSECTIONS]:  'Intersecciones Críticas',
 };
 
 const getColorScheme = (colorVar: string) => {
@@ -59,6 +62,16 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         setSelectedEdgeIdInternal(id);
         onEdgeSelect?.(id);
     }, [onEdgeSelect]);
+
+    const [layerState, setLayerState] = useState<'idle' | 'loading' | 'error' | 'empty'>('idle');
+    const layerRetryRef = React.useRef<(() => void) | null>(null);
+    const setLayerRetry = useCallback((retryFn: () => void) => {
+        layerRetryRef.current = retryFn;
+    }, []);
+    const retryLayerRequest = useCallback(() => {
+        if (layerRetryRef.current) layerRetryRef.current();
+    }, []);
+
     const colorScheme = getColorScheme(selectedColor);
     const modeLabel = modeLabels[mode] || mode;
     const { isMobile } = useViewport();
@@ -108,6 +121,9 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         toggleBackground,
         selectedEdgeId,
         setSelectedEdgeId,
+        layerState,
+        setLayerState,
+        setLayerRetry,
     };
 
 
@@ -170,7 +186,13 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                 border: '1px solid rgba(0, 0, 0, 0.25)',
                             }}
                         >
-                            <CityCanvas city={city} onMapInstance={setMapInstance} />
+                            <CityCanvas 
+                                city={city} 
+                                onMapInstance={setMapInstance} 
+                                layerState={layerState}
+                                onRetry={retryLayerRequest}
+                                primaryColor={colorScheme.primary}
+                            />
                         </div>
                     </div>
 

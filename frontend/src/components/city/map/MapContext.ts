@@ -13,6 +13,10 @@ export interface MapContextValue {
     // Edge selection — set by TrafficLayer, read by MapFilters pill
     selectedEdgeId: number | null;
     setSelectedEdgeId: (id: number | null) => void;
+    // Layer data state
+    layerState: 'idle' | 'loading' | 'error' | 'empty';
+    setLayerState: (state: 'idle' | 'loading' | 'error' | 'empty') => void;
+    setLayerRetry: (retryFn: () => void) => void;
 }
 
 const noop = () => {};
@@ -26,6 +30,9 @@ export const MapContext = createContext<MapContextValue>({
     toggleBackground: noop,
     selectedEdgeId: null,
     setSelectedEdgeId: noop,
+    layerState: 'idle',
+    setLayerState: noop,
+    setLayerRetry: noop,
 });
 
 export const useMap = () => useContext(MapContext);

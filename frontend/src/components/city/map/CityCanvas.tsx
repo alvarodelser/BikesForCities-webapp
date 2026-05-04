@@ -12,6 +12,9 @@ import { MAP_MODES } from '../../../constants/mapModes';
 interface CityCanvasProps {
     city: CityData;
     onMapInstance: (map: maplibregl.Map | null) => void;
+    layerState?: 'idle' | 'loading' | 'error' | 'empty';
+    onRetry?: () => void;
+    primaryColor?: string;
 }
 
 /**
@@ -19,7 +22,7 @@ interface CityCanvasProps {
  * Reports the map instance to the parent via onMapInstance so it can be 
  * shared via MapContext to siblings like Legend and Controls.
  */
-export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
+export default function CityCanvas({ city, onMapInstance, layerState = 'idle', onRetry, primaryColor = '#027A76' }: CityCanvasProps) {
     const { mode } = useMapState();
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapRef = useRef<maplibregl.Map | null>(null);
@@ -214,9 +217,46 @@ export default function CityCanvas({ city, onMapInstance }: CityCanvasProps) {
             {hasValidCoords ? (
                 <>
                     <div ref={mapContainer} className="w-full h-full" />
-                    {loading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10 transition-all duration-500">
-                            <LoadingContainer className="w-52 h-52" color="#027A76" />
+                    {(loading || layerState === 'loading') && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-[2px] z-10 transition-all duration-500">
+                            <LoadingContainer 
+                                className="w-52 h-52" 
+                                color={mode === MAP_MODES.STATIONS ? '#AF4749' : primaryColor} 
+                            />
+                        </div>
+                    )}
+                    {layerState === 'error' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
+                            <div className="bg-white p-6 rounded-xl shadow-xl text-center max-w-sm flex flex-col items-center gap-2">
+                                <h3 className="text-lg font-bold text-slate-800">Error cargando datos</h3>
+                                <p className="text-sm text-slate-600 mb-2">No se pudieron cargar los datos de esta capa.</p>
+                                {onRetry && (
+                                    <button 
+                                        onClick={onRetry}
+                                        className="px-4 py-2 text-white rounded-lg font-semibold transition-colors"
+                                        style={{ backgroundColor: primaryColor }}
+                                    >
+                                        Reintentar
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    {layerState === 'empty' && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
+                            <div className="bg-white p-6 rounded-xl shadow-xl text-center max-w-sm flex flex-col items-center gap-2">
+                                <h3 className="text-lg font-bold text-slate-800">Sin datos</h3>
+                                <p className="text-sm text-slate-600 mb-2">No hay datos disponibles para este modo en {city.name}.</p>
+                                {onRetry && (
+                                    <button 
+                                        onClick={onRetry}
+                                        className="px-4 py-2 text-white rounded-lg font-semibold transition-colors"
+                                        style={{ backgroundColor: primaryColor }}
+                                    >
+                                        Recargar
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
                     {/* ActiveLayer mounts only after map load — critical for MapLibre */}

@@ -19,6 +19,7 @@ interface BarHistogramProps {
   referenceLineX?: number;
   referenceLabel?: string;
   yUnit?: string;
+  variant?: 'light' | 'darkTint';
 }
 
 function niceTicks(max: number): number[] {
@@ -40,6 +41,7 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
   referenceLineX,
   referenceLabel,
   yUnit = '',
+  variant = 'light',
 }) => {
   const [mounted, setMounted] = useState(false);
   const [hovered, setHovered] = useState<number | null>(null);
@@ -65,16 +67,24 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
 
   return (
     <div
-      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 w-full transition-all hover:bg-white/90"
-      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+      className={`rounded-2xl border p-5 w-full transition-all ${
+        variant === 'darkTint'
+          ? 'backdrop-blur-md hover:brightness-95'
+          : 'bg-white/80 backdrop-blur-sm hover:bg-white/90'
+      }`}
+      style={{
+        borderColor: variant === 'darkTint' ? `color-mix(in srgb, ${accent} 30%, transparent)` : 'rgba(0,0,0,0.08)',
+        boxShadow: variant === 'darkTint' ? 'none' : '0 4px 16px rgba(0,0,0,0.04)',
+        ...(variant === 'darkTint' ? { backgroundColor: `color-mix(in srgb, ${accent} 15%, transparent)` } : {})
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-sm font-bold text-gray-900 leading-tight">{title}</h3>
-          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+          <h3 className={`text-sm font-bold leading-tight ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-gray-900'}`}>{title}</h3>
+          {subtitle && <p className={`text-xs mt-0.5 ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-gray-500'}`}>{subtitle}</p>}
         </div>
         {helpContent && (
           <button
@@ -93,7 +103,7 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
         {/* Y-axis labels */}
         <div className="flex flex-col-reverse justify-between items-end shrink-0" style={{ height: BAR_HEIGHT }}>
           {yTicks.map((t) => (
-            <span key={t} className="text-[9px] text-gray-400 leading-none tabular-nums">
+            <span key={t} className={`text-[9px] leading-none tabular-nums ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/40' : 'text-gray-400'}`}>
               {t}{yUnit ? ` ${yUnit}` : ''}
             </span>
           ))}
@@ -107,7 +117,7 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
             {yTicks.map((t) => (
               <div
                 key={t}
-                className="absolute left-0 right-0 border-t border-black/[0.06] pointer-events-none"
+                className={`absolute left-0 right-0 border-t pointer-events-none ${variant === 'darkTint' ? 'border-[var(--blue-dark)]/[0.06]' : 'border-black/[0.06]'}`}
                 style={{ bottom: (t / yMax) * BAR_HEIGHT }}
               />
             ))}
@@ -172,7 +182,11 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
                 <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
                   <span
                     className={`text-[10px] text-center leading-tight transition-colors font-medium ${
-                      isHovered ? 'text-gray-800' : isRef ? 'text-red-500' : 'text-gray-500'
+                      isHovered 
+                        ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-gray-800') 
+                        : isRef 
+                          ? 'text-red-500' 
+                          : (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500')
                     }`}
                     style={{ wordBreak: 'break-word' }}
                   >
@@ -181,7 +195,9 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
                   {d.subLabel && (
                     <span
                       className={`text-[9px] text-center leading-tight transition-colors ${
-                        isHovered ? 'text-gray-500' : 'text-gray-300'
+                        isHovered 
+                          ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500') 
+                          : (variant === 'darkTint' ? 'text-[var(--blue-dark)]/40' : 'text-gray-300')
                       }`}
                       style={{ wordBreak: 'break-word' }}
                     >
@@ -204,8 +220,8 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
       {/* Expandable help section */}
       {helpContent && showHelp && (
         <>
-          <div className="border-t border-black/10 mt-4" />
-          <div className="mt-4 text-[11px] text-gray-500 leading-relaxed">
+          <div className={`border-t mt-4 ${variant === 'darkTint' ? 'border-[var(--blue-dark)]/10' : 'border-black/10'}`} />
+          <div className={`mt-4 text-[11px] leading-relaxed ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-gray-500'}`}>
             {helpContent}
           </div>
         </>

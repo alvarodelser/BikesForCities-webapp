@@ -90,7 +90,7 @@ function buildOpacityExpr(q5: number): unknown[] {
 
 
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
-    const { map, city, setSelectedEdgeId } = useMap();
+    const { map, city, setSelectedEdgeId, setLayerState, setLayerRetry } = useMap();
     const { setThresholds } = useThresholds();
     const { generation, routing, period, setGeneration, setRouting, setSubmode } = useMapState();
 
@@ -365,60 +365,81 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
         }
 
-        fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined).then(result => {
-            if (cancelled || !map) return;
+        const loadData = () => {
+            if (cancelled) return;
+            setLayerState?.('loading');
 
-            // On first load with empty URL params, write resolved values back so the
-            // legend selectors and bookmarks reflect the actual mode being shown.
-            if (!urlParamsSetRef.current) {
-                urlParamsSetRef.current = true;
-                if (!generation && result.generation_type) setGeneration(result.generation_type);
-                if (!routing && result.algorithm) setRouting(result.algorithm);
-            }
+            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined).then(result => {
+                if (cancelled || !map) return;
 
-            result.data.forEach(t => {
-                map.setFeatureState(
-                    { source: SOURCE_ID, sourceLayer: 'edges', id: t.edge_id },
-                    { trip_count: t.trip_count }
-                );
-            });
-
-            const dataMap = new Map<number, number>();
-            result.data.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
-            trafficDataRef.current = dataMap;
-
-            // Use server-computed percentile stats; fall back to client-side sort if absent
-            let stats = result.stats;
-            if (!stats && result.data.length > 0) {
-                const counts = result.data.map(t => t.trip_count).sort((a, b) => a - b);
-                stats = {
-                    q5:  counts[Math.floor(counts.length * 0.05)],
-                    q50: counts[Math.floor(counts.length * 0.50)],
-                    q95: counts[Math.floor(counts.length * 0.95)],
-                    min: counts[0],
-                    max: counts[counts.length - 1],
-                };
-            }
-
-            if (stats) {
-                thresholdsRef.current = stats;
-                const { q5, q50, q95, min, max } = stats;
-                setThresholds({ q5, q50, q95, max, min });
-                if (map.getLayer(LAYER_ID)) {
-                    map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
-                    // Only restore full opacity if no edge is currently selected
-                    if (!stickyRef.current) {
-                        map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
-                    }
+                if (!result.data || result.data.length === 0) {
+                    setLayerState?.('empty');
+                    return;
                 }
-            } else {
-                thresholdsRef.current = null;
-                setThresholds(null);
-            }
-        }).catch(err => console.error('Failed to load traffic:', err));
+                setLayerState?.('idle');
 
-        return () => { cancelled = true; };
-    }, [map, city?.id, generation, routing, period]); // eslint-disable-line react-hooks/exhaustive-deps
+                // On first load with empty URL params, write resolved values back so the
+                // legend selectors and bookmarks reflect the actual mode being shown.
+                if (!urlParamsSetRef.current) {
+                    urlParamsSetRef.current = true;
+                    if (!generation && result.generation_type) setGeneration(result.generation_type);
+                    if (!routing && result.algorithm) setRouting(result.algorithm);
+                }
+
+                result.data.forEach(t => {
+                    map.setFeatureState(
+                        { source: SOURCE_ID, sourceLayer: 'edges', id: t.edge_id },
+                        { trip_count: t.trip_count }
+                    );
+                });
+
+                const dataMap = new Map<number, number>();
+                result.data.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
+                trafficDataRef.current = dataMap;
+
+                // Use server-computed percentile stats; fall back to client-side sort if absent
+                let stats = result.stats;
+                if (!stats && result.data.length > 0) {
+                    const counts = result.data.map(t => t.trip_count).sort((a, b) => a - b);
+                    stats = {
+                        q5:  counts[Math.floor(counts.length * 0.05)],
+                        q50: counts[Math.floor(counts.length * 0.50)],
+                        q95: counts[Math.floor(counts.length * 0.95)],
+                        min: counts[0],
+                        max: counts[counts.length - 1],
+                    };
+                }
+
+                if (stats) {
+                    thresholdsRef.current = stats;
+                    const { q5, q50, q95, min, max } = stats;
+                    setThresholds({ q5, q50, q95, max, min });
+                    if (map.getLayer(LAYER_ID)) {
+                        map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
+                        // Only restore full opacity if no edge is currently selected
+                        if (!stickyRef.current) {
+                            map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
+                        }
+                    }
+                } else {
+                    thresholdsRef.current = null;
+                    setThresholds(null);
+                }
+            }).catch(err => {
+                if (cancelled) return;
+                console.error('Failed to load traffic:', err);
+                setLayerState?.('error');
+            });
+        };
+
+        setLayerRetry?.(loadData);
+        loadData();
+
+        return () => { 
+            cancelled = true; 
+            setLayerState?.('idle');
+        };
+    }, [map, city?.id, generation, routing, period, setLayerState, setLayerRetry]);
 
     // --- Click handling ---
     useEffect(() => {
