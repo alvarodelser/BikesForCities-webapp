@@ -326,7 +326,7 @@ def _compute_stations_scores(rows: List[Dict], city_id: int) -> Optional[Dict[st
 # Public API
 # ---------------------------------------------------------------------------
 
-def compute_mode_scores(conn, city_id: int) -> Dict[str, Dict[str, Any]]:
+def compute_mode_scores(conn, city_id: int, infra_rows: Optional[List[Dict]] = None, traffic_rows: Optional[List[Dict]] = None, stations_rows: Optional[List[Dict]] = None) -> Dict[str, Dict[str, Any]]:
     """Return dict keyed by mode with 'overall' (int 0-100) and 'segments' list.
 
     Each segment: {label, weight, value (0-1 normalized), color}
@@ -334,6 +334,8 @@ def compute_mode_scores(conn, city_id: int) -> Dict[str, Dict[str, Any]]:
     Only modes enabled for the given city are included.
     All scores are normalized across cities sharing the same mode (min-max).
     Missing data for a segment → value = 0.
+
+    If infra_rows/traffic_rows/stations_rows are provided, they're reused instead of fetching.
     """
     # Determine which modes this city has enabled
     with conn.cursor() as cur:
@@ -350,20 +352,20 @@ def compute_mode_scores(conn, city_id: int) -> Dict[str, Dict[str, Any]]:
     result: Dict[str, Dict[str, Any]] = {}
 
     if has_infra:
-        infra_rows = _fetch_infra_raw(conn)
-        score = _compute_infra_scores(infra_rows, city_id)
+        rows = infra_rows if infra_rows is not None else _fetch_infra_raw(conn)
+        score = _compute_infra_scores(rows, city_id)
         if score is not None:
             result["infrastructure"] = score
 
     if has_traffic:
-        traffic_rows = _fetch_traffic_raw(conn)
-        score = _compute_traffic_scores(traffic_rows, city_id)
+        rows = traffic_rows if traffic_rows is not None else _fetch_traffic_raw(conn)
+        score = _compute_traffic_scores(rows, city_id)
         if score is not None:
             result["traffic"] = score
 
     if has_stations:
-        stations_rows = _fetch_stations_raw(conn)
-        score = _compute_stations_scores(stations_rows, city_id)
+        rows = stations_rows if stations_rows is not None else _fetch_stations_raw(conn)
+        score = _compute_stations_scores(rows, city_id)
         if score is not None:
             result["stations"] = score
 
