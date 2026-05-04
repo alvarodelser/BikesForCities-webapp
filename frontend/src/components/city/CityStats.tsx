@@ -2,7 +2,7 @@ import React from 'react';
 import type { CityData } from '../../constants/cities';
 import type { ModeStats } from '../../constants/cityStats';
 import { getTrendColor, getTrendIcon } from '../../constants/cityStats';
-import { BarChart3, Network, Route, Calendar, TrendingUp, Activity } from 'lucide-react';
+import { Network, Route, Calendar } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
@@ -138,6 +138,7 @@ interface CityStatsProps {
 }
 
 const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats, compact = false, theme = 'light' }) => {
+  const { insights, recommendations } = modeStats;
   const { mode, generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
   const { insights = { primary: '', secondary: '' }, recommendations = { primary: '', secondary: '' } } = modeStats || {};
   const isTraffic = mode === MAP_MODES.TRAFFIC;

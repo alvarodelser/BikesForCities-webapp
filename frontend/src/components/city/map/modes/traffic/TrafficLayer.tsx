@@ -162,10 +162,10 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                         ],
                         'heatmap-color': [
                             'interpolate', ['linear'], ['heatmap-density'],
-                            0,   'rgba(0,0,0,0)',
+                            0, 'rgba(0,0,0,0)',
                             0.2, '#BFDDCE',
-                            0.45,'#7BA492',
-                            0.75,'#027A76',
+                            0.45, '#7BA492',
+                            0.75, '#027A76',
                             1.0, '#014440',
                         ],
                     },
@@ -192,6 +192,34 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
         }
     }, [map]);
+
+    // --- Custom popup overlay (fixed top-right panel + SVG connecting line) ---
+    const updateLine = useCallback(() => {
+        if (!map || !overlayRef.current || !stickyRef.current) return;
+        const { panel, line, dot, svg } = overlayRef.current;
+        const edgePt = map.project(stickyRef.current.lngLat);
+        const containerEl = map.getContainer();
+        svg.setAttribute('width', String(containerEl.clientWidth));
+        svg.setAttribute('height', String(containerEl.clientHeight));
+        const cRect = containerEl.getBoundingClientRect();
+        const pRect = panel.getBoundingClientRect();
+        const x1 = pRect.left - cRect.left;
+        const y1 = pRect.top - cRect.top + pRect.height / 2;
+        line.setAttribute('x1', String(x1));
+        line.setAttribute('y1', String(y1));
+        line.setAttribute('x2', String(edgePt.x));
+        line.setAttribute('y2', String(edgePt.y));
+        dot.setAttribute('cx', String(edgePt.x));
+        dot.setAttribute('cy', String(edgePt.y));
+    }, [map]);
+
+    const removePopupOverlay = useCallback(() => {
+        if (!overlayRef.current) return;
+        if (map) map.off('move', updateLine);
+        overlayRef.current.panel.remove();
+        overlayRef.current.svg.remove();
+        overlayRef.current = null;
+    }, [map, updateLine]);
 
     const doDeselect = useCallback(() => {
         if (!map || !stickyRef.current) return;
@@ -248,10 +276,12 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 if (routeInfoEl) routeInfoEl.textContent = label;
                 const prev = lastSelectionRef.current;
                 if (prev && prev.type === 'edge') {
-                    window.dispatchEvent(new CustomEvent('map-selection', { detail: {
-                        ...prev,
-                        rows: [{ label: 'Rutas', value: label }],
-                    } as SelectionDetail }));
+                    window.dispatchEvent(new CustomEvent('map-selection', {
+                        detail: {
+                            ...prev,
+                            rows: [{ label: 'Rutas', value: label }],
+                        } as SelectionDetail
+                    }));
                 }
                 return;
             }
@@ -261,10 +291,12 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (routeInfoEl) routeInfoEl.textContent = label;
             const prev = lastSelectionRef.current;
             if (prev && prev.type === 'edge') {
-                window.dispatchEvent(new CustomEvent('map-selection', { detail: {
-                    ...prev,
-                    rows: [{ label: 'Rutas', value: label }],
-                } as SelectionDetail }));
+                window.dispatchEvent(new CustomEvent('map-selection', {
+                    detail: {
+                        ...prev,
+                        rows: [{ label: 'Rutas', value: label }],
+                    } as SelectionDetail
+                }));
             }
         };
 
@@ -325,7 +357,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     map.removeFeatureState({ source: SOURCE_ID, sourceLayer: 'edges' });
                 }
             } catch { /* map may have been removed */ }
-                stickyRef.current = null;
+            stickyRef.current = null;
             prevGenRef.current = '';
             prevRouteRef.current = '';
             setSelectedEdgeId(null);
@@ -402,7 +434,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 if (!stats && result.data.length > 0) {
                     const counts = result.data.map(t => t.trip_count).sort((a, b) => a - b);
                     stats = {
-                        q5:  counts[Math.floor(counts.length * 0.05)],
+                        q5: counts[Math.floor(counts.length * 0.05)],
                         q50: counts[Math.floor(counts.length * 0.50)],
                         q95: counts[Math.floor(counts.length * 0.95)],
                         min: counts[0],
@@ -435,8 +467,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         setLayerRetry?.(loadData);
         loadData();
 
-        return () => { 
-            cancelled = true; 
+        return () => {
+            cancelled = true;
             setLayerState?.('idle');
         };
     }, [map, city?.id, generation, routing, period, setLayerState, setLayerRetry]);
@@ -531,7 +563,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             map.off('click', LAYER_ID, onClick);
             map.off('click', onMapClick);
             window.removeEventListener('map-selection-close', onPanelClose);
-            };
+        };
     }, [map, loadRoutes, clearOverlay, doDeselect]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Submode / filter change: re-fetch overlay if an edge is selected ---

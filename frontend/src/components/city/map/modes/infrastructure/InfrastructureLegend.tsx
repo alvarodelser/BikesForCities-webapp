@@ -57,7 +57,7 @@ const COMPONENT_COLORS = [
 ];
 const FALLBACK_COLOR = '#9ca3af';
 
-function buildColorExpression() {
+function buildColorExpression(): any {
     const expr: any[] = ['match', ['get', 'component_id']];
     COMPONENT_COLORS.forEach((color, i) => {
         expr.push(i, color);
@@ -99,7 +99,7 @@ export default function InfrastructureLegend() {
 
     // Coverage GeoJSON layer — sits on top of buildings, replaces appearance with component colors
     useEffect(() => {
-        if (!map || !city) return;
+        if (!map || !city?.id) return;
 
         if (!showCoverage) {
             if (map.getLayer(COVERAGE_LAYER_ID)) map.removeLayer(COVERAGE_LAYER_ID);

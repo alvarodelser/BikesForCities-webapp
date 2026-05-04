@@ -73,6 +73,7 @@ export function useLiveStats(
       setLoading(false);
 
       // Async fetch for BCC + budget
+      if (!city.id) return;
       fetchInfraStats(city.id).then(infra => {
         if (cancelled) return;
         const kmPerMeur = infra.km_per_meur_vias != null
