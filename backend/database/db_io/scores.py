@@ -67,8 +67,7 @@ def _fetch_infra_raw(conn) -> List[Dict]:
                     FROM (
                         SELECT
                             city_id,
-                            SUM(length) FILTER (WHERE highway LIKE '%%cycleway%%') AS gcc_km,
-                            SUM(length) AS total_e_km
+                            SUM(length) FILTER (WHERE highway LIKE '%%cycleway%%')::float / NULLIF(SUM(length), 0) AS gcc_fraction
                         FROM edges
                         WHERE city_id = c.id
                         GROUP BY city_id
