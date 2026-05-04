@@ -36,6 +36,7 @@ function DesktopLayout({ cities, onNavigate }: LayoutProps) {
 
   return (
     <section
+      id="map-selector"
       className="relative w-full h-[80vh] px-[var(--space-gutter)] py-[var(--space-section-y)]"
       onClick={handleSectionClick}
     >
@@ -86,7 +87,7 @@ function MobileLayout({ cities, onNavigate }: LayoutProps) {
   }, [cities]);
 
   return (
-    <section className="relative flex flex-col w-full min-h-[85vh] overflow-hidden">
+    <section id="map-selector" className="relative flex flex-col w-full min-h-[85vh] overflow-hidden">
       {/* Wave Background — covers entire section on mobile */}
       <WaveBackground
         quality="low"

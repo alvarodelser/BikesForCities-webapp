@@ -12,7 +12,6 @@ const CityPage: React.FC = () => {
   const { cityName: rawCityName } = useParams<{ cityName: string }>();
   const cityName = rawCityName?.replace(/\/$/, "");
   const [city, setCity] = React.useState<CityData | null>(null);
-  // true only on the very first load (no city yet); city transitions keep the map mounted
   const [initialLoading, setInitialLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const { isMobile } = useViewport();
@@ -64,12 +63,7 @@ const CityPage: React.FC = () => {
     );
   }
 
-  return (
-    <div className="h-dvh">
-      {isMobile ? <MapMobile city={city} /> : <MapDesktop city={city} />}
-    </div>
-  );
+  return isMobile ? <MapMobile city={city} /> : <MapDesktop city={city} />;
 };
 
 export default CityPage;
- 

@@ -148,7 +148,7 @@ const AboutPage: React.FC = () => {
         </section>
 
         {/* ── Research carousel ───────────────────────────────────────────── */}
-        <section>
+        <section id="library">
           <div className="mb-10">
             <span
               className="inline-block text-xs font-semibold uppercase tracking-widest mb-2 px-3 py-1 rounded-full"

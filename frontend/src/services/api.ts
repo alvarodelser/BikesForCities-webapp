@@ -146,6 +146,8 @@ export interface TrafficApiResponse {
   algorithm: string | null;
   month: string | null;
   stats: TrafficStats | null;
+  available_periods?: string[];  // YYYY-MM strings desc-sorted
+  max_edge_name?: string | null;
 }
 
 export const fetchTraffic = async (
@@ -171,6 +173,8 @@ export const fetchTraffic = async (
     algorithm: result.algorithm ?? null,
     month: result.month ?? null,
     stats: result.stats ?? null,
+    available_periods: result.available_periods,
+    max_edge_name: result.max_edge_name ?? null,
   };
 };
 
@@ -321,10 +325,24 @@ export const fetchBuildingCoverageComponents = async (cityId: number): Promise<G
   return result.data;
 };
 
+export interface EdgeBuildingCoverageItem {
+  edge_id: number;
+  length_m: number;
+  building_count: number;
+}
+
+export const fetchEdgeBuildingCoverage = async (cityId: number): Promise<EdgeBuildingCoverageItem[]> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/edge-building-coverage`);
+  if (!response.ok) throw new Error('Failed to fetch edge building coverage');
+  const result = await response.json();
+  return result.edges;
+};
+
 export const fetchInfraStats = async (cityId: number): Promise<InfraStats> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
   if (!response.ok) throw new Error('Failed to fetch infrastructure stats');
-  return response.json();
+  const result = await response.json();
+  return result.data;
 };
 
 // ── Traffic analytics ─────────────────────────────────────────────────────────
@@ -352,7 +370,8 @@ export const fetchTrafficInfraCoverage = async (
     `${API_BASE_URL}/cities/${cityId}/traffic/infra-coverage${qs ? `?${qs}` : ''}`
   );
   if (!response.ok) throw new Error('Failed to fetch traffic infra coverage');
-  return response.json();
+  const r = await response.json();
+  return r.data;
 };
 
 export interface HistogramSeries {
@@ -394,6 +413,13 @@ export const fetchStationMonthly = async (cityId: number): Promise<StationMonthl
   if (!response.ok) throw new Error('Failed to fetch station monthly data');
   const result = await response.json();
   return result.data;
+};
+
+export const fetchStationBuildingCoverage = async (cityId: number): Promise<number> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/building-coverage`);
+  if (!response.ok) throw new Error('Failed to fetch station building coverage');
+  const result = await response.json();
+  return result.coverage;
 };
 
 // ── Budget & political data ───────────────────────────────────────────────────
@@ -444,3 +470,35 @@ export const fetchMayorsTimeline = async (cityId: number): Promise<MayorsTimelin
   if (!response.ok) throw new Error('Failed to fetch mayors timeline');
   return response.json();
 };
+
+// ── City context (mayors + budget breakdown) ──────────────────────────────────
+
+export interface MayorTerm {
+  name: string;
+  party: string | null;
+  start_date: string | null;
+  end_date: string | null; // null = current incumbent
+}
+
+export interface ContextBudgetCategory {
+  code: string;
+  name: string;
+  amount: number;
+}
+
+export interface CityContextData {
+  mayors: MayorTerm[];
+  budget_year: number | null;
+  budget_categories: {
+    planned?: ContextBudgetCategory[];
+    executed?: ContextBudgetCategory[];
+  };
+}
+
+export async function fetchCityContext(cityId: number): Promise<CityContextData> {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/context`);
+  if (!response.ok) throw new Error('Failed to fetch city context');
+  const result = await response.json();
+  // Unwrap .data envelope if present (consistent with other endpoints)
+  return result.data ?? result;
+}

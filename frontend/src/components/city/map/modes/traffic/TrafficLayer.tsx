@@ -88,19 +88,12 @@ function buildOpacityExpr(q5: number): unknown[] {
     ];
 }
 
-interface OverlayHandle {
-    panel: HTMLDivElement;
-    svg: SVGSVGElement;
-    line: SVGLineElement;
-    dot: SVGCircleElement;
-}
 
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
-    const { map, city, setSelectedEdgeId } = useMap();
+    const { map, city, setSelectedEdgeId, setLayerState, setLayerRetry } = useMap();
     const { setThresholds } = useThresholds();
     const { generation, routing, period, setGeneration, setRouting, setSubmode } = useMapState();
 
-    const overlayRef = useRef<OverlayHandle | null>(null);
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
     const submodeRef = useRef<string>(submode);
     const trafficDataRef = useRef<Map<number, number>>(new Map());
@@ -200,68 +193,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         }
     }, [map]);
 
-    // --- Custom popup overlay (fixed top-right panel + SVG connecting line) ---
-    const updateLine = useCallback(() => {
-        if (!map || !overlayRef.current || !stickyRef.current) return;
-        const { panel, line, dot, svg } = overlayRef.current;
-        const edgePt = map.project(stickyRef.current.lngLat);
-        const containerEl = map.getContainer();
-        svg.setAttribute('width', String(containerEl.clientWidth));
-        svg.setAttribute('height', String(containerEl.clientHeight));
-        const cRect = containerEl.getBoundingClientRect();
-        const pRect = panel.getBoundingClientRect();
-        const x1 = pRect.left - cRect.left;
-        const y1 = pRect.top - cRect.top + pRect.height / 2;
-        line.setAttribute('x1', String(x1));
-        line.setAttribute('y1', String(y1));
-        line.setAttribute('x2', String(edgePt.x));
-        line.setAttribute('y2', String(edgePt.y));
-        dot.setAttribute('cx', String(edgePt.x));
-        dot.setAttribute('cy', String(edgePt.y));
-    }, [map]);
-
-    const removePopupOverlay = useCallback(() => {
-        if (!overlayRef.current) return;
-        if (map) map.off('move', updateLine);
-        overlayRef.current.panel.remove();
-        overlayRef.current.svg.remove();
-        overlayRef.current = null;
-    }, [map, updateLine]);
-
-    const showPopupOverlay = useCallback((dom: HTMLElement, lngLat: maplibregl.LngLat) => {
-        if (!map) return;
-        removePopupOverlay();
-
-        const mapContainer = map.getContainer();
-
-        const panel = document.createElement('div') as HTMLDivElement;
-        panel.style.cssText = 'position:absolute;top:60px;right:10px;z-index:10;background:white;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,0.18);border:1px solid rgba(0,0,0,0.08);pointer-events:auto;';
-        panel.appendChild(dom);
-
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg') as SVGSVGElement;
-        svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:9;overflow:visible;';
-
-        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line') as SVGLineElement;
-        line.setAttribute('stroke', '#027A76');
-        line.setAttribute('stroke-width', '1.5');
-        line.setAttribute('stroke-dasharray', '5 4');
-        line.setAttribute('stroke-opacity', '0.6');
-
-        const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle') as SVGCircleElement;
-        dot.setAttribute('r', '4');
-        dot.setAttribute('fill', '#027A76');
-        dot.setAttribute('fill-opacity', '0.7');
-
-        svg.appendChild(line);
-        svg.appendChild(dot);
-        mapContainer.appendChild(svg);
-        mapContainer.appendChild(panel);
-
-        overlayRef.current = { panel, svg, line, dot };
-        map.on('move', updateLine);
-        requestAnimationFrame(updateLine);
-    }, [map, removePopupOverlay, updateLine]);
-
     const doDeselect = useCallback(() => {
         if (!map || !stickyRef.current) return;
         routeLoadAbortRef.current?.abort();
@@ -273,7 +204,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         stickyRef.current = null;
         routeInfoRef.current = null;
         lastSelectionRef.current = null;
-        removePopupOverlay();
         clearOverlay();
         setSelectedEdgeId(null);
         window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
@@ -281,7 +211,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         if (map.getLayer(LAYER_ID) && thresholdsRef.current) {
             map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(thresholdsRef.current.q5));
         }
-    }, [map, clearOverlay, setSelectedEdgeId, removePopupOverlay]);
+    }, [map, clearOverlay, setSelectedEdgeId]);
 
 
     const ROUTE_PAGE_SIZE = 100;
@@ -395,8 +325,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     map.removeFeatureState({ source: SOURCE_ID, sourceLayer: 'edges' });
                 }
             } catch { /* map may have been removed */ }
-            removePopupOverlay();
-            stickyRef.current = null;
+                stickyRef.current = null;
             prevGenRef.current = '';
             prevRouteRef.current = '';
             setSelectedEdgeId(null);
@@ -436,60 +365,81 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
         }
 
-        fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined).then(result => {
-            if (cancelled || !map) return;
+        const loadData = () => {
+            if (cancelled) return;
+            setLayerState?.('loading');
 
-            // On first load with empty URL params, write resolved values back so the
-            // legend selectors and bookmarks reflect the actual mode being shown.
-            if (!urlParamsSetRef.current) {
-                urlParamsSetRef.current = true;
-                if (!generation && result.generation_type) setGeneration(result.generation_type);
-                if (!routing && result.algorithm) setRouting(result.algorithm);
-            }
+            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined).then(result => {
+                if (cancelled || !map) return;
 
-            result.data.forEach(t => {
-                map.setFeatureState(
-                    { source: SOURCE_ID, sourceLayer: 'edges', id: t.edge_id },
-                    { trip_count: t.trip_count }
-                );
-            });
-
-            const dataMap = new Map<number, number>();
-            result.data.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
-            trafficDataRef.current = dataMap;
-
-            // Use server-computed percentile stats; fall back to client-side sort if absent
-            let stats = result.stats;
-            if (!stats && result.data.length > 0) {
-                const counts = result.data.map(t => t.trip_count).sort((a, b) => a - b);
-                stats = {
-                    q5:  counts[Math.floor(counts.length * 0.05)],
-                    q50: counts[Math.floor(counts.length * 0.50)],
-                    q95: counts[Math.floor(counts.length * 0.95)],
-                    min: counts[0],
-                    max: counts[counts.length - 1],
-                };
-            }
-
-            if (stats) {
-                thresholdsRef.current = stats;
-                const { q5, q50, q95, min, max } = stats;
-                setThresholds({ q5, q50, q95, max, min });
-                if (map.getLayer(LAYER_ID)) {
-                    map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
-                    // Only restore full opacity if no edge is currently selected
-                    if (!stickyRef.current) {
-                        map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
-                    }
+                if (!result.data || result.data.length === 0) {
+                    setLayerState?.('empty');
+                    return;
                 }
-            } else {
-                thresholdsRef.current = null;
-                setThresholds(null);
-            }
-        }).catch(err => console.error('Failed to load traffic:', err));
+                setLayerState?.('idle');
 
-        return () => { cancelled = true; };
-    }, [map, city?.id, generation, routing, period]); // eslint-disable-line react-hooks/exhaustive-deps
+                // On first load with empty URL params, write resolved values back so the
+                // legend selectors and bookmarks reflect the actual mode being shown.
+                if (!urlParamsSetRef.current) {
+                    urlParamsSetRef.current = true;
+                    if (!generation && result.generation_type) setGeneration(result.generation_type);
+                    if (!routing && result.algorithm) setRouting(result.algorithm);
+                }
+
+                result.data.forEach(t => {
+                    map.setFeatureState(
+                        { source: SOURCE_ID, sourceLayer: 'edges', id: t.edge_id },
+                        { trip_count: t.trip_count }
+                    );
+                });
+
+                const dataMap = new Map<number, number>();
+                result.data.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
+                trafficDataRef.current = dataMap;
+
+                // Use server-computed percentile stats; fall back to client-side sort if absent
+                let stats = result.stats;
+                if (!stats && result.data.length > 0) {
+                    const counts = result.data.map(t => t.trip_count).sort((a, b) => a - b);
+                    stats = {
+                        q5:  counts[Math.floor(counts.length * 0.05)],
+                        q50: counts[Math.floor(counts.length * 0.50)],
+                        q95: counts[Math.floor(counts.length * 0.95)],
+                        min: counts[0],
+                        max: counts[counts.length - 1],
+                    };
+                }
+
+                if (stats) {
+                    thresholdsRef.current = stats;
+                    const { q5, q50, q95, min, max } = stats;
+                    setThresholds({ q5, q50, q95, max, min });
+                    if (map.getLayer(LAYER_ID)) {
+                        map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
+                        // Only restore full opacity if no edge is currently selected
+                        if (!stickyRef.current) {
+                            map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
+                        }
+                    }
+                } else {
+                    thresholdsRef.current = null;
+                    setThresholds(null);
+                }
+            }).catch(err => {
+                if (cancelled) return;
+                console.error('Failed to load traffic:', err);
+                setLayerState?.('error');
+            });
+        };
+
+        setLayerRetry?.(loadData);
+        loadData();
+
+        return () => { 
+            cancelled = true; 
+            setLayerState?.('idle');
+        };
+    }, [map, city?.id, generation, routing, period, setLayerState, setLayerRetry]);
 
     // --- Click handling ---
     useEffect(() => {
@@ -514,7 +464,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     { selected: false }
                 );
                 clearOverlay();
-                removePopupOverlay();
             }
 
             const edgeName = (feature.properties?.name as string | undefined) ?? null;
@@ -582,9 +531,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             map.off('click', LAYER_ID, onClick);
             map.off('click', onMapClick);
             window.removeEventListener('map-selection-close', onPanelClose);
-            removePopupOverlay();
-        };
-    }, [map, loadRoutes, clearOverlay, doDeselect, removePopupOverlay]); // eslint-disable-line react-hooks/exhaustive-deps
+            };
+    }, [map, loadRoutes, clearOverlay, doDeselect]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Submode / filter change: re-fetch overlay if an edge is selected ---
     // Re-runs when the user toggles Trayecto/Calor or changes generation/algorithm/month

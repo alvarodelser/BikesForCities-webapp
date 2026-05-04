@@ -43,6 +43,7 @@ class CityResponse(NetworkBase):
     bicycles_count: Optional[int] = None
     bounds: Optional[Dict[str, float]] = None
     available_modes: Optional[Dict[str, Any]] = None
+    mode_scores: Optional[Dict[str, Any]] = None
 
     class Config:
         from_attributes = True
@@ -323,6 +324,8 @@ class TrafficResponse(BaseResponse):
     algorithm: Optional[str] = None
     month: Optional[date] = None
     stats: Optional[TrafficStats] = None
+    available_periods: Optional[List[str]] = None  # YYYY-MM strings desc-sorted
+    max_edge_name: Optional[str] = None
 
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""
@@ -351,6 +354,20 @@ class InfraStatsResponse(BaseResponse):
 class InfraComponentsResponse(BaseResponse):
     """GeoJSON FeatureCollection of cycling edges with component_id property."""
     data: Dict[str, Any]  # GeoJSON FeatureCollection
+
+
+class EdgeBuildingCoverageItem(BaseModel):
+    edge_id: int
+    length_m: float
+    building_count: int
+
+
+class EdgeBuildingCoverageResponse(BaseResponse):
+    edges: List[EdgeBuildingCoverageItem]
+
+
+class StationBuildingCoverageResponse(BaseResponse):
+    coverage: float
 
 
 # ── Traffic analytics models ──────────────────────────────────────────────────
@@ -420,6 +437,25 @@ class MayorRecord(BaseModel):
     party: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
+
+
+class MayorTermResponse(BaseModel):
+    name: str
+    party: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None   # None = current incumbent
+
+
+class BudgetCategoryResponse(BaseModel):
+    code: str
+    name: str
+    amount: int
+
+
+class CityContextResponse(BaseModel):
+    mayors: List[MayorTermResponse]
+    budget_year: Optional[int] = None
+    budget_categories: Dict[str, List[BudgetCategoryResponse]]  # key = 'planned' | 'executed'
 
 
 class ElectionResult(BaseModel):

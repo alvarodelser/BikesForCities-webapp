@@ -603,7 +603,7 @@ def get_building_coverage_components_geojson(conn, city_id: int) -> dict:
                 FROM unioned
             ),
             buildings AS (
-                SELECT id, ST_AsGeoJSON(geometry) AS geojson
+                SELECT id, geometry, ST_AsGeoJSON(geometry) AS geojson
                 FROM features
                 WHERE feature_type = 'bike_path_buildings' AND city_id = %s
             )
@@ -625,6 +625,40 @@ def get_building_coverage_components_geojson(conn, city_id: int) -> dict:
         })
 
     return {"type": "FeatureCollection", "features": features}
+
+
+def get_edge_building_coverage(conn, city_id: int) -> list:
+    """Return per-edge building counts for the cycling network.
+
+    For each cycleway edge: count buildings within 150 m and return
+    [{edge_id, length_m, building_count}].  Used to histogram edge
+    effectiveness (buildings/km) on the client side.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                e.id                    AS edge_id,
+                e.length                AS length_m,
+                COUNT(b.id)             AS building_count
+            FROM edges e
+            LEFT JOIN features b
+                ON  b.feature_type = 'bike_path_buildings'
+                AND b.city_id      = %s
+                AND ST_DWithin(e.geom::geography, b.geometry::geography, 150)
+            WHERE e.city_id = %s
+              AND e.highway LIKE '%%cycleway%%'
+              AND e.length  > 0
+            GROUP BY e.id, e.length
+            """,
+            (city_id, city_id),
+        )
+        rows = cur.fetchall()
+
+    return [
+        {"edge_id": row[0], "length_m": float(row[1]), "building_count": int(row[2])}
+        for row in rows
+    ]
 
 
 def get_gcc_coverage(conn, city_id: int) -> dict:

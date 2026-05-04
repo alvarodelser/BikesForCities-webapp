@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { CityData } from '../../constants/cities';
-import { getModeStats } from '../../constants/cityStats';
 import { useMapState } from '../../hooks/useMapState';
 import { useViewport } from '../../hooks/useViewport';
 import MapFilters from './MapFilters';
 import CityMap from './CityMap';
-import CityStats from './CityStats';
+import ModeStatsRouter from './ModeStatsRouter';
 import DualPanel from './DualPanel';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
@@ -18,19 +17,25 @@ import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 const modeNames: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
     [MAP_MODES.TRAFFIC]: 'Tráfico',
-    [MAP_MODES.STATIONS]: 'Estaciones',
+    [MAP_MODES.STATIONS]: 'Servicios de Bici',
     [MAP_MODES.TERRAIN]: 'Terreno',
     [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
     [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
 const modeColors: Record<string, string> = {
-    [MAP_MODES.INFRASTRUCTURE]: 'var(--blue)',
-    [MAP_MODES.TRAFFIC]: 'var(--red)',
-    [MAP_MODES.STATIONS]: 'var(--green)',
+    [MAP_MODES.INFRASTRUCTURE]: '#027A76',
+    [MAP_MODES.TRAFFIC]: '#3A6C7F',
+    [MAP_MODES.STATIONS]: '#ffa585',
     [MAP_MODES.TERRAIN]: 'var(--orange)',
     [MAP_MODES.INTERSECTIONS]: 'var(--yellow)',
     [MAP_MODES.ACCIDENTS]: 'var(--red)',
+};
+
+const modeGradients: Partial<Record<string, { bg: string; wave: string }>> = {
+    [MAP_MODES.INFRASTRUCTURE]: { bg: 'linear-gradient(160deg, #027A76 0%, #3A6C7F 100%)', wave: '#027A76' },
+    [MAP_MODES.STATIONS]:       { bg: 'linear-gradient(160deg, #ffa585 0%, #bc556f 100%)', wave: '#ffa585' },
+    [MAP_MODES.TRAFFIC]:        { bg: 'linear-gradient(160deg, #003849 0%, #4b749f 100%)', wave: '#003849' },
 };
 
 interface MapDesktopProps {
@@ -112,6 +117,7 @@ function CityHero({ city, selectedColor }: { city: CityData, selectedColor: stri
     );
 }
 
+
 const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const { mode, setMode } = useMapState();
     const { isUltrawide } = useViewport();
@@ -142,10 +148,6 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     }, [mode, city.id]);
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
-    const modeStats = getModeStats(mode, city);
-    const modeName = modeNames[mode] || mode;
-    const title = `Estadísticas de ${modeName}`;
-    const subtitle = `Análisis detallado de datos de ${modeName.toLowerCase()} en ${city.name}`;
 
     const filtersEl = (
         <MapFilters
@@ -163,14 +165,20 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     );
     const statsEl = (
         <div className="px-[var(--space-gutter)] py-10">
-            <CityStats city={city} title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
+            <ModeStatsRouter city={city} />
         </div>
     );
 
+    const gradient = modeGradients[mode];
+    const backgroundStyle = gradient
+        ? { background: gradient.bg }
+        : { backgroundColor: selectedColor };
+    const waveColor = gradient?.wave ?? selectedColor;
+
     // ── Desktop Layouts (768px+) ──────────────────────────────────────────────
     return (
-        <div className="w-full min-h-screen transition-colors duration-300" style={{ backgroundColor: selectedColor }}>
-            <CityHero city={city} selectedColor={selectedColor} />
+        <div className="w-full min-h-screen transition-colors duration-300" style={backgroundStyle}>
+            <CityHero city={city} selectedColor={waveColor} />
 
             {isUltrawide ? (
                 /* Ultrawide C1: map 50% left, scrollable stats 50% right */
@@ -182,11 +190,10 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     </DualPanel.Left>
                     <DualPanel.Right>
                         <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] py-6">
-                            {/* Filters at top of right column */}
                             <div className="mb-8">
                                 {filtersEl}
                             </div>
-                            <CityStats city={city} title={title} subtitle={subtitle} modeStats={modeStats} theme="dark" />
+                            <ModeStatsRouter city={city} />
                         </div>
                     </DualPanel.Right>
                 </DualPanel>

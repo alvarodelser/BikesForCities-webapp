@@ -18,11 +18,13 @@ from .models import (
     StationResponse, StationListResponse,
     TrafficResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
     EdgeRoutesResponse,
-    InfraStatsResponse, InfraComponentsResponse,
+    InfraStatsResponse, InfraComponentsResponse, EdgeBuildingCoverageResponse,
+    StationBuildingCoverageResponse,
     TrafficInfraCoverage, RouteHistogramResponse, RouteHistogramSeries, HistogramSeries,
     StationMonthlyResponse, StationMonthlyPoint,
     CityBudgetsResponse, BudgetYear, BudgetCategory,
     MayorsTimelineResponse, MayorRecord, ElectionResult,
+    MayorTermResponse, BudgetCategoryResponse, CityContextResponse,
 )
 from .dependencies import (
     get_db_connection, calculate_pagination, parse_bbox,
@@ -31,18 +33,21 @@ from .dependencies import (
 from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
     count_trips, count_features, get_nodes, get_edges, get_features,
-    get_stations, get_edge_traffic, get_traffic_stats, get_traffic_modes,
+    get_stations, get_edge_traffic, get_traffic_stats, get_traffic_modes, get_max_traffic_edge,
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
     get_accidents_geojson,
-    get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson, get_infra_budget,
+    get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson,
+    get_edge_building_coverage, get_infra_budget,
     get_traffic_infra_coverage, get_route_histogram,
     get_station_monthly_agg,
+    get_station_building_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
     get_best_traffic_mode, get_latest_traffic_month,
+    compute_mode_scores,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,7 +90,7 @@ async def list_networks(conn=Depends(get_db_connection)):
                 "forum": bool(forum)
             }
 
-            cities.append(CityResponse(
+            city_obj = CityResponse(
                 id=city_id,
                 name=name,
                 alt_name=alt_name,
@@ -106,8 +111,13 @@ async def list_networks(conn=Depends(get_db_connection)):
                 bicycles_count=int(bicycles_count) if bicycles_count is not None else None,
                 bounds=bounds,
                 available_modes=available_modes
-            ))
-        
+            )
+            try:
+                city_obj.mode_scores = compute_mode_scores(conn, city_id)
+            except Exception as scores_err:
+                logger.warning(f"Could not compute mode scores for city {city_id}: {scores_err}")
+            cities.append(city_obj)
+
         return CityListResponse(
             data=cities,
             count=len(cities),
@@ -163,7 +173,11 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             bounds=bounds_dict,
             available_modes=available_modes
         )
-        
+        try:
+            city.mode_scores = compute_mode_scores(conn, city_id)
+        except Exception as scores_err:
+            logger.warning(f"Could not compute mode scores for city {city_id}: {scores_err}")
+
         return CityDetailResponse(
             data=city,
             message="City retrieved successfully"
@@ -654,10 +668,31 @@ async def get_city_traffic(
         )
 
         stats = None
+        max_edge_name = None
         if resolved_gen and resolved_algo and resolved_month:
             raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
             if raw:
                 stats = TrafficStats(**raw)
+            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            if max_edge:
+                max_edge_name = max_edge.get('edge_name')
+
+        # Distinct available months for this city
+        available_periods = None
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT TO_CHAR(month, 'YYYY-MM') AS period
+                    FROM edge_traffic
+                    WHERE city_id = %s
+                    ORDER BY period DESC
+                    """,
+                    (city_id,),
+                )
+                available_periods = [r[0] for r in cur.fetchall()]
+        except Exception as periods_err:
+            logger.warning(f"Could not fetch available traffic periods for city {city_id}: {periods_err}")
 
         return TrafficResponse(
             data=[TrafficCount(edge_id=r[0], trip_count=r[1], month=r[2]) for r in rows],
@@ -666,6 +701,8 @@ async def get_city_traffic(
             algorithm=resolved_algo,
             month=resolved_month,
             stats=stats,
+            available_periods=available_periods,
+            max_edge_name=max_edge_name,
         )
     except HTTPException:
         raise
@@ -853,6 +890,19 @@ async def get_infrastructure_building_coverage(city_id: int, conn=Depends(get_db
         raise HTTPException(status_code=500, detail="Failed to retrieve building coverage components")
 
 
+@router.get("/cities/{city_id}/infrastructure/edge-building-coverage", response_model=EdgeBuildingCoverageResponse)
+async def get_infrastructure_edge_building_coverage(city_id: int, conn=Depends(get_db_connection)):
+    """Return per-edge building counts for histogram of edge effectiveness (buildings/km)."""
+    try:
+        edges = get_edge_building_coverage(conn, city_id)
+        return EdgeBuildingCoverageResponse(message="Edge building coverage retrieved", edges=edges)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting edge building coverage for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve edge building coverage")
+
+
 # ── Traffic analytics ─────────────────────────────────────────────────────────
 
 @router.get("/cities/{city_id}/traffic/infra-coverage", response_model=TrafficInfraCoverage)
@@ -927,6 +977,17 @@ async def get_city_route_histogram(
 
 # ── Station analytics ─────────────────────────────────────────────────────────
 
+@router.get("/cities/{city_id}/stations/building-coverage", response_model=StationBuildingCoverageResponse)
+async def get_station_building_coverage_route(city_id: int, conn=Depends(get_db_connection)):
+    """Percentage of city buildings within 150 m of at least one station."""
+    try:
+        coverage = get_station_building_coverage(conn, city_id)
+        return StationBuildingCoverageResponse(message="Station building coverage retrieved", coverage=coverage)
+    except Exception as e:
+        logger.error(f"Error getting station building coverage for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve station building coverage")
+
+
 @router.get("/cities/{city_id}/stations/monthly", response_model=StationMonthlyResponse)
 async def get_city_station_monthly(city_id: int, conn=Depends(get_db_connection)):
     """Return monthly aggregated station trips (estimated + actual) for the city."""
@@ -995,6 +1056,58 @@ async def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)
     except Exception as e:
         logger.error(f"Error getting mayors timeline for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve mayors timeline")
+
+
+@router.get("/cities/{city_id}/context", response_model=CityContextResponse)
+def get_city_context(city_id: int, conn=Depends(get_db_connection)):
+    """Return city context: historical mayors and latest budget categories."""
+    try:
+        validate_network_exists(conn, city_id)
+
+        # Fetch mayors
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT name, party, start_date, end_date FROM historical_mayors WHERE city_id = %s ORDER BY start_date ASC",
+                (city_id,),
+            )
+            mayors = [
+                MayorTermResponse(name=r[0], party=r[1], start_date=r[2], end_date=r[3])
+                for r in cur.fetchall()
+            ]
+
+        # Fetch latest budget year
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT MAX(year) FROM city_budget_categories WHERE city_id = %s",
+                (city_id,),
+            )
+            row = cur.fetchone()
+            budget_year = row[0] if row else None
+
+        # Fetch budget categories for that year
+        budget_categories: Dict[str, List[BudgetCategoryResponse]] = {}
+        if budget_year is not None:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT budget_type, category_code AS code, category_name AS name, amount "
+                    "FROM city_budget_categories WHERE city_id = %s AND year = %s ORDER BY category_code",
+                    (city_id, budget_year),
+                )
+                for budget_type, code, name, amount in cur.fetchall():
+                    budget_categories.setdefault(budget_type, []).append(
+                        BudgetCategoryResponse(code=code, name=name, amount=amount)
+                    )
+
+        return CityContextResponse(
+            mayors=mayors,
+            budget_year=budget_year,
+            budget_categories=budget_categories,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting city context for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve city context")
 
 
 # Status endpoint

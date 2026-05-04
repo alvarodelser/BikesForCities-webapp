@@ -270,6 +270,49 @@ def get_traffic_stats(
         }
 
 
+def get_max_traffic_edge(
+    conn,
+    city_id: int,
+    generation_type: str,
+    algorithm: str,
+    month,
+) -> Optional[dict]:
+    """Return the max-volume edge's trip_count and name.
+
+    If the edge has no OSM name, falls back to any adjacent edge with a name.
+    Returns {'trip_count': int, 'edge_name': str | None} or None.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                et.trip_count,
+                COALESCE(
+                    e.name,
+                    (SELECT e2.name FROM edges e2
+                     WHERE e2.city_id = e.city_id
+                       AND e2.id != e.id
+                       AND (e2.u = e.u OR e2.u = e.v OR e2.v = e.u OR e2.v = e.v)
+                       AND e2.name IS NOT NULL
+                     LIMIT 1)
+                ) AS edge_name
+            FROM edge_traffic et
+            JOIN edges e ON e.id = et.edge_id AND e.city_id = et.city_id
+            WHERE et.city_id        = %s
+              AND et.generation_type = %s
+              AND et.algorithm       = %s
+              AND et.month           = %s
+            ORDER BY et.trip_count DESC
+            LIMIT 1
+            """,
+            (city_id, generation_type, algorithm, month),
+        )
+        row = cur.fetchone()
+        if not row:
+            return None
+        return {'trip_count': int(row[0]), 'edge_name': row[1]}
+
+
 def has_traffic(conn, city_id: int) -> bool:
     with conn.cursor() as cur:
         cur.execute(

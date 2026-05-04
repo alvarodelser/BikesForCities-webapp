@@ -22,18 +22,26 @@ interface CityMapProps {
 
 const modeLabels: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura Ciclista',
-    [MAP_MODES.STATIONS]: 'Estaciones de Bici',
-    [MAP_MODES.TRAFFIC]: 'Tráfico Ciclista',
+    [MAP_MODES.STATIONS]:       'Servicios de Bici',
+    [MAP_MODES.TRAFFIC]:        'Tráfico Ciclista',
+    [MAP_MODES.ACCIDENTS]:      'Accidentalidad',
+    [MAP_MODES.TERRAIN]:        'Análisis de Terreno',
+    [MAP_MODES.INTERSECTIONS]:  'Intersecciones Críticas',
 };
 
 const getColorScheme = (colorVar: string) => {
     const schemes: Record<string, { primary: string; secondary: string; accent: string; light: string }> = {
-        'var(--red)': { primary: '#e74c3c', secondary: '#c0392b', accent: '#ff6b6b', light: '#ffebee' },
-        'var(--green)': { primary: '#7BA492', secondary: '#027A76', accent: '#4ecdc4', light: '#e8f5e8' },
-        'var(--blue)': { primary: '#3f7aba', secondary: '#2c5c8c', accent: '#5dade2', light: '#e3f2fd' },
-        'var(--orange)': { primary: '#f4a24c', secondary: '#e67e22', accent: '#ffb74d', light: '#fff3e0' },
-        'var(--yellow)': { primary: '#f1c40f', secondary: '#f39c12', accent: '#fff176', light: '#fffde7' },
-        'var(--blue-dark)': { primary: '#2c5c8c', secondary: '#1a365d', accent: '#4299e1', light: '#e6f3ff' },
+        // CSS variable keys (terrain, intersections, accidents)
+        'var(--red)':      { primary: '#e74c3c', secondary: '#c0392b', accent: '#ff6b6b', light: '#ffebee' },
+        'var(--green)':    { primary: '#7BA492', secondary: '#027A76', accent: '#4ecdc4', light: '#e8f5e8' },
+        'var(--blue)':     { primary: '#3f7aba', secondary: '#2c5c8c', accent: '#5dade2', light: '#e3f2fd' },
+        'var(--orange)':   { primary: '#f4a24c', secondary: '#e67e22', accent: '#ffb74d', light: '#fff3e0' },
+        'var(--yellow)':   { primary: '#f1c40f', secondary: '#f39c12', accent: '#fff176', light: '#fffde7' },
+        'var(--blue-dark)':{ primary: '#2c5c8c', secondary: '#1a365d', accent: '#4299e1', light: '#e6f3ff' },
+        // Hex keys for infrastructure, traffic, stations
+        '#027A76': { primary: '#027A76', secondary: '#015c58', accent: '#3A6C7F', light: '#e0f7f6' },
+        '#3A6C7F': { primary: '#3A6C7F', secondary: '#2a5060', accent: '#6fa8bc', light: '#e3f0f4' },
+        '#ffa585': { primary: '#ffa585', secondary: '#ff7a57', accent: '#ffb8a0', light: '#fff5f2' },
     };
     return schemes[colorVar] || schemes['var(--blue)'];
 };
@@ -48,11 +56,22 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
     const { mode } = useMapState();
     const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
+
     const [selectedEdgeId, setSelectedEdgeIdInternal] = useState<number | null>(null);
     const setSelectedEdgeId = useCallback((id: number | null) => {
         setSelectedEdgeIdInternal(id);
         onEdgeSelect?.(id);
     }, [onEdgeSelect]);
+
+    const [layerState, setLayerState] = useState<'idle' | 'loading' | 'error' | 'empty'>('idle');
+    const layerRetryRef = React.useRef<(() => void) | null>(null);
+    const setLayerRetry = useCallback((retryFn: () => void) => {
+        layerRetryRef.current = retryFn;
+    }, []);
+    const retryLayerRequest = useCallback(() => {
+        if (layerRetryRef.current) layerRetryRef.current();
+    }, []);
+
     const colorScheme = getColorScheme(selectedColor);
     const modeLabel = modeLabels[mode] || mode;
     const { isMobile } = useViewport();
@@ -102,6 +121,9 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         toggleBackground,
         selectedEdgeId,
         setSelectedEdgeId,
+        layerState,
+        setLayerState,
+        setLayerRetry,
     };
 
 
@@ -164,7 +186,13 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                 border: '1px solid rgba(0, 0, 0, 0.25)',
                             }}
                         >
-                            <CityCanvas city={city} onMapInstance={setMapInstance} />
+                            <CityCanvas 
+                                city={city} 
+                                onMapInstance={setMapInstance} 
+                                layerState={layerState}
+                                onRetry={retryLayerRequest}
+                                primaryColor={colorScheme.primary}
+                            />
                         </div>
                     </div>
 

@@ -18,6 +18,18 @@ export interface CityData {
   stations_count?: number;
   monthly_trips?: number;
   bicycles_count?: number;
+  trips_per_inhabitant?: number;
   available_modes?: Record<string, unknown>;
   angle?: number;
+  mode_scores?: {
+    [mode: string]: {
+      overall: number;
+      segments: {
+        label: string;
+        weight: number;
+        value: number;
+        color: string;
+      }[];
+    };
+  };
 }
