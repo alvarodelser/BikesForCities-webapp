@@ -4,10 +4,9 @@ import { fetchStationMonthly, type StationMonthlyPoint } from '../../../services
 
 interface StationMonthlyChartProps {
   cityId: number;
-  theme?: 'light' | 'dark';
 }
 
-export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId, theme = 'light' }) => {
+export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId }) => {
   const [data, setData] = useState<StationMonthlyPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +105,6 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
       series={series}
       title="Evolución mensual"
       subtitle="Viajes estimados y estaciones activas por mes"
-      theme={theme}
       helpContent={
         <p>
           Evolución mes a mes de los viajes estimados y las estaciones activas del servicio.

@@ -9,21 +9,20 @@ import AccidentsStats from './map/modes/accidents/AccidentsStats';
 
 interface ModeStatsRouterProps {
   city: CityData;
-  variant?: 'light' | 'darkTint';
 }
 
-const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant }) => {
+const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city }) => {
   const { mode } = useMapState();
 
   switch (mode) {
     case MAP_MODES.INFRASTRUCTURE:
-      return <InfraStats city={city} variant={variant} />;
+      return <InfraStats city={city} />;
     case MAP_MODES.STATIONS:
-      return <StationsStats city={city} variant={variant} />;
+      return <StationsStats city={city} />;
     case MAP_MODES.TRAFFIC:
-      return <TrafficStats city={city} variant={variant} />;
+      return <TrafficStats city={city} />;
     case MAP_MODES.ACCIDENTS:
-      return <AccidentsStats city={city} variant={variant} />;
+      return <AccidentsStats city={city} />;
     default:
       return null;
   }

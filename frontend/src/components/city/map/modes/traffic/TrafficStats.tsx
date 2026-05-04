@@ -224,7 +224,6 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
             xKey="period"
             title="Evolución de viajes"
             subtitle="Total de rutas generadas por mes"
-            theme="dark"
             series={[
               {
                 key: 'tripsPerMonth',

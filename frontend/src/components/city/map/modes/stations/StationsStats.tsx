@@ -128,7 +128,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
       {/* Charts */}
       {cityId > 0 && (
         <div className="flex flex-col gap-4">
-          <StationMonthlyChart cityId={cityId} theme="dark" />
+          <StationMonthlyChart cityId={cityId} />
           <StationHistograms cityId={cityId} />
         </div>
       )}

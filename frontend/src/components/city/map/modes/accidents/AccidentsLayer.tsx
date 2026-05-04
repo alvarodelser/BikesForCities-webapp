@@ -176,7 +176,7 @@ export default function AccidentsLayer() {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchAccidents(city.id).then(geojson => {
+            fetchAccidents(city!.id!).then(geojson => {
                 if (cancelled || !map) return;
 
                 if (!geojson.features || geojson.features.length === 0) {

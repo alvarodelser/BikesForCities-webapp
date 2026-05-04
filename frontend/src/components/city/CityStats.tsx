@@ -2,14 +2,13 @@ import React from 'react';
 import type { CityData } from '../../constants/cities';
 import type { ModeStats } from '../../constants/cityStats';
 import { getTrendColor, getTrendIcon } from '../../constants/cityStats';
-import { Network, Route, Calendar } from 'lucide-react';
+import { Network, Route, Calendar, BarChart3, TrendingUp, Activity } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { useMapState } from '../../hooks/useMapState';
 import { MAP_MODES } from '../../constants/mapModes';
 import { useLiveStats, formatMonth } from '../../hooks/useLiveStats';
 import type { TrafficMode } from '../../services/api';
 import MetricPill from './pills/MetricPill';
-import ServiceNamePill from './pills/ServiceNamePill';
 
 // ── Traffic computation labels (matches backend keys from TrafficLegend) ──────
 
@@ -138,7 +137,6 @@ interface CityStatsProps {
 }
 
 const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats, compact = false, theme = 'light' }) => {
-  const { insights, recommendations } = modeStats;
   const { mode, generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
   const { insights = { primary: '', secondary: '' }, recommendations = { primary: '', secondary: '' } } = modeStats || {};
   const isTraffic = mode === MAP_MODES.TRAFFIC;
@@ -213,12 +211,6 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
         {/* Infrastructure special pills */}
         {isInfra && (
           <div className="mb-8 space-y-6">
-            {city.service_name && (
-              <div className="flex justify-start">
-                <ServiceNamePill serviceName={city.service_name} />
-              </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricPill
                 value={liveStats[0]?.value || `${city.cyclingNetwork.toFixed(1)} km`}

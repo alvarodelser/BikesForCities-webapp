@@ -253,7 +253,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchStations(city.id).then(data => {
+            fetchStations(city!.id!).then(data => {
                 if (cancelled || !map) return;
 
                 if (!data || data.length === 0) {
@@ -482,112 +482,111 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         ensureSpinnerCSS();
 
         const onMouseEnter = () => {
-            const onMouseEnter = () => {
-                if (stickyRef.current) return;
-                map.getCanvas().style.cursor = 'pointer';
-            };
+            if (stickyRef.current) return;
+            map.getCanvas().style.cursor = 'pointer';
+        };
 
-            const onMouseLeave = () => {
-                if (stickyRef.current) return;
-                map.getCanvas().style.cursor = '';
-            };
+        const onMouseLeave = () => {
+            if (stickyRef.current) return;
+            map.getCanvas().style.cursor = '';
+        };
 
-            const onClick = (e: maplibregl.MapLayerMouseEvent) => {
-                const f = e.features?.[0]; if (!f) return;
-                const coords = (f.geometry as any).coordinates.slice() as [number, number];
-                const props = f.properties!;
-                stickyRef.current = { id: props.id, coords, props };
-                setStickyId(props.id);
+        const onClick = (e: maplibregl.MapLayerMouseEvent) => {
+            const f = e.features?.[0]; if (!f) return;
+            const coords = (f.geometry as any).coordinates.slice() as [number, number];
+            const props = f.properties!;
+            stickyRef.current = { id: props.id, coords, props };
+            setStickyId(props.id);
 
-                if (isReach) {
-                    const covVal = props.reach_coverage ?? 0;
-                    dispatchSelection({
-                        type: 'reach',
-                        title: props.name,
-                        subtitle: 'Alcance desde la estación',
-                        badge: { text: `${Math.round(covVal)}%`, color: '#26a69a' },
-                        loading: true,
-                    });
-                    // loadReach will update the panel when coverage is computed
-                    loadReach(props.id);
-                } else {
-                    const val = metric === 'trips' ? (props.usage || 0) : (props.downtime || 0);
-                    const unit = metric === 'trips' ? 'v/mes' : 'min/día';
-                    const q5 = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
-                    const color = getMetricColor(val, q5, q50, q95, metric);
-                    const textColor = ['#042F2E', '#450A0A', '#065F46', '#7F1D1D'].includes(color) ? 'white' : 'black';
+            if (isReach) {
+                const covVal = props.reach_coverage ?? 0;
+                dispatchSelection({
+                    type: 'reach',
+                    title: props.name,
+                    subtitle: 'Alcance desde la estación',
+                    badge: { text: `${Math.round(covVal)}%`, color: '#26a69a' },
+                    loading: true,
+                });
+                // loadReach will update the panel when coverage is computed
+                loadReach(props.id);
+            } else {
+                const val = metric === 'trips' ? (props.usage || 0) : (props.downtime || 0);
+                const unit = metric === 'trips' ? 'v/mes' : 'min/día';
+                const q5 = thresholds?.q5 ?? 5, q50 = thresholds?.q50 ?? 50, q95 = thresholds?.q95 ?? 200;
+                const color = getMetricColor(val, q5, q50, q95, metric);
+                const textColor = ['#042F2E', '#450A0A', '#065F46', '#7F1D1D'].includes(color) ? 'white' : 'black';
 
-                    const selectionDetail: SelectionDetail = {
-                        type: 'station',
-                        title: props.name,
-                        badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
-                        rows: metric === 'downtime' ? [
-                            { label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` },
-                        ] : [
-                            { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
-                        ],
-                        periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
-                        activePeriod: activePeriod,
-                        onPeriodChange: (period: string) => setActivePeriod(period),
-                    };
+                const selectionDetail: SelectionDetail = {
+                    type: 'station',
+                    title: props.name,
+                    badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
+                    rows: metric === 'downtime' ? [
+                        { label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` },
+                    ] : [
+                        { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
+                    ],
+                    periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
+                    activePeriod: activePeriod,
+                    onPeriodChange: (period: string) => setActivePeriod(period),
+                };
 
-                    // Fetch hourly data for downtime chart
-                    if (metric === 'downtime' && city?.id) {
-                        const stationCache = hourlyCache.current.get(props.id) || {};
-                        const cached = stationCache[activePeriod];
+                // Fetch hourly data for downtime chart
+                if (metric === 'downtime' && city?.id) {
+                    const stationCache = hourlyCache.current.get(props.id) || {};
+                    const cached = stationCache[activePeriod];
 
-                        if (cached) {
-                            const chart = buildLinePlotDOM(cached) as unknown as HTMLElement;
-                            dispatchSelection({ ...selectionDetail, chart });
-                        } else {
-                            dispatchSelection({ ...selectionDetail, loading: true });
-                            fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
-                                .then(data => {
-                                    hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
-                                    const chart = data.length > 0 ? (buildLinePlotDOM(data) as unknown as HTMLElement) : null;
-                                    dispatchSelection({ ...selectionDetail, chart, loading: false });
-                                })
-                                .catch(err => {
-                                    console.error('Failed to fetch hourly data:', err);
-                                    dispatchSelection({ ...selectionDetail, loading: false });
-                                });
-                        }
+                    if (cached) {
+                        const chart = buildLinePlotDOM(cached) as unknown as HTMLElement;
+                        dispatchSelection({ ...selectionDetail, chart });
                     } else {
-                        dispatchSelection(selectionDetail);
+                        dispatchSelection({ ...selectionDetail, loading: true });
+                        fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
+                            .then(data => {
+                                hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
+                                const chart = data.length > 0 ? (buildLinePlotDOM(data) as unknown as HTMLElement) : null;
+                                dispatchSelection({ ...selectionDetail, chart, loading: false });
+                            })
+                            .catch(err => {
+                                console.error('Failed to fetch hourly data:', err);
+                                dispatchSelection({ ...selectionDetail, loading: false });
+                            });
                     }
+                } else {
+                    dispatchSelection(selectionDetail);
                 }
-            };
+            }
+        };
 
-            const onMapClick = (e: maplibregl.MapMouseEvent) => {
-                if (!stickyRef.current) return;
-                const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-                if (!features?.length) {
-                    stickyRef.current = null; setStickyId(null);
-                    dispatchSelection(null);
-                    if (isReach) cleanupReachLayers();
-                }
-            };
-
-            // Close from SelectionPanel X button
-            const onPanelClose = () => {
+        const onMapClick = (e: maplibregl.MapMouseEvent) => {
+            if (!stickyRef.current) return;
+            const features = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
+            if (!features?.length) {
                 stickyRef.current = null; setStickyId(null);
-                if (isReach) cleanupReachLayers();
-            };
-
-            map.on('mouseenter', LAYER_ID, onMouseEnter);
-            map.on('mouseleave', LAYER_ID, onMouseLeave);
-            map.on('click', LAYER_ID, onClick);
-            map.on('click', onMapClick);
-            window.addEventListener('map-selection-close', onPanelClose);
-            return () => {
-                map.off('mouseenter', LAYER_ID, onMouseEnter);
-                map.off('mouseleave', LAYER_ID, onMouseLeave);
-                map.off('click', LAYER_ID, onClick);
-                map.off('click', onMapClick);
-                window.removeEventListener('map-selection-close', onPanelClose);
                 dispatchSelection(null);
-            };
-        }, [map, metric, thresholds, city, isReach, loadReach, cleanupReachLayers, dispatchSelection]);
+                if (isReach) cleanupReachLayers();
+            }
+        };
+
+        // Close from SelectionPanel X button
+        const onPanelClose = () => {
+            stickyRef.current = null; setStickyId(null);
+            if (isReach) cleanupReachLayers();
+        };
+
+        map.on('mouseenter', LAYER_ID, onMouseEnter);
+        map.on('mouseleave', LAYER_ID, onMouseLeave);
+        map.on('click', LAYER_ID, onClick);
+        map.on('click', onMapClick);
+        window.addEventListener('map-selection-close', onPanelClose);
+        return () => {
+            map.off('mouseenter', LAYER_ID, onMouseEnter);
+            map.off('mouseleave', LAYER_ID, onMouseLeave);
+            map.off('click', LAYER_ID, onClick);
+            map.off('click', onMapClick);
+            window.removeEventListener('map-selection-close', onPanelClose);
+            dispatchSelection(null);
+        };
+    }, [map, metric, thresholds, city, isReach, loadReach, cleanupReachLayers, dispatchSelection]);
 
     const updateSelectionPanel = useCallback(() => {
         if (!stickyRef.current || isReach) return;

@@ -193,34 +193,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         }
     }, [map]);
 
-    // --- Custom popup overlay (fixed top-right panel + SVG connecting line) ---
-    const updateLine = useCallback(() => {
-        if (!map || !overlayRef.current || !stickyRef.current) return;
-        const { panel, line, dot, svg } = overlayRef.current;
-        const edgePt = map.project(stickyRef.current.lngLat);
-        const containerEl = map.getContainer();
-        svg.setAttribute('width', String(containerEl.clientWidth));
-        svg.setAttribute('height', String(containerEl.clientHeight));
-        const cRect = containerEl.getBoundingClientRect();
-        const pRect = panel.getBoundingClientRect();
-        const x1 = pRect.left - cRect.left;
-        const y1 = pRect.top - cRect.top + pRect.height / 2;
-        line.setAttribute('x1', String(x1));
-        line.setAttribute('y1', String(y1));
-        line.setAttribute('x2', String(edgePt.x));
-        line.setAttribute('y2', String(edgePt.y));
-        dot.setAttribute('cx', String(edgePt.x));
-        dot.setAttribute('cy', String(edgePt.y));
-    }, [map]);
-
-    const removePopupOverlay = useCallback(() => {
-        if (!overlayRef.current) return;
-        if (map) map.off('move', updateLine);
-        overlayRef.current.panel.remove();
-        overlayRef.current.svg.remove();
-        overlayRef.current = null;
-    }, [map, updateLine]);
-
     const doDeselect = useCallback(() => {
         if (!map || !stickyRef.current) return;
         routeLoadAbortRef.current?.abort();
@@ -401,7 +373,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined).then(result => {
+            fetchTraffic(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
                 if (cancelled || !map) return;
 
                 if (!result.data || result.data.length === 0) {
