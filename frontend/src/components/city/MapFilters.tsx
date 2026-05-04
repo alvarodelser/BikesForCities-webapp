@@ -45,9 +45,9 @@ const DEFAULT_SUBMODE: Partial<Record<string, string>> = {
 };
 
 const MODE_META = [
-  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', color: 'var(--blue)',   icon: Network       },
-  { id: MAP_MODES.TRAFFIC,        name: 'Tráfico',         color: 'var(--red)',    icon: Car           },
-  { id: MAP_MODES.STATIONS,       name: 'Estaciones',      color: 'var(--green)',  icon: MapPin        },
+  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', color: '#027A76', icon: Network },
+  { id: MAP_MODES.TRAFFIC,        name: 'Tráfico',         color: '#3A6C7F', icon: Car     },
+  { id: MAP_MODES.STATIONS,       name: 'Servicios Bici',  color: '#ffa585', icon: MapPin  },
 ] as const;
 
 // ── Desktop partitioned pill ──────────────────────────────────────────────────

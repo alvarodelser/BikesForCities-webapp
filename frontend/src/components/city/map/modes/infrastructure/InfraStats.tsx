@@ -1,10 +1,9 @@
 import React from 'react';
+import { Route, TrendingUp, Users, Network, Activity } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import { useInfraStats } from '../../../../../hooks/useInfraStats';
 import MetricPill from '../../../pills/MetricPill';
 import { BuildingsDensityHistogram } from '../../../plots/BuildingsDensityHistogram';
-import ScoreDonut from '../../../plots/ScoreDonut';
-import CityRankTable from '../../../plots/CityRankTable';
 
 export interface InfraStatsProps {
   city: CityData;
@@ -26,48 +25,75 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city }) => {
   const kmPerMeur: number | null = null;
   const displayLoading = loading;
 
-  const totalKmStr = displayLoading ? '—' : fmt(totalKm, 1, 'km');
-  const kmPer100kStr = displayLoading ? '—' : fmt(kmPer100k, 1, 'km / 100k hab');
-  const kmPerMeurStr = displayLoading || kmPerMeur === null ? '—' : fmt(kmPerMeur, 1, 'km / M€');
-  const coverageStr = displayLoading ? '—' : fmt(coverage, 1, '%');
-  const gccStr = displayLoading ? '—' : fmt(gccFraction, 1, '%');
+  const totalKmStr    = displayLoading ? '—' : fmt(totalKm, 1, 'km');
+  const kmPer100kStr  = displayLoading ? '—' : fmt(kmPer100k, 2, 'km/100k hab');
+  const kmPerMeurStr  = displayLoading || kmPerMeur === null ? '—' : fmt(kmPerMeur, 1, 'km/M€');
+  const coverageStr   = displayLoading ? '—' : fmt(coverage, 1, '%');
+  const gccStr        = displayLoading ? '—' : fmt(gccFraction, 1, '%');
 
-  const infraSegments = city.mode_scores?.infrastructure?.segments ?? [];
-  const infraOverall = city.mode_scores?.infrastructure?.overall ?? 0;
-  const ACCENT = '#3b82f6';
+  const ACCENT = '#027A76';
 
   return (
-    <div className="w-full flex flex-col gap-8">
-      {/* Pills section */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+    <div className="w-full flex flex-col gap-4">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-white">Infraestructura Ciclista</h2>
+      </div>
+
+      {/* Top row: two hero metrics */}
+      <div className="grid grid-cols-2 gap-4">
         <MetricPill
+          loading={displayLoading}
           value={totalKmStr}
-          label="Total red ciclista"
+          label="Longitud total"
+          sublabel="Km de carril bici"
+          icon={Route}
           accent={ACCENT}
-          helpContent="Longitud total de la red de carriles bici detectada."
+          helpContent="Solo contabilizamos infraestructura físicamente segregada del tráfico rodado. Los tramos pintados en calzada o en acera compartida no se incluyen en este cálculo."
         />
         <MetricPill
-          value={kmPer100kStr}
-          label="Densidad"
-          sublabel="Km por cada 100k hab."
-          accent={ACCENT}
-        />
-        <MetricPill
-          value={kmPerMeurStr}
-          label="Eficiencia"
-          sublabel="Inversión por km"
-          accent={ACCENT}
-        />
-        <MetricPill
+          loading={displayLoading}
           value={coverageStr}
-          label="Cobertura total"
+          label="Cobertura"
+          sublabel="% edificios a <150m del carril"
+          icon={TrendingUp}
           accent={ACCENT}
+          helpContent="Consideramos 150 metros una distancia razonable para que alguien acceda andando con su bici desde un edificio hasta la red de carril bici. La métrica divide los edificios con acceso a la red ciclista entre el total de edificios de la ciudad."
         />
+      </div>
+
+      {/* Second row: left split (Densidad + Inversión), right full-width (GCC) */}
+      <div className="grid grid-cols-2 gap-4">
+        {/* Left: two sub-columns */}
+        <div className="grid grid-cols-2 gap-4">
+          <MetricPill
+          loading={displayLoading}
+            value={kmPer100kStr}
+            label="Densidad de red"
+            sublabel="Km / 100k hab"
+            icon={Users}
+            accent={ACCENT}
+            helpContent="Kilómetros de carril bici por cada 100.000 habitantes. Normalizar por población permite comparar ciudades de tamaño muy diferente en igualdad de condiciones."
+          />
+          <MetricPill
+          loading={displayLoading}
+            value={kmPerMeurStr}
+            label="Inversión"
+            sublabel="Km / M€"
+            icon={Activity}
+            accent={ACCENT}
+            helpContent="Kilómetros construidos por cada millón de euros invertido en la categoría de Vías Públicas del presupuesto municipal. Esta partida recoge el mantenimiento y ampliación de infraestructura viaria y es el indicador más directo de eficiencia en la construcción de red ciclista."
+          />
+        </div>
+        {/* Right: GCC full column width */}
         <MetricPill
+          loading={displayLoading}
           value={gccStr}
-          label="GCC"
-          sublabel="Conectividad de red"
+          label="Cobertura GCC"
+          sublabel="Conectividad"
+          icon={Network}
           accent={ACCENT}
+          helpContent="La métrica de cobertura anterior cuenta cualquier tramo cercano, aunque esté aislado. La Gran Componente Conexa (GCC) es el mayor fragmento continuo de la red. Esta métrica mide qué porcentaje de población queda cubierta exclusivamente por ese fragmento, reflejando así la conectividad real: solo importa la infraestructura que forma una red navegable de extremo a extremo."
         />
       </div>
 
@@ -76,19 +102,6 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city }) => {
         <BuildingsDensityHistogram cityId={city.id ?? 0} />
       </div>
 
-      {/* Score section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ScoreDonut
-          segments={infraSegments}
-          overallScore={infraOverall}
-          accent={ACCENT}
-          cityName={city.name}
-        />
-        <CityRankTable
-          cities={[]} // TODO: wire rank data
-          accent={ACCENT}
-        />
-      </div>
     </div>
   );
 };

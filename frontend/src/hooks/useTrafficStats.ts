@@ -11,7 +11,8 @@ export interface TrafficStatsResult {
   tripsPerMonth: number | null;
   tripsPerThousandHab: number | null;
   infraFraction: number | null;
-  medianVolume: number | null;
+  maxVolume: number | null;
+  maxEdgeName: string | null;
   availablePeriods: string[];
   loading: boolean;
   error: string | null;
@@ -25,7 +26,8 @@ export function useTrafficStats(
   const [tripsPerMonth, setTripsPerMonth] = useState<number | null>(null);
   const [tripsPerThousandHab, setTripsPerThousandHab] = useState<number | null>(null);
   const [infraFraction, setInfraFraction] = useState<number | null>(null);
-  const [medianVolume, setMedianVolume] = useState<number | null>(null);
+  const [maxVolume, setMaxVolume] = useState<number | null>(null);
+  const [maxEdgeName, setMaxEdgeName] = useState<string | null>(null);
   const [availablePeriods, setAvailablePeriods] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,8 +69,8 @@ export function useTrafficStats(
         // Here we leave it null — TrafficStats wires it separately.
         setInfraFraction(null);
 
-        // Median volume from stats.q50
-        setMedianVolume(traffic.stats?.q50 ?? null);
+        setMaxVolume(traffic.stats?.max ?? null);
+        setMaxEdgeName(traffic.max_edge_name ?? null);
 
         setAvailablePeriods(traffic.available_periods ?? []);
         setLoading(false);
@@ -89,7 +91,8 @@ export function useTrafficStats(
     tripsPerMonth,
     tripsPerThousandHab,
     infraFraction,
-    medianVolume,
+    maxVolume,
+    maxEdgeName,
     availablePeriods,
     loading,
     error,

@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import * as d3 from 'd3';
-import GlassCard from '../../ui/GlassCard';
+import { HelpCircle, X } from 'lucide-react';
 
 interface Segment {
   value: number;
@@ -178,38 +178,41 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
   }, [rows, segmentLabels, width, onRowClick]);
 
   return (
-    <GlassCard surface="glass" className="w-full">
+    <div
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 w-full transition-all hover:bg-white/90"
+      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+    >
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-base font-semibold text-gray-800 leading-tight">{title}</h3>
-          {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+          <h3 className="text-sm font-bold text-gray-900 leading-tight">{title}</h3>
+          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
         {helpContent && (
           <button
             type="button"
-            onClick={() => setShowHelp(!showHelp)}
-            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={() => setShowHelp(v => !v)}
+            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600 transition-all"
           >
-            ❓
+            {showHelp ? <X className="w-3.5 h-3.5" /> : <HelpCircle className="w-3.5 h-3.5" />}
           </button>
         )}
       </div>
 
       {showHelp && helpContent && (
-        <div className="mb-4 rounded-xl bg-gray-50 border border-gray-200 p-3 text-sm text-gray-700 shadow-inner animate-in fade-in slide-in-from-top-2">
-          {helpContent}
-        </div>
+        <>
+          <div className="border-t border-black/10 mb-4" />
+          <div className="mb-4 text-[11px] text-gray-500 leading-relaxed">{helpContent}</div>
+        </>
       )}
 
       <div ref={containerRef} className="w-full relative">
         <svg ref={svgRef}></svg>
         <div
           ref={tooltipRef}
-          className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-2 shadow-lg text-[12px] min-w-[160px] pointer-events-none"
+          className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-black/10 rounded-lg p-2 shadow-lg text-[12px] min-w-[160px] pointer-events-none"
         ></div>
       </div>
 
-      {/* Custom Legend */}
       <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-4">
         {segmentLabels.map((lbl, i) => (
           <div key={lbl} className="flex items-center gap-1.5 text-[10px] text-gray-600 font-medium">
@@ -218,7 +221,7 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
           </div>
         ))}
       </div>
-    </GlassCard>
+    </div>
   );
 };
 

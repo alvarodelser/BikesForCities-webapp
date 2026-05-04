@@ -325,6 +325,7 @@ class TrafficResponse(BaseResponse):
     month: Optional[date] = None
     stats: Optional[TrafficStats] = None
     available_periods: Optional[List[str]] = None  # YYYY-MM strings desc-sorted
+    max_edge_name: Optional[str] = None
 
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""
@@ -353,6 +354,20 @@ class InfraStatsResponse(BaseResponse):
 class InfraComponentsResponse(BaseResponse):
     """GeoJSON FeatureCollection of cycling edges with component_id property."""
     data: Dict[str, Any]  # GeoJSON FeatureCollection
+
+
+class EdgeBuildingCoverageItem(BaseModel):
+    edge_id: int
+    length_m: float
+    building_count: int
+
+
+class EdgeBuildingCoverageResponse(BaseResponse):
+    edges: List[EdgeBuildingCoverageItem]
+
+
+class StationBuildingCoverageResponse(BaseResponse):
+    coverage: float
 
 
 # ── Traffic analytics models ──────────────────────────────────────────────────

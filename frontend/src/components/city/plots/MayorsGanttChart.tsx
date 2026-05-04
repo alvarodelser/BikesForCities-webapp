@@ -3,7 +3,6 @@ import { scaleTime } from 'd3-scale';
 import { timeFormat } from 'd3-time-format';
 import type { MayorTerm } from '../../../services/api';
 import { getPartyColor } from '../../../constants/parties';
-import GlassCard from '../../ui/GlassCard';
 
 interface MayorsGanttChartProps {
   terms: MayorTerm[];
@@ -118,17 +117,20 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
     }));
   };
 
+  const cardClass = "rounded-2xl border bg-white/80 backdrop-blur-sm p-5 transition-all hover:bg-white/90";
+  const cardStyle = { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' };
+
   if (terms.length === 0) {
     return (
-      <GlassCard surface="glass">
+      <div className={cardClass} style={cardStyle}>
         <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest mb-3">{title}</h3>
         <p className="text-sm text-gray-400">No hay datos de alcaldía disponibles.</p>
-      </GlassCard>
+      </div>
     );
   }
 
   return (
-    <GlassCard surface="glass" className="flex flex-col h-full">
+    <div className={`${cardClass} flex flex-col h-full`} style={cardStyle}>
       <div className="mb-6">
         <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
         {subtitle && (
@@ -280,7 +282,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
           </div>
         )}
       </div>
-    </GlassCard>
+    </div>
   );
 };
 

@@ -226,3 +226,39 @@ def update_station_reach_coverage(conn, city_id: int, coverages: dict):
             template="(%s, %s, %s)",
         )
 
+
+def get_station_building_coverage(conn, city_id: int) -> float:
+    """Percentage of buildings (feature_type='bike_path_buildings') within 150 m of any station.
+
+    Returns a float 0–1.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH total AS (
+                SELECT COUNT(*) AS cnt
+                FROM features
+                WHERE feature_type = 'bike_path_buildings'
+                  AND city_id = %s
+            ),
+            covered AS (
+                SELECT COUNT(DISTINCT b.id) AS cnt
+                FROM features b
+                WHERE b.feature_type = 'bike_path_buildings'
+                  AND b.city_id = %s
+                  AND EXISTS (
+                      SELECT 1
+                      FROM stations s
+                      WHERE s.city_id = %s
+                        AND s.merged_into_id IS NULL
+                        AND ST_DWithin(s.geom::geography, b.geometry::geography, 150)
+                  )
+            )
+            SELECT CASE WHEN t.cnt > 0 THEN c.cnt::float / t.cnt ELSE 0 END
+            FROM total t, covered c
+            """,
+            (city_id, city_id, city_id),
+        )
+        row = cur.fetchone()
+        return float(row[0]) if row else 0.0
+

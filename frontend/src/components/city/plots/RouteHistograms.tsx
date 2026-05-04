@@ -3,10 +3,9 @@ import { fetchRouteHistogram, fetchTrafficInfraCoverage } from '../../../service
 import type { RouteHistogramSeries } from '../../../services/api';
 import BarHistogram from '../plots/BarHistogram';
 
-const ACCENT = '#15803d';
-
 interface RouteHistogramsProps {
   cityId: number;
+  accent?: string;
 }
 
 /** Convert parallel bin_edges + counts arrays into BarHistogram-friendly data */
@@ -21,7 +20,7 @@ function toBins(
   }));
 }
 
-export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId }) => {
+export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId, accent = '#3A6C7F' }) => {
   const [lengthBins, setLengthBins] = useState<{ label: string; value: number }[]>([]);
   const [infraBins, setInfraBins] = useState<{ label: string; value: number }[]>([]);
   const [infraMean, setInfraMean] = useState<number | undefined>(undefined);
@@ -63,7 +62,11 @@ export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId }) => {
     return (
       <div className="grid grid-cols-2 gap-4 w-full">
         {[0, 1].map(i => (
-          <div key={i} className="h-64 rounded-2xl bg-gray-50/50 border border-black/5 animate-pulse" />
+          <div
+            key={i}
+            className="rounded-2xl border border-black/[0.06] bg-white/40 animate-pulse"
+            style={{ height: '200px' }}
+          />
         ))}
       </div>
     );
@@ -73,14 +76,14 @@ export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId }) => {
     <div className="grid grid-cols-2 gap-4 w-full">
       <BarHistogram
         data={lengthBins}
-        accent={ACCENT}
+        accent={accent}
         title="Distribución longitud de rutas"
         subtitle="km por ruta"
         gradient
       />
       <BarHistogram
         data={infraBins}
-        accent={ACCENT}
+        accent={accent}
         title="Distribución cobertura infraestructura"
         subtitle="fracción de ruta sobre vía ciclista"
         gradient

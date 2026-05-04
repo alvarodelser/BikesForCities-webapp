@@ -49,6 +49,7 @@ from .graph import (
     get_gcc_coverage,
     get_cycling_components_geojson,
     get_building_coverage_components_geojson,
+    get_edge_building_coverage,
 )
 
 from .trips import (
@@ -91,6 +92,7 @@ from .stations import (
     insert_station_readings,
     get_station_hourly_availability,
     update_station_reach_coverage,
+    get_station_building_coverage,
 )
 
 from .traffic import (
@@ -100,6 +102,7 @@ from .traffic import (
     get_best_traffic_mode,
     get_edge_traffic,
     get_traffic_stats,
+    get_max_traffic_edge,
     get_latest_traffic_month,
     has_traffic,
     get_traffic_infra_coverage,
@@ -155,6 +158,7 @@ __all__ = [
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
     "get_gcc_coverage", "get_cycling_components_geojson", "get_building_coverage_components_geojson",
+    "get_edge_building_coverage",
     # trips
     "put_trips", "count_trips", "count_unrouted_trips", "get_unrouted_trip_groups",
     "city_has_real_trips", "get_paginated_trips", "get_trip_stats",
@@ -170,10 +174,11 @@ __all__ = [
     "get_stations", "get_paginated_stations", "has_station_readings_for_month",
     "get_nearby_unmerged_station", "upsert_stations", "insert_station_readings",
     "get_station_hourly_availability", "update_station_reach_coverage",
+    "get_station_building_coverage",
     # traffic
     "upsert_edge_traffic", "upsert_edge_traffic_for_city",
     "get_traffic_modes", "get_best_traffic_mode",
-    "get_edge_traffic", "get_traffic_stats",
+    "get_edge_traffic", "get_traffic_stats", "get_max_traffic_edge",
     "get_latest_traffic_month", "has_traffic",
     "get_traffic_infra_coverage", "get_route_histogram",
     # edge routes

@@ -1,11 +1,16 @@
-// BarHistogram.tsx
-import React, { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import * as d3 from 'd3';
-import GlassCard from '../../ui/GlassCard';
+import React, { useState, useEffect, useRef, type ReactNode } from 'react';
+import { HelpCircle, X } from 'lucide-react';
+
+interface BarDatum {
+  label: string;
+  shortLabel?: string;
+  subLabel?: string;
+  value: number;
+  description?: string;
+}
 
 interface BarHistogramProps {
-  data: { label: string; value: number }[];
+  data: BarDatum[];
   accent: string;
   title: string;
   subtitle?: string;
@@ -13,6 +18,17 @@ interface BarHistogramProps {
   gradient?: boolean;
   referenceLineX?: number;
   referenceLabel?: string;
+  yUnit?: string;
+}
+
+function niceTicks(max: number): number[] {
+  if (max <= 0) return [0];
+  const raw = max / 3;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = Math.ceil(raw / magnitude) * magnitude;
+  const ticks: number[] = [];
+  for (let v = 0; v <= max + step * 0.01; v += step) ticks.push(Math.round(v * 100) / 100);
+  return ticks;
 }
 
 export const BarHistogram: React.FC<BarHistogramProps> = ({
@@ -21,184 +37,180 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
   title,
   subtitle,
   helpContent,
-  gradient = false,
   referenceLineX,
   referenceLabel,
+  yUnit = '',
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const [width, setWidth] = useState(0);
+  const [mounted, setMounted] = useState(false);
+  const [hovered, setHovered] = useState<number | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      if (entries[0]) {
-        setWidth(entries[0].contentRect.width);
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    const t = setTimeout(() => setMounted(true), 80);
+    return () => clearTimeout(t);
   }, []);
 
-  useEffect(() => {
-    if (!svgRef.current || !data.length || width === 0) return;
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
 
-    const height = 260;
-    const margin = { top: 20, right: 20, bottom: 40, left: 40 };
+  const clearTimer = () => { if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } };
+  const handleMouseLeave = () => { if (showHelp) timerRef.current = setTimeout(() => setShowHelp(false), 5000); };
+  const handleMouseEnter = () => clearTimer();
 
-    const svg = d3.select(svgRef.current);
-    svg.selectAll('*').remove();
-    svg.attr('width', width).attr('height', height);
-
-    const x = d3.scaleBand()
-      .domain(data.map(d => d.label))
-      .range([margin.left, width - margin.right])
-      .padding(0.2);
-
-    const y = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d.value) || 100])
-      .nice()
-      .range([height - margin.bottom, margin.top]);
-
-    // Gradient def
-    if (gradient) {
-      const defs = svg.append('defs');
-      const linearGradient = defs.append('linearGradient')
-        .attr('id', 'bar-gradient')
-        .attr('x1', '0%')
-        .attr('y1', '0%')
-        .attr('x2', '0%')
-        .attr('y2', '100%');
-
-      linearGradient.append('stop')
-        .attr('offset', '0%')
-        .attr('stop-color', accent)
-        .attr('stop-opacity', 1);
-
-      linearGradient.append('stop')
-        .attr('offset', '100%')
-        .attr('stop-color', accent)
-        .attr('stop-opacity', 0.35);
-    }
-
-    // Grid lines
-    svg.append('g')
-      .attr('class', 'grid')
-      .attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y).tickSize(-(width - margin.left - margin.right)).tickFormat(() => ''))
-      .call(g => g.select('.domain').remove())
-      .selectAll('line')
-      .attr('stroke', 'rgba(0,0,0,0.05)');
-
-    // Axes
-    svg.append('g')
-      .attr('transform', `translate(0,${height - margin.bottom})`)
-      .call(d3.axisBottom(x))
-      .call(g => g.select('.domain').attr('stroke', '#d1d5db'))
-      .selectAll('text')
-      .attr('font-size', '11px')
-      .attr('fill', '#6b7280');
-
-    svg.append('g')
-      .attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y).ticks(5))
-      .call(g => g.select('.domain').remove())
-      .selectAll('text')
-      .attr('font-size', '11px')
-      .attr('fill', '#6b7280');
-
-    // Bars
-    svg.selectAll('.bar')
-      .data(data)
-      .enter()
-      .append('rect')
-      .attr('class', 'bar')
-      .attr('x', d => x(d.label)!)
-      .attr('y', d => y(d.value))
-      .attr('width', x.bandwidth())
-      .attr('height', d => height - margin.bottom - y(d.value))
-      .attr('fill', gradient ? 'url(#bar-gradient)' : accent)
-      .attr('rx', 4)
-      .attr('ry', 4)
-      .on('mousemove', (event, d) => {
-        if (tooltipRef.current) {
-          const tooltip = d3.select(tooltipRef.current);
-          tooltip.style('display', 'block')
-            .style('left', `${event.pageX + 10}px`)
-            .style('top', `${event.pageY - 10}px`)
-            .html(`
-              <div class="font-bold text-gray-800">${d.label}</div>
-              <div class="text-gray-600">Value: <span class="font-bold">${d.value}</span></div>
-            `);
-        }
-      })
-      .on('mouseleave', () => {
-        if (tooltipRef.current) {
-          d3.select(tooltipRef.current).style('display', 'none');
-        }
-      });
-
-    // Reference Line
-    if (referenceLineX !== undefined) {
-      const refX = x(data[referenceLineX]?.label) || margin.left;
-      svg.append('line')
-        .attr('x1', refX + x.bandwidth() / 2)
-        .attr('x2', refX + x.bandwidth() / 2)
-        .attr('y1', margin.top)
-        .attr('y2', height - margin.bottom)
-        .attr('stroke', '#ef4444')
-        .attr('stroke-width', 2)
-        .attr('stroke-dasharray', '4,4');
-
-      if (referenceLabel) {
-        svg.append('text')
-          .attr('x', refX + x.bandwidth() / 2)
-          .attr('y', margin.top - 5)
-          .attr('text-anchor', 'middle')
-          .attr('font-size', '10px')
-          .attr('fill', '#ef4444')
-          .attr('font-weight', 'bold')
-          .text(referenceLabel);
-      }
-    }
-
-  }, [data, accent, gradient, referenceLineX, referenceLabel, width]);
+  const max = Math.max(...data.map(d => d.value), 0.001);
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const yTicks = niceTicks(max);
+  const yMax = yTicks[yTicks.length - 1] || max;
+  const BAR_HEIGHT = 120;
 
   return (
-    <GlassCard surface="glass" className="w-full">
-      <div className="flex items-start justify-between mb-4">
+    <div
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 w-full transition-all hover:bg-white/90"
+      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="text-base font-semibold text-gray-800 leading-tight">{title}</h3>
-          {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
+          <h3 className="text-sm font-bold text-gray-900 leading-tight">{title}</h3>
+          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
         {helpContent && (
           <button
-            type="button"
-            onClick={() => setShowHelp(!showHelp)}
-            className="ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+            onClick={() => { clearTimer(); setShowHelp(v => !v); }}
+            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600 transition-all"
+            aria-label={showHelp ? 'Cerrar ayuda' : 'Mostrar ayuda'}
           >
-            ❓
+            {showHelp ? <X className="w-3.5 h-3.5" /> : <HelpCircle className="w-3.5 h-3.5" />}
           </button>
         )}
       </div>
 
-      {showHelp && helpContent && (
-        <div className="mb-4 rounded-xl bg-gray-50 border border-gray-200 p-3 text-sm text-gray-700 shadow-inner animate-in fade-in slide-in-from-top-2">
-          {helpContent}
-        </div>
-      )}
+      {/* Chart body */}
+      <div className="flex gap-2">
 
-      <div ref={containerRef} className="w-full relative min-h-[260px]">
-        <svg ref={svgRef}></svg>
-        <div
-          ref={tooltipRef}
-          className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-gray-200 rounded-lg p-2 shadow-lg text-[12px] min-w-[100px] pointer-events-none"
-        ></div>
+        {/* Y-axis labels */}
+        <div className="flex flex-col-reverse justify-between items-end shrink-0" style={{ height: BAR_HEIGHT }}>
+          {yTicks.map((t) => (
+            <span key={t} className="text-[9px] text-gray-400 leading-none tabular-nums">
+              {t}{yUnit ? ` ${yUnit}` : ''}
+            </span>
+          ))}
+        </div>
+
+        {/* Bars + grid + X labels */}
+        <div className="flex-1 flex flex-col min-w-0">
+
+          {/* Bars area */}
+          <div className="relative flex items-end gap-1.5 overflow-visible" style={{ height: BAR_HEIGHT }}>
+            {yTicks.map((t) => (
+              <div
+                key={t}
+                className="absolute left-0 right-0 border-t border-black/[0.06] pointer-events-none"
+                style={{ bottom: (t / yMax) * BAR_HEIGHT }}
+              />
+            ))}
+
+            {data.map((d, i) => {
+              const barH = mounted ? Math.max((d.value / yMax) * BAR_HEIGHT, d.value > 0 ? 3 : 0) : 0;
+              const isHovered = hovered === i;
+              const isRef = referenceLineX === i;
+              const barColor = isRef ? '#ef4444' : accent;
+
+              return (
+                <div
+                  key={i}
+                  className="flex-1 flex flex-col items-center relative h-full justify-end"
+                  onMouseEnter={() => setHovered(i)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  {/* Tooltip */}
+                  {isHovered && (
+                    <div
+                      className="absolute z-20 bottom-full mb-2 left-1/2 -translate-x-1/2 pointer-events-none"
+                      style={{ minWidth: 160 }}
+                    >
+                      <div className="rounded-xl border border-black/10 bg-white/95 backdrop-blur-md shadow-xl p-3">
+                        <p className="text-[11px] font-bold text-gray-900 mb-0.5">{d.label}</p>
+                        <p className="text-[11px] text-gray-600 tabular-nums">
+                          {d.value.toLocaleString('es')}{yUnit ? ` ${yUnit}` : ''}
+                        </p>
+                        {total > 0 && (
+                          <p className="text-[11px] text-gray-400">
+                            {((d.value / total) * 100).toFixed(1)}% del total
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex justify-center">
+                        <div className="w-2 h-2 rotate-45 bg-white/95 border-r border-b border-black/10 -mt-1" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Bar */}
+                  <div
+                    className="w-full rounded-t-md cursor-pointer"
+                    style={{
+                      height: barH,
+                      backgroundColor: isHovered ? barColor : isRef ? `${barColor}cc` : `${barColor}70`,
+                      boxShadow: isHovered ? `0 0 18px ${barColor}55` : 'none',
+                      transition: `height 0.6s cubic-bezier(0.34,1.56,0.64,1) ${i * 60}ms, background-color 0.15s, box-shadow 0.15s`,
+                    }}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* X-axis labels */}
+          <div className="flex gap-1.5 mt-2">
+            {data.map((d, i) => {
+              const isHovered = hovered === i;
+              const isRef = referenceLineX === i;
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  <span
+                    className={`text-[10px] text-center leading-tight transition-colors font-medium ${
+                      isHovered ? 'text-gray-800' : isRef ? 'text-red-500' : 'text-gray-500'
+                    }`}
+                    style={{ wordBreak: 'break-word' }}
+                  >
+                    {d.shortLabel ?? d.label}
+                  </span>
+                  {d.subLabel && (
+                    <span
+                      className={`text-[9px] text-center leading-tight transition-colors ${
+                        isHovered ? 'text-gray-500' : 'text-gray-300'
+                      }`}
+                      style={{ wordBreak: 'break-word' }}
+                    >
+                      {d.subLabel}
+                    </span>
+                  )}
+                  {isRef && referenceLabel && (
+                    <span className="text-[9px] font-bold text-red-500 text-center leading-tight">
+                      {referenceLabel}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+        </div>
       </div>
-    </GlassCard>
+
+      {/* Expandable help section */}
+      {helpContent && showHelp && (
+        <>
+          <div className="border-t border-black/10 mt-4" />
+          <div className="mt-4 text-[11px] text-gray-500 leading-relaxed">
+            {helpContent}
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

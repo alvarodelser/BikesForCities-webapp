@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { hierarchy, partition, type HierarchyRectangularNode } from 'd3-hierarchy';
 import { arc } from 'd3-shape';
-import GlassCard from '../../ui/GlassCard';
 
 export interface BudgetNode {
   code: string;
@@ -166,7 +165,10 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   }, [root]);
 
   return (
-    <GlassCard surface="glass" className="flex flex-col h-full">
+    <div
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 flex flex-col h-full transition-all hover:bg-white/90"
+      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+    >
       <div className="flex items-center justify-between mb-6">
         <div>
           <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
@@ -251,7 +253,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           </div>
         )}
       </div>
-    </GlassCard>
+    </div>
   );
 };
 

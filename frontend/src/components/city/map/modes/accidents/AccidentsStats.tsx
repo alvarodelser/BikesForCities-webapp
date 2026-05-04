@@ -39,12 +39,7 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle }) 
       {/* ── Header with toggle ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-1">
         <div>
-          <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">
-            Siniestralidad Vial
-          </h2>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">
-            Estadísticas de accidentes y severidad
-          </p>
+          <h2 className="text-2xl font-bold text-white">Siniestralidad Vial</h2>
         </div>
 
         <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl border border-black/5">

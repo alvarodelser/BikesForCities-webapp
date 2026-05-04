@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchStations } from '../services/api';
+import { fetchStations, fetchStationBuildingCoverage } from '../services/api';
 
 export interface StationsStatsResult {
   totalBikes: number | null;
@@ -29,38 +29,25 @@ export function useStationsStats(cityId: number | null): StationsStatsResult {
     setLoading(true);
     setError(null);
 
-    fetchStations(cityId)
-      .then(stations => {
+    Promise.all([fetchStations(cityId), fetchStationBuildingCoverage(cityId).catch(() => null)])
+      .then(([stations, buildingCoverage]) => {
         if (cancelled) return;
 
         const count = stations.length;
         setActiveStations(count > 0 ? count : null);
 
-        // Sum estimated monthly trips across all stations
         const totalMonthlyTrips = stations.reduce<number>((acc, s) => {
           return acc + (s.estimated_monthly_trips ?? 0);
         }, 0);
 
-        // Derive tripsBikeDay = total_trips / total_stations / 30
-        // (trips per station per day as a proxy for trips per bike per day)
         if (count > 0 && totalMonthlyTrips > 0) {
           setTripsBikeDay(totalMonthlyTrips / count / 30);
         } else {
           setTripsBikeDay(null);
         }
 
-        // Average reach_coverage across stations that have it
-        const stationsWithReach = stations.filter(s => s.reach_coverage != null);
-        if (stationsWithReach.length > 0) {
-          const avgReach =
-            stationsWithReach.reduce((acc, s) => acc + (s.reach_coverage ?? 0), 0) /
-            stationsWithReach.length;
-          setReachCoverage(avgReach);
-        } else {
-          setReachCoverage(null);
-        }
+        setReachCoverage(buildingCoverage);
 
-        // Average downtime minutes across stations that have it
         const stationsWithDowntime = stations.filter(s => s.downtime_minutes != null);
         if (stationsWithDowntime.length > 0) {
           const avgDowntime =
@@ -71,8 +58,6 @@ export function useStationsStats(cityId: number | null): StationsStatsResult {
           setAvgStopMinutes(null);
         }
 
-        // totalBikes is not available in station-level data — set null; callers can
-        // pass it from CityData.bicycles_count
         setTotalBikes(null);
 
         setLoading(false);

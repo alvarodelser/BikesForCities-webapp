@@ -4,9 +4,10 @@ import { fetchStationMonthly, type StationMonthlyPoint } from '../../../services
 
 interface StationMonthlyChartProps {
   cityId: number;
+  theme?: 'light' | 'dark';
 }
 
-export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId }) => {
+export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId, theme = 'light' }) => {
   const [data, setData] = useState<StationMonthlyPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
     {
       key: 'estimated_trips',
       label: 'Viajes estimados',
-      color: '#22c55e',
+      color: '#ffa585',
       type: 'area' as const,
       axis: 'primary' as const,
     },
@@ -57,7 +58,7 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
           {
             key: 'actual_trips',
             label: 'Viajes reales',
-            color: '#15803d',
+            color: '#bc556f',
             type: 'line' as const,
             axis: 'primary' as const,
             dashed: true,
@@ -67,7 +68,7 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
     {
       key: 'active_stations',
       label: 'Estaciones activas',
-      color: '#9ca3af',
+      color: '#d4a0b0',
       type: 'line' as const,
       axis: 'secondary' as const,
     },
@@ -75,9 +76,10 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
 
   if (loading) {
     return (
-      <div className="w-full h-[300px] flex items-center justify-center text-gray-400 text-sm">
-        Cargando...
-      </div>
+      <div
+        className="rounded-2xl border border-black/[0.06] bg-white/40 w-full animate-pulse"
+        style={{ height: '220px' }}
+      />
     );
   }
 
@@ -104,6 +106,14 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
       series={series}
       title="Evolución mensual"
       subtitle="Viajes estimados y estaciones activas por mes"
+      theme={theme}
+      helpContent={
+        <p>
+          Evolución mes a mes de los viajes estimados y las estaciones activas del servicio.
+          El área representa los viajes estimados (eje izquierdo) y la línea las estaciones operativas (eje derecho),
+          permitiendo ver si la demanda crece en paralelo a la expansión de la red.
+        </p>
+      }
     />
   );
 };

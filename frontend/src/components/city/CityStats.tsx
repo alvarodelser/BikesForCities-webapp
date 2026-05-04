@@ -142,7 +142,7 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
   const { insights = { primary: '', secondary: '' }, recommendations = { primary: '', secondary: '' } } = modeStats || {};
   const isTraffic = mode === MAP_MODES.TRAFFIC;
   const isInfra = mode === MAP_MODES.INFRASTRUCTURE;
-  const accent = '#AF4749';
+  const accent = '#3A6C7F';
 
   const { stats: liveStats, trafficModes, availablePeriods, loading } = useLiveStats(city, mode, generation, routing, period);
   const { gens, algos } = computationOptions(trafficModes, generation);

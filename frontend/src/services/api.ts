@@ -147,6 +147,7 @@ export interface TrafficApiResponse {
   month: string | null;
   stats: TrafficStats | null;
   available_periods?: string[];  // YYYY-MM strings desc-sorted
+  max_edge_name?: string | null;
 }
 
 export const fetchTraffic = async (
@@ -173,6 +174,7 @@ export const fetchTraffic = async (
     month: result.month ?? null,
     stats: result.stats ?? null,
     available_periods: result.available_periods,
+    max_edge_name: result.max_edge_name ?? null,
   };
 };
 
@@ -323,6 +325,19 @@ export const fetchBuildingCoverageComponents = async (cityId: number): Promise<G
   return result.data;
 };
 
+export interface EdgeBuildingCoverageItem {
+  edge_id: number;
+  length_m: number;
+  building_count: number;
+}
+
+export const fetchEdgeBuildingCoverage = async (cityId: number): Promise<EdgeBuildingCoverageItem[]> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/edge-building-coverage`);
+  if (!response.ok) throw new Error('Failed to fetch edge building coverage');
+  const result = await response.json();
+  return result.edges;
+};
+
 export const fetchInfraStats = async (cityId: number): Promise<InfraStats> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
   if (!response.ok) throw new Error('Failed to fetch infrastructure stats');
@@ -398,6 +413,13 @@ export const fetchStationMonthly = async (cityId: number): Promise<StationMonthl
   if (!response.ok) throw new Error('Failed to fetch station monthly data');
   const result = await response.json();
   return result.data;
+};
+
+export const fetchStationBuildingCoverage = async (cityId: number): Promise<number> => {
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/building-coverage`);
+  if (!response.ok) throw new Error('Failed to fetch station building coverage');
+  const result = await response.json();
+  return result.coverage;
 };
 
 // ── Budget & political data ───────────────────────────────────────────────────
