@@ -100,7 +100,18 @@ export function useLiveStats(
             comingSoon: infra.gcc_fraction == null,
           },
         ]);
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error('Failed to fetch infrastructure stats:', err);
+        if (!cancelled) {
+          setStats([
+            baseStats[0],
+            baseStats[1],
+            { ...baseStats[2], value: 'Error' },
+            baseStats[3],
+            { ...baseStats[4], value: 'Error' },
+          ]);
+        }
+      });
 
       return;
     }
