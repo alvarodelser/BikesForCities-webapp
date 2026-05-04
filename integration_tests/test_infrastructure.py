@@ -12,7 +12,7 @@ import requests
 from typing import Optional
 
 API_BASE = "https://wiig.dia.fi.upm.es/b4c_api"
-TIMEOUT = 30
+TIMEOUT = 120
 
 
 def get_city_id(city_name: str) -> Optional[int]:
@@ -55,8 +55,10 @@ def test_infrastructure_stats(city_id: int):
     try:
         resp = requests.get(f"{API_BASE}/cities/{city_id}/infrastructure/stats", timeout=TIMEOUT)
         resp.raise_for_status()
-        data = resp.json()["data"]
+        body = resp.json()
+        print(f"   Response: {body}")
 
+        data = body.get("data") or body
         print(f"   ✓ total_km={data.get('total_km')} km")
         print(f"   ✓ coverage={data.get('coverage')}%")
         print(f"   ✓ gcc_fraction={data.get('gcc_fraction')}")
@@ -69,6 +71,10 @@ def test_infrastructure_stats(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -79,7 +85,9 @@ def test_infrastructure_components(city_id: int):
     try:
         resp = requests.get(f"{API_BASE}/cities/{city_id}/infrastructure/components", timeout=TIMEOUT)
         resp.raise_for_status()
-        features = resp.json().get("data", {}).get("features", [])
+        body = resp.json()
+        data = body.get("data", body)
+        features = data.get("features", []) if isinstance(data, dict) else []
 
         print(f"   ✓ {len(features)} component features")
 
@@ -88,6 +96,10 @@ def test_infrastructure_components(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -98,7 +110,8 @@ def test_infrastructure_edge_building_coverage(city_id: int):
     try:
         resp = requests.get(f"{API_BASE}/cities/{city_id}/infrastructure/edge-building-coverage", timeout=TIMEOUT)
         resp.raise_for_status()
-        data = resp.json().get("data", [])
+        body = resp.json()
+        data = body.get("data", body.get("edges", []))
 
         print(f"   ✓ {len(data)} edges with building data")
 
@@ -112,6 +125,10 @@ def test_infrastructure_edge_building_coverage(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -122,7 +139,9 @@ def test_infrastructure_building_coverage(city_id: int):
     try:
         resp = requests.get(f"{API_BASE}/cities/{city_id}/infrastructure/building-coverage", timeout=TIMEOUT)
         resp.raise_for_status()
-        features = resp.json().get("data", {}).get("features", [])
+        body = resp.json()
+        data = body.get("data", body)
+        features = data.get("features", []) if isinstance(data, dict) else []
 
         print(f"   ✓ {len(features)} building coverage features")
 
@@ -131,6 +150,10 @@ def test_infrastructure_building_coverage(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 

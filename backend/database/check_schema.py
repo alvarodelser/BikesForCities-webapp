@@ -68,6 +68,7 @@ EXPECTED_INDEXES = [
     "idx_edges_network_id",
     "idx_edges_geom",
     "idx_features_network_type",
+    "idx_features_geom",
     "idx_stations_city_id",
     "idx_stations_geom",
     "idx_stations_merged_into",

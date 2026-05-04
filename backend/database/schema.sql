@@ -311,6 +311,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_geom ON nodes USING GIST(geom);
 CREATE INDEX IF NOT EXISTS idx_edges_network_id ON edges(city_id);
 CREATE INDEX IF NOT EXISTS idx_edges_geom ON edges USING GIST(geom);
 CREATE INDEX IF NOT EXISTS idx_features_network_type ON features(city_id, feature_type);  -- Combined filtering
+CREATE INDEX IF NOT EXISTS idx_features_geom ON features USING GIST(geometry);
 
 
 CREATE INDEX IF NOT EXISTS idx_stations_city_id ON stations(city_id);

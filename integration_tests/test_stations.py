@@ -76,6 +76,10 @@ def test_stations_list(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -107,6 +111,10 @@ def test_stations_reach(city_id: int, stations: list):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -138,6 +146,10 @@ def test_stations_monthly(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -168,6 +180,10 @@ def test_stations_building_coverage(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 

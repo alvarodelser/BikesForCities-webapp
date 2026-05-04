@@ -66,6 +66,10 @@ def test_traffic_modes(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -91,6 +95,10 @@ def test_traffic_map(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -113,6 +121,10 @@ def test_traffic_infra_coverage(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
@@ -142,6 +154,10 @@ def test_traffic_histogram(city_id: int):
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
+        try:
+            print(f"   Response was: {resp.json()}")
+        except:
+            print(f"   Response text: {resp.text}")
         return False
     return True
 
