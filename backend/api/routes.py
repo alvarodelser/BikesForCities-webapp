@@ -47,7 +47,6 @@ from backend.database.db_io import (
     get_station_building_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
     get_best_traffic_mode, get_latest_traffic_month,
-    compute_mode_scores,
 )
 
 logger = logging.getLogger(__name__)
@@ -60,12 +59,6 @@ async def list_networks(conn=Depends(get_db_connection)):
     """Get all cities."""
     try:
         networks_data = get_all_cities(conn)
-
-        # Pre-fetch mode score data once (avoid N+1 queries)
-        from backend.database.db_io.scores import _fetch_infra_raw, _fetch_traffic_raw, _fetch_stations_raw, _compute_infra_scores, _compute_traffic_scores, _compute_stations_scores
-        infra_rows = _fetch_infra_raw(conn)
-        traffic_rows = _fetch_traffic_raw(conn)
-        stations_rows = _fetch_stations_raw(conn)
 
         cities = []
         for row in networks_data:
@@ -118,10 +111,6 @@ async def list_networks(conn=Depends(get_db_connection)):
                 bounds=bounds,
                 available_modes=available_modes
             )
-            try:
-                city_obj.mode_scores = compute_mode_scores(conn, city_id, infra_rows, traffic_rows, stations_rows)
-            except Exception as scores_err:
-                logger.warning(f"Could not compute mode scores for city {city_id}: {scores_err}")
             cities.append(city_obj)
 
         return CityListResponse(
@@ -179,11 +168,6 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             bounds=bounds_dict,
             available_modes=available_modes
         )
-        try:
-            city.mode_scores = compute_mode_scores(conn, city_id)
-        except Exception as scores_err:
-            logger.warning(f"Could not compute mode scores for city {city_id}: {scores_err}")
-
         return CityDetailResponse(
             data=city,
             message="City retrieved successfully"

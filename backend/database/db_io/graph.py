@@ -28,6 +28,8 @@ def put_edges(conn, edges: List[Tuple]):
     Tuple layout: (city_id, osmid, u, v, k, geom, highway, name, length, width,
                    maxspeed, lanes, oneway, tunnel, bridge)
     """
+    if not edges:
+        return
     with conn.cursor() as cur:
         cur.executemany(
             """
@@ -46,6 +48,8 @@ def put_edges(conn, edges: List[Tuple]):
                 for e in edges
             ],
         )
+    from .cities import refresh_city_modes
+    refresh_city_modes(conn, edges[0][0])
 
 
 def get_nodes(conn, city_id: int) -> List[Tuple]:
