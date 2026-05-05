@@ -16,21 +16,22 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
 }
 
 const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
-  const { totalKm, coverage, gccFraction, loading } = useInfraStats(city.id ?? null);
+  const { totalKm, coverage, gccFraction, kmPerMeur, loading } = useInfraStats(city.id ?? null);
 
   const kmPer100k: number | null =
     totalKm !== null && city.population > 0
       ? totalKm / (city.population / 100_000)
       : null;
 
-  const kmPerMeur: number | null = null;
   const displayLoading = loading;
+
+  const toPercent = (v: number | null) => v !== null ? v * 100 : null;
 
   const totalKmStr    = displayLoading ? '—' : fmt(totalKm, 1, 'km');
   const kmPer100kStr  = displayLoading ? '—' : fmt(kmPer100k, 2, 'km/100k hab');
   const kmPerMeurStr  = displayLoading || kmPerMeur === null ? '—' : fmt(kmPerMeur, 1, 'km/M€');
-  const coverageStr   = displayLoading ? '—' : fmt(coverage, 1, '%');
-  const gccStr        = displayLoading ? '—' : fmt(gccFraction, 1, '%');
+  const coverageStr   = displayLoading ? '—' : fmt(toPercent(coverage), 1, '%');
+  const gccStr        = displayLoading ? '—' : fmt(toPercent(gccFraction), 1, '%');
 
   const ACCENT = '#027A76';
 

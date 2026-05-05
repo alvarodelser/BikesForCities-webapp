@@ -81,6 +81,7 @@ from .features import (
     get_features,
     count_features,
     get_paginated_features,
+    get_building_coverage_fraction,
 )
 
 from .stations import (
@@ -171,6 +172,7 @@ __all__ = [
     "count_routes", "get_trips_without_path",
     # features
     "put_features", "get_features", "count_features", "get_paginated_features",
+    "get_building_coverage_fraction",
     # stations
     "get_stations", "get_paginated_stations", "has_station_readings_for_month",
     "get_nearby_unmerged_station", "upsert_stations", "insert_station_readings",

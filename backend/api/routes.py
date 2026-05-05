@@ -41,7 +41,7 @@ from backend.database.db_io import (
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
     get_accidents_geojson,
     get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson,
-    get_edge_building_coverage, get_infra_budget,
+    get_edge_building_coverage, get_infra_budget, get_building_coverage_fraction,
     get_traffic_infra_coverage, get_route_histogram,
     get_station_monthly_agg,
     get_station_building_coverage,
@@ -828,8 +828,9 @@ async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)
     """Return infrastructure analytics: GCC coverage and Vías Públicas budget (cod. 153)."""
     try:
         validate_network_exists(conn, city_id)
-        gcc   = get_gcc_coverage(conn, city_id)
+        gcc    = get_gcc_coverage(conn, city_id)
         budget = get_infra_budget(conn, city_id)
+        coverage = get_building_coverage_fraction(conn, city_id)
 
         total_km = gcc.get("total_km")
         vias_eur = budget.get("amount_eur")
@@ -842,6 +843,7 @@ async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)
                 "gcc_km": gcc.get("gcc_km"),
                 "total_km": total_km,
                 "n_components": gcc.get("n_components", 0),
+                "coverage": coverage,
                 "vias_budget_year": budget.get("year"),
                 "vias_budget_type": budget.get("budget_type"),
                 "vias_budget_eur": vias_eur,

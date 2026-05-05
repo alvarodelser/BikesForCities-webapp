@@ -144,7 +144,7 @@ def get_sea(boundary, coastline, land):
 
 
 
-def extract_features_for_network(city_id: int, center_lat: float, center_lon: float, radius: float) -> list[tuple]:
+def extract_features_for_network(city_id: int, center_lat: float, center_lon: float, radius: float) -> tuple[list, dict]:
     """Extract all features within radius from center point using ox.features_from_point()"""
     
     print(f"▶️  Extracting OSM features within {radius/1000:.1f}km radius...")

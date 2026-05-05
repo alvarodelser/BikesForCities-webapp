@@ -305,6 +305,7 @@ export interface InfraStats {
   gcc_km: number | null;
   total_km: number | null;
   n_components: number;
+  coverage: number | null;
   vias_budget_year: number | null;
   vias_budget_type: string | null;
   vias_budget_eur: number | null;

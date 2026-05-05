@@ -33,12 +33,9 @@ export function useInfraStats(cityId: number | null): InfraStatsResult {
       .then(infra => {
         if (cancelled) return;
         setTotalKm(infra.total_km);
-        setCoverage(null); // not returned by infra stats endpoint; caller may derive from CityData
+        setCoverage(infra.coverage ?? null);
         setGccFraction(infra.gcc_fraction);
         setKmPerMeur(infra.km_per_meur_vias);
-
-        // kmPer100k requires population which is not in InfraStats;
-        // set null here so callers can compute it from CityData if needed
         setKmPer100k(null);
         setLoading(false);
       })

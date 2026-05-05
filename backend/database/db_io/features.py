@@ -45,6 +45,28 @@ def get_features(
         return cur.fetchall()
 
 
+def get_building_coverage_fraction(conn, city_id: int) -> Optional[float]:
+    """Return fraction of buildings within 150 m of a bike path (0–1).
+
+    Counts bike_path_buildings vs total buildings (both types combined).
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                SUM(CASE WHEN feature_type = 'bike_path_buildings' THEN 1 ELSE 0 END)::float,
+                COUNT(*)::float
+            FROM features
+            WHERE city_id = %s AND feature_type IN ('buildings', 'bike_path_buildings')
+            """,
+            (city_id,),
+        )
+        row = cur.fetchone()
+    if not row or not row[1]:
+        return None
+    return round(row[0] / row[1], 4)
+
+
 def count_features(conn, city_id: int, feature_type: Optional[str] = None) -> int:
     with conn.cursor() as cur:
         if feature_type:

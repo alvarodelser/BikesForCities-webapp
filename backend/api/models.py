@@ -342,6 +342,7 @@ class InfraStats(BaseModel):
     gcc_km: Optional[float] = None
     total_km: Optional[float] = None
     n_components: int = 0
+    coverage: Optional[float] = None
     vias_budget_year: Optional[int] = None
     vias_budget_type: Optional[str] = None
     vias_budget_eur: Optional[int] = None

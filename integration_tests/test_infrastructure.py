@@ -60,7 +60,7 @@ def test_infrastructure_stats(city_id: int):
 
         data = body.get("data") or body
         print(f"   ✓ total_km={data.get('total_km')} km")
-        print(f"   ✓ coverage={data.get('coverage')}%")
+        print(f"   ✓ coverage={data.get('coverage')}")
         print(f"   ✓ gcc_fraction={data.get('gcc_fraction')}")
         print(f"   ✓ n_components={data.get('n_components')}")
 
