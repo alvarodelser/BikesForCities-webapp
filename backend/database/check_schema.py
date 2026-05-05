@@ -57,21 +57,20 @@ TABLE_CONSTRAINT_KEYWORDS = {"unique", "primary", "foreign", "check", "exclude",
 def _ddl_type_to_info_schema(ddl_type: str) -> str:
     """Map a DDL type token to information_schema.data_type."""
     t = ddl_type.strip().lower()
-    # Strip size modifier: varchar(50) → varchar, geometry(Point,4326) → geometry
     base = re.split(r"[\s(]", t)[0]
     if base in ("varchar", "char", "character varying"):
         return "character varying"
-    # Try multi-word match first
+    if "[]" in t:
+        return "ARRAY"
+    # Multi-word / ambiguous types — check most specific first
     if t.startswith("double precision"):
         return "double precision"
-    if t.startswith("timestamp with time zone"):
+    if base == "timestamptz" or t.startswith("timestamp with time zone"):
         return "timestamp with time zone"
     if t.startswith("timestamp without time zone"):
         return "timestamp without time zone"
     if t.startswith("timestamp"):
         return "timestamp without time zone"
-    if "[]" in t or t.startswith("text[]") or t.startswith("integer[]"):
-        return "ARRAY"
     return DDL_TO_INFO_SCHEMA.get(base, base)
 
 
@@ -123,8 +122,9 @@ def parse_schema_sql(path: Path) -> tuple[dict, list]:
             part = part.strip()
             if not part:
                 continue
-            first_token = part.split()[0].lower()
-            if first_token in TABLE_CONSTRAINT_KEYWORDS:
+            # First word before any space or '(' — catches both "UNIQUE col" and "UNIQUE(col,"
+            first_word = re.split(r"[\s(]", part)[0].lower()
+            if first_word in TABLE_CONSTRAINT_KEYWORDS:
                 continue  # table-level constraint, not a column
 
             # Column definition: name type [modifiers...]
