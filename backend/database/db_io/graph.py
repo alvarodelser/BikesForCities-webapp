@@ -522,113 +522,67 @@ def compute_all_reach_coverages(
 
 
 def get_cycling_components_geojson(conn, city_id: int) -> dict:
-    """Return cycling edges as GeoJSON FeatureCollection with component_id per edge.
-
-    component_id is ranked by total km (0 = largest/GCC).
-    """
-    import networkx as nx
+    """Return cycling edges as GeoJSON FeatureCollection with pre-computed component_id."""
     import json
 
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT id, u, v, length, ST_AsGeoJSON(geom) AS geojson
+            SELECT id, COALESCE(component_id, -1), ST_AsGeoJSON(geom)
             FROM edges
             WHERE city_id = %s AND highway LIKE '%%cycleway%%'
+            ORDER BY id
             """,
             (city_id,),
         )
-        edge_rows = cur.fetchall()
+        rows = cur.fetchall()
 
-    if not edge_rows:
+    if not rows:
         return {"type": "FeatureCollection", "features": []}
 
-    G = nx.Graph()
-    for edge_id, u, v, length, _ in edge_rows:
-        w = float(length or 0)
-        G.add_edge(u, v, weight=w)
-
-    components = list(nx.connected_components(G))
-
-    def _comp_km(nodes):
-        return sum(G[u][v]["weight"] for u, v in G.subgraph(nodes).edges()) / 1000.0
-
-    ranked = sorted(components, key=_comp_km, reverse=True)
-    node_to_comp = {}
-    for comp_id, nodes in enumerate(ranked):
-        for node in nodes:
-            node_to_comp[node] = comp_id
-
-    features = []
-    seen: set = set()
-    for edge_id, u, v, _length, geojson_str in edge_rows:
-        if edge_id in seen:
-            continue
-        seen.add(edge_id)
-        features.append({
-            "type": "Feature",
-            "geometry": json.loads(geojson_str),
-            "properties": {"edge_id": edge_id, "component_id": node_to_comp.get(u, -1)},
-        })
-
-    return {"type": "FeatureCollection", "features": features}
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson_str),
+                "properties": {"edge_id": edge_id, "component_id": component_id},
+            }
+            for edge_id, component_id, geojson_str in rows
+        ],
+    }
 
 
 def get_building_coverage_components_geojson(conn, city_id: int) -> dict:
-    """Return bike_path_buildings as GeoJSON with component_id based on geometric buffer connectivity.
-
-    Algorithm:
-    1. Buffer all bike_paths geometries by 150m (PostGIS geography for metric units)
-    2. ST_Union the buffers to merge overlapping areas
-    3. ST_Dump to split into separate polygons (= disconnected components)
-    4. Rank by area descending (component_id 0 = largest)
-    5. Spatial join bike_path_buildings; buildings not touching any buffer get component_id -1
-    """
+    """Return bike_path_buildings as GeoJSON with pre-computed component_id."""
     import json
 
     with conn.cursor() as cur:
         cur.execute(
             """
-            WITH bike_lanes AS (
-                SELECT geometry FROM features
-                WHERE feature_type = 'bike_paths' AND city_id = %s
-            ),
-            buffered AS (
-                SELECT ST_Buffer(geometry::geography, 150)::geometry AS buf
-                FROM bike_lanes
-            ),
-            unioned AS (
-                SELECT (ST_Dump(ST_Union(buf))).geom AS component_geom
-                FROM buffered
-            ),
-            ranked AS (
-                SELECT component_geom,
-                       (ROW_NUMBER() OVER (ORDER BY ST_Area(component_geom::geography) DESC) - 1)::integer AS component_id
-                FROM unioned
-            ),
-            buildings AS (
-                SELECT id, geometry, ST_AsGeoJSON(geometry) AS geojson
-                FROM features
-                WHERE feature_type = 'bike_path_buildings' AND city_id = %s
-            )
-            SELECT b.id, b.geojson, COALESCE(MIN(r.component_id), -1) AS component_id
-            FROM buildings b
-            LEFT JOIN ranked r ON ST_Intersects(b.geometry, r.component_geom)
-            GROUP BY b.id, b.geojson
+            SELECT id, ST_AsGeoJSON(geometry), COALESCE(component_id, -1)
+            FROM features
+            WHERE city_id = %s AND feature_type = 'bike_path_buildings'
+            ORDER BY id
             """,
-            (city_id, city_id),
+            (city_id,),
         )
         rows = cur.fetchall()
 
-    features = []
-    for building_id, geojson_str, component_id in rows:
-        features.append({
-            "type": "Feature",
-            "geometry": json.loads(geojson_str),
-            "properties": {"building_id": building_id, "component_id": component_id},
-        })
+    if not rows:
+        return {"type": "FeatureCollection", "features": []}
 
-    return {"type": "FeatureCollection", "features": features}
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "geometry": json.loads(geojson_str),
+                "properties": {"building_id": building_id, "component_id": component_id},
+            }
+            for building_id, geojson_str, component_id in rows
+        ],
+    }
 
 
 def get_edge_building_coverage(conn, city_id: int) -> list:
@@ -663,46 +617,24 @@ def get_edge_building_coverage(conn, city_id: int) -> list:
 
 
 def get_gcc_coverage(conn, city_id: int) -> dict:
-    """Compute the Biggest Connected Component (GCC) of the cycling network.
-
-    Returns the fraction of cycling-network km in the largest connected component,
-    plus the absolute km and number of isolated components.
-    """
-    import networkx as nx
-
+    """Return pre-computed GCC stats from city_modes (populated at OSM ingestion)."""
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT u, v, length
-            FROM edges
-            WHERE city_id = %s AND highway LIKE '%%cycleway%%'
+            SELECT gcc_fraction, gcc_km, total_cycling_km, n_components
+            FROM city_modes
+            WHERE city_id = %s
             """,
             (city_id,),
         )
-        edges = cur.fetchall()
+        row = cur.fetchone()
 
-    if not edges:
+    if not row:
         return {"gcc_fraction": None, "gcc_km": None, "total_km": None, "n_components": 0}
 
-    G = nx.Graph()
-    for u, v, length in edges:
-        w = float(length or 0)
-        if G.has_edge(u, v):
-            G[u][v]["weight"] = max(G[u][v]["weight"], w)
-        else:
-            G.add_edge(u, v, weight=w)
-
-    components = list(nx.connected_components(G))
-    n_components = len(components)
-    total_km = sum(d["weight"] for _, _, d in G.edges(data=True)) / 1000.0
-
-    gcc_nodes = max(components, key=len)
-    gcc_subgraph = G.subgraph(gcc_nodes)
-    gcc_km = sum(d["weight"] for _, _, d in gcc_subgraph.edges(data=True)) / 1000.0
-
     return {
-        "gcc_fraction": gcc_km / total_km if total_km > 0 else None,
-        "gcc_km": gcc_km,
-        "total_km": total_km,
-        "n_components": n_components,
+        "gcc_fraction": row[0],
+        "gcc_km": row[1],
+        "total_km": row[2],
+        "n_components": row[3] or 0,
     }

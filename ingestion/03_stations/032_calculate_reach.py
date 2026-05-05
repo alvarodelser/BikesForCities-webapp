@@ -15,7 +15,9 @@ from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities,
-    compute_all_reach_coverages, update_station_reach_coverage, get_ingestion_status, check_prerequisites
+    compute_all_reach_coverages, update_station_reach_coverage,
+    compute_station_building_coverages,
+    get_ingestion_status, check_prerequisites,
 )
 from backend.database.db_io.cities import upsert_ingestion_status
 
@@ -65,13 +67,16 @@ def main():
                 continue
 
             update_station_reach_coverage(conn, city_id, coverages)
+
+            print(f"   ▶️  Computing station building_coverage…")
+            compute_station_building_coverages(conn, city_id)
             conn.commit()
 
             vals = list(coverages.values())
             avg = sum(vals) / len(vals) if vals else 0
             print(
                 f"   ✔ {name}: {len(coverages)} stations | "
-                f"avg coverage {avg:.1f}% | "
+                f"avg reach {avg:.1f}% | "
                 f"min {min(vals):.1f}% | max {max(vals):.1f}%"
             )
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)

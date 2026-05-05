@@ -227,38 +227,52 @@ def update_station_reach_coverage(conn, city_id: int, coverages: dict):
         )
 
 
-def get_station_building_coverage(conn, city_id: int) -> float:
-    """Percentage of buildings (feature_type='bike_path_buildings') within 150 m of any station.
+def compute_station_building_coverages(conn, city_id: int):
+    """Compute and store building_coverage per station (fraction of bike_path_buildings within 150 m).
 
-    Returns a float 0–1.
+    Runs once at ingestion time — acceptable cost. Avoids expensive spatial
+    join on every API request.
     """
     with conn.cursor() as cur:
         cur.execute(
             """
-            WITH total AS (
-                SELECT COUNT(*) AS cnt
-                FROM features
-                WHERE feature_type = 'bike_path_buildings'
-                  AND city_id = %s
-            ),
-            covered AS (
-                SELECT COUNT(DISTINCT b.id) AS cnt
-                FROM features b
-                WHERE b.feature_type = 'bike_path_buildings'
-                  AND b.city_id = %s
-                  AND EXISTS (
-                      SELECT 1
-                      FROM stations s
-                      WHERE s.city_id = %s
-                        AND s.merged_into_id IS NULL
-                        AND ST_DWithin(s.geom::geography, b.geometry::geography, 150)
-                  )
-            )
-            SELECT CASE WHEN t.cnt > 0 THEN c.cnt::float / t.cnt ELSE 0 END
-            FROM total t, covered c
+            UPDATE stations s
+            SET building_coverage = sub.coverage
+            FROM (
+                SELECT
+                    s2.id AS station_id,
+                    COUNT(b.id)::float / NULLIF(total.cnt, 0) AS coverage
+                FROM stations s2
+                CROSS JOIN (
+                    SELECT COUNT(*) AS cnt FROM features
+                    WHERE city_id = %s AND feature_type = 'bike_path_buildings'
+                ) total
+                LEFT JOIN features b
+                    ON b.city_id = %s
+                    AND b.feature_type = 'bike_path_buildings'
+                    AND ST_DWithin(s2.geom::geography, b.geometry::geography, 150)
+                WHERE s2.city_id = %s AND s2.merged_into_id IS NULL
+                GROUP BY s2.id, total.cnt
+            ) sub
+            WHERE s.id = sub.station_id
             """,
             (city_id, city_id, city_id),
         )
+
+
+def get_station_building_coverage(conn, city_id: int) -> float:
+    """Return avg pre-computed building_coverage across active stations (populated at station ingestion)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT AVG(building_coverage)
+            FROM stations
+            WHERE city_id = %s
+              AND merged_into_id IS NULL
+              AND building_coverage IS NOT NULL
+            """,
+            (city_id,),
+        )
         row = cur.fetchone()
-        return float(row[0]) if row else 0.0
+        return float(row[0]) if row and row[0] is not None else 0.0
 

@@ -1,16 +1,24 @@
 """
-02_load_osm.py
+020_load_osm.py
 Loads OSM network and features for all cities currently in the database.
+
+After graph + feature ingestion, computes and stores:
+  - edge.component_id     — connected-component rank (0 = GCC)
+  - edge.building_count   — bike_path_buildings within 150 m
+  - city_modes GCC fields — gcc_fraction, gcc_km, total_cycling_km, n_components
+  - features.component_id — building coverage component rank
 """
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from pathlib import Path
 import sys
 import argparse
 from dotenv import load_dotenv
-import geopandas as gpd
 
-# Add project root to python path
+import networkx as nx
+import geopandas as gpd
+from shapely.geometry import LineString
+
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.processing import load_graph, extract_nodes, extract_edges
@@ -20,48 +28,191 @@ from backend.database.db_io import (
     get_nodes, get_edges, put_nodes, put_edges,
     put_features, count_features,
     get_ingestion_status, upsert_ingestion_status, check_prerequisites,
-    refresh_city_modes
+    refresh_city_modes,
 )
-from datetime import datetime, timezone
+
 import osmnx as ox
 ox.settings.cache_folder = str(Path(__file__).resolve().parents[2] / "data" / "osm_cache")
 ox.settings.use_cache = True
 
 
-def compute_and_store_building_counts(conn, city_id: int, bike_paths_gdf, buildings_gdf):
-    """Compute building_count for each cycleway edge using in-memory GeoDataFrames.
+# ── Ingestion-time computations ───────────────────────────────────────────────
 
-    For each cycleway edge: count buildings within 150m buffer and
-    UPDATE edges table with building_count. Avoids expensive runtime
-    spatial joins on every API request.
+def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildings_gdf):
+    """Compute component_id and building_count for every cycleway edge and persist.
+
+    Uses the in-memory OSM graph (G) and the bike_path_buildings GeoDataFrame
+    so no expensive runtime spatial queries are needed later.
+
+    Steps:
+      1. Build undirected NetworkX graph from cycleway edges.
+      2. Rank connected components by total km (0 = GCC).
+      3. Spatial join edge buffers × bike_path_buildings to count buildings/edge.
+      4. Bulk UPDATE edges table.
+      5. Store GCC stats into city_modes.
     """
-    if bike_paths_gdf is None or buildings_gdf is None:
+    # ── Step 1: collect cycleway edges from graph ─────────────────────────────
+    cycleway_edges = [
+        (u, v, k, data)
+        for u, v, k, data in G.edges(keys=True, data=True)
+        if "cycleway" in str(data.get("highway", ""))
+    ]
+    if not cycleway_edges:
+        print("   ⚠ No cycleway edges found — skipping edge stats computation")
         return
 
-    # Create 150m buffer around bike paths
-    bike_paths_metric = bike_paths_gdf.to_crs(epsg=3857)
-    bike_paths_buffer = gpd.GeoDataFrame(
-        geometry=bike_paths_metric.buffer(150),
-        crs='EPSG:3857'
-    ).to_crs(epsg=4326)
+    # ── Step 2: connected components ─────────────────────────────────────────
+    UG = nx.Graph()
+    for u, v, k, data in cycleway_edges:
+        w = float(data.get("length") or 0)
+        if UG.has_edge(u, v):
+            UG[u][v]["weight"] = max(UG[u][v]["weight"], w)
+        else:
+            UG.add_edge(u, v, weight=w)
 
-    # Spatial join to find buildings in buffer
-    buildings_in_buffer = gpd.sjoin(
-        buildings_gdf, bike_paths_buffer, how='inner', predicate='intersects'
+    components = sorted(
+        nx.connected_components(UG),
+        key=lambda nodes: sum(UG[u][v]["weight"] for u, v in UG.subgraph(nodes).edges()),
+        reverse=True,
+    )
+    node_to_comp = {node: comp_id for comp_id, nodes in enumerate(components) for node in nodes}
+
+    total_km = sum(d["weight"] for _, _, d in UG.edges(data=True)) / 1000.0
+    gcc_nodes = components[0] if components else set()
+    gcc_km = sum(UG[u][v]["weight"] for u, v in UG.subgraph(gcc_nodes).edges()) / 1000.0
+
+    # ── Step 3: building_count via GeoDataFrame spatial join ──────────────────
+    # Build edge GeoDataFrame from cycleway edges
+    edge_records = []
+    for u, v, k, data in cycleway_edges:
+        geom = data.get("geometry")
+        if not geom:
+            geom = LineString([(G.nodes[u]["x"], G.nodes[u]["y"]), (G.nodes[v]["x"], G.nodes[v]["y"])])
+        edge_records.append({"u": u, "v": v, "k": k, "geometry": geom})
+
+    edges_gdf = gpd.GeoDataFrame(edge_records, crs="EPSG:4326").to_crs(epsg=3857)
+    edges_gdf["buffer"] = edges_gdf.geometry.buffer(150)
+
+    edge_building_counts: dict[tuple, int] = {}
+    if bike_path_buildings_gdf is not None and not bike_path_buildings_gdf.empty:
+        buffers_gdf = gpd.GeoDataFrame(
+            edges_gdf[["u", "v", "k"]],
+            geometry=edges_gdf["buffer"],
+            crs="EPSG:3857",
+        )
+        buildings_metric = bike_path_buildings_gdf.to_crs(epsg=3857)
+        joined = gpd.sjoin(buildings_metric, buffers_gdf, how="inner", predicate="intersects")
+        counts = joined.groupby(["u", "v", "k"]).size()
+        edge_building_counts = {(u, v, k): int(c) for (u, v, k), c in counts.items()}
+
+    # ── Step 4: fetch DB edge IDs and bulk UPDATE ─────────────────────────────
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, u, v, k FROM edges WHERE city_id = %s AND highway LIKE '%%cycleway%%'",
+            (city_id,),
+        )
+        db_edges = {(row[1], row[2], row[3]): row[0] for row in cur.fetchall()}
+
+    updates = [
+        (
+            node_to_comp.get(u, -1),
+            edge_building_counts.get((u, v, k), 0),
+            db_id,
+        )
+        for (u, v, k), db_id in db_edges.items()
+    ]
+
+    with conn.cursor() as cur:
+        cur.executemany(
+            "UPDATE edges SET component_id = %s, building_count = %s WHERE id = %s",
+            updates,
+        )
+
+    print(f"   • Updated {len(updates):,} cycleway edges with component_id + building_count")
+
+    # ── Step 5: persist GCC stats into city_modes ─────────────────────────────
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            UPDATE city_modes
+            SET gcc_fraction = %s, gcc_km = %s, total_cycling_km = %s, n_components = %s
+            WHERE city_id = %s
+            """,
+            (
+                gcc_km / total_km if total_km > 0 else None,
+                round(gcc_km, 3),
+                round(total_km, 3),
+                len(components),
+                city_id,
+            ),
+        )
+    print(f"   • GCC stats: {len(components)} components, {total_km:.1f} km total, "
+          f"{gcc_km:.1f} km GCC ({100*gcc_km/total_km:.1f}% )" if total_km > 0 else "")
+
+
+def compute_building_component_ids(conn, city_id: int, bike_paths_gdf, bike_path_buildings_gdf):
+    """Assign component_id to each bike_path_buildings feature using in-memory spatial ops.
+
+    Buffers all bike_path features by 150 m, unions them into connectivity regions,
+    ranks by area (0 = largest), then spatial-joins buildings to regions.
+    Stores result in features.component_id.
+    """
+    if bike_paths_gdf is None or bike_paths_gdf.empty:
+        return
+    if bike_path_buildings_gdf is None or bike_path_buildings_gdf.empty:
+        return
+
+    # Buffer bike paths and dissolve into connectivity regions
+    paths_metric = bike_paths_gdf.to_crs(epsg=3857)
+    buffered = paths_metric.buffer(150)
+    from shapely.ops import unary_union
+    from shapely.geometry import MultiPolygon
+    import geopandas as gpd
+
+    union = unary_union(buffered)
+    if union.is_empty:
+        return
+
+    polys = list(union.geoms) if union.geom_type == "MultiPolygon" else [union]
+    polys_sorted = sorted(polys, key=lambda p: p.area, reverse=True)
+
+    regions_gdf = gpd.GeoDataFrame(
+        {"component_id": range(len(polys_sorted))},
+        geometry=polys_sorted,
+        crs="EPSG:3857",
     )
 
-    # Count buildings per edge (assuming bike_paths_gdf has an 'id' column for edges)
-    if not buildings_in_buffer.empty:
-        # Group by edge and count
-        edge_building_counts = buildings_in_buffer.groupby(level=0).size()
+    buildings_metric = bike_path_buildings_gdf.to_crs(epsg=3857)
+    joined = gpd.sjoin(buildings_metric, regions_gdf, how="left", predicate="intersects")
+    # Take minimum component_id if a building touches multiple regions
+    comp_by_orig_idx = joined.groupby(joined.index)["component_id"].min()
 
-        # Update edges in database with counts
-        with conn.cursor() as cur:
-            for edge_id, count in edge_building_counts.items():
-                cur.execute(
-                    "UPDATE edges SET building_count = %s WHERE id = %s AND city_id = %s",
-                    (int(count), edge_id, city_id),
-                )
+    # Fetch DB feature IDs for bike_path_buildings in this city (in insertion order)
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT id FROM features WHERE city_id = %s AND feature_type = 'bike_path_buildings' ORDER BY id",
+            (city_id,),
+        )
+        db_ids = [row[0] for row in cur.fetchall()]
+
+    if len(db_ids) != len(bike_path_buildings_gdf):
+        print(f"   ⚠ Building count mismatch (db={len(db_ids)}, gdf={len(bike_path_buildings_gdf)}) — skipping component_id")
+        return
+
+    updates = [
+        (int(comp_by_orig_idx.get(idx, -1)), db_id)
+        for idx, db_id in zip(bike_path_buildings_gdf.index, db_ids)
+    ]
+
+    with conn.cursor() as cur:
+        cur.executemany(
+            "UPDATE features SET component_id = %s WHERE id = %s",
+            updates,
+        )
+    print(f"   • Assigned component_id to {len(updates):,} bike_path_buildings")
+
+
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     parser = argparse.ArgumentParser(description="Load OSM network and features")
@@ -70,33 +221,33 @@ def main():
     args = parser.parse_args()
 
     load_dotenv()
-    
+
     start_total = time.perf_counter()
     try:
         conn = connect_db()
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"❌ Could not connect to DB: {exc}")
         return
-    
+
     cities = get_all_cities(conn)
     if not cities:
         print("❌ No cities found in database. Run 01_load_cities.py first.")
         conn.commit()
         conn.close()
         return
-        
+
     print(f"📊 Found {len(cities)} cities to process.")
-        
+
     for city_row in cities:
         city_id, city_name, *rest = city_row
-        
+
         if args.city and args.city.lower() not in city_name.lower():
             continue
-            
+
         print(f"\n==============================================")
         print(f"🗺  Processing OSM Data for {city_name} (ID: {city_id})")
         print(f"==============================================")
-        
+
         center = get_city_center(conn, city_id)
         if not center:
             print(f"❌ Missing geographic data for {city_name}, skipping.")
@@ -112,73 +263,80 @@ def main():
         if status and status.get("status") == "SUCCESS" and not args.force:
             updated_at = status.get("updated_at")
             if updated_at:
-                now = datetime.now(tz=timezone.utc)
-                diff = now - updated_at
+                diff = datetime.now(tz=timezone.utc) - updated_at
                 if diff.days <= 365:
-                    print(f"⏭️  Skipping {city_name}: OSM data already ingested within the last 12 months ({updated_at.strftime('%Y-%m-%d')}). Use --force to override.")
+                    print(f"⏭️  Skipping {city_name}: OSM data ingested {updated_at.strftime('%Y-%m-%d')}. Use --force to override.")
                     continue
-            
+
         center_lat, center_lon, radius = center
-        
+
         upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
+            # ── Graph ─────────────────────────────────────────────────────────
             print(f"▶️  Downloading graph for '{city_name}' …", end=" ", flush=True)
             start_dl = time.perf_counter()
             G = load_graph(city_name, dist=radius, lat=center_lat, lon=center_lon)
             dl_time = timedelta(seconds=time.perf_counter() - start_dl)
             print(f"done ({dl_time}) — {G.number_of_nodes():,} nodes / {G.number_of_edges():,} edges")
-            
-            # Existing counts
+
             pre_nodes = len(get_nodes(conn, city_id))
             pre_edges = len(get_edges(conn, city_id))
-            
-            # Try inserting nodes and edges
             put_nodes(conn, extract_nodes(G, city_id))
             put_edges(conn, extract_edges(G, city_id))
-            
             added_nodes = len(get_nodes(conn, city_id)) - pre_nodes
             added_edges = len(get_edges(conn, city_id)) - pre_edges
             print(f"✅ Added {added_nodes:,} nodes and {added_edges:,} edges.")
-            
+
+            # ── Features ──────────────────────────────────────────────────────
             print(f"▶️  Extracting features for '{city_name}' …")
             start_features = time.perf_counter()
             features_data, extracted_features = extract_features_for_network(city_id, center_lat, center_lon, radius)
             features_time = timedelta(seconds=time.perf_counter() - start_features)
 
             if features_data:
-                print(f"▶️  Storing {len(features_data):,} features...")
+                print(f"▶️  Storing {len(features_data):,} features… ({features_time})")
                 put_features(conn, city_id, features_data)
-                print(f"✅ Features stored successfully ({features_time})")
 
-                # Compute building_count for edges using in-memory bike_path_buildings
-                print(f"▶️  Computing building_count for edges...")
-                start_building_count = time.perf_counter()
-                bike_paths = extracted_features.get('bike_paths')
-                buildings = extracted_features.get('buildings')
-                compute_and_store_building_counts(conn, city_id, bike_paths, buildings)
-                building_count_time = timedelta(seconds=time.perf_counter() - start_building_count)
-                print(f"✅ Building counts computed ({building_count_time})")
-
-                # Print feature counts by type
                 all_feature_types = list(FEATURE_TYPES.keys()) + list(CALCULATED_FEATURES.keys())
-                for feature_type in all_feature_types:
-                    count = count_features(conn, city_id, feature_type)
-                    if count > 0:
-                        print(f"   • {feature_type}: {count:,}")
+                for ft in all_feature_types:
+                    c = count_features(conn, city_id, ft)
+                    if c > 0:
+                        print(f"   • {ft}: {c:,}")
 
+                # ── Pre-compute edge stats (component_id, building_count, GCC) ──
+                print(f"▶️  Computing edge stats (component_id, building_count, GCC)…")
+                start_stats = time.perf_counter()
+                compute_edge_stats(
+                    conn, city_id, G,
+                    bike_path_buildings_gdf=extracted_features.get("bike_path_buildings"),
+                )
+                print(f"✅ Edge stats done ({timedelta(seconds=time.perf_counter() - start_stats)})")
+
+                # ── Pre-compute building coverage component_ids ────────────────
+                print(f"▶️  Computing building coverage component_ids…")
+                start_bcomp = time.perf_counter()
+                compute_building_component_ids(
+                    conn, city_id,
+                    bike_paths_gdf=extracted_features.get("bike_paths"),
+                    bike_path_buildings_gdf=extracted_features.get("bike_path_buildings"),
+                )
+                print(f"✅ Building component_ids done ({timedelta(seconds=time.perf_counter() - start_bcomp)})")
 
             refresh_city_modes(conn, city_id)
-            print(f"✅ Finished updating {city_name} and its modes")
+            print(f"✅ Finished {city_name}")
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
+
         except Exception as e:
             upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
-            print(f"❌ Error processing OSM Data for {city_name}: {e}")
-                    
+            print(f"❌ Error processing {city_name}: {e}")
+            import traceback; traceback.print_exc()
+
     conn.commit()
     conn.close()
-    
+
     total_time = timedelta(seconds=time.perf_counter() - start_total)
-    print(f"\n🏁 Finished processing all cities in {total_time}.")
+    print(f"\n🏁 Finished all cities in {total_time}.")
+
 
 if __name__ == "__main__":
     main()

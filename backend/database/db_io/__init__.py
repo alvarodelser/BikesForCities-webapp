@@ -92,6 +92,7 @@ from .stations import (
     insert_station_readings,
     get_station_hourly_availability,
     update_station_reach_coverage,
+    compute_station_building_coverages,
     get_station_building_coverage,
 )
 

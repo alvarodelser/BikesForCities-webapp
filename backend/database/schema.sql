@@ -26,7 +26,12 @@ CREATE TABLE IF NOT EXISTS city_modes (
     topography           BOOLEAN DEFAULT FALSE,
     intersections        BOOLEAN DEFAULT FALSE,
     stations             BOOLEAN DEFAULT FALSE,
-    forum                BOOLEAN DEFAULT FALSE
+    forum                BOOLEAN DEFAULT FALSE,
+    -- Pre-computed infrastructure stats (updated at OSM ingestion)
+    gcc_fraction         DOUBLE PRECISION,
+    gcc_km               DOUBLE PRECISION,
+    total_cycling_km     DOUBLE PRECISION,
+    n_components         INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS ingestion_status (
@@ -163,6 +168,7 @@ CREATE TABLE IF NOT EXISTS edges (
     tunnel BOOLEAN,
     bridge BOOLEAN,
     building_count INTEGER DEFAULT 0,               -- buildings within 150m (computed at feature ingestion)
+    component_id INTEGER,                           -- connected component rank (0=GCC) computed at ingestion
 
     UNIQUE(u, v, k)                                 -- enforce unique edge per MultiDiGraph
 );
@@ -257,6 +263,7 @@ CREATE TABLE IF NOT EXISTS features (
     feature_type VARCHAR(50) NOT NULL,
     geometry GEOMETRY(GEOMETRY, 4326) NOT NULL,
     tags JSONB,
+    component_id INTEGER,                           -- connectivity component rank (computed at ingestion)
     extracted_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -275,6 +282,7 @@ CREATE TABLE IF NOT EXISTS stations (
     last_seen TIMESTAMPTZ,
     merged_into_id INTEGER REFERENCES stations(id) ON DELETE SET NULL,
     reach_coverage DOUBLE PRECISION,
+    building_coverage DOUBLE PRECISION,             -- fraction of bike_path_buildings within 150m (computed at ingestion)
     UNIQUE (citybikes_network_id, station_id)
 );
 CREATE INDEX IF NOT EXISTS idx_stations_merged_into ON stations(merged_into_id);
