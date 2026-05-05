@@ -6,16 +6,17 @@ from psycopg2.extras import RealDictCursor
 
 
 def put_features(conn, city_id: int, features_data: List[Tuple]):
-    """Bulk insert features.
+    """Replace all features for a city with a fresh set.
 
-    Tuple layout: (feature_type, geometry_wkt, tags_json)
+    Deletes existing features first to avoid accumulating duplicates
+    across repeated ingestion runs. Tuple layout: (feature_type, geometry_wkt, tags_json)
     """
     with conn.cursor() as cur:
+        cur.execute("DELETE FROM features WHERE city_id = %s", (city_id,))
         cur.executemany(
             """
             INSERT INTO features (city_id, feature_type, geometry, tags)
             VALUES (%s, %s, ST_GeomFromText(%s, 4326), %s)
-            ON CONFLICT DO NOTHING
             """,
             [(city_id, ft, geom, tags) for ft, geom, tags in features_data],
         )
