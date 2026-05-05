@@ -71,11 +71,11 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
     return buildBins(values, 10);
   }, [stations]);
 
-  const reachData = useMemo(() => {
+  const buildingData = useMemo(() => {
     const values = stations
-      .map(s => s.reach_coverage)
+      .map(s => s.building_coverage)
       .filter((v): v is number => v != null);
-    // reach_coverage is 0–1; convert to percentage for display
+    // building_coverage is 0–1; convert to percentage for display
     return buildBins(values.map(v => v * 100), 10);
   }, [stations]);
 
@@ -106,7 +106,7 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
         accent="#ffa585"
         title="Uso por estación"
         subtitle="Viajes estimados / mes"
-        yUnit="viajes"
+        yUnit="estaciones"
         gradient
         helpContent={
           <p>
@@ -116,16 +116,16 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
         }
       />
       <BarHistogram
-        data={reachData}
-        accent="#bc556f"
-        title="Cobertura por alcance"
-        subtitle="Porcentaje de alcance (%)"
+        data={buildingData}
+        accent="#6b8cae"
+        title="Cobertura de edificios"
+        subtitle="Fracción de edificios cubiertos (%)"
         yUnit="estaciones"
         gradient
         helpContent={
           <p>
-            Distribución de las estaciones según su cobertura por alcance: qué proporción de la población vive a menos de 300 metros de esa estación.
-            Las estaciones con mayor cobertura sirven directamente a más residentes.
+            Distribución de las estaciones según el porcentaje de edificios que cubre (dentro de 150 metros).
+            Las estaciones con mayor cobertura de edificios alcanzan a más residencias potenciales.
           </p>
         }
       />

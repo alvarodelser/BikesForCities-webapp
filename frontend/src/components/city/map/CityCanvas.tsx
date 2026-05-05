@@ -34,29 +34,28 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         city.geoCoords.longitude !== null &&
         (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
 
-    // For infrastructure mode use the actual data extent (node bbox) with 5% padding.
+    // For infrastructure mode restrict panning to the 10×10 km study area (with 5% padding).
     // For other modes fall back to a fixed radius so traffic/stations data is navigable.
     const bounds = useMemo(() => {
         if (!hasValidCoords) return null;
-        if (mode === MAP_MODES.INFRASTRUCTURE && city.maxBounds) {
-            const [[swLon, swLat], [neLon, neLat]] = city.maxBounds;
-            const latPad = (neLat - swLat) * 0.05;
-            const lonPad = (neLon - swLon) * 0.05;
+        const lat = city.geoCoords.latitude;
+        const lon = city.geoCoords.longitude;
+        if (mode === MAP_MODES.INFRASTRUCTURE) {
+            const halfLat = 5000 / 111320;
+            const halfLon = 5000 / (111320 * Math.cos((lat * Math.PI) / 180));
             return [
-                [swLon - lonPad, swLat - latPad],
-                [neLon + lonPad, neLat + latPad],
+                [lon - halfLon, lat - halfLat],
+                [lon + halfLon, lat + halfLat],
             ] as [[number, number], [number, number]];
         }
         const radiusKm = 50;
-        const lat = city.geoCoords.latitude;
-        const lon = city.geoCoords.longitude;
         const latDelta = radiusKm / 111.32;
         const lonDelta = radiusKm / (111.32 * Math.cos(lat * (Math.PI / 180)));
         return [
             [lon - lonDelta, lat - latDelta],
             [lon + lonDelta, lat + latDelta]
         ] as [[number, number], [number, number]];
-    }, [city.maxBounds, city.geoCoords.latitude, city.geoCoords.longitude, mode, hasValidCoords]);
+    }, [city.geoCoords.latitude, city.geoCoords.longitude, mode, hasValidCoords]);
 
     useEffect(() => {
         if (!mapContainer.current || !hasValidCoords) return;

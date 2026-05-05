@@ -53,7 +53,7 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
         query = """
             SELECT
                 s.id, s.station_id, s.name, s.lat, s.lon, s.citybikes_network_id,
-                s.extra, s.reach_coverage,
+                s.extra, s.reach_coverage, s.building_coverage,
                 sm.estimated_trips  AS estimated_monthly_trips,
                 sm.downtime_minutes
             FROM stations s

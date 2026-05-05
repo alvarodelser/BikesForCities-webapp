@@ -169,8 +169,12 @@ export function useLiveStats(
           const meanReach = withReach.length > 0
             ? ((withReach.reduce((sum, s) => sum + (s.reach_coverage ?? 0), 0) / withReach.length) * 100).toFixed(1)
             : null;
+          const bikesPerInhabitant = city.population > 0
+            ? ((city.bicycles_count ?? 0) / city.population * 100000).toFixed(2)
+            : '—';
           result = [
             { label: 'Bicicletas totales', value: (city.bicycles_count ?? 0).toLocaleString('es'), icon: Bike },
+            { label: 'Bicicletas / 100k hab.', value: `${bikesPerInhabitant}`, icon: Activity },
             { label: 'Estaciones', value: (city.stations_count ?? 0).toLocaleString('es'), icon: MapPin },
             {
               label: 'Tiempo parado medio',

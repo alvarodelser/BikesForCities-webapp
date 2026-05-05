@@ -20,45 +20,49 @@ export default function InfrastructureLayer({ submode: _submode }: { submode: st
             if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
         });
 
-        // Draw study-area boundary rectangle and fit the view to show it
-        if (city.maxBounds) {
-            const [[swLon, swLat], [neLon, neLat]] = city.maxBounds;
-            const geojson = {
-                type: 'Feature' as const,
-                geometry: {
-                    type: 'Polygon' as const,
-                    coordinates: [[
-                        [swLon, swLat],
-                        [neLon, swLat],
-                        [neLon, neLat],
-                        [swLon, neLat],
-                        [swLon, swLat],
-                    ]],
-                },
-                properties: {},
-            };
+        // Draw 10×10 km axis-aligned study-area rectangle and fit view to it
+        const lat = city.geoCoords.latitude;
+        const lon = city.geoCoords.longitude;
+        const halfLat = 5000 / 111320;
+        const halfLon = 5000 / (111320 * Math.cos((lat * Math.PI) / 180));
 
-            if (!map.getSource(BOUNDARY_SOURCE)) {
-                map.addSource(BOUNDARY_SOURCE, { type: 'geojson', data: geojson as any });
-            }
-            if (!map.getLayer(BOUNDARY_LAYER)) {
-                const before = map.getLayer('carto-labels-layer') ? 'carto-labels-layer' : undefined;
-                map.addLayer({
-                    id: BOUNDARY_LAYER,
-                    type: 'line',
-                    source: BOUNDARY_SOURCE,
-                    paint: {
-                        'line-color': '#027A76',
-                        'line-width': 2,
-                        'line-dasharray': [6, 3],
-                        'line-opacity': 0.7,
-                    },
-                } as any, before);
-            }
+        const sw: [number, number] = [lon - halfLon, lat - halfLat];
+        const ne: [number, number] = [lon + halfLon, lat + halfLat];
 
-            // Zoom to show the full study area so the boundary is immediately visible
-            map.fitBounds(city.maxBounds, { padding: 48, duration: 800 });
+        const geojson = {
+            type: 'Feature' as const,
+            geometry: {
+                type: 'Polygon' as const,
+                coordinates: [[
+                    sw,
+                    [ne[0], sw[1]],
+                    ne,
+                    [sw[0], ne[1]],
+                    sw,
+                ]],
+            },
+            properties: {},
+        };
+
+        if (!map.getSource(BOUNDARY_SOURCE)) {
+            map.addSource(BOUNDARY_SOURCE, { type: 'geojson', data: geojson as any });
         }
+        if (!map.getLayer(BOUNDARY_LAYER)) {
+            const before = map.getLayer('carto-labels-layer') ? 'carto-labels-layer' : undefined;
+            map.addLayer({
+                id: BOUNDARY_LAYER,
+                type: 'line',
+                source: BOUNDARY_SOURCE,
+                paint: {
+                    'line-color': '#027A76',
+                    'line-width': 2,
+                    'line-dasharray': [6, 3],
+                    'line-opacity': 0.7,
+                },
+            } as any, before);
+        }
+
+        map.fitBounds([sw, ne], { padding: 48, duration: 800 });
 
         setLayerState?.('idle');
 

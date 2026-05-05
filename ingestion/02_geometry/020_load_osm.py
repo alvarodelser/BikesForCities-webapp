@@ -22,7 +22,7 @@ from shapely.geometry import LineString
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
 from backend.processing import load_graph, extract_nodes, extract_edges
-from backend.processing.feature_ops import extract_features_for_network, FEATURE_TYPES, CALCULATED_FEATURES
+from backend.processing.feature_ops import extract_features_for_network, get_study_area_polygon, FEATURE_TYPES, CALCULATED_FEATURES
 from backend.database.db_io import (
     connect_db, get_all_cities, get_city_center,
     get_nodes, get_edges, put_nodes, put_edges,
@@ -38,20 +38,25 @@ ox.settings.use_cache = True
 
 # ── Ingestion-time computations ───────────────────────────────────────────────
 
-def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildings_gdf):
+def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildings_gdf, study_area=None):
     """Compute component_id and building_count for every cycleway edge and persist.
 
     Uses the in-memory OSM graph (G) and the bike_path_buildings GeoDataFrame
     so no expensive runtime spatial queries are needed later.
 
+    If study_area (a Shapely Polygon in EPSG:4326) is given, GCC stats and
+    building counts are computed only for edges/buildings within that rectangle.
+    Edges outside it still receive component_id=-1 and building_count=0.
+
     Steps:
-      1. Build undirected NetworkX graph from cycleway edges.
-      2. Rank connected components by total km (0 = GCC).
-      3. Spatial join edge buffers × bike_path_buildings to count buildings/edge.
-      4. Bulk UPDATE edges table.
-      5. Store GCC stats into city_modes.
+      1. Build edge GeoDataFrame from all cycleway edges.
+      2. Filter to study area (if provided).
+      3. Rank connected components by total km within study area (0 = GCC).
+      4. Spatial join edge buffers × study-area buildings to count buildings/edge.
+      5. Bulk UPDATE edges table.
+      6. Store GCC stats into city_modes.
     """
-    # ── Step 1: collect cycleway edges from graph ─────────────────────────────
+    # ── Step 1: collect all cycleway edges from graph ─────────────────────────
     cycleway_edges = [
         (u, v, k, data)
         for u, v, k, data in G.edges(keys=True, data=True)
@@ -61,14 +66,36 @@ def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildin
         print("   ⚠ No cycleway edges found — skipping edge stats computation")
         return
 
-    # ── Step 2: connected components ─────────────────────────────────────────
-    UG = nx.Graph()
+    # Build GeoDataFrame in 4326 (required for study_area intersection test)
+    edge_records = []
     for u, v, k, data in cycleway_edges:
-        w = float(data.get("length") or 0)
+        geom = data.get("geometry")
+        if not geom:
+            geom = LineString([(G.nodes[u]["x"], G.nodes[u]["y"]), (G.nodes[v]["x"], G.nodes[v]["y"])])
+        edge_records.append({"u": u, "v": v, "k": k, "geometry": geom})
+
+    all_edges_gdf = gpd.GeoDataFrame(edge_records, crs="EPSG:4326")
+
+    # ── Step 2: restrict to study area ───────────────────────────────────────
+    if study_area is not None:
+        in_study = all_edges_gdf.geometry.intersects(study_area)
+        study_edges_gdf = all_edges_gdf[in_study].copy()
+    else:
+        study_edges_gdf = all_edges_gdf
+
+    # ── Step 3: connected components within study area ────────────────────────
+    UG = nx.Graph()
+    for _, row in study_edges_gdf.iterrows():
+        u, v, k = row["u"], row["v"], row["k"]
+        w = float(G[u][v][k].get("length") or 0)
         if UG.has_edge(u, v):
             UG[u][v]["weight"] = max(UG[u][v]["weight"], w)
         else:
             UG.add_edge(u, v, weight=w)
+
+    if not UG.edges():
+        print("   ⚠ No cycleway edges in study area — skipping edge stats")
+        return
 
     components = sorted(
         nx.connected_components(UG),
@@ -81,31 +108,28 @@ def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildin
     gcc_nodes = components[0] if components else set()
     gcc_km = sum(UG[u][v]["weight"] for u, v in UG.subgraph(gcc_nodes).edges()) / 1000.0
 
-    # ── Step 3: building_count via GeoDataFrame spatial join ──────────────────
-    # Build edge GeoDataFrame from cycleway edges
-    edge_records = []
-    for u, v, k, data in cycleway_edges:
-        geom = data.get("geometry")
-        if not geom:
-            geom = LineString([(G.nodes[u]["x"], G.nodes[u]["y"]), (G.nodes[v]["x"], G.nodes[v]["y"])])
-        edge_records.append({"u": u, "v": v, "k": k, "geometry": geom})
-
-    edges_gdf = gpd.GeoDataFrame(edge_records, crs="EPSG:4326").to_crs(epsg=3857)
-    edges_gdf["buffer"] = edges_gdf.geometry.buffer(150)
+    # ── Step 4: building_count via GeoDataFrame spatial join ──────────────────
+    study_edges_metric = study_edges_gdf.to_crs(epsg=3857)
+    study_edges_metric["buffer"] = study_edges_metric.geometry.buffer(150)
 
     edge_building_counts: dict[tuple, int] = {}
     if bike_path_buildings_gdf is not None and not bike_path_buildings_gdf.empty:
-        buffers_gdf = gpd.GeoDataFrame(
-            edges_gdf[["u", "v", "k"]],
-            geometry=edges_gdf["buffer"],
-            crs="EPSG:3857",
-        )
-        buildings_metric = bike_path_buildings_gdf.to_crs(epsg=3857)
-        joined = gpd.sjoin(buildings_metric, buffers_gdf, how="inner", predicate="intersects")
-        counts = joined.groupby(["u", "v", "k"]).size()
-        edge_building_counts = {(u, v, k): int(c) for (u, v, k), c in counts.items()}
+        bldgs = bike_path_buildings_gdf
+        if study_area is not None:
+            bldgs_mask = bldgs.geometry.intersects(study_area)
+            bldgs = bldgs[bldgs_mask]
+        if not bldgs.empty:
+            buffers_gdf = gpd.GeoDataFrame(
+                study_edges_gdf[["u", "v", "k"]].reset_index(drop=True),
+                geometry=study_edges_metric["buffer"].values,
+                crs="EPSG:3857",
+            )
+            buildings_metric = bldgs.to_crs(epsg=3857)
+            joined = gpd.sjoin(buildings_metric, buffers_gdf, how="inner", predicate="intersects")
+            counts = joined.groupby(["u", "v", "k"]).size()
+            edge_building_counts = {(u, v, k): int(c) for (u, v, k), c in counts.items()}
 
-    # ── Step 4: fetch DB edge IDs and bulk UPDATE ─────────────────────────────
+    # ── Step 5: fetch DB edge IDs and bulk UPDATE ─────────────────────────────
     with conn.cursor() as cur:
         cur.execute(
             "SELECT id, u, v, k FROM edges WHERE city_id = %s AND highway LIKE '%%cycleway%%'",
@@ -130,7 +154,7 @@ def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildin
 
     print(f"   • Updated {len(updates):,} cycleway edges with component_id + building_count")
 
-    # ── Step 5: persist GCC stats into city_modes ─────────────────────────────
+    # ── Step 6: persist GCC stats into city_modes ─────────────────────────────
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -147,20 +171,31 @@ def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildin
             ),
         )
     print(f"   • GCC stats: {len(components)} components, {total_km:.1f} km total, "
-          f"{gcc_km:.1f} km GCC ({100*gcc_km/total_km:.1f}% )" if total_km > 0 else "")
+          f"{gcc_km:.1f} km GCC ({100*gcc_km/total_km:.1f}%)" if total_km > 0 else "")
 
 
-def compute_building_component_ids(conn, city_id: int, bike_paths_gdf, bike_path_buildings_gdf):
+def compute_building_component_ids(conn, city_id: int, bike_paths_gdf, bike_path_buildings_gdf, study_area=None):
     """Assign component_id to each bike_path_buildings feature using in-memory spatial ops.
 
-    Buffers all bike_path features by 150 m, unions them into connectivity regions,
-    ranks by area (0 = largest), then spatial-joins buildings to regions.
+    Buffers bike_path features by 150 m (restricted to study_area if provided),
+    unions them into connectivity regions, ranks by area (0 = largest), then
+    spatial-joins ALL buildings to those regions.
+    Buildings outside the study area get component_id = -1 naturally since they
+    won't intersect any in-study-area buffer region.
     Stores result in features.component_id.
     """
     if bike_paths_gdf is None or bike_paths_gdf.empty:
         return
     if bike_path_buildings_gdf is None or bike_path_buildings_gdf.empty:
         return
+
+    # Restrict bike paths to study area (defines which connectivity regions exist)
+    if study_area is not None and not bike_paths_gdf.empty:
+        mask = bike_paths_gdf.geometry.intersects(study_area)
+        bike_paths_gdf = bike_paths_gdf[mask]
+        if bike_paths_gdf.empty:
+            print("   ⚠ No bike paths in study area — skipping building component_ids")
+            return
 
     # Buffer bike paths and dissolve into connectivity regions
     paths_metric = bike_paths_gdf.to_crs(epsg=3857)
@@ -270,6 +305,8 @@ def main():
 
         center_lat, center_lon, radius = center
 
+        study_area = get_study_area_polygon(center_lat, center_lon)
+
         upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
             # ── Graph ─────────────────────────────────────────────────────────
@@ -309,6 +346,7 @@ def main():
                 compute_edge_stats(
                     conn, city_id, G,
                     bike_path_buildings_gdf=extracted_features.get("bike_path_buildings"),
+                    study_area=study_area,
                 )
                 print(f"✅ Edge stats done ({timedelta(seconds=time.perf_counter() - start_stats)})")
 
@@ -319,6 +357,7 @@ def main():
                     conn, city_id,
                     bike_paths_gdf=extracted_features.get("bike_paths"),
                     bike_path_buildings_gdf=extracted_features.get("bike_path_buildings"),
+                    study_area=study_area,
                 )
                 print(f"✅ Building component_ids done ({timedelta(seconds=time.perf_counter() - start_bcomp)})")
 

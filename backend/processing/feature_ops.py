@@ -35,6 +35,19 @@ TO_WSG84 = Transformer.from_crs("EPSG:3857", "EPSG:4326", always_xy=True)
 TO_WEBMERCATOR = Transformer.from_crs("EPSG:4326", "EPSG:3857", always_xy=True)
 
 
+def get_study_area_polygon(center_lat: float, center_lon: float, half_side_m: float = 5000.0):
+    """Return a Shapely Polygon for the 10×10 km axis-aligned study area in EPSG:4326."""
+    import math
+    half_lat = half_side_m / 111320.0
+    half_lon = half_side_m / (111320.0 * math.cos(math.radians(center_lat)))
+    return Polygon([
+        (center_lon - half_lon, center_lat - half_lat),
+        (center_lon + half_lon, center_lat - half_lat),
+        (center_lon + half_lon, center_lat + half_lat),
+        (center_lon - half_lon, center_lat + half_lat),
+    ])
+
+
 def extract_features_from_point(lat: float, lon: float, feature_type: str, dist: int = 10000):
     """Extract features from OSM using point and distance (same pattern as city extraction)"""
     tags = FEATURE_TYPES.get(feature_type)
@@ -194,14 +207,20 @@ def extract_features_for_network(city_id: int, center_lat: float, center_lon: fl
                 extracted_features['sea'] = sea
                 print(f"     ✔ sea: {len(sea)} features")
     
+    # Drop Point geometries from every GDF before building features_data.
+    # Points are not stored in the DB, so filtering here keeps extracted_features
+    # in sync with what actually lands in the features table (fixes count mismatch
+    # in compute_building_component_ids).
+    for ft in list(extracted_features.keys()):
+        gdf = extracted_features[ft]
+        if gdf is not None and not gdf.empty:
+            filtered = gdf[gdf.geometry.geom_type != 'Point']
+            extracted_features[ft] = filtered if not filtered.empty else None
+
     # Convert all features to database format
     for feature_type, gdf in extracted_features.items():
         if gdf is not None and not gdf.empty:
             for idx, row in gdf.iterrows():
-                # Skip points
-                if row['geometry'].geom_type == 'Point':
-                    continue
-
                 # Extract tags as JSON
                 tags = {}
                 for col in gdf.columns:
@@ -216,4 +235,4 @@ def extract_features_for_network(city_id: int, center_lat: float, center_lon: fl
                     json.dumps(tags) if tags else None
                 ))
 
-    return features_data, extracted_features 
+    return features_data, extracted_features

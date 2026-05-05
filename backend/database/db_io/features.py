@@ -46,20 +46,31 @@ def get_features(
 
 
 def get_building_coverage_fraction(conn, city_id: int) -> Optional[float]:
-    """Return fraction of buildings within 150 m of a bike path (0–1).
-
-    Counts bike_path_buildings vs total buildings (both types combined).
+    """Return fraction of buildings within 150 m of a bike path (0–1), restricted to
+    the 10×10 km rotated study area (same rectangle as the legend / reset button).
     """
     with conn.cursor() as cur:
         cur.execute(
             """
+            WITH center AS (
+                SELECT ST_Transform(ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), 3857) AS pt
+                FROM cities WHERE id = %s
+            ),
+            study_area AS (
+                SELECT ST_Transform(
+                    ST_MakeEnvelope(ST_X(pt)-5000, ST_Y(pt)-5000, ST_X(pt)+5000, ST_Y(pt)+5000, 3857),
+                    4326
+                ) AS geom
+                FROM center
+            )
             SELECT
-                SUM(CASE WHEN feature_type = 'bike_path_buildings' THEN 1 ELSE 0 END)::float,
+                SUM(CASE WHEN f.feature_type = 'bike_path_buildings' THEN 1 ELSE 0 END)::float,
                 COUNT(*)::float
-            FROM features
-            WHERE city_id = %s AND feature_type IN ('buildings', 'bike_path_buildings')
+            FROM features f
+            JOIN study_area sa ON ST_Intersects(f.geometry, sa.geom)
+            WHERE f.city_id = %s AND f.feature_type IN ('buildings', 'bike_path_buildings')
             """,
-            (city_id,),
+            (city_id, city_id),
         )
         row = cur.fetchone()
     if not row or not row[1]:

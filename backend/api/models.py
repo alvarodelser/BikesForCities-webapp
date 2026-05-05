@@ -153,6 +153,7 @@ class StationResponse(BaseModel):
     estimated_monthly_trips: Optional[float] = None
     downtime_minutes: Optional[float] = None
     reach_coverage: Optional[float] = None
+    building_coverage: Optional[float] = None
     extra: Optional[Dict[str, Any]] = None
 
     class Config:

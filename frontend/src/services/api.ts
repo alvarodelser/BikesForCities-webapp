@@ -46,6 +46,7 @@ export interface StationData {
   estimated_monthly_trips: number | null;
   downtime_minutes: number | null;
   reach_coverage?: number;
+  building_coverage?: number;
   extra?: any;
 }
 
