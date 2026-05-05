@@ -20,7 +20,7 @@ export default function InfrastructureLayer({ submode: _submode }: { submode: st
             if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
         });
 
-        // Draw study-area boundary rectangle from actual node extent
+        // Draw study-area boundary rectangle and fit the view to show it
         if (city.maxBounds) {
             const [[swLon, swLat], [neLon, neLat]] = city.maxBounds;
             const geojson = {
@@ -49,12 +49,15 @@ export default function InfrastructureLayer({ submode: _submode }: { submode: st
                     source: BOUNDARY_SOURCE,
                     paint: {
                         'line-color': '#027A76',
-                        'line-width': 1.5,
-                        'line-dasharray': [5, 4],
-                        'line-opacity': 0.45,
+                        'line-width': 2,
+                        'line-dasharray': [6, 3],
+                        'line-opacity': 0.7,
                     },
                 } as any, before);
             }
+
+            // Zoom to show the full study area so the boundary is immediately visible
+            map.fitBounds(city.maxBounds, { padding: 48, duration: 800 });
         }
 
         setLayerState?.('idle');
