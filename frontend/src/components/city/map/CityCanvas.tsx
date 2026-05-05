@@ -34,19 +34,29 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         city.geoCoords.longitude !== null &&
         (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
 
-    // Calculate bounds based on mode (20km for infra, 50km for others)
+    // For infrastructure mode use the actual data extent (node bbox) with 5% padding.
+    // For other modes fall back to a fixed radius so traffic/stations data is navigable.
     const bounds = useMemo(() => {
         if (!hasValidCoords) return null;
-        const radiusKm = mode === MAP_MODES.INFRASTRUCTURE ? 20 : 50;
+        if (mode === MAP_MODES.INFRASTRUCTURE && city.maxBounds) {
+            const [[swLon, swLat], [neLon, neLat]] = city.maxBounds;
+            const latPad = (neLat - swLat) * 0.05;
+            const lonPad = (neLon - swLon) * 0.05;
+            return [
+                [swLon - lonPad, swLat - latPad],
+                [neLon + lonPad, neLat + latPad],
+            ] as [[number, number], [number, number]];
+        }
+        const radiusKm = 50;
         const lat = city.geoCoords.latitude;
         const lon = city.geoCoords.longitude;
         const latDelta = radiusKm / 111.32;
         const lonDelta = radiusKm / (111.32 * Math.cos(lat * (Math.PI / 180)));
         return [
-            [lon - lonDelta, lat - latDelta], // SW
-            [lon + lonDelta, lat + latDelta]  // NE
+            [lon - lonDelta, lat - latDelta],
+            [lon + lonDelta, lat + latDelta]
         ] as [[number, number], [number, number]];
-    }, [city.geoCoords.latitude, city.geoCoords.longitude, mode, hasValidCoords]);
+    }, [city.maxBounds, city.geoCoords.latitude, city.geoCoords.longitude, mode, hasValidCoords]);
 
     useEffect(() => {
         if (!mapContainer.current || !hasValidCoords) return;
@@ -84,7 +94,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
             zoom: 13,
-            minZoom: 10,
+            minZoom: 11,
             maxBounds: bounds || undefined,
             pitch: 0,
             bearing: city.angle || 0,

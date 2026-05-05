@@ -54,7 +54,7 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
           icon={Route}
           accent={ACCENT}
           variant={variant}
-          helpContent="Solo contabilizamos infraestructura físicamente segregada del tráfico rodado. Los tramos pintados en calzada o en acera compartida no se incluyen en este cálculo."
+          helpContent="Solo contabilizamos infraestructura físicamente segregada del tráfico rodado dentro del área de estudio delimitada en el mapa. Los tramos pintados en calzada o en acera compartida no se incluyen en este cálculo."
         />
         <MetricPill
           loading={displayLoading}
@@ -64,7 +64,7 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
           icon={TrendingUp}
           accent={ACCENT}
           variant={variant}
-          helpContent="Consideramos 150 metros una distancia razonable para que alguien acceda andando con su bici desde un edificio hasta la red de carril bici. La métrica divide los edificios con acceso a la red ciclista entre el total de edificios de la ciudad."
+          helpContent="Consideramos 150 metros una distancia razonable para que alguien acceda andando con su bici desde un edificio hasta la red de carril bici. La métrica divide los edificios con acceso a la red dentro del área de estudio entre el total de edificios del área de estudio."
         />
       </div>
 
@@ -102,7 +102,7 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
           icon={Network}
           accent={ACCENT}
           variant={variant}
-          helpContent="La métrica de cobertura anterior cuenta cualquier tramo cercano, aunque esté aislado. La Gran Componente Conexa (GCC) es el mayor fragmento continuo de la red. Esta métrica mide qué porcentaje de población queda cubierta exclusivamente por ese fragmento, reflejando así la conectividad real: solo importa la infraestructura que forma una red navegable de extremo a extremo."
+          helpContent="La métrica de cobertura anterior cuenta cualquier tramo cercano, aunque esté aislado. La Gran Componente Conexa (GCC) es el mayor fragmento continuo de la red. Esta métrica mide qué porcentaje de los kilómetros totales de carril bici del área de estudio pertenecen a ese fragmento, reflejando así la conectividad real: solo importa la infraestructura que forma una red navegable de extremo a extremo."
         />
       </div>
 
