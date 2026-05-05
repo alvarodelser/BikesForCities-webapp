@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import argparse
 from dotenv import load_dotenv
+import geopandas as gpd
 
 # Add project root to python path
 sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -25,6 +26,42 @@ from datetime import datetime, timezone
 import osmnx as ox
 ox.settings.cache_folder = str(Path(__file__).resolve().parents[2] / "data" / "osm_cache")
 ox.settings.use_cache = True
+
+
+def compute_and_store_building_counts(conn, city_id: int, bike_paths_gdf, buildings_gdf):
+    """Compute building_count for each cycleway edge using in-memory GeoDataFrames.
+
+    For each cycleway edge: count buildings within 150m buffer and
+    UPDATE edges table with building_count. Avoids expensive runtime
+    spatial joins on every API request.
+    """
+    if bike_paths_gdf is None or buildings_gdf is None:
+        return
+
+    # Create 150m buffer around bike paths
+    bike_paths_metric = bike_paths_gdf.to_crs(epsg=3857)
+    bike_paths_buffer = gpd.GeoDataFrame(
+        geometry=bike_paths_metric.buffer(150),
+        crs='EPSG:3857'
+    ).to_crs(epsg=4326)
+
+    # Spatial join to find buildings in buffer
+    buildings_in_buffer = gpd.sjoin(
+        buildings_gdf, bike_paths_buffer, how='inner', predicate='intersects'
+    )
+
+    # Count buildings per edge (assuming bike_paths_gdf has an 'id' column for edges)
+    if not buildings_in_buffer.empty:
+        # Group by edge and count
+        edge_building_counts = buildings_in_buffer.groupby(level=0).size()
+
+        # Update edges in database with counts
+        with conn.cursor() as cur:
+            for edge_id, count in edge_building_counts.items():
+                cur.execute(
+                    "UPDATE edges SET building_count = %s WHERE id = %s AND city_id = %s",
+                    (int(count), edge_id, city_id),
+                )
 
 def main():
     parser = argparse.ArgumentParser(description="Load OSM network and features")
@@ -105,14 +142,23 @@ def main():
             
             print(f"▶️  Extracting features for '{city_name}' …")
             start_features = time.perf_counter()
-            features_data = extract_features_for_network(city_id, center_lat, center_lon, radius)
+            features_data, extracted_features = extract_features_for_network(city_id, center_lat, center_lon, radius)
             features_time = timedelta(seconds=time.perf_counter() - start_features)
-            
+
             if features_data:
                 print(f"▶️  Storing {len(features_data):,} features...")
                 put_features(conn, city_id, features_data)
                 print(f"✅ Features stored successfully ({features_time})")
-                
+
+                # Compute building_count for edges using in-memory bike_path_buildings
+                print(f"▶️  Computing building_count for edges...")
+                start_building_count = time.perf_counter()
+                bike_paths = extracted_features.get('bike_paths')
+                buildings = extracted_features.get('buildings')
+                compute_and_store_building_counts(conn, city_id, bike_paths, buildings)
+                building_count_time = timedelta(seconds=time.perf_counter() - start_building_count)
+                print(f"✅ Building counts computed ({building_count_time})")
+
                 # Print feature counts by type
                 all_feature_types = list(FEATURE_TYPES.keys()) + list(CALCULATED_FEATURES.keys())
                 for feature_type in all_feature_types:
@@ -120,7 +166,7 @@ def main():
                     if count > 0:
                         print(f"   • {feature_type}: {count:,}")
 
-                    
+
             refresh_city_modes(conn, city_id)
             print(f"✅ Finished updating {city_name} and its modes")
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)

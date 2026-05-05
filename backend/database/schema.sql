@@ -162,6 +162,7 @@ CREATE TABLE IF NOT EXISTS edges (
     oneway BOOLEAN,
     tunnel BOOLEAN,
     bridge BOOLEAN,
+    building_count INTEGER DEFAULT 0,               -- buildings within 150m (computed at feature ingestion)
 
     UNIQUE(u, v, k)                                 -- enforce unique edge per MultiDiGraph
 );

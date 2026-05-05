@@ -201,7 +201,7 @@ def extract_features_for_network(city_id: int, center_lat: float, center_lon: fl
                 # Skip points
                 if row['geometry'].geom_type == 'Point':
                     continue
-                
+
                 # Extract tags as JSON
                 tags = {}
                 for col in gdf.columns:
@@ -209,11 +209,11 @@ def extract_features_for_network(city_id: int, center_lat: float, center_lon: fl
                         val = row[col]
                         if val is not None and str(val) != 'nan':
                             tags[col] = val
-                
+
                 features_data.append((
                     feature_type,
                     row['geometry'].wkt,
                     json.dumps(tags) if tags else None
                 ))
-    
-    return features_data 
+
+    return features_data, extracted_features 
