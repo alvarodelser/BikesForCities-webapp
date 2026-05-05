@@ -337,8 +337,7 @@ class EdgeRoutesResponse(BaseResponse):
 
 # ── Infrastructure analytics models ──────────────────────────────────────────
 
-class InfraStatsResponse(BaseResponse):
-    """Infrastructure analytics: GCC coverage + budget cod.153."""
+class InfraStats(BaseModel):
     gcc_fraction: Optional[float] = None
     gcc_km: Optional[float] = None
     total_km: Optional[float] = None
@@ -347,6 +346,11 @@ class InfraStatsResponse(BaseResponse):
     vias_budget_type: Optional[str] = None
     vias_budget_eur: Optional[int] = None
     km_per_meur_vias: Optional[float] = None
+
+
+class InfraStatsResponse(BaseResponse):
+    """Infrastructure analytics: GCC coverage + budget."""
+    data: InfraStats
 
 
 # ── Infrastructure components model ──────────────────────────────────────────
@@ -372,13 +376,17 @@ class StationBuildingCoverageResponse(BaseResponse):
 
 # ── Traffic analytics models ──────────────────────────────────────────────────
 
-class TrafficInfraCoverage(BaseResponse):
-    """Fraction of simulated route-km on cycling infrastructure."""
+class TrafficInfraCoverageData(BaseModel):
     infra_fraction: Optional[float] = None
     km_on_infra: Optional[float] = None
     generation_type: Optional[str] = None
     algorithm: Optional[str] = None
     month: Optional[date] = None
+
+
+class TrafficInfraCoverage(BaseResponse):
+    """Fraction of simulated route-km on cycling infrastructure."""
+    data: TrafficInfraCoverageData
 
 
 class HistogramSeries(BaseModel):

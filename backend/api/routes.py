@@ -837,14 +837,16 @@ async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)
 
         return InfraStatsResponse(
             message="Infrastructure stats retrieved",
-            gcc_fraction=gcc.get("gcc_fraction"),
-            gcc_km=gcc.get("gcc_km"),
-            total_km=total_km,
-            n_components=gcc.get("n_components", 0),
-            vias_budget_year=budget.get("year"),
-            vias_budget_type=budget.get("budget_type"),
-            vias_budget_eur=vias_eur,
-            km_per_meur_vias=round(km_per_meur, 3) if km_per_meur else None,
+            data={
+                "gcc_fraction": gcc.get("gcc_fraction"),
+                "gcc_km": gcc.get("gcc_km"),
+                "total_km": total_km,
+                "n_components": gcc.get("n_components", 0),
+                "vias_budget_year": budget.get("year"),
+                "vias_budget_type": budget.get("budget_type"),
+                "vias_budget_eur": vias_eur,
+                "km_per_meur_vias": round(km_per_meur, 3) if km_per_meur else None,
+            },
         )
     except HTTPException:
         raise
@@ -911,7 +913,7 @@ async def get_city_traffic_infra_coverage(
         if generation_type is None or algorithm is None:
             best = get_best_traffic_mode(conn, city_id)
             if not best:
-                return TrafficInfraCoverage(message="No traffic data")
+                return TrafficInfraCoverage(message="No traffic data", data={})
             generation_type, algorithm = best
 
         month_date = None
@@ -920,15 +922,17 @@ async def get_city_traffic_infra_coverage(
         if month_date is None:
             month_date = get_latest_traffic_month(conn, city_id, generation_type, algorithm)
         if month_date is None:
-            return TrafficInfraCoverage(message="No traffic data for this combination")
+            return TrafficInfraCoverage(message="No traffic data for this combination", data={})
 
         cov = get_traffic_infra_coverage(conn, city_id, generation_type, algorithm, month_date)
         return TrafficInfraCoverage(
             message="Traffic infrastructure coverage retrieved",
-            generation_type=generation_type,
-            algorithm=algorithm,
-            month=month_date,
-            **cov,
+            data={
+                "generation_type": generation_type,
+                "algorithm": algorithm,
+                "month": month_date,
+                **cov,
+            },
         )
     except HTTPException:
         raise
