@@ -143,10 +143,13 @@ def process_year(conn, year, db_cities):
             )
             
             # Total expenses: sum of 1-digit functional codes
-            total_exp = df_lines[df_lines['category_code'].str.len() == 1]['amount'].sum()
+            total_exp = float(df_lines[df_lines['category_code'].str.len() == 1]['amount'].sum())
             print(f"  💾 Loading {len(df_lines)} aggregated lines for {city_name} ({ttype}). Total: {total_exp:,.0f}€")
-            
-            put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=total_exp)
+
+            # Convert numpy types to Python types for SQL
+            df_lines['amount'] = df_lines['amount'].astype(int)
+
+            put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=int(total_exp))
             put_city_budget_categories(conn, cid, year, ttype, df_lines)
             
             upsert_ingestion_status(conn, status_key, "SUCCESS", city_id=cid, time_period=str(year))
