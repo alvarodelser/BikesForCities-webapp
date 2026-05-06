@@ -23,8 +23,6 @@ export const fetchCities = async (): Promise<CityData[]> => {
     ] : undefined,
     population: city.population || 0,
     budget: city.budget ?? null,
-    cyclingNetwork: city.cycling_network || 0,
-    coverage: city.coverage || 0,
     mayor: city.mayor,
     mayor_party: city.mayor_party,
     service_name: city.service_name,
@@ -291,7 +289,7 @@ export interface AccidentsGeoJSON {
 }
 
 export const fetchAccidents = async (cityId: number): Promise<AccidentsGeoJSON> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=true`);
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=false`);
   if (!response.ok) {
     throw new Error('Failed to fetch accident data');
   }

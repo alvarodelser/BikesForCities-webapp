@@ -24,12 +24,10 @@ def get_or_create_city(
     center_lat: Optional[float] = None,
     center_lon: Optional[float] = None,
     radius: Optional[float] = None,
-    angle: Optional[float] = None,
     wikidata_id: Optional[str] = None,
 ) -> int:
     with conn.cursor() as cur:
         if wikidata_id:
-            # wikidata_id is the stable key — update the matching row even if the name changed.
             cur.execute(
                 """
                 UPDATE cities SET
@@ -39,22 +37,20 @@ def get_or_create_city(
                     description   = COALESCE(%s, description),
                     center_lat    = COALESCE(%s, center_lat),
                     center_lon    = COALESCE(%s, center_lon),
-                    radius        = COALESCE(%s, radius),
-                    angle         = COALESCE(%s, angle)
+                    radius        = COALESCE(%s, radius)
                 WHERE wikidata_id = %s
                 RETURNING id
                 """,
-                (name, alt_name, slug, description, center_lat, center_lon, radius, angle, wikidata_id),
+                (name, alt_name, slug, description, center_lat, center_lon, radius, wikidata_id),
             )
             row = cur.fetchone()
             if row:
                 return row[0]
 
-        # No wikidata_id match (city is new or wikidata_id itself changed) — fall back to name.
         cur.execute(
             """
-            INSERT INTO cities (name, alt_name, slug, description, center_lat, center_lon, radius, angle, wikidata_id)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO cities (name, alt_name, slug, description, center_lat, center_lon, radius, wikidata_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (slug) DO UPDATE SET
                 name          = EXCLUDED.name,
                 alt_name      = EXCLUDED.alt_name,
@@ -62,11 +58,10 @@ def get_or_create_city(
                 center_lat    = COALESCE(EXCLUDED.center_lat, cities.center_lat),
                 center_lon    = COALESCE(EXCLUDED.center_lon, cities.center_lon),
                 radius        = COALESCE(EXCLUDED.radius, cities.radius),
-                angle         = COALESCE(EXCLUDED.angle, cities.angle),
                 wikidata_id   = EXCLUDED.wikidata_id
             RETURNING id
             """,
-            (name, alt_name, slug, description, center_lat, center_lon, radius, angle, wikidata_id),
+            (name, alt_name, slug, description, center_lat, center_lon, radius, wikidata_id),
         )
         return cur.fetchone()[0]
 
@@ -78,17 +73,14 @@ def put_city_modes(conn, city_id: int, modes_dict: dict):
             """
             INSERT INTO city_modes (
                 city_id, infrastructure, traffic, traffic_combinations,
-                accidents, topography, intersections, stations, forum
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                accidents, stations
+            ) VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (city_id) DO UPDATE SET
                 infrastructure       = EXCLUDED.infrastructure,
                 traffic              = EXCLUDED.traffic,
                 traffic_combinations = EXCLUDED.traffic_combinations,
                 accidents            = EXCLUDED.accidents,
-                topography           = EXCLUDED.topography,
-                intersections        = EXCLUDED.intersections,
-                stations             = EXCLUDED.stations,
-                forum                = EXCLUDED.forum
+                stations             = EXCLUDED.stations
             """,
             (
                 city_id,
@@ -96,10 +88,7 @@ def put_city_modes(conn, city_id: int, modes_dict: dict):
                 modes_dict.get("traffic", False),
                 json.dumps(combos),
                 modes_dict.get("accidents", False),
-                modes_dict.get("topography", False),
-                modes_dict.get("intersections", False),
                 modes_dict.get("stations", False),
-                modes_dict.get("forum", False),
             ),
         )
 
@@ -132,44 +121,32 @@ def get_all_cities(conn) -> List[Tuple]:
             """
             SELECT
                 c.id, c.name, c.alt_name, c.slug, c.description, c.wikidata_id,
-                c.center_lat, c.center_lon, c.radius, c.angle,
+                c.center_lat, c.center_lon, c.radius,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
-                 WHERE cb.city_id = c.id 
-                 ORDER BY year DESC, 
-                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC 
+                 WHERE cb.city_id = c.id
+                 ORDER BY year DESC,
+                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC
                  LIMIT 1) AS budget,
-                (SELECT coverage FROM city_metrics cm
-                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
-                (SELECT total_kilometers FROM city_metrics cm
-                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS cycling_network,
-                (SELECT MIN(lat) FROM nodes WHERE city_id = c.id) AS min_lat,
-                (SELECT MAX(lat) FROM nodes WHERE city_id = c.id) AS max_lat,
-                (SELECT MIN(lon) FROM nodes WHERE city_id = c.id) AS min_lon,
-                (SELECT MAX(lon) FROM nodes WHERE city_id = c.id) AS max_lon,
-                m.infrastructure, m.traffic, m.traffic_combinations, m.accidents,
-                m.topography, m.intersections, m.stations, m.forum,
+                cm.coverage,
+                cm.total_kilometers AS cycling_network,
+                c.bounds_min_lat, c.bounds_max_lat, c.bounds_min_lon, c.bounds_max_lon,
+                m.infrastructure, m.traffic, m.traffic_combinations, m.accidents, m.stations,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
-                (SELECT COUNT(*) FROM stations s WHERE s.city_id = c.id) AS stations_count,
-                (SELECT SUM(estimated_trips)
-                 FROM estimated_trips_per_interval et
-                 WHERE et.city_id = c.id
-                   AND et.observed_at > (SELECT MAX(observed_at)
-                                         FROM estimated_trips_per_interval)
-                                        - INTERVAL '30 days') AS monthly_trips,
-                (SELECT SUM(median_bikes)
-                 FROM (
-                     SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS median_bikes
-                     FROM station_readings r
-                     WHERE r.city_id = c.id
-                       AND EXTRACT(HOUR FROM r.observed_at AT TIME ZONE 'UTC') = 4
-                       AND r.observed_at > NOW() - INTERVAL '30 days'
-                     GROUP BY r.station_id
-                 ) s) AS bicycles_count
+                cm.total_stations,
+                cm.estimated_monthly_trips AS monthly_trips,
+                cm.bicycles_count
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
+            LEFT JOIN LATERAL (
+                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count
+                FROM city_metrics
+                WHERE city_id = c.id
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) cm ON true
             ORDER BY c.name
             """
         )
@@ -207,41 +184,32 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
             """
             SELECT
                 c.id, c.name, c.alt_name, c.slug, c.description, c.wikidata_id,
-                c.center_lat, c.center_lon, c.radius, c.angle,
+                c.center_lat, c.center_lon, c.radius,
                 c.population,
                 (SELECT total_expenses FROM city_budgets cb
-                 WHERE cb.city_id = c.id 
-                 ORDER BY year DESC, 
-                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC 
+                 WHERE cb.city_id = c.id
+                 ORDER BY year DESC,
+                          CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC
                  LIMIT 1) AS budget,
-                (SELECT coverage FROM city_metrics cm
-                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS coverage,
-                (SELECT total_kilometers FROM city_metrics cm
-                 WHERE cm.city_id = c.id ORDER BY metric_month DESC LIMIT 1) AS cycling_network,
+                cm.coverage,
+                cm.total_kilometers AS cycling_network,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
-                (SELECT COUNT(*) FROM stations s WHERE s.city_id = c.id) AS stations_count,
-                (SELECT SUM(estimated_trips)
-                 FROM estimated_trips_per_interval et
-                 WHERE et.city_id = c.id
-                   AND et.observed_at > (SELECT MAX(observed_at)
-                                         FROM estimated_trips_per_interval
-                                         WHERE city_id = c.id)
-                                        - INTERVAL '30 days') AS monthly_trips,
-                (SELECT SUM(median_bikes)
-                 FROM (
-                     SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS median_bikes
-                     FROM station_readings r
-                     WHERE r.city_id = c.id
-                       AND EXTRACT(HOUR FROM r.observed_at AT TIME ZONE 'UTC') = 4
-                       AND r.observed_at > NOW() - INTERVAL '30 days'
-                     GROUP BY r.station_id
-                 ) s) AS bicycles_count,
+                cm.total_stations AS stations_count,
+                cm.estimated_monthly_trips AS monthly_trips,
+                cm.bicycles_count,
                 m.infrastructure, m.traffic, m.traffic_combinations,
-                m.accidents, m.topography, m.intersections, m.stations, m.forum
+                m.accidents, m.stations
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
+            LEFT JOIN LATERAL (
+                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count
+                FROM city_metrics
+                WHERE city_id = c.id
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) cm ON true
             WHERE c.id = %s
             """,
             (city_id,)
@@ -253,9 +221,9 @@ def get_city_bounds(conn, city_id: int) -> Optional[dict]:
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT MIN(lat) as min_lat, MAX(lat) as max_lat,
-                   MIN(lon) as min_lon, MAX(lon) as max_lon
-            FROM nodes WHERE city_id = %s
+            SELECT bounds_min_lat AS min_lat, bounds_max_lat AS max_lat,
+                   bounds_min_lon AS min_lon, bounds_max_lon AS max_lon
+            FROM cities WHERE id = %s
             """,
             (city_id,)
         )
@@ -568,9 +536,7 @@ def get_city_modes(conn, city_id: int) -> Optional[dict]:
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT
-                infrastructure, traffic, traffic_combinations,
-                accidents, topography, intersections, stations, forum
+            SELECT infrastructure, traffic, traffic_combinations, accidents, stations
             FROM city_modes
             WHERE city_id = %s
             """,

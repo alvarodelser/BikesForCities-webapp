@@ -143,14 +143,16 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
             "turismo", "furgoneta", "todo terreno"
         ]
         
-        is_heavy = v_type in [
-            "autobús", "camión rígido", "maquinaria de obras", "tractocamión", 
-            "vehículo articulado", "autobús articulado", "autobus emt", "autocaravana",
+        is_bus = v_type in [
+            "autobús", "autobús articulado", "autobus emt"
+        ]
+
+        is_truck = v_type in [
+            "camión rígido", "maquinaria de obras", "tractocamión",
+            "vehículo articulado", "autocaravana",
             "remolque", "semiremolque", "ambulancia samur"
         ]
 
-        # Everything else falls to generic / unknown unless we specifically want it.
-        # Person type for pedestrians
         p_type = str(row["tipo_persona"]).lower() if pd.notna(row["tipo_persona"]) else ""
         is_pedestrian = "peato" in p_type or "peatón" in p_type
 
@@ -158,7 +160,8 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
             "is_bike_vmu": is_bike_vmu,
             "is_moto": is_moto,
             "is_car": is_car,
-            "is_heavy": is_heavy,
+            "is_bus": is_bus,
+            "is_truck": is_truck,
             "is_pedestrian": is_pedestrian
         })
 
@@ -192,13 +195,11 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
         has_bike_vmu=("is_bike_vmu", "max"),
         has_moto=("is_moto", "max"),
         has_car=("is_car", "max"),
-        has_heavy=("is_heavy", "max"),
+        has_bus=("is_bus", "max"),
+        has_truck=("is_truck", "max"),
         has_pedestrian=("is_pedestrian", "max"),
         total_involved=("num_expediente", "count")
     ).reset_index()
-
-    # Filter out accidents where no bike/vmu was involved to save DB space
-    grouped = grouped[grouped["has_bike_vmu"] == True]
 
     accidents_to_insert = []
     print(f"   📍 Processing {len(grouped):,} cyclist accidents...")
@@ -222,7 +223,8 @@ def process_accidents_year(conn, city_id: int, year: int, force: bool = False) -
         if row["has_pedestrian"]: vehicles_arr.append("pedestrian")
         if row["has_moto"]: vehicles_arr.append("moto")
         if row["has_car"]: vehicles_arr.append("car")
-        if row["has_heavy"]: vehicles_arr.append("heavy")
+        if row["has_bus"]: vehicles_arr.append("bus")
+        if row["has_truck"]: vehicles_arr.append("truck")
 
         accidents_to_insert.append((
             city_id,

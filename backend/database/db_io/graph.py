@@ -617,13 +617,15 @@ def get_edge_building_coverage(conn, city_id: int) -> list:
 
 
 def get_gcc_coverage(conn, city_id: int) -> dict:
-    """Return pre-computed GCC stats from city_modes (populated at OSM ingestion)."""
+    """Return pre-computed GCC stats from city_metrics (latest month, populated at OSM ingestion)."""
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT gcc_fraction, gcc_km, total_cycling_km, n_components
-            FROM city_modes
+            SELECT gcc_fraction, gcc_km, total_kilometers, n_components
+            FROM city_metrics
             WHERE city_id = %s
+            ORDER BY metric_month DESC
+            LIMIT 1
             """,
             (city_id,),
         )

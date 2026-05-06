@@ -9,12 +9,15 @@ CREATE TABLE IF NOT EXISTS cities (
     center_lat DOUBLE PRECISION,
     center_lon DOUBLE PRECISION,
     radius DOUBLE PRECISION,
-    angle DOUBLE PRECISION,
     population BIGINT,
     website TEXT,
     mayor TEXT,
     mayor_party TEXT,
-    wikidata_id TEXT UNIQUE
+    wikidata_id TEXT UNIQUE,
+    bounds_min_lat DOUBLE PRECISION,
+    bounds_max_lat DOUBLE PRECISION,
+    bounds_min_lon DOUBLE PRECISION,
+    bounds_max_lon DOUBLE PRECISION
 );
 
 CREATE TABLE IF NOT EXISTS city_modes (
@@ -23,15 +26,7 @@ CREATE TABLE IF NOT EXISTS city_modes (
     traffic              BOOLEAN DEFAULT FALSE,
     traffic_combinations JSONB   DEFAULT '[]',
     accidents            BOOLEAN DEFAULT FALSE,
-    topography           BOOLEAN DEFAULT FALSE,
-    intersections        BOOLEAN DEFAULT FALSE,
-    stations             BOOLEAN DEFAULT FALSE,
-    forum                BOOLEAN DEFAULT FALSE,
-    -- Pre-computed infrastructure stats (updated at OSM ingestion)
-    gcc_fraction         DOUBLE PRECISION,
-    gcc_km               DOUBLE PRECISION,
-    total_cycling_km     DOUBLE PRECISION,
-    n_components         INTEGER
+    stations             BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS ingestion_status (
@@ -66,6 +61,10 @@ CREATE TABLE IF NOT EXISTS city_metrics (
     actual_monthly_trips DOUBLE PRECISION,  -- overwritten by real trip data if available
     total_stations INTEGER,
     avg_station_downtime DOUBLE PRECISION,
+    gcc_fraction DOUBLE PRECISION,
+    gcc_km DOUBLE PRECISION,
+    n_components INTEGER,
+    bicycles_count INTEGER,
     updated_at TIMESTAMP DEFAULT NOW(),
     PRIMARY KEY (city_id, metric_month)
 );

@@ -40,8 +40,7 @@ def main():
             slug=city_info["slug"],
             center_lat=city_info.get("latitude"),
             center_lon=city_info.get("longitude"),
-            angle=city_info.get("angle", 0.0),
-            radius=20000, # default distance
+            radius=20000,
             wikidata_id=city_info.get("wikidata_id")
         )
         

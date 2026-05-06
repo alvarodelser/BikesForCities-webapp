@@ -4,6 +4,12 @@ import type { ReactNode } from 'react';
 import * as d3 from 'd3';
 import { HelpCircle, X } from 'lucide-react';
 
+interface RowPosition {
+  label: string;
+  top: number;
+  height: number;
+}
+
 interface Segment {
   value: number;
   color: string;
@@ -23,6 +29,7 @@ interface StackedBarMatrixProps {
   subtitle?: string;
   helpContent?: ReactNode;
   onRowClick?: (rowLabel: string) => void;
+  rowIcons?: ReactNode[];
 }
 
 export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
@@ -32,12 +39,15 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
   subtitle,
   helpContent,
   onRowClick,
+  rowIcons,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
+  const [rowPositions, setRowPositions] = useState<RowPosition[]>([]);
+  const hasIcons = Boolean(rowIcons?.length);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -56,7 +66,7 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
 
     const barHeight = 28;
     const barGap = 10;
-    const margin = { top: 10, right: 60, bottom: 20, left: 100 };
+    const margin = { top: 10, right: 60, bottom: 20, left: hasIcons ? 120 : 100 };
     const height = rows.length * (barHeight + barGap) + margin.top + margin.bottom;
 
     const svg = d3.select(svgRef.current);
@@ -71,6 +81,12 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .domain(rows.map(r => r.label))
       .range([margin.top, height - margin.bottom])
       .padding(0.2);
+
+    setRowPositions(rows.map(r => ({
+      label: r.label,
+      top: y(r.label)!,
+      height: y.bandwidth(),
+    })));
 
     // Prepare stacked data
     const keys = segmentLabels.map((_, i) => `seg_${i}`);
@@ -97,14 +113,16 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .attr('font-size', '11px')
       .attr('fill', '#9ca3af');
 
-    // Y Axis
-    svg.append('g')
-      .attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(y))
-      .call(g => g.select('.domain').remove())
-      .selectAll('text')
-      .attr('font-size', '12px')
-      .attr('fill', '#374151');
+    // Y Axis — skip text labels when HTML icon labels are used
+    if (!hasIcons) {
+      svg.append('g')
+        .attr('transform', `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y))
+        .call(g => g.select('.domain').remove())
+        .selectAll('text')
+        .attr('font-size', '12px')
+        .attr('fill', '#374151');
+    }
 
     // Bars
     const layer = svg.selectAll('.layer')
@@ -175,7 +193,7 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .attr('fill', '#6b7280')
       .text((d: any) => d.total);
 
-  }, [rows, segmentLabels, width, onRowClick]);
+  }, [rows, segmentLabels, width, onRowClick, hasIcons]);
 
   return (
     <div
@@ -207,6 +225,20 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
 
       <div ref={containerRef} className="w-full relative">
         <svg ref={svgRef}></svg>
+        {hasIcons && rowIcons && rowPositions.length > 0 && (
+          <div className="absolute left-0 top-0 pointer-events-none" style={{ width: 120 }}>
+            {rowPositions.map((pos, i) => (
+              <div
+                key={pos.label}
+                className="absolute flex items-center justify-end gap-1.5 pr-2"
+                style={{ top: pos.top, height: pos.height, left: 0, right: 0 }}
+              >
+                {rowIcons[i]}
+                <span className="text-[11px] font-medium text-gray-700 whitespace-nowrap">{pos.label}</span>
+              </div>
+            ))}
+          </div>
+        )}
         <div
           ref={tooltipRef}
           className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-black/10 rounded-lg p-2 shadow-lg text-[12px] min-w-[160px] pointer-events-none"

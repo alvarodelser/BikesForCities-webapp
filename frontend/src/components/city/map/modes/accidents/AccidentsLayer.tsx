@@ -1,175 +1,137 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { createRoot, type Root } from 'react-dom/client';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { fetchAccidents } from '../../../../../services/api';
 import type { AccidentFeature } from '../../../../../services/api';
-import { Bike, Car, Truck, Bus, PersonStanding, CircleHelp, Wine } from 'lucide-react';
+import type { SelectionDetail, SelectionParticipant } from '../../../../../types/selection';
 
 const SOURCE_ID = 'accidents-source';
 const LAYER_ID = 'accidents-layer';
 
-// Severity colors
 const SEVERITY_COLORS = {
-    fatal: '#7f1d1d',      // Dark red
-    serious: '#dc2626',    // Red
-    minor: '#f59e0b',      // Amber
-    uninjured: '#3b82f6',  // Blue
+    fatal: '#7f1d1d',
+    serious: '#dc2626',
+    minor: '#f59e0b',
+    uninjured: '#3b82f6',
+} as const;
+
+const SEVERITY_LABELS: Record<string, string> = {
+    fatal: 'Fatal',
+    serious: 'Grave',
+    minor: 'Leve',
+    uninjured: 'Ileso',
 };
 
-function getVehicleIcon(type: string | null) {
-    if (!type) return <CircleHelp size={16} />;
-    const t = type.toLowerCase();
-    if (t.includes('bici') || t.includes('vmu') || t.includes('patinete') || t.includes('ciclo')) return <Bike size={16} />;
-    if (t.includes('moto') || t.includes('ciclomotor') || t.includes('cuadriciclo')) return <Bike size={16} />;
-    if (t.includes('turismo') || t.includes('todo terreno') || t.includes('furgoneta')) return <Car size={16} />;
-    if (t.includes('bus')) return <Bus size={16} />;
-    if (t.includes('camión') || t.includes('maquinaria') || t.includes('tracto') || t.includes('remolque')) return <Truck size={16} />;
-    return <CircleHelp size={16} />;
+function getParticipantEmoji(vehicleType: string | null, personType: string | null): string {
+    const isPedestrian = (personType || '').toLowerCase().includes('peato');
+    if (isPedestrian) return '🚶';
+    const vt = (vehicleType || '').toLowerCase();
+    if (vt.includes('bicicleta') || vt.includes('epac')) return '🚲';
+    if (vt.includes('vmu') || vt.includes('patinete')) return '🛴';
+    if (vt.includes('moto') || vt.includes('ciclomotor') || vt.includes('cuadriciclo')) return '🏍️';
+    if (vt.includes('furgoneta')) return '🚐';
+    if (vt.includes('turismo') || vt.includes('todo terreno')) return '🚗';
+    if (vt.includes('autobús') || vt.includes('autobus')) return '🚌';
+    if (vt.includes('camión') || vt.includes('maquinaria') || vt.includes('tracto')) return '🚛';
+    if (vt.includes('ambulancia')) return '🚑';
+    return '🚘';
 }
 
-const AccidentPopupContent = ({ props, onClose }: { props: AccidentFeature['properties'], onClose: () => void }) => {
-    let participantsData = [];
+function getSeverityColorFromCode(code: number | null | undefined): string {
+    if (code === 4)  return SEVERITY_COLORS.fatal;
+    if (code === 3)  return SEVERITY_COLORS.serious;
+    if (code === 14) return SEVERITY_COLORS.uninjured;
+    if (code != null && !isNaN(Number(code))) return SEVERITY_COLORS.minor;
+    return '#9ca3af';
+}
+
+function buildSelectionDetail(props: AccidentFeature['properties']): SelectionDetail {
+    let rawParticipants: any[] = [];
     if (props.participants) {
-        participantsData = typeof props.participants === 'string' 
-            ? JSON.parse(props.participants) 
-            : props.participants;
+        try {
+            rawParticipants = typeof props.participants === 'string'
+                ? JSON.parse(props.participants)
+                : props.participants;
+        } catch { /* ignore */ }
     }
+
+    const participants: SelectionParticipant[] = rawParticipants.map(p => ({
+        emoji: getParticipantEmoji(p.vehicle_type, p.person_type),
+        severityColor: getSeverityColorFromCode(p.injury_code),
+        label: p.vehicle_type || p.person_type || '—',
+    }));
+
+    const hasAlcohol = rawParticipants.some(p => p.alcohol_positive);
+    const hasDrugs   = rawParticipants.some(p => p.drugs_positive);
+
+    const severityColor = SEVERITY_COLORS[props.severity as keyof typeof SEVERITY_COLORS] ?? '#9ca3af';
+    const severityLabel = SEVERITY_LABELS[props.severity] ?? props.severity;
 
     const formatTime = (ts: string | null) => {
         if (!ts) return null;
         const d = new Date(ts);
-        return {
-            date: d.toLocaleDateString('es-ES'),
-            time: d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
-        };
+        return `${d.toLocaleDateString('es-ES')} ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
     };
 
-    const timeInfo = formatTime(props.timestamp);
+    const rows: NonNullable<SelectionDetail['rows']> = [];
+    if (props.timestamp) rows.push({ label: 'FECHA', value: formatTime(props.timestamp) ?? '—' });
+    if (props.accident_type) rows.push({ label: 'TIPO', value: props.accident_type });
+    if (props.district) rows.push({ label: 'DISTRITO', value: props.district });
+    if (hasAlcohol) rows.push({ label: 'ALCOHOL', value: '🍷 Positivo', accent: '#dc2626' });
+    if (hasDrugs)   rows.push({ label: 'DROGAS',  value: '⚗️ Positivo', accent: '#dc2626' });
 
-    const severityText = props.severity === 'fatal' ? 'Fatal' : 
-                         props.severity === 'serious' ? 'Grave' : 
-                         props.severity === 'minor' ? 'Leve' : 'Ileso';
+    const title = props.street
+        ? `${props.street}${props.street_number ? ' ' + props.street_number : ''}`
+        : 'Ubicación desconocida';
 
-    return (
-        <div style={{ fontFamily: "'Archivo Narrow', sans-serif", padding: '2px', minWidth: '240px', maxWidth: '300px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '6px' }}>
-                <div>
-                    <div style={{ display: 'inline-block', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 800, color: 'white', marginBottom: '4px', textTransform: 'uppercase', backgroundColor: SEVERITY_COLORS[props.severity] || '#9ca3af' }}>
-                        {severityText}
-                    </div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#1a202c', lineHeight: 1.2 }}>
-                        {props.street ? `${props.street}${props.street_number ? ' ' + props.street_number : ''}` : 'Ubicación desconocida'}
-                    </div>
-                </div>
-                <span onClick={(e) => { e.stopPropagation(); onClose(); }} style={{ cursor: 'pointer', color: 'rgba(0,0,0,0.3)', fontSize: '12px', flexShrink: 0, padding: '2px' }}>✕</span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', fontSize: '11px' }}>
-                {timeInfo && (
-                    <>
-                        <div><span style={{ color: '#718096', fontWeight: 600 }}>Fecha:</span> <span style={{ color: '#2d3748', fontWeight: 700 }}>{timeInfo.date}</span></div>
-                        <div><span style={{ color: '#718096', fontWeight: 600 }}>Hora:</span> <span style={{ color: '#2d3748', fontWeight: 700 }}>{timeInfo.time}</span></div>
-                    </>
-                )}
-                <div><span style={{ color: '#718096', fontWeight: 600 }}>Tipo:</span> <span style={{ color: '#2d3748', fontWeight: 700 }}>{props.accident_type || 'Desconocido'}</span></div>
-                <div><span style={{ color: '#718096', fontWeight: 600 }}>Implicados:</span> <span style={{ color: '#2d3748', fontWeight: 700 }}>{props.total_involved}</span></div>
-            </div>
-
-            {participantsData.length > 0 && (
-                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#4a5568', borderBottom: '1px solid rgba(0,0,0,0.05)', paddingBottom: '2px' }}>Participantes</div>
-                    {participantsData.map((p: any, idx: number) => {
-                        const isPedestrian = p.person_type?.toLowerCase().includes('peato');
-                        
-                        let color = '#718096';
-                        if (p.injury_code === 4) color = SEVERITY_COLORS.fatal;
-                        else if (p.injury_code === 3) color = SEVERITY_COLORS.serious;
-                        else if (p.injury_code === 14) color = SEVERITY_COLORS.uninjured;
-                        else if (p.injury_code) color = SEVERITY_COLORS.minor;
-
-                        return (
-                            <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', background: '#f7fafc', padding: '6px', borderRadius: '4px', borderLeft: `2px solid ${color}` }}>
-                                <span style={{ color: '#4a5568', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {isPedestrian ? <PersonStanding size={16} /> : getVehicleIcon(p.vehicle_type)}
-                                </span>
-                                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, gap: '2px' }}>
-                                    <span style={{ fontWeight: 700, color: '#2d3748', textTransform: 'capitalize' }}>
-                                        {isPedestrian ? 'Peatón' : (p.vehicle_type ? p.vehicle_type.toLowerCase() : 'Vehículo desconocido')}
-                                    </span>
-                                    {p.injury_status && (
-                                        <span style={{ color: '#718096', fontSize: '10px', lineHeight: 1.2 }}>
-                                            <span style={{ color: color, fontWeight: 600 }}>{p.injury_status}</span>
-                                        </span>
-                                    )}
-                                </div>
-                                {(p.alcohol_positive || p.drugs_positive) && (
-                                    <div title="Positivo en Alcohol o Drogas" style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#fee2e2', color: '#b91c1c', padding: '2px 6px', borderRadius: '4px', marginLeft: 'auto', fontWeight: 700, fontSize: '10px' }}>
-                                        <Wine size={12} strokeWidth={2.5} />
-                                        <span>+</span>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
-};
+    return {
+        type: 'accident',
+        title,
+        badge: { text: severityLabel, color: severityColor },
+        rows,
+        participants,
+    };
+}
 
 export default function AccidentsLayer() {
     const { map, city, setLayerState, setLayerRetry } = useMap();
-    const popupRef = useRef<maplibregl.Popup | null>(null);
-    const rootRef = useRef<Root | null>(null);
     const activeIdRef = useRef<string | null>(null);
 
-    const clearPopup = useCallback(() => {
-        if (rootRef.current) {
-            rootRef.current.unmount();
-            rootRef.current = null;
-        }
-        if (popupRef.current) {
-            popupRef.current.remove();
-            popupRef.current = null;
-        }
+    const clearSelection = useCallback(() => {
         if (activeIdRef.current && map) {
-            map.setFeatureState(
-                { source: SOURCE_ID, id: activeIdRef.current },
-                { selected: false }
-            );
+            map.setFeatureState({ source: SOURCE_ID, id: activeIdRef.current }, { selected: false });
             activeIdRef.current = null;
         }
     }, [map]);
 
-    // --- Mount: hide other layers ---
+    // Mount: hide other layers; clear panel when selection event fires null
     useEffect(() => {
         if (!map) return;
-        
-        // Hide other specific layers
-        const hideLayer = (id: string) => {
+
+        ['stations-layer', 'bike-paths-layer', 'traffic-layer'].forEach(id => {
             if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
+        });
+
+        const onSelectionEvent = (e: Event) => {
+            if (!(e as CustomEvent).detail) clearSelection();
         };
-        
-        hideLayer('stations-layer');
-        hideLayer('bike-paths-layer');
-        hideLayer('traffic-layer');
+        window.addEventListener('map-selection', onSelectionEvent);
 
         return () => {
-            clearPopup();
-            if (map.getLayer(LAYER_ID)) {
-                map.removeLayer(LAYER_ID);
-            }
-            if (map.getSource(SOURCE_ID)) {
-                map.removeSource(SOURCE_ID);
-            }
+            window.removeEventListener('map-selection', onSelectionEvent);
+            clearSelection();
+            window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
+            try {
+                if (map.getLayer(LAYER_ID))  map.removeLayer(LAYER_ID);
+                if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+            } catch { /* map may have been removed */ }
         };
-    }, [map, clearPopup]);
+    }, [map, clearSelection]);
 
-    // --- Data fetch and layer creation ---
+    // Data fetch + layer creation
     useEffect(() => {
         if (!map || !city?.id) return;
-        
+
         let cancelled = false;
 
         const loadData = () => {
@@ -179,25 +141,18 @@ export default function AccidentsLayer() {
             fetchAccidents(city!.id!).then(geojson => {
                 if (cancelled || !map) return;
 
-                if (!geojson.features || geojson.features.length === 0) {
-                    setLayerState?.('empty');
-                } else {
-                    setLayerState?.('idle');
-                }
+                setLayerState?.(geojson.features?.length ? 'idle' : 'empty');
 
-                // Ensure source exists or create it
                 if (!map.getSource(SOURCE_ID)) {
-                    // Promote accident_id to feature.id for state tracking
                     map.addSource(SOURCE_ID, {
                         type: 'geojson',
                         data: geojson,
-                        promoteId: 'accident_id'
+                        promoteId: 'accident_id',
                     });
                 } else {
                     (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(geojson);
                 }
 
-                // Ensure layer exists
                 if (!map.getLayer(LAYER_ID)) {
                     map.addLayer({
                         id: LAYER_ID,
@@ -206,86 +161,53 @@ export default function AccidentsLayer() {
                         paint: {
                             'circle-radius': [
                                 'case',
-                                ['boolean', ['feature-state', 'selected'], false],
-                                10,
-                                ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8]
+                                ['boolean', ['feature-state', 'selected'], false], 10,
+                                ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
                             ],
                             'circle-color': [
-                                'match',
-                                ['get', 'severity'],
-                                'fatal', SEVERITY_COLORS.fatal,
-                                'serious', SEVERITY_COLORS.serious,
-                                'minor', SEVERITY_COLORS.minor,
+                                'match', ['get', 'severity'],
+                                'fatal',    SEVERITY_COLORS.fatal,
+                                'serious',  SEVERITY_COLORS.serious,
+                                'minor',    SEVERITY_COLORS.minor,
                                 'uninjured', SEVERITY_COLORS.uninjured,
-                                '#9ca3af' // fallback
+                                '#9ca3af',
                             ],
                             'circle-opacity': [
-                                'case',
-                                ['boolean', ['feature-state', 'selected'], false],
-                                1,
-                                0.75
+                                'case', ['boolean', ['feature-state', 'selected'], false], 1, 0.75,
                             ],
                             'circle-stroke-width': [
-                                'case',
-                                ['boolean', ['feature-state', 'selected'], false],
-                                3,
-                                1.5
+                                'case', ['boolean', ['feature-state', 'selected'], false], 3, 1.5,
                             ],
-                            'circle-stroke-color': '#ffffff'
-                        }
+                            'circle-stroke-color': '#ffffff',
+                        },
                     });
 
-                    // Set up interactions
-                    map.on('mouseenter', LAYER_ID, () => {
-                        map.getCanvas().style.cursor = 'pointer';
-                    });
-
-                    map.on('mouseleave', LAYER_ID, () => {
-                        map.getCanvas().style.cursor = '';
-                    });
+                    map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
+                    map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
 
                     map.on('click', LAYER_ID, (e) => {
                         const feature = e.features?.[0];
                         if (!feature || !feature.id) return;
 
                         const accidentId = String(feature.id);
-                        
-                        if (activeIdRef.current === accidentId) return; // Already selected
-                        
-                        clearPopup();
-                        
+                        if (activeIdRef.current === accidentId) return;
+
+                        clearSelection();
                         activeIdRef.current = accidentId;
-                        map.setFeatureState(
-                            { source: SOURCE_ID, id: accidentId },
-                            { selected: true }
-                        );
+                        map.setFeatureState({ source: SOURCE_ID, id: accidentId }, { selected: true });
 
-                        const popup = new maplibregl.Popup({
-                            closeButton: false,
-                            closeOnClick: false,
-                            maxWidth: '320px'
-                        });
-                        
-                        popupRef.current = popup;
-
-                        const popupNode = document.createElement('div');
-                        const root = createRoot(popupNode);
-                        rootRef.current = root;
-                        
-                        root.render(
-                            <AccidentPopupContent 
-                                props={feature.properties as AccidentFeature['properties']} 
-                                onClose={() => clearPopup()} 
-                            />
-                        );
-                        
-                        popup.setLngLat((feature.geometry as any).coordinates).setDOMContent(popupNode).addTo(map);
+                        const detail = buildSelectionDetail(feature.properties as AccidentFeature['properties']);
+                        window.dispatchEvent(new CustomEvent('map-selection', { detail }));
                     });
 
+                    // Click on empty space → deselect
                     map.on('click', (e) => {
                         if (!activeIdRef.current) return;
                         const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-                        if (!hits?.length) clearPopup();
+                        if (!hits?.length) {
+                            clearSelection();
+                            window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
+                        }
                     });
                 }
             }).catch(err => {
@@ -302,7 +224,7 @@ export default function AccidentsLayer() {
             cancelled = true;
             setLayerState?.('idle');
         };
-    }, [map, city?.id, clearPopup, setLayerState, setLayerRetry]);
+    }, [map, city?.id, clearSelection, setLayerState, setLayerRetry]);
 
     return null;
 }

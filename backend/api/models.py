@@ -33,8 +33,6 @@ class CityResponse(NetworkBase):
     created_at: Optional[datetime] = None
     population: Optional[int] = None
     budget: Optional[float] = None
-    coverage: Optional[float] = None
-    cycling_network: Optional[float] = None
     mayor: Optional[str] = None
     mayor_party: Optional[str] = None
     service_name: Optional[str] = None

@@ -1,4 +1,4 @@
-
+import { useEffect, useState } from 'react';
 
 const SEVERITY_LEGEND = [
     { label: 'Fatal (Fallecidos)', color: '#7f1d1d' },
@@ -8,6 +8,21 @@ const SEVERITY_LEGEND = [
 ];
 
 export default function AccidentsLegend() {
+    const [hasSelection, setHasSelection] = useState(false);
+    useEffect(() => {
+        const handler = (e: Event) => setHasSelection(!!(e as CustomEvent).detail);
+        window.addEventListener('map-selection', handler);
+        return () => window.removeEventListener('map-selection', handler);
+    }, []);
+
+    if (hasSelection) {
+        return (
+            <p className="text-[9px] text-black/35 italic leading-tight">
+                Accidente seleccionado
+            </p>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-y-3">
             <h3 className="text-sm font-bold text-slate-800 border-b border-black/5 pb-1 mb-1" style={{ fontFamily: "'Archivo Narrow', sans-serif" }}>

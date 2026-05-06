@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io.connection import connect_db
-from backend.database.db_io.cities import get_all_cities, upsert_ingestion_status, get_ingestion_status, check_prerequisites
+from backend.database.db_io.cities import get_all_cities, get_city_center, upsert_ingestion_status, get_ingestion_status, check_prerequisites
 from backend.database.db_io.metrics import calculate_osm_metrics
 
 def main():
@@ -39,7 +39,13 @@ def main():
     print(f"📊 Calculating infrastructure coverage for {len(target_cities)} cities...\n")
 
     for city_row in target_cities:
-        city_id, name, _, _, center_lat, center_lon, _, angle, *rest = city_row
+        city_id, name = city_row[0], city_row[1]
+
+        center = get_city_center(conn, city_id)
+        if not center:
+            print(f"⚠️  Skipping '{name}': no geographic data.")
+            continue
+        center_lat, center_lon, _ = center
 
         missing = check_prerequisites(conn, ["020_load_osm"], city_id=city_id)
         if missing:
@@ -51,10 +57,10 @@ def main():
         if status_obj and status_obj.get("status") == "SUCCESS" and not args.force:
             print(f"⏭️  Skipping {name}: infrastructure coverage already computed. Use --force to override.")
             continue
-            
+
         upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id)
         try:
-            total_km, coverage = calculate_osm_metrics(conn, city_id, center_lat, center_lon, angle)
+            total_km, coverage = calculate_osm_metrics(conn, city_id, center_lat, center_lon)
             
             # Upsert into city_metrics as a static entry or update existing rows
             with conn.cursor() as cur:

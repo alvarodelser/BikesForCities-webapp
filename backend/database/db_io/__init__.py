@@ -139,6 +139,7 @@ from .metrics import (
     get_city_months_with_station_data,
     calculate_osm_metrics,
     get_total_active_stations,
+    get_city_bicycles_count,
     upsert_city_metrics,
     get_station_monthly_agg,
 )
@@ -196,6 +197,6 @@ __all__ = [
     "upsert_station_actual_trips", "upsert_city_actual_trips", "get_city_actual_vs_estimated",
     "upsert_estimated_trips_interval",
     "get_city_months_with_station_data", "calculate_osm_metrics",
-    "get_total_active_stations", "upsert_city_metrics",
+    "get_total_active_stations", "get_city_bicycles_count", "upsert_city_metrics",
     "get_station_monthly_agg",
 ]

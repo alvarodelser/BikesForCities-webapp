@@ -88,6 +88,12 @@ export default function InfrastructureLegend() {
     useEffect(() => {
         if (!map || !map.getLayer(BUILDINGS_LAYER_ID)) return;
         map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
+
+        // Auto-close coverage when buildings are disabled
+        if (!showBikePathBuildings && showCoverage) {
+            setShowCoverage(false);
+        }
+
         return () => {
             try {
                 if (map.getLayer(BUILDINGS_LAYER_ID)) {
@@ -95,7 +101,7 @@ export default function InfrastructureLegend() {
                 }
             } catch { /* map may have been removed */ }
         };
-    }, [map, showBikePathBuildings]);
+    }, [map, showBikePathBuildings, showCoverage]);
 
     // Coverage GeoJSON layer — sits on top of buildings, replaces appearance with component colors
     useEffect(() => {
@@ -195,7 +201,7 @@ export default function InfrastructureLegend() {
                         }`}
                         onClick={() => !coverageDisabled && setShowCoverage(v => !v)}
                     >
-                        <span className={`text-[11px] font-medium transition-colors ${showCoverage ? 'text-black/70' : 'text-black/40'}`}>
+                        <span className={`text-[var(--text-xs)] font-medium transition-colors ${showCoverage ? 'text-black/70' : 'text-black/40'}`}>
                             {loadingCoverage ? 'Cargando…' : coverageError ? 'Sin datos' : 'Cobertura conectada'}
                         </span>
                         <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-300 flex-shrink-0 ml-2 ${

@@ -39,10 +39,12 @@ const SEV_COLORS = {
 } as const;
 
 function getSeverityIndex(props: AccidentProps): number {
-  if (props.killed > 0) return 3; // Fatal
-  if (props.injured > 1) return 2; // Grave
-  if (props.injured > 0) return 1; // Leve
-  return 0;                        // Ileso
+  switch (props.severity) {
+    case 'fatal':   return 3;
+    case 'serious': return 2;
+    case 'minor':   return 1;
+    default:        return 0; // 'uninjured' or unknown
+  }
 }
 
 function isLluvia(weather: string | null): boolean {
@@ -69,14 +71,10 @@ type CyclistRow = (typeof CYCLIST_VEHICLE_ROWS)[number];
 function getCyclistRow(vehicles: string[]): CyclistRow {
   const others = vehicles.filter((v) => v !== 'bike_vmu');
   if (others.length === 0) return 'Caída sola';
-
-  for (const v of others) {
-    const lv = v.toLowerCase();
-    if (/^bus/.test(lv)) return 'Bus';
-    if (/truck|lorry|machinery|camion|cam[ií]n|maq/.test(lv)) return 'Camión/Maq';
-    if (/^moto|motorbike|motorcycle/.test(lv)) return 'Moto';
-    if (/car|coche|furgon|van|taxi|vehicle/.test(lv)) return 'Coche/Furg';
-  }
+  if (others.includes('bus'))   return 'Bus';
+  if (others.includes('truck')) return 'Camión/Maq';
+  if (others.includes('moto'))  return 'Moto';
+  if (others.includes('car'))   return 'Coche/Furg';
   return 'Coche/Furg';
 }
 
@@ -95,15 +93,11 @@ type PedestrianRow = (typeof PEDESTRIAN_VEHICLE_ROWS)[number];
 function getPedestrianRow(vehicles: string[]): PedestrianRow | null {
   const others = vehicles.filter((v) => v !== 'pedestrian');
   if (others.length === 0) return null; // pedestrian alone — skip
-
-  for (const v of others) {
-    const lv = v.toLowerCase();
-    if (/bike|bici|vmu/.test(lv)) return 'Bicicleta';
-    if (/^bus/.test(lv)) return 'Bus';
-    if (/truck|lorry|machinery|camion|cam[ií]n|maq/.test(lv)) return 'Camión/Maq';
-    if (/^moto|motorbike|motorcycle/.test(lv)) return 'Moto';
-    if (/car|coche|furgon|van|taxi|vehicle/.test(lv)) return 'Coche/Furg';
-  }
+  if (others.includes('bike_vmu')) return 'Bicicleta';
+  if (others.includes('bus'))      return 'Bus';
+  if (others.includes('truck'))    return 'Camión/Maq';
+  if (others.includes('moto'))     return 'Moto';
+  if (others.includes('car'))      return 'Coche/Furg';
   return 'Coche/Furg';
 }
 

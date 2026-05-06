@@ -213,14 +213,14 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
           <div className="mb-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <MetricPill
-                value={liveStats[0]?.value || `${city.cyclingNetwork.toFixed(1)} km`}
+                value={liveStats[0]?.value || '—'}
                 label="Longitud total"
                 sublabel="Red ciclista"
                 icon={BarChart3}
                 helpContent="Longitud total de la red de carriles bici e infraestructura ciclista detectada en la ciudad."
               />
               <MetricPill
-                value={liveStats[3]?.value || `${(city.coverage * 100).toFixed(1)} %`}
+                value={liveStats[3]?.value || '—'}
                 label="Cobertura poblacional"
                 sublabel="Accesibilidad"
                 icon={TrendingUp}

@@ -4,6 +4,7 @@ import { useAccidentsStats } from '../../../../../hooks/useAccidentsStats';
 import MetricPill from '../../../pills/MetricPill';
 import StackedBarMatrix from '../../../plots/StackedBarMatrix';
 import BarHistogram from '../../../plots/BarHistogram';
+import { Car, Bus, Truck, Gauge, PersonStanding, Bike } from 'lucide-react';
 
 
 export interface AccidentsStatsProps {
@@ -12,7 +13,23 @@ export interface AccidentsStatsProps {
 }
 
 const SEVERITY_LABELS = ['Ileso', 'Leve', 'Grave', 'Fatal'];
-const ACCENT = '#ef4444'; // Red for accidents
+const ACCENT = '#ef4444';
+
+const CYCLIST_ROW_ICONS = [
+  <Car size={13} color="#6b7280" />,
+  <Bus size={13} color="#f59e0b" />,
+  <Truck size={13} color="#78716c" />,
+  <Gauge size={13} color="#8b5cf6" />,
+  <PersonStanding size={13} color="#ef4444" />,
+];
+
+const PEDESTRIAN_ROW_ICONS = [
+  <Car size={13} color="#6b7280" />,
+  <Bus size={13} color="#f59e0b" />,
+  <Truck size={13} color="#78716c" />,
+  <Gauge size={13} color="#8b5cf6" />,
+  <Bike size={13} color="#22c55e" />,
+];
 
 const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle }) => {
   const {
@@ -101,12 +118,14 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle }) 
           segmentLabels={SEVERITY_LABELS}
           title="Severidad ciclista"
           subtitle="Por tipo de vehículo implicado"
+          rowIcons={CYCLIST_ROW_ICONS}
         />
         <StackedBarMatrix
           rows={pedestrianVehicleMatrix}
           segmentLabels={SEVERITY_LABELS}
           title="Severidad peatonal"
           subtitle="Por tipo de vehículo implicado"
+          rowIcons={PEDESTRIAN_ROW_ICONS}
         />
       </div>
 

@@ -55,43 +55,48 @@ export function useLiveStats(
     let cancelled = false;
 
     if (mode === MAP_MODES.INFRASTRUCTURE) {
-      const kmPer100k = city.population > 0
-        ? (city.cyclingNetwork / (city.population / 100_000)).toFixed(2)
-        : '—';
-
-      // Start with synchronous stats; kick off async infra stats fetch
-      const baseStats: LiveStat[] = [
-        { label: 'Total km red', value: `${city.cyclingNetwork.toFixed(1)} km`, icon: BarChart3 },
-        { label: 'Km / 100k hab.', value: `${kmPer100k} km`, icon: Activity },
+      // Start with loading state; fetch infra stats
+      const loadingStats: LiveStat[] = [
+        { label: 'Total km red', value: '—', icon: BarChart3 },
+        { label: 'Km / 100k hab.', value: '—', icon: Activity },
         locked('Km / M€ en vías públicas'),
-        { label: 'Cobertura', value: `${(city.coverage * 100).toFixed(1)} %`, icon: TrendingUp, trend: 'up' },
+        { label: 'Cobertura', value: '—', icon: TrendingUp, trend: 'up' },
         locked('Cobertura componente principal'),
       ];
-      setStats(baseStats);
+      setStats(loadingStats);
       setTrafficModes([]);
       setAvailablePeriods([]);
-      setLoading(false);
+      setLoading(true);
 
-      // Async fetch for BCC + budget
+      // Fetch infra stats for all metrics
       if (!city.id) return;
       fetchInfraStats(city.id).then(infra => {
         if (cancelled) return;
+
+        const totalKm = infra.total_km ?? 0;
+        const kmPer100k = city.population > 0 && totalKm > 0
+          ? (totalKm / (city.population / 100_000)).toFixed(2)
+          : '—';
+        const coverage = infra.coverage != null
+          ? `${(infra.coverage * 100).toFixed(1)} %`
+          : '—';
         const kmPerMeur = infra.km_per_meur_vias != null
           ? `${infra.km_per_meur_vias.toFixed(2)} km/M€`
           : '—';
         const gccVal = infra.gcc_fraction != null
           ? `${(infra.gcc_fraction * 100).toFixed(1)} %`
           : '—';
+
         setStats([
-          baseStats[0],
-          baseStats[1],
+          { label: 'Total km red', value: `${totalKm.toFixed(1)} km`, icon: BarChart3 },
+          { label: 'Km / 100k hab.', value: `${kmPer100k} km`, icon: Activity },
           {
             label: `Km / M€ vías (${infra.vias_budget_year ?? '?'})`,
             value: kmPerMeur,
             icon: Activity,
             comingSoon: infra.km_per_meur_vias == null,
           },
-          baseStats[3],
+          { label: 'Cobertura', value: coverage, icon: TrendingUp, trend: 'up' },
           {
             label: 'Cobertura GCC',
             value: gccVal,
@@ -100,16 +105,18 @@ export function useLiveStats(
             comingSoon: infra.gcc_fraction == null,
           },
         ]);
+        setLoading(false);
       }).catch((err) => {
         console.error('Failed to fetch infrastructure stats:', err);
         if (!cancelled) {
           setStats([
-            baseStats[0],
-            baseStats[1],
-            { ...baseStats[2], value: 'Error' },
-            baseStats[3],
-            { ...baseStats[4], value: 'Error' },
+            { label: 'Total km red', value: 'Error', icon: BarChart3 },
+            { label: 'Km / 100k hab.', value: 'Error', icon: Activity },
+            { ...loadingStats[2], value: 'Error' },
+            { label: 'Cobertura', value: 'Error', icon: TrendingUp, trend: 'up' },
+            { ...loadingStats[4], value: 'Error' },
           ]);
+          setLoading(false);
         }
       });
 
@@ -203,7 +210,7 @@ export function useLiveStats(
 
     load();
     return () => { cancelled = true; };
-  }, [city.id, mode, generation, routing, period, city.cyclingNetwork, city.coverage, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
+  }, [city.id, mode, generation, routing, period, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
 
   return { stats, trafficModes, availablePeriods, loading };
 }

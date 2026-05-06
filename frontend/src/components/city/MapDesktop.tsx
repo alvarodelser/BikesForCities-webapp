@@ -11,6 +11,8 @@ import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
+import { fetchInfraStats } from '../../services/api';
+import type { InfraStats } from '../../services/api';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
@@ -43,7 +45,7 @@ interface MapDesktopProps {
 }
 
 /** Hero header used in both single-column and dual-panel layouts */
-function CityHero({ city, selectedColor }: { city: CityData, selectedColor: string }) {
+function CityHero({ city, selectedColor, infraStats }: { city: CityData, selectedColor: string, infraStats: InfraStats | null }) {
     return (
         <section
             className="relative w-full pt-36 pb-16 px-[var(--space-gutter)] overflow-hidden bg-[var(--cream)]"
@@ -86,8 +88,8 @@ function CityHero({ city, selectedColor }: { city: CityData, selectedColor: stri
                     {[
                         { icon: Users, label: 'Población', value: formatPopulation(city.population), gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
                         { icon: Euro, label: 'Presupuesto', value: formatCurrency(city.budget), gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
-                        { icon: Bike, label: 'Red Ciclista', value: `${formatDistance(city.cyclingNetwork)} km`, gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
-                        { icon: Percent, label: 'Cobertura', value: `${formatPercentage(city.coverage)}%`, gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
+                        { icon: Bike, label: 'Red Ciclista', value: infraStats?.total_km ? `${formatDistance(infraStats.total_km)} km` : '—', gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
+                        { icon: Percent, label: 'Cobertura', value: infraStats?.coverage != null ? `${formatPercentage(infraStats.coverage)}%` : '—', gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
                     ].map(({ icon: Icon, label, value, gradient }) => (
                         <GlassCard
                             key={label}
@@ -123,6 +125,14 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const { isUltrawide } = useViewport();
     const [, setSearchParams] = useSearchParams();
     const [selectedEdgeId, setSelectedEdgeId] = useState<number | null>(null);
+    const [infraStats, setInfraStats] = useState<InfraStats | null>(null);
+
+    useEffect(() => {
+        if (!city.id) return;
+        fetchInfraStats(city.id)
+            .then(setInfraStats)
+            .catch(() => setInfraStats(null));
+    }, [city.id]);
 
     const isModeAvailable = (m: MapMode | string | null): boolean => {
         if (!m) return false;
@@ -178,7 +188,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     // ── Desktop Layouts (768px+) ──────────────────────────────────────────────
     return (
         <div className="w-full min-h-screen transition-colors duration-300" style={backgroundStyle}>
-            <CityHero city={city} selectedColor={waveColor} />
+            <CityHero city={city} selectedColor={waveColor} infraStats={infraStats} />
 
             {isUltrawide ? (
                 /* Ultrawide C1: map 50% left, scrollable stats 50% right */

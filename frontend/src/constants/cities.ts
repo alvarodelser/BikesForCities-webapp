@@ -10,8 +10,6 @@ export interface CityData {
   maxBounds?: [[number, number], [number, number]]; // [sw[lng, lat], ne[lng, lat]]
   population: number;
   budget: number | null;
-  cyclingNetwork: number;
-  coverage: number;
   mayor?: string;
   mayor_party?: string;
   service_name?: string;

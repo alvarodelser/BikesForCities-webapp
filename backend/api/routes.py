@@ -63,10 +63,10 @@ async def list_networks(conn=Depends(get_db_connection)):
         cities = []
         for row in networks_data:
             (city_id, name, alt_name, slug, description, wikidata_id,
-             center_lat, center_lon, radius, angle,
+             center_lat, center_lon, radius,
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, traffic_combos, accidents, topo, inter, stations, forum,
+             infra, traffic, traffic_combos, accidents, stations,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
 
             bounds = None
@@ -83,10 +83,7 @@ async def list_networks(conn=Depends(get_db_connection)):
                 "traffic": bool(traffic),
                 "traffic_combinations": traffic_combos or [],
                 "accidents": bool(accidents),
-                "terrain": bool(topo),
-                "intersections": bool(inter),
                 "stations": bool(stations),
-                "forum": bool(forum)
             }
 
             city_obj = CityResponse(
@@ -100,8 +97,6 @@ async def list_networks(conn=Depends(get_db_connection)):
                 radius=radius,
                 population=population,
                 budget=budget,
-                coverage=coverage,
-                cycling_network=cycling_network,
                 mayor=mayor,
                 mayor_party=mayor_party,
                 service_name=service_name,
@@ -140,10 +135,7 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             "traffic": bool(city_dict.get("traffic")),
             "traffic_combinations": city_dict.get("traffic_combinations") or [],
             "accidents": bool(city_dict.get("accidents")),
-            "terrain": bool(city_dict.get("topography")),
-            "intersections": bool(city_dict.get("intersections")),
             "stations": bool(city_dict.get("stations")),
-            "forum": bool(city_dict.get("forum"))
         }
 
         city = CityResponse(
@@ -157,8 +149,6 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             radius=city_dict["radius"],
             population=city_dict.get("population"),
             budget=city_dict.get("budget"),
-            coverage=city_dict.get("coverage"),
-            cycling_network=city_dict.get("cycling_network"),
             mayor=city_dict.get("mayor"),
             mayor_party=city_dict.get("mayor_party"),
             service_name=city_dict.get("service_name"),
@@ -1124,10 +1114,10 @@ async def get_system_status(conn=Depends(get_db_connection)):
         city_stats = []
         for row in cities_data:
             (city_id, name, alt_name, slug, description, wikidata_id,
-             center_lat, center_lon, radius, angle,
+             center_lat, center_lon, radius,
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, traffic_combos, accidents, topo, inter, stations, forum,
+             infra, traffic, traffic_combos, accidents, stations,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
 
             city_stats.append({
@@ -1143,10 +1133,7 @@ async def get_system_status(conn=Depends(get_db_connection)):
                     "traffic": bool(traffic),
                     "traffic_combinations": traffic_combos or [],
                     "accidents": bool(accidents),
-                    "terrain": bool(topo),
-                    "intersections": bool(inter),
                     "stations": bool(stations),
-                    "forum": bool(forum),
                 },
                 "features": feature_map.get(city_id, {}),
             })

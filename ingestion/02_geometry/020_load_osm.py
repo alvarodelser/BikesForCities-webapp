@@ -5,7 +5,7 @@ Loads OSM network and features for all cities currently in the database.
 After graph + feature ingestion, computes and stores:
   - edge.component_id     — connected-component rank (0 = GCC)
   - edge.building_count   — bike_path_buildings within 150 m
-  - city_modes GCC fields — gcc_fraction, gcc_km, total_cycling_km, n_components
+  - city_metrics GCC fields — gcc_fraction, gcc_km, total_kilometers, n_components
   - features.component_id — building coverage component rank
 """
 import time
@@ -154,21 +154,22 @@ def compute_edge_stats(conn, city_id: int, G: nx.MultiDiGraph, bike_path_buildin
 
     print(f"   • Updated {len(updates):,} cycleway edges with component_id + building_count")
 
-    # ── Step 6: persist GCC stats into city_modes ─────────────────────────────
+    # ── Step 6: persist GCC stats into city_metrics ──────────────────────────
+    gcc_fraction = gcc_km / total_km if total_km > 0 else None
     with conn.cursor() as cur:
         cur.execute(
             """
-            UPDATE city_modes
-            SET gcc_fraction = %s, gcc_km = %s, total_cycling_km = %s, n_components = %s
-            WHERE city_id = %s
+            INSERT INTO city_metrics
+                (city_id, metric_month, gcc_fraction, gcc_km, total_kilometers, n_components, updated_at)
+            VALUES (%s, NOW(), %s, %s, %s, %s, NOW())
+            ON CONFLICT (city_id, metric_month) DO UPDATE SET
+                gcc_fraction     = EXCLUDED.gcc_fraction,
+                gcc_km           = EXCLUDED.gcc_km,
+                total_kilometers = EXCLUDED.total_kilometers,
+                n_components     = EXCLUDED.n_components,
+                updated_at       = NOW()
             """,
-            (
-                gcc_km / total_km if total_km > 0 else None,
-                round(gcc_km, 3),
-                round(total_km, 3),
-                len(components),
-                city_id,
-            ),
+            (city_id, gcc_fraction, round(gcc_km, 3), round(total_km, 3), len(components)),
         )
     print(f"   • GCC stats: {len(components)} components, {total_km:.1f} km total, "
           f"{gcc_km:.1f} km GCC ({100*gcc_km/total_km:.1f}%)" if total_km > 0 else "")
@@ -231,12 +232,15 @@ def compute_building_component_ids(conn, city_id: int, bike_paths_gdf, bike_path
         db_ids = [row[0] for row in cur.fetchall()]
 
     if len(db_ids) != len(bike_path_buildings_gdf):
-        print(f"   ⚠ Building count mismatch (db={len(db_ids)}, gdf={len(bike_path_buildings_gdf)}) — skipping component_id")
-        return
+        print(f"   ⚠ Building count mismatch (db={len(db_ids)}, gdf={len(bike_path_buildings_gdf)})")
+        print(f"      DB building IDs: {db_ids[:10]}..." if len(db_ids) > 10 else f"      DB building IDs: {db_ids}")
+        print(f"      GDF indices: {list(bike_path_buildings_gdf.index[:10])}..." if len(bike_path_buildings_gdf) > 10 else f"      GDF indices: {list(bike_path_buildings_gdf.index)}")
+        # Proceed with partial assignment: assign component_ids for indices that exist in GDF
+        print(f"      Proceeding with partial assignment for {len(bike_path_buildings_gdf)} buildings...")
 
     updates = [
         (int(comp_by_orig_idx.get(idx, -1)), db_id)
-        for idx, db_id in zip(bike_path_buildings_gdf.index, db_ids)
+        for idx, db_id in zip(bike_path_buildings_gdf.index, db_ids[:len(bike_path_buildings_gdf)])
     ]
 
     with conn.cursor() as cur:
@@ -323,6 +327,21 @@ def main():
             added_nodes = len(get_nodes(conn, city_id)) - pre_nodes
             added_edges = len(get_edges(conn, city_id)) - pre_edges
             print(f"✅ Added {added_nodes:,} nodes and {added_edges:,} edges.")
+
+            # Store pre-computed bounds in cities table (replaces MIN/MAX subquery at query time)
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE cities
+                    SET bounds_min_lat = (SELECT MIN(lat) FROM nodes WHERE city_id = %s),
+                        bounds_max_lat = (SELECT MAX(lat) FROM nodes WHERE city_id = %s),
+                        bounds_min_lon = (SELECT MIN(lon) FROM nodes WHERE city_id = %s),
+                        bounds_max_lon = (SELECT MAX(lon) FROM nodes WHERE city_id = %s)
+                    WHERE id = %s
+                    """,
+                    (city_id, city_id, city_id, city_id, city_id),
+                )
+            print(f"✅ Stored geographic bounds for {city_name}.")
 
             # ── Features ──────────────────────────────────────────────────────
             print(f"▶️  Extracting features for '{city_name}' …")

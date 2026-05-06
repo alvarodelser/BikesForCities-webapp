@@ -17,9 +17,10 @@ from backend.database.db_io import (
     connect_db, get_all_cities,
     get_skellam_readings_diffs, get_station_merge_map, get_citybikes_network_id,
     upsert_station_monthly, upsert_estimated_trips_interval, get_city_months_with_station_data,
-    calculate_osm_metrics, get_total_active_stations, upsert_city_metrics
+    get_total_active_stations, upsert_city_metrics,
 )
-from backend.database.db_io.cities import upsert_ingestion_status, get_ingestion_status, check_prerequisites
+from backend.database.db_io.cities import upsert_ingestion_status, get_ingestion_status, check_prerequisites, get_city_center
+from backend.database.db_io.metrics import get_city_bicycles_count
 
 def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, period_end: dt.datetime) -> Tuple[float, float]:
     from scipy.special import ive
@@ -232,19 +233,20 @@ def get_city_months_with_station_data_wrapper(conn, city_id: int):
     return get_city_months_with_station_data(conn, city_id)
 
 
-def calculate_monthly_metrics(conn, city_id: int, metric_month: dt.datetime, center_lat: float, center_lon: float, angle: float):
+def calculate_monthly_metrics(conn, city_id: int, metric_month: dt.datetime):
     period_end = next_month(metric_month)
 
-    # 3. Monthly trips from Skellam metric calculation & Downtime
     estimated_monthly_trips, station_downtime = calculate_skellam_trips(conn, city_id, metric_month, period_end)
-
-    # 4. Total stations active in this month
     total_stations = get_total_active_stations(conn, city_id, metric_month, period_end)
+    bicycles_count = get_city_bicycles_count(conn, city_id, metric_month, period_end)
 
-    # Upsert metrics (coverage and total_km are None, so they will use existing values via COALESCE)
     upsert_city_metrics(
-        conn, city_id, metric_month, None, None,
-        estimated_monthly_trips, total_stations, station_downtime
+        conn, city_id, metric_month,
+        coverage=None, total_km=None,
+        estimated_monthly_trips=estimated_monthly_trips,
+        total_stations=total_stations,
+        station_downtime=station_downtime,
+        bicycles_count=bicycles_count,
     )
 
     conn.commit()
@@ -273,7 +275,9 @@ def main():
 
     print(f"📊 Calculating monthly cross-domain metrics for {len(cities)} cities...\n")
 
-    for city_id, name, _, _, center_lat, center_lon, _, angle, *rest in cities:
+    for city_row in cities:
+        city_id, name = city_row[0], city_row[1]
+
         missing = check_prerequisites(conn, ["030_load_stations"], city_id=city_id)
         if missing:
             print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
@@ -299,7 +303,7 @@ def main():
                     continue
 
                 upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=month_str)
-                est_trips, total_stations, downtime = calculate_monthly_metrics(conn, city_id, metric_month, center_lat, center_lon, angle)
+                est_trips, total_stations, downtime = calculate_monthly_metrics(conn, city_id, metric_month)
 
                 print(
                     f"   ✔ {metric_month:%Y-%m} | est trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f} min/day"

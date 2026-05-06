@@ -18,7 +18,7 @@ def get_accidents_geojson(
         total_involved, injured, killed, vehicles_involved
     """
     with conn.cursor() as cur:
-        cyclist_filter = "AND a.cyclists_involved > 0" if cyclists_only else ""
+        cyclist_clause = "AND 'bike_vmu' = ANY(a.vehicles_involved)" if cyclists_only else ""
         cur.execute(f"""
             SELECT
                 a.accident_id,
@@ -34,12 +34,9 @@ def get_accidents_geojson(
                 a.injured,
                 a.killed,
                 a.vehicles_involved,
-                -- Aggregate worst severity across all participants
                 MAX(ap.injury_code) AS max_injury_code,
-                -- Most severe injury_status for this accident
                 (ARRAY_AGG(ap.injury_status ORDER BY COALESCE(ap.injury_code, 0) DESC))[1]
                     AS worst_injury_status,
-                -- Aggregate all participants
                 JSON_AGG(
                     JSON_BUILD_OBJECT(
                         'vehicle_type', ap.vehicle_type,
@@ -54,7 +51,7 @@ def get_accidents_geojson(
             LEFT JOIN accident_participants ap ON ap.accident_db_id = a.id
             WHERE a.city_id = %s
               AND a.geom IS NOT NULL
-              AND 'bike_vmu' = ANY(a.vehicles_involved)
+              {cyclist_clause}
             GROUP BY a.id
             ORDER BY a.timestamp DESC
         """, (city_id,))

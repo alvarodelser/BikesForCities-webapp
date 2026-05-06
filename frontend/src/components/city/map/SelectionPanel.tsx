@@ -60,6 +60,7 @@ export default function SelectionPanel({
         station: 'Estación',
         edge: 'Tramo',
         reach: 'Alcance',
+        accident: 'Accidente',
     };
 
     const glassStyle: React.CSSProperties = {
@@ -208,15 +209,28 @@ export default function SelectionPanel({
                                 ))}
                             </div>
                         )}
+                        {selection.participants && selection.participants.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                                {selection.participants.map((p, i) => (
+                                    <span
+                                        key={i}
+                                        title={p.label}
+                                        className="inline-flex items-center justify-center w-7 h-7 text-base rounded-full border-2"
+                                        style={{
+                                            borderColor: p.severityColor,
+                                            backgroundColor: `${p.severityColor}22`,
+                                        }}
+                                    >
+                                        {p.emoji}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
                         {selection.chart && (
                             <div className="mt-2" ref={el => {
                                 if (el) {
-                                    // Clear previous chart
                                     el.innerHTML = '';
-                                    // Append new chart (preserves event listeners)
-                                    if (selection.chart) {
-                                        el.appendChild(selection.chart);
-                                    }
+                                    if (selection.chart) el.appendChild(selection.chart);
                                 }
                             }} />
                         )}

@@ -144,25 +144,21 @@ def get_city_months_with_station_data(conn, city_id: int) -> List[dt.datetime]:
         return [row[0] for row in cur.fetchall()]
 
 
-def calculate_osm_metrics(conn, city_id: int, center_lat: float, center_lon: float, angle: float) -> Tuple[float, Optional[float]]:
-    """Calculate bike lane kilometers and coverage for a city within a 10km bbox."""
+def calculate_osm_metrics(conn, city_id: int, center_lat: float, center_lon: float) -> Tuple[float, Optional[float]]:
+    """Calculate bike lane kilometers and coverage for a city within a 10km axis-aligned bbox."""
     import math
     dy = 5000.0 / 111320.0
     dx = 5000.0 / (111320.0 * math.cos(math.radians(center_lat)))
-    
+
     with conn.cursor() as cur:
         bbox_query = """
             SELECT ST_Translate(
-                ST_Rotate(
-                    ST_GeomFromText(%s, 4326),
-                    radians(%s),
-                    ST_SetSRID(ST_Point(0, 0), 4326)
-                ),
+                ST_GeomFromText(%s, 4326),
                 %s, %s
             ) AS geom
         """
         poly_wkt = f"POLYGON(({-dx} {-dy}, {dx} {-dy}, {dx} {dy}, {-dx} {dy}, {-dx} {-dy}))"
-        cur.execute(bbox_query, (poly_wkt, -angle, center_lon, center_lat))
+        cur.execute(bbox_query, (poly_wkt, center_lon, center_lat))
         bbox_geom = cur.fetchone()[0]
 
         # Total Kilometers of bike paths
@@ -198,6 +194,28 @@ def calculate_osm_metrics(conn, city_id: int, center_lat: float, center_lon: flo
         return total_km, coverage
 
 
+def get_city_bicycles_count(conn, city_id: int, start: dt.datetime, end: dt.datetime) -> Optional[int]:
+    """Sum of per-station median available_bikes at 4 AM UTC during the given period."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT ROUND(SUM(median_bikes))::int
+            FROM (
+                SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY available_bikes) AS median_bikes
+                FROM station_readings
+                WHERE city_id = %s
+                  AND EXTRACT(HOUR FROM observed_at AT TIME ZONE 'UTC') = 4
+                  AND observed_at >= %s
+                  AND observed_at < %s
+                GROUP BY station_id
+            ) s
+            """,
+            (city_id, start, end),
+        )
+        row = cur.fetchone()
+    return row[0] if row and row[0] is not None else None
+
+
 def get_total_active_stations(conn, city_id: int, start: dt.datetime, end: dt.datetime) -> int:
     """Count the total number of active stations in a month."""
     with conn.cursor() as cur:
@@ -219,10 +237,14 @@ def upsert_city_metrics(
     city_id: int,
     metric_month: dt.datetime,
     coverage: Optional[float],
-    total_km: float,
+    total_km: Optional[float],
     estimated_monthly_trips: float,
     total_stations: int,
-    station_downtime: float
+    station_downtime: float,
+    gcc_fraction: Optional[float] = None,
+    gcc_km: Optional[float] = None,
+    n_components: Optional[int] = None,
+    bicycles_count: Optional[int] = None,
 ) -> None:
     """Upsert monthly analytics metrics into city_metrics."""
     with conn.cursor() as cur:
@@ -230,18 +252,25 @@ def upsert_city_metrics(
             """
             INSERT INTO city_metrics (
                 city_id, metric_month, coverage, total_kilometers,
-                estimated_monthly_trips, total_stations, avg_station_downtime, updated_at
+                estimated_monthly_trips, total_stations, avg_station_downtime,
+                gcc_fraction, gcc_km, n_components, bicycles_count, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (city_id, metric_month) DO UPDATE SET
-                coverage = COALESCE(EXCLUDED.coverage, city_metrics.coverage),
-                total_kilometers = COALESCE(EXCLUDED.total_kilometers, city_metrics.total_kilometers),
+                coverage                = COALESCE(EXCLUDED.coverage,          city_metrics.coverage),
+                total_kilometers        = COALESCE(EXCLUDED.total_kilometers,   city_metrics.total_kilometers),
                 estimated_monthly_trips = EXCLUDED.estimated_monthly_trips,
-                total_stations = EXCLUDED.total_stations,
-                avg_station_downtime = EXCLUDED.avg_station_downtime,
-                updated_at = NOW()
+                total_stations          = EXCLUDED.total_stations,
+                avg_station_downtime    = EXCLUDED.avg_station_downtime,
+                gcc_fraction            = COALESCE(EXCLUDED.gcc_fraction,       city_metrics.gcc_fraction),
+                gcc_km                  = COALESCE(EXCLUDED.gcc_km,             city_metrics.gcc_km),
+                n_components            = COALESCE(EXCLUDED.n_components,       city_metrics.n_components),
+                bicycles_count          = COALESCE(EXCLUDED.bicycles_count,     city_metrics.bicycles_count),
+                updated_at              = NOW()
             """,
-            (city_id, metric_month, coverage, total_km, estimated_monthly_trips, total_stations, station_downtime),
+            (city_id, metric_month, coverage, total_km,
+             estimated_monthly_trips, total_stations, station_downtime,
+             gcc_fraction, gcc_km, n_components, bicycles_count),
         )
 
 
