@@ -96,7 +96,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             minZoom: 11,
             maxBounds: bounds || undefined,
             pitch: 0,
-            bearing: city.angle || 0,
+            bearing: 0,
             dragRotate: false,
             scrollZoom: true,
             cooperativeGestures: true,

@@ -30,7 +30,6 @@ export const fetchCities = async (): Promise<CityData[]> => {
     monthly_trips: city.monthly_trips,
     bicycles_count: city.bicycles_count,
     available_modes: city.available_modes,
-    angle: city.angle || 0
   }));
 };
 

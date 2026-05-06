@@ -16,6 +16,7 @@ import argparse
 from dotenv import load_dotenv
 
 import networkx as nx
+import pandas as pd
 import geopandas as gpd
 from shapely.geometry import LineString
 
@@ -238,10 +239,11 @@ def compute_building_component_ids(conn, city_id: int, bike_paths_gdf, bike_path
         # Proceed with partial assignment: assign component_ids for indices that exist in GDF
         print(f"      Proceeding with partial assignment for {len(bike_path_buildings_gdf)} buildings...")
 
-    updates = [
-        (int(comp_by_orig_idx.get(idx, -1)), db_id)
-        for idx, db_id in zip(bike_path_buildings_gdf.index, db_ids[:len(bike_path_buildings_gdf)])
-    ]
+    updates = []
+    for idx, db_id in zip(bike_path_buildings_gdf.index, db_ids[:len(bike_path_buildings_gdf)]):
+        val = comp_by_orig_idx.get(idx, -1)
+        comp_id = int(val) if (val != -1 and pd.notna(val)) else -1
+        updates.append((comp_id, db_id))
 
     with conn.cursor() as cur:
         cur.executemany(
