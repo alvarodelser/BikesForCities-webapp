@@ -382,3 +382,50 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+-- ── Martin tile function ────────────────────────────────────────────────────
+-- Used as a Martin "function source" to serve vector tiles with trip_count
+-- baked in from edge_traffic. Parameters are passed via query_params JSON:
+--   generation_type TEXT, algorithm TEXT, month TEXT (YYYY-MM-DD).
+-- When params are absent, trip_count defaults to 0 so the layer still renders.
+-- See martin-config.yaml [functions.edges] and migration 003.
+CREATE OR REPLACE FUNCTION edges_with_traffic(z integer, x integer, y integer, query_params json)
+RETURNS bytea
+LANGUAGE plpgsql
+STABLE
+PARALLEL SAFE
+AS $$
+DECLARE
+    gen_type  TEXT := query_params->>'generation_type';
+    algo      TEXT := query_params->>'algorithm';
+    month_val DATE := (query_params->>'month')::DATE;
+    tile      BYTEA;
+BEGIN
+    SELECT ST_AsMVT(q, 'edges', 4096, 'geom')
+    INTO tile
+    FROM (
+        SELECT
+            e.id,
+            e.city_id,
+            e.name,
+            e.highway,
+            e.length,
+            COALESCE(et.trip_count, 0)                        AS trip_count,
+            ST_AsMVTGeom(
+                e.geom,
+                ST_TileEnvelope(z, x, y),
+                4096, 0, true
+            )                                                 AS geom
+        FROM edges e
+        LEFT JOIN edge_traffic et
+               ON et.edge_id        = e.id
+              AND et.generation_type = gen_type
+              AND et.algorithm       = algo
+              AND et.month           = month_val
+        WHERE e.geom && ST_TileEnvelope(z, x, y)
+          AND ST_AsMVTGeom(e.geom, ST_TileEnvelope(z, x, y), 4096, 0, true) IS NOT NULL
+    ) q;
+
+    RETURN COALESCE(tile, ''::BYTEA);
+END;
+$$;
