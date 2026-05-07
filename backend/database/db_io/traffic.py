@@ -191,6 +191,29 @@ def get_latest_traffic_month(
         return row[0] if row else None
 
 
+def resolve_traffic_params(
+    conn,
+    city_id: int,
+    generation_type: Optional[str] = None,
+    algorithm: Optional[str] = None,
+    month: Optional[date] = None,
+) -> Tuple[Optional[str], Optional[str], Optional[date]]:
+    """Resolve traffic parameters (generation_type, algorithm, month) without fetching data.
+
+    Returns: (generation_type, algorithm, month)
+    """
+    if generation_type is None or algorithm is None:
+        best = get_best_traffic_mode(conn, city_id)
+        if best is None:
+            return None, None, None
+        generation_type, algorithm = best
+
+    if month is None:
+        month = get_latest_traffic_month(conn, city_id, generation_type, algorithm)
+
+    return generation_type, algorithm, month
+
+
 def get_edge_traffic(
     conn,
     city_id: int,
@@ -199,23 +222,11 @@ def get_edge_traffic(
     month: Optional[date] = None,
 ) -> Tuple[List[Tuple[int, int, date]], str, str, Optional[date]]:
     """Return traffic records plus the resolved (generation_type, algorithm, month).
-
-    If generation_type/algorithm are None, resolves to the best available combination.
-    If month is None, resolves to the latest month for that combination.
-
-    Returns: (rows, generation_type, algorithm, month)
-    Each row: (edge_id, trip_count, month)
     """
-    if generation_type is None or algorithm is None:
-        best = get_best_traffic_mode(conn, city_id)
-        if best is None:
-            return [], None, None, None
-        generation_type, algorithm = best
-
-    if month is None:
-        month = get_latest_traffic_month(conn, city_id, generation_type, algorithm)
-    if month is None:
-        return [], generation_type, algorithm, None
+    res_gen, res_algo, res_month = resolve_traffic_params(conn, city_id, generation_type, algorithm, month)
+    
+    if res_month is None:
+        return [], res_gen, res_algo, None
 
     with conn.cursor() as cur:
         cur.execute(
@@ -228,9 +239,9 @@ def get_edge_traffic(
               AND month           = %s
             ORDER BY edge_id
             """,
-            (city_id, generation_type, algorithm, month),
+            (city_id, res_gen, res_algo, res_month),
         )
-        return cur.fetchall(), generation_type, algorithm, month
+        return cur.fetchall(), res_gen, res_algo, res_month
 
 
 def get_traffic_stats(

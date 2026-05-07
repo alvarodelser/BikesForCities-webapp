@@ -4,6 +4,7 @@ import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
+import { TILE_SERVER_URL } from '../../../../../config/api';
 import type * as GeoJSON from 'geojson';
 import type { SelectionDetail } from '../../../../../types/selection';
 
@@ -86,7 +87,7 @@ function buildOpacityExpr(q5: number): unknown[] {
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const { map, city, setSelectedEdgeId, setLayerState, setLayerRetry } = useMap();
     const { setThresholds } = useThresholds();
-    const { generation, routing, period, setGeneration, setRouting, setSubmode } = useMapState();
+    const { generation, routing, period, setGeneration, setRouting, setPeriod, setSubmode } = useMapState();
 
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
     const submodeRef = useRef<string>(submode);
@@ -336,27 +337,23 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     useEffect(() => { urlParamsSetRef.current = false; }, [city?.id]);
 
     // --- Data fetch: resolve traffic params, then re-point the tile source ---
-    // Only fetches a tiny JSON payload (stats + resolved gen/algo/month).
-    // The heavy trip_count data comes pre-baked in the Martin vector tiles.
     useEffect(() => {
         if (!map || !city?.id) return;
         let cancelled = false;
 
-        // Only clear stale feature states when the user explicitly switches between modes
         const prevGen = prevGenRef.current;
         const prevRoute = prevRouteRef.current;
         const modeActuallyChanged = (prevGen || prevRoute) && (prevGen !== generation || prevRoute !== routing);
         prevGenRef.current = generation;
         prevRouteRef.current = routing;
 
-        if (modeActuallyChanged && map.getSource(SOURCE_ID)) {
-            // Re-apply selection highlight that was wiped by any bulk clear
-            if (stickyRef.current) {
-                map.setFeatureState(
-                    { source: SOURCE_ID, sourceLayer: 'edges', id: stickyRef.current.edgeId },
-                    { selected: true }
-                );
-            }
+        // Immediate sync from city data if URL is empty
+        const combos = (city?.available_modes?.traffic_combinations as any[]) || [];
+        if (!generation && !routing && combos.length > 0) {
+            const first = combos[0];
+            setGeneration(first.generation_type);
+            setRouting(first.algorithm);
+            return; // URL change will trigger re-run
         }
 
         const loadData = () => {
@@ -366,35 +363,41 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
                 if (cancelled || !map) return;
 
-                if (!result.generation_type || !result.month) {
+                if (!result.generation_type || !result.algorithm || !result.month) {
                     setLayerState?.('empty');
                     return;
                 }
                 setLayerState?.('idle');
 
-                // Write resolved values back to URL params on first load
-                if (!urlParamsSetRef.current) {
-                    urlParamsSetRef.current = true;
-                    if (!generation && result.generation_type) setGeneration(result.generation_type);
-                    if (!routing && result.algorithm) setRouting(result.algorithm);
+                // Write resolved values back to URL params if they were missing.
+                let urlChanged = false;
+                if (!generation && result.generation_type) { setGeneration(result.generation_type); urlChanged = true; }
+                if (!routing && result.algorithm) { setRouting(result.algorithm); urlChanged = true; }
+
+                // Also sync the period (month) to URL if missing. Format is YYYY-MM.
+                if (!period && result.month) {
+                    const resolvedMonthStr = result.month.slice(0, 7);
+                    setPeriod(resolvedMonthStr);
+                    urlChanged = true;
                 }
 
+                if (urlChanged) return; // Wait for next render driven by URL change
+
                 // Re-point the tile source to the resolved (gen, algo, month) slice.
-                // Martin will serve tiles with trip_count already baked in — no
-                // setFeatureState loop needed.
                 const src = map.getSource(SOURCE_ID) as maplibregl.VectorTileSource | undefined;
                 if (src) {
-                    const resolvedMonth = result.month
-                        ? result.month.slice(0, 7) + '-01'   // ensure YYYY-MM-DD
-                        : '';
                     const tileParams = new URLSearchParams();
-                    if (result.generation_type) tileParams.set('generation_type', result.generation_type);
-                    if (result.algorithm) tileParams.set('algorithm', result.algorithm);
-                    if (resolvedMonth) tileParams.set('month', resolvedMonth);
-                    // setTiles is available on VectorTileSource in MapLibre >= 3.x
-                    (src as any).setTiles([
-                        `${import.meta.env.VITE_TILE_SERVER_URL || 'http://localhost:3000'}/edges/{z}/{x}/{y}?${tileParams.toString()}`
-                    ]);
+                    tileParams.set('generation_type', result.generation_type);
+                    tileParams.set('algorithm', result.algorithm);
+                    tileParams.set('month', result.month); // already YYYY-MM-DD from backend
+
+                    const newTileUrl = `${TILE_SERVER_URL}/edges/{z}/{x}/{y}?${tileParams.toString()}`;
+                    console.log(`[TrafficLayer] Updating tile source: ${newTileUrl}`);
+
+                    const currentTiles = (src as any).tiles;
+                    if (!currentTiles || currentTiles[0] !== newTileUrl) {
+                        (src as any).setTiles([newTileUrl]);
+                    }
                 }
 
                 const stats = result.stats;

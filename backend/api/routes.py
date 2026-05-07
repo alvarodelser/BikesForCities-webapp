@@ -46,7 +46,7 @@ from backend.database.db_io import (
     get_station_monthly_agg,
     get_avg_station_building_count, get_city_station_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
-    get_best_traffic_mode, get_latest_traffic_month,
+    get_best_traffic_mode, get_latest_traffic_month, resolve_traffic_params,
 )
 
 logger = logging.getLogger(__name__)
@@ -723,22 +723,33 @@ async def resolve_city_traffic(
             except ValueError:
                 raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
 
-        _, resolved_gen, resolved_algo, resolved_month = get_edge_traffic(
+        resolved_gen, resolved_algo, resolved_month = resolve_traffic_params(
             conn, city_id,
             generation_type=generation_type,
             algorithm=algorithm,
             month=month_date,
         )
 
+        if not resolved_gen or not resolved_algo or not resolved_month:
+            return TrafficResolveResponse(
+                success=True,
+                message="No traffic data available for this city",
+                generation_type=None,
+                algorithm=None,
+                month=None,
+                stats=None,
+                available_periods=[],
+            )
+
         stats = None
         max_edge_name = None
-        if resolved_gen and resolved_algo and resolved_month:
-            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
-            if raw:
-                stats = TrafficStats(**raw)
-            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
-            if max_edge:
-                max_edge_name = max_edge.get('edge_name')
+        raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+        if raw:
+            stats = TrafficStats(**raw)
+        
+        max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+        if max_edge:
+            max_edge_name = max_edge.get('edge_name')
 
         available_periods = None
         try:

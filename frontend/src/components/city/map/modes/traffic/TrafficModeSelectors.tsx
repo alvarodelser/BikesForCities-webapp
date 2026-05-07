@@ -29,14 +29,11 @@ export default function TrafficModeSelectors({ accent = '#027A76' }: TrafficMode
 
     const modes = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
 
-    const availableGenerations = GENERATION_ORDER.filter(g =>
-        modes.some(m => m.generation_type === g)
-    );
-    const availableAlgorithms = ALGORITHM_ORDER.filter(a =>
-        modes.some(m => m.generation_type === generation && m.algorithm === a)
-    );
+    const isGenerationAvailable = (gen: string) => modes.some(m => m.generation_type === gen);
+    const isAlgorithmAvailable = (algo: string) => modes.some(m => m.generation_type === generation && m.algorithm === algo);
 
     const handleSetGeneration = (gen: string) => {
+        if (!isGenerationAvailable(gen)) return;
         setGeneration(gen);
         const algosForGen = ALGORITHM_ORDER.filter(a =>
             modes.some(m => m.generation_type === gen && m.algorithm === a)
@@ -46,20 +43,28 @@ export default function TrafficModeSelectors({ accent = '#027A76' }: TrafficMode
         }
     };
 
-    if (availableGenerations.length === 0) return null;
+    const handleSetRouting = (algo: string) => {
+        if (!isAlgorithmAvailable(algo)) return;
+        setRouting(algo);
+    };
 
-    const PillButton = ({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) => (
+    if (modes.length === 0) return null;
+
+    const PillButton = ({ label, active, disabled, onClick }: { label: string; active: boolean; disabled: boolean; onClick: () => void }) => (
         <button
             onClick={onClick}
-            className="px-2 py-0.5 rounded-full text-[9px] font-bold border transition-all duration-150"
+            disabled={disabled}
+            className={`px-2 py-0.5 rounded-full text-[9px] font-bold border transition-all duration-150 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}
             style={active ? {
                 backgroundColor: accent,
                 color: 'white',
                 border: `1px solid ${accent}`,
+                opacity: 1,
             } : {
-                backgroundColor: 'rgba(0,0,0,0.04)',
-                color: 'rgba(0,0,0,0.45)',
-                border: '1px solid rgba(0,0,0,0.08)',
+                backgroundColor: disabled ? 'rgba(0,0,0,0.02)' : 'rgba(0,0,0,0.04)',
+                color: disabled ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.45)',
+                border: disabled ? '1px solid rgba(0,0,0,0.04)' : '1px solid rgba(0,0,0,0.08)',
+                opacity: disabled ? 0.6 : 1,
             }}
         >
             {label}
@@ -68,31 +73,35 @@ export default function TrafficModeSelectors({ accent = '#027A76' }: TrafficMode
 
     return (
         <div className="flex flex-col gap-1.5 pt-2 border-t border-black/5">
-            <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Datos</span>
-            {availableGenerations.length > 1 && (
+            <div className="flex flex-col gap-1">
+                <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Fuente de datos</span>
                 <div className="flex gap-1 flex-wrap">
-                    {availableGenerations.map(gen => (
+                    {GENERATION_ORDER.map(gen => (
                         <PillButton
                             key={gen}
                             label={GENERATION_LABELS[gen] ?? gen}
                             active={generation === gen}
+                            disabled={!isGenerationAvailable(gen)}
                             onClick={() => handleSetGeneration(gen)}
                         />
                     ))}
                 </div>
-            )}
-            {availableAlgorithms.length > 1 && (
+            </div>
+
+            <div className="flex flex-col gap-1">
+                <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Algoritmo</span>
                 <div className="flex gap-1 flex-wrap">
-                    {availableAlgorithms.map(algo => (
+                    {ALGORITHM_ORDER.map(algo => (
                         <PillButton
                             key={algo}
                             label={ALGORITHM_LABELS[algo] ?? algo}
                             active={routing === algo}
-                            onClick={() => setRouting(algo)}
+                            disabled={!isAlgorithmAvailable(algo)}
+                            onClick={() => handleSetRouting(algo)}
                         />
                     ))}
                 </div>
-            )}
+            </div>
         </div>
     );
 }
