@@ -1,7 +1,7 @@
 services:
   b4c_database:
     image: postgis/postgis:14-3.4
-    container_name: b4c_database
+    container_name: ${DB_CONTAINER_NAME:-b4c_database}
     networks:
       default:
         aliases:
@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "127.0.0.1:4000:5432"
+      - "${DB_PORT_HOST:-127.0.0.1:4000}:5432"
     volumes:
       - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
       - pgdata:/var/lib/postgresql/data
@@ -21,39 +21,39 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    container_name: b4c_backend_api
+    container_name: ${API_CONTAINER_NAME:-b4c_backend_api}
     ports:
-      - "127.0.0.1:4001:8000"
+      - "${API_PORT_HOST:-127.0.0.1:4001}:8000"
     depends_on:
       - b4c_database
     environment:
       # Database connection (connects to the db service)
-      - POSTGRES_HOST=b4c_database
-      - POSTGRES_PORT=5432
+      - POSTGRES_HOST=${POSTGRES_HOST:-b4c_database}
+      - POSTGRES_PORT=${POSTGRES_INTERNAL_PORT:-5432}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       # API configuration
       - API_HOST=0.0.0.0
       - API_PORT=8000
-      - DEBUG=true
+      - DEBUG=${DEBUG:-true}
     volumes:
       - ./backend:/app/backend
       - ./data:/app/Data
       - ./cache:/app/cache
       - ./logs:/app/logs
-    command: uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "python3 backend/database/run_migrations.py && uvicorn backend.api.main:app --host 0.0.0.0 --port 8000 --reload"
 
   b4c_tile_server:
     image: ghcr.io/maplibre/martin:main
-    container_name: b4c_tile_server
+    container_name: ${TILE_CONTAINER_NAME:-b4c_tile_server}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:4002:3000"
+      - "${TILE_PORT_HOST:-127.0.0.1:4002}:3000"
     depends_on:
       - b4c_database
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@b4c_database:5432/${POSTGRES_DB}
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST:-b4c_database}:${POSTGRES_INTERNAL_PORT:-5432}/${POSTGRES_DB}
     volumes:
       - ./martin-config.yaml:/martin-config.yaml
     command: --listen-addresses=0.0.0.0:3000 --config /martin-config.yaml

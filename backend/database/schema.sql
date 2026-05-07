@@ -376,4 +376,9 @@ CREATE INDEX IF NOT EXISTS idx_accidents_geom    ON accidents USING GIST(geom);
 CREATE INDEX IF NOT EXISTS idx_accidents_timestamp ON accidents(timestamp);
 CREATE INDEX IF NOT EXISTS idx_accidents_closest_edge ON accidents(closest_edge_id);
 CREATE INDEX IF NOT EXISTS idx_participants_accident_id ON accident_participants(accident_db_id);
+ 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version VARCHAR(255) PRIMARY KEY,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
