@@ -329,6 +329,21 @@ class TrafficResponse(BaseResponse):
     available_periods: Optional[List[str]] = None  # YYYY-MM strings desc-sorted
     max_edge_name: Optional[str] = None
 
+class TrafficResolveResponse(BaseResponse):
+    """Lean response for /traffic/resolve: resolved params + stats only, no per-edge data.
+
+    The frontend uses this to build a parameterised Martin tile URL so that
+    trip_count is baked into vector tiles rather than fetched via a separate
+    JSON endpoint and applied via thousands of setFeatureState() calls.
+    """
+    generation_type: Optional[str] = None
+    algorithm: Optional[str] = None
+    month: Optional[date] = None
+    stats: Optional[TrafficStats] = None
+    available_periods: Optional[List[str]] = None
+    max_edge_name: Optional[str] = None
+
+
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""
     data: Dict[str, Any]   # GeoJSON FeatureCollection

@@ -3,8 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
-import { fetchTraffic, fetchEdgeRoutes } from '../../../../../services/api';
-import { TILE_SERVER_URL } from '../../../../../config/api';
+import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
 import type * as GeoJSON from 'geojson';
 import type { SelectionDetail } from '../../../../../types/selection';
 
@@ -54,19 +53,34 @@ function buildEdgePopupDOM(edgeName: string | null, tripCount: number | null, on
     return container;
 }
 
-const buildColorExpr = (q5: number, q50: number, q95: number) => [
-    'interpolate', ['linear'], ['coalesce', ['get', 'trip_count'], 0],
-    0, '#edf8e9',
-    q5, '#edf8e9',
-    q50, '#74c476',
-    q95, '#005a32'
-];
+// Builds a MapLibre color expression using tile property 'trip_count' (baked in by Martin).
+// P5→lightest green, P50→mid, P95+→dark (clamped).
+function buildColorExpr(q5: number, q50: number, q95: number): unknown[] {
+    const s1 = Math.max(q5, 0);
+    const s2 = Math.max(q50, s1 + 1);
+    const s3 = Math.max(q95, s2 + 1);
+    return [
+        'case',
+        ['==', ['feature-state', 'selected'], true], '#f0c040',
+        ['interpolate', ['linear'],
+            ['coalesce', ['get', 'trip_count'], 0],
+            s1, '#edf8e9',
+            s2, '#74c476',
+            s3, '#005a32',
+        ],
+    ];
+}
 
-const buildOpacityExpr = (q5: number) => [
-    'case',
-    ['>=', ['coalesce', ['get', 'trip_count'], 0], Math.max(q5, 1)], 1,
-    0
-];
+// Edges with trip_count below P5 (and zero-count edges) are hidden; selected always visible.
+function buildOpacityExpr(q5: number): unknown[] {
+    const s1 = Math.max(q5, 0);
+    return [
+        'case',
+        ['==', ['feature-state', 'selected'], true], 1,
+        ['>=', ['coalesce', ['get', 'trip_count'], 0], s1], 1,
+        0,
+    ];
+}
 
 
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
@@ -321,16 +335,14 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     const urlParamsSetRef = useRef(false);
     useEffect(() => { urlParamsSetRef.current = false; }, [city?.id]);
 
-    // --- Data fetch: traffic counts ---
-    // Runs whenever map, city, generation or routing change.
-    // generation/routing may be empty on first load — backend resolves to best available mode.
+    // --- Data fetch: resolve traffic params, then re-point the tile source ---
+    // Only fetches a tiny JSON payload (stats + resolved gen/algo/month).
+    // The heavy trip_count data comes pre-baked in the Martin vector tiles.
     useEffect(() => {
         if (!map || !city?.id) return;
         let cancelled = false;
 
         // Only clear stale feature states when the user explicitly switches between modes
-        // (both previous values are known and at least one changed). Skipped on initial
-        // load or on the auto-resolve re-fetch to avoid a flicker.
         const prevGen = prevGenRef.current;
         const prevRoute = prevRouteRef.current;
         const modeActuallyChanged = (prevGen || prevRoute) && (prevGen !== generation || prevRoute !== routing);
@@ -338,7 +350,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         prevRouteRef.current = routing;
 
         if (modeActuallyChanged && map.getSource(SOURCE_ID)) {
-            // Re-apply selection highlight that was wiped by the bulk clear
+            // Re-apply selection highlight that was wiped by any bulk clear
             if (stickyRef.current) {
                 map.setFeatureState(
                     { source: SOURCE_ID, sourceLayer: 'edges', id: stickyRef.current.edgeId },
@@ -351,7 +363,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchTraffic(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
+            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
                 if (cancelled || !map) return;
 
                 if (!result.generation_type || !result.month) {
@@ -360,7 +372,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 }
                 setLayerState?.('idle');
 
-                // Write resolved values back to URL params if they were missing.
+                // Write resolved values back to URL params on first load
                 if (!urlParamsSetRef.current) {
                     urlParamsSetRef.current = true;
                     if (!generation && result.generation_type) setGeneration(result.generation_type);
@@ -368,21 +380,21 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 }
 
                 // Re-point the tile source to the resolved (gen, algo, month) slice.
+                // Martin will serve tiles with trip_count already baked in — no
+                // setFeatureState loop needed.
                 const src = map.getSource(SOURCE_ID) as maplibregl.VectorTileSource | undefined;
                 if (src) {
-                    const resolvedMonth = result.month ? result.month.slice(0, 7) + '-01' : '';
+                    const resolvedMonth = result.month
+                        ? result.month.slice(0, 7) + '-01'   // ensure YYYY-MM-DD
+                        : '';
                     const tileParams = new URLSearchParams();
-                    tileParams.set('generation_type', result.generation_type);
-                    tileParams.set('algorithm', result.algorithm || '');
-                    tileParams.set('month', resolvedMonth);
-                    
-                    const newTileUrl = `${TILE_SERVER_URL}/edges/{z}/{x}/{y}?${tileParams.toString()}`;
-                    console.log(`[TrafficLayer] Updating tile source: ${newTileUrl}`);
-                    
-                    const currentTiles = (src as any).tiles;
-                    if (!currentTiles || currentTiles[0] !== newTileUrl) {
-                        (src as any).setTiles([newTileUrl]);
-                    }
+                    if (result.generation_type) tileParams.set('generation_type', result.generation_type);
+                    if (result.algorithm) tileParams.set('algorithm', result.algorithm);
+                    if (resolvedMonth) tileParams.set('month', resolvedMonth);
+                    // setTiles is available on VectorTileSource in MapLibre >= 3.x
+                    (src as any).setTiles([
+                        `${import.meta.env.VITE_TILE_SERVER_URL || 'http://localhost:3000'}/edges/{z}/{x}/{y}?${tileParams.toString()}`
+                    ]);
                 }
 
                 const stats = result.stats;
@@ -443,6 +455,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
 
             const edgeName = (feature.properties?.name as string | undefined) ?? null;
+            // trip_count is now a tile property (baked by Martin), read directly
             const tripCount = (feature.properties?.trip_count as number | undefined) ?? null;
 
             map.setFeatureState(

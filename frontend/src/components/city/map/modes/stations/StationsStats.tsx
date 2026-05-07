@@ -20,6 +20,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
     totalBikes: hookTotalBikes,
     activeStations,
     cityCoverage,
+    avgBuildingCount,
     tripsBikeDay,
     avgStopMinutes,
     loading,

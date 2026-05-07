@@ -16,7 +16,7 @@ from .models import (
     NodeResponse, EdgeResponse, TripResponse, FeatureResponse,
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
     StationResponse, StationListResponse,
-    TrafficResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
+    TrafficResponse, TrafficResolveResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
     EdgeRoutesResponse,
     InfraStatsResponse, InfraComponentsResponse, EdgeBuildingCoverageResponse,
     StationBuildingCoverageResponse,
@@ -695,6 +695,81 @@ async def get_city_traffic(
     except Exception as e:
         logger.error(f"Error getting traffic for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve traffic data")
+
+
+@router.get("/cities/{city_id}/traffic/resolve", response_model=TrafficResolveResponse)
+async def resolve_city_traffic(
+    city_id: int,
+    generation_type: Optional[str] = Query(None),
+    algorithm: Optional[str] = Query(None),
+    month: Optional[str] = Query(None, description="Month YYYY-MM (defaults to latest)"),
+    conn=Depends(get_db_connection),
+):
+    """Resolve traffic parameters and return stats without per-edge data.
+
+    The frontend uses this endpoint to determine which (generation_type, algorithm, month)
+    combination to use and what the percentile stats are for the colormap.  The actual
+    trip_count values are now baked into the Martin vector tiles via the
+    edges_with_traffic() function source, so no bulk setFeatureState() loop is needed.
+    """
+    try:
+        validate_network_exists(conn, city_id)
+
+        from datetime import date as date_type
+        month_date: Optional[date_type] = None
+        if month:
+            try:
+                month_date = date_type.fromisoformat(month + "-01")
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
+
+        _, resolved_gen, resolved_algo, resolved_month = get_edge_traffic(
+            conn, city_id,
+            generation_type=generation_type,
+            algorithm=algorithm,
+            month=month_date,
+        )
+
+        stats = None
+        max_edge_name = None
+        if resolved_gen and resolved_algo and resolved_month:
+            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            if raw:
+                stats = TrafficStats(**raw)
+            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            if max_edge:
+                max_edge_name = max_edge.get('edge_name')
+
+        available_periods = None
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT TO_CHAR(month, 'YYYY-MM') AS period
+                    FROM edge_traffic
+                    WHERE city_id = %s
+                    ORDER BY period DESC
+                    """,
+                    (city_id,),
+                )
+                available_periods = [r[0] for r in cur.fetchall()]
+        except Exception as periods_err:
+            logger.warning(f"Could not fetch available traffic periods: {periods_err}")
+
+        return TrafficResolveResponse(
+            message="Traffic parameters resolved",
+            generation_type=resolved_gen,
+            algorithm=resolved_algo,
+            month=resolved_month,
+            stats=stats,
+            available_periods=available_periods,
+            max_edge_name=max_edge_name,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resolving traffic for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to resolve traffic parameters")
 
 
 @router.get("/cities/{city_id}/edges/{edge_id}/routes", response_model=EdgeRoutesResponse)

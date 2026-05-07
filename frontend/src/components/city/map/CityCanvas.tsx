@@ -159,8 +159,11 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 },
             });
 
-            // Edges vector source for traffic
-            // promoteId ensures MapLibre uses the feature's `id` field for setFeatureState across tile boundaries
+            // Edges vector source for traffic.
+            // TrafficLayer rewrites the tile URL via setTiles() after resolving
+            // (generation_type, algorithm, month) from /traffic/resolve so that
+            // trip_count is baked into each tile by Martin's edges_with_traffic() function.
+            // promoteId is still needed for feature-state selection highlight.
             mapInstance.addSource('edges-source', {
                 type: 'vector',
                 tiles: [`${TILE_SERVER_URL}/edges/{z}/{x}/{y}`],
@@ -180,7 +183,8 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                         ['==', ['feature-state', 'selected'], true], 5,
                         1.5,
                     ],
-                    // TrafficLayer.setPaintProperty replaces color+opacity with percentile-based expressions after data loads
+                    // TrafficLayer.setPaintProperty replaces color+opacity with
+                    // percentile-based expressions that read ['get','trip_count'] from tiles
                     'line-color': [
                         'case',
                         ['==', ['feature-state', 'selected'], true], '#f0c040',
