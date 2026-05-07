@@ -694,7 +694,7 @@ async def get_city_traffic(
         raise
     except Exception as e:
         logger.error(f"Error getting traffic for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve traffic data")
+        raise HTTPException(status_code=500, detail="Error al obtener los datos de tráfico")
 
 
 @router.get("/cities/{city_id}/traffic/resolve", response_model=TrafficResolveResponse)
@@ -769,7 +769,7 @@ async def resolve_city_traffic(
         raise
     except Exception as e:
         logger.error(f"Error resolving traffic for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to resolve traffic parameters")
+        raise HTTPException(status_code=500, detail="Error al resolver los parámetros de tráfico")
 
 
 @router.get("/cities/{city_id}/edges/{edge_id}/routes", response_model=EdgeRoutesResponse)
