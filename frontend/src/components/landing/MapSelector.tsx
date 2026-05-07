@@ -144,7 +144,7 @@ const MapSelector: React.FC = () => {
           setCities(data);
         } else {
           setError(
-            'No se encontraron datos de ciudades en la base de datos. Por favor, ejecuta los scripts de ingesta.',
+            'No se han encontrado datos de ciudades disponibles.',
           );
         }
         setLoading(false);
@@ -152,7 +152,7 @@ const MapSelector: React.FC = () => {
       .catch(err => {
         console.error(err);
         setError(
-          'No se puede conectar con la base de datos. Asegúrate de que Docker esté en ejecución.',
+          'Error al conectar con el servidor. Por favor, inténtelo de nuevo más tarde.',
         );
         setLoading(false);
       });

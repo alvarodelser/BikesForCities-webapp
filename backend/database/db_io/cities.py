@@ -137,11 +137,12 @@ def get_all_cities(conn) -> List[Tuple]:
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
                 cm.total_stations,
                 cm.estimated_monthly_trips AS monthly_trips,
-                cm.bicycles_count
+                cm.bicycles_count,
+                cm.station_coverage
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
-                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count
+                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
                 FROM city_metrics
                 WHERE city_id = c.id
                 ORDER BY metric_month DESC
@@ -199,12 +200,13 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                 cm.total_stations AS stations_count,
                 cm.estimated_monthly_trips AS monthly_trips,
                 cm.bicycles_count,
+                cm.station_coverage,
                 m.infrastructure, m.traffic, m.traffic_combinations,
                 m.accidents, m.stations
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
-                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count
+                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
                 FROM city_metrics
                 WHERE city_id = c.id
                 ORDER BY metric_month DESC

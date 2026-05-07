@@ -17,15 +17,18 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
 
 const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
   const {
+    totalBikes: hookTotalBikes,
     activeStations,
     cityCoverage,
+    avgBuildingCount,
     tripsBikeDay,
     avgStopMinutes,
     loading,
-  } = useStationsStats(city.id ?? null);
+  } = useStationsStats(city.id ?? null, city.bicycles_count);
 
-  const totalBikes: number | null = city.bicycles_count ?? null;
+  const totalBikes: number | null = hookTotalBikes ?? city.bicycles_count ?? null;
   const stationsCount: number | null = activeStations ?? city.stations_count ?? null;
+  const resolvedCityCoverage: number | null = cityCoverage ?? city.station_coverage ?? null;
 
   const bikesPerThousand: number | null =
     totalBikes !== null && city.population > 0
@@ -42,7 +45,8 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
   const bikesPerThousandStr = loading ? '—' : fmt(bikesPerThousand, 1, '/ 1k hab');
   const tripsBikeDayStr = loading ? '—' : fmt(derivedTripsBikeDay, 2, '');
   const activeStationsStr = loading ? '—' : fmt(stationsCount, 0, '');
-  const cityCoverageStr = loading ? '—' : fmt(cityCoverage != null ? cityCoverage * 100 : null, 1, '%');
+  const cityCoverageStr = loading ? '—' : fmt(resolvedCityCoverage != null ? resolvedCityCoverage * 100 : null, 1, '%');
+  const avgBuildingCountStr = loading ? '—' : fmt(avgBuildingCount, 0, 'edif.');
   const avgStopStr = loading ? '—' : fmt(avgStopMinutes, 0, 'min');
 
   const cityId = city.id ?? 0;
@@ -81,47 +85,52 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
         />
       </div>
 
-      {/* Second row: left 2-sub-col (Densidad + Uso diario), right 2-sub-col (Cobertura + Tiempo parada) */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid grid-cols-2 gap-4">
-          <MetricPill
+      {/* Second row: 3 columns for density, usage, coverage, surroundings, and downtime */}
+      <div className="grid grid-cols-3 gap-4">
+        <MetricPill
           loading={loading}
-            value={bikesPerThousandStr}
-            label="Densidad"
-            sublabel="Bicis / 1.000 hab."
-            icon={Users}
-            accent={ACCENT}
-            helpContent="Número de bicicletas disponibles por cada 1.000 habitantes. Permite comparar la intensidad del servicio entre ciudades de distintos tamaños en igualdad de condiciones."
-          />
-          <MetricPill
+          value={bikesPerThousandStr}
+          label="Densidad"
+          sublabel="Bicis / 1.000 hab."
+          icon={Users}
+          accent={ACCENT}
+          helpContent="Número de bicicletas disponibles por cada 1.000 habitantes. Permite comparar la intensidad del servicio entre ciudades de distintos tamaños en igualdad de condiciones."
+        />
+        <MetricPill
           loading={loading}
-            value={tripsBikeDayStr}
-            label="Uso diario"
-            sublabel="Viajes / bici / día"
-            icon={Activity}
-            accent={ACCENT}
-            helpContent="Número de viajes por bicicleta y día. Un valor alto indica un servicio con alta demanda y rotación. Se calcula dividiendo los viajes mensuales entre el número de bicicletas y los días del mes."
-          />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <MetricPill
-            loading={loading}
-            value={cityCoverageStr}
-            label="Cobertura"
-            sublabel="% edificios a <150m"
-            icon={TrendingUp}
-            accent={ACCENT}
-            helpContent="Porcentaje de edificios del área de estudio que tienen al menos una estación a menos de 150 metros. Refleja el alcance geográfico real del servicio."
-          />
-          <MetricPill
-            loading={loading}
-            value={avgStopStr}
-            label="Tiempo inoperativa"
-            sublabel="Min. sin bicis / día"
-            icon={Clock}
-            helpContent="Tiempo medio diario que una estación permanece inoperativa. Un valor alto indica que la estación se queda sin servicio durante largos períodos."
-          />
-        </div>
+          value={tripsBikeDayStr}
+          label="Uso diario"
+          sublabel="Viajes / bici / día"
+          icon={Activity}
+          accent={ACCENT}
+          helpContent="Número de viajes por bicicleta y día. Un valor alto indica un servicio con alta demanda y rotación. Se calcula dividiendo los viajes mensuales entre el número de bicicletas y los días del mes."
+        />
+        <MetricPill
+          loading={loading}
+          value={cityCoverageStr}
+          label="Cobertura"
+          sublabel="% edificios a <150m"
+          icon={TrendingUp}
+          accent={ACCENT}
+          helpContent="Porcentaje de edificios del área de estudio que tienen al menos una estación a menos de 150 metros. Refleja el alcance geográfico real del servicio."
+        />
+        <MetricPill
+          loading={loading}
+          value={avgBuildingCountStr}
+          label="Entorno"
+          sublabel="Edif. por estación"
+          icon={Clock}
+          accent={ACCENT}
+          helpContent="Número medio de edificios cubiertos por cada estación (en un radio de 150m). Indica la densidad urbana en la que se sitúan las estaciones."
+        />
+        <MetricPill
+          loading={loading}
+          value={avgStopStr}
+          label="Inoperativa"
+          sublabel="Min. sin bicis / día"
+          icon={Clock}
+          helpContent="Tiempo medio diario que una estación permanece inoperativa (sin bicicletas o sin anclajes libres). Un valor alto indica problemas de reposición."
+        />
       </div>
 
       {/* Charts */}

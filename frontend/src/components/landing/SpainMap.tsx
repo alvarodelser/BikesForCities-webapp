@@ -84,7 +84,7 @@ const loadSpainGeoJSON = async (isMobile: boolean) => {
     if (!cachedRawGeoJSON) {
       const response = await fetch(spainGeoJSON);
       if (!response.ok) {
-        throw new Error(`Failed to load GeoJSON: ${response.status}`);
+        throw new Error(`Error al cargar la geometría: ${response.status}`);
       }
       cachedRawGeoJSON = await response.json();
     }
@@ -266,7 +266,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         setError(null);
       })
       .catch(err => {
-        setError(err.message || 'Failed to load map data');
+        setError(err.message || 'Error al cargar los datos del mapa');
       });
   }, [isMobile]);
 
@@ -363,7 +363,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     return (
       <div ref={rootRef} className={rootClassName} style={rootStyle}>
         <ErrorContainer
-          title="Map Unavailable"
+          title="Mapa no disponible"
           message={error}
           showRetry={true}
         />

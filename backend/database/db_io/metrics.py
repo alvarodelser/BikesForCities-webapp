@@ -195,18 +195,25 @@ def calculate_osm_metrics(conn, city_id: int, center_lat: float, center_lon: flo
 
 
 def get_city_bicycles_count(conn, city_id: int, start: dt.datetime, end: dt.datetime) -> Optional[int]:
-    """Sum of per-station median available_bikes at 4 AM UTC during the given period."""
+    """Sum of per-station median available_bikes sampled between 4-5 AM UTC daily."""
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT ROUND(SUM(median_bikes))::int
             FROM (
                 SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY available_bikes) AS median_bikes
-                FROM station_readings
-                WHERE city_id = %s
-                  AND EXTRACT(HOUR FROM observed_at AT TIME ZONE 'UTC') = 4
-                  AND observed_at >= %s
-                  AND observed_at < %s
+                FROM (
+                    -- Sample one reading per day per station in the 4-5 AM window
+                    SELECT DISTINCT ON (station_id, DATE(observed_at AT TIME ZONE 'UTC'))
+                        station_id,
+                        available_bikes
+                    FROM station_readings
+                    WHERE city_id = %s
+                      AND EXTRACT(HOUR FROM observed_at AT TIME ZONE 'UTC') BETWEEN 4 AND 5
+                      AND observed_at >= %s
+                      AND observed_at < %s
+                    ORDER BY station_id, DATE(observed_at AT TIME ZONE 'UTC'), observed_at
+                ) daily_samples
                 GROUP BY station_id
             ) s
             """,
@@ -245,6 +252,7 @@ def upsert_city_metrics(
     gcc_km: Optional[float] = None,
     n_components: Optional[int] = None,
     bicycles_count: Optional[int] = None,
+    station_coverage: Optional[float] = None,
 ) -> None:
     """Upsert monthly analytics metrics into city_metrics."""
     with conn.cursor() as cur:
@@ -253,9 +261,10 @@ def upsert_city_metrics(
             INSERT INTO city_metrics (
                 city_id, metric_month, coverage, total_kilometers,
                 estimated_monthly_trips, total_stations, avg_station_downtime,
-                gcc_fraction, gcc_km, n_components, bicycles_count, updated_at
+                gcc_fraction, gcc_km, n_components, bicycles_count, 
+                station_coverage, updated_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
             ON CONFLICT (city_id, metric_month) DO UPDATE SET
                 coverage                = COALESCE(EXCLUDED.coverage,          city_metrics.coverage),
                 total_kilometers        = COALESCE(EXCLUDED.total_kilometers,   city_metrics.total_kilometers),
@@ -266,11 +275,12 @@ def upsert_city_metrics(
                 gcc_km                  = COALESCE(EXCLUDED.gcc_km,             city_metrics.gcc_km),
                 n_components            = COALESCE(EXCLUDED.n_components,       city_metrics.n_components),
                 bicycles_count          = COALESCE(EXCLUDED.bicycles_count,     city_metrics.bicycles_count),
+                station_coverage        = COALESCE(EXCLUDED.station_coverage,   city_metrics.station_coverage),
                 updated_at              = NOW()
             """,
             (city_id, metric_month, coverage, total_km,
              estimated_monthly_trips, total_stations, station_downtime,
-             gcc_fraction, gcc_km, n_components, bicycles_count),
+             gcc_fraction, gcc_km, n_components, bicycles_count, station_coverage),
         )
 
 

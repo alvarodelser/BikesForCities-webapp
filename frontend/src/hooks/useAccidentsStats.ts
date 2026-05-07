@@ -225,7 +225,7 @@ export function useAccidentsStats(cityId: number | null): AccidentsStatsResult {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch accident data');
+        setError(err instanceof Error ? err.message : 'Error al cargar los datos de accidentes');
         setLoading(false);
       });
 

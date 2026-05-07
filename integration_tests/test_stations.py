@@ -29,7 +29,7 @@ def get_city_id(city_name: str) -> Optional[int]:
         city_id = int(city_name)
         match = next((c for c in cities if c["id"] == city_id), None)
         if match:
-            return match["id"]
+            return match
     except ValueError:
         pass
 
@@ -41,12 +41,7 @@ def get_city_id(city_name: str) -> Optional[int]:
          city_name_lower == (c.get("slug") or "").lower()),
         None,
     )
-    if match:
-        return match
-
-    print(f"❌ City '{city_name}' not found")
-    print(f"   Available: {', '.join(c['name'] for c in cities[:10])}")
-    return None
+    return match
 
 
 def test_city_details(city_id: int):
@@ -197,12 +192,14 @@ def test_stations_building_coverage(city_id: int):
     try:
         resp = requests.get(f"{API_BASE}/cities/{city_id}/stations/building-coverage", timeout=TIMEOUT)
         resp.raise_for_status()
-        # Note: This endpoint returns a single value (coverage), not a list of stations
+        # Returns {avg_count: float, city_coverage: float}
         data = resp.json()
-        avg_coverage = data.get("coverage")
+        avg_count = data.get("avg_count")
+        city_coverage = data.get("city_coverage")
         
-        if avg_coverage is not None:
-            print(f"   ✓ Average station building coverage: {avg_coverage}")
+        if avg_count is not None and city_coverage is not None:
+            print(f"   ✓ Avg buildings per station: {avg_count:.1f}")
+            print(f"   ✓ City-wide station coverage: {city_coverage*100:.1f}%")
         else:
             print(f"   ⚠ WARNING: Unexpected response format: {data}")
 

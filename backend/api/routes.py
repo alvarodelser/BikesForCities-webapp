@@ -67,7 +67,7 @@ async def list_networks(conn=Depends(get_db_connection)):
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
              infra, traffic, traffic_combos, accidents, stations,
-             mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
+             mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count, station_coverage) = row
 
             bounds = None
             if min_lat is not None and max_lat is not None and min_lon is not None and max_lon is not None:
@@ -104,7 +104,8 @@ async def list_networks(conn=Depends(get_db_connection)):
                 monthly_trips=int(monthly_trips) if monthly_trips is not None else None,
                 bicycles_count=int(bicycles_count) if bicycles_count is not None else None,
                 bounds=bounds,
-                available_modes=available_modes
+                available_modes=available_modes,
+                station_coverage=station_coverage
             )
             cities.append(city_obj)
 
@@ -115,7 +116,7 @@ async def list_networks(conn=Depends(get_db_connection)):
         )
     except Exception as e:
         logger.error(f"Error listing cities: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve cities")
+        raise HTTPException(status_code=500, detail="Error al obtener las ciudades")
 
 
 @router.get("/cities/{city_id}", response_model=CityDetailResponse)
@@ -126,7 +127,7 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
         
         city_dict = get_city_details(conn, city_id)
         if not city_dict:
-            raise HTTPException(status_code=404, detail="City not found")
+            raise HTTPException(status_code=404, detail="Ciudad no encontrada")
         
         bounds_dict = get_city_bounds(conn, city_id)
 
@@ -166,7 +167,7 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
         raise
     except Exception as e:
         logger.error(f"Error getting city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve city")
+        raise HTTPException(status_code=500, detail="Error al obtener la ciudad")
 
 
 @router.get("/cities/{city_id}/stats", response_model=CityStatsResponse)
@@ -202,7 +203,7 @@ async def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
         raise
     except Exception as e:
         logger.error(f"Error getting city stats {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve city statistics")
+        raise HTTPException(status_code=500, detail="Error al obtener las estadísticas de la ciudad")
 
 
 # Node endpoints
@@ -240,7 +241,7 @@ async def get_network_nodes(
         raise
     except Exception as e:
         logger.error(f"Error getting nodes for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve nodes")
+        raise HTTPException(status_code=500, detail="Error al obtener los nodos")
 
 
 # Edge endpoints
@@ -279,7 +280,7 @@ async def get_network_edges(
         raise
     except Exception as e:
         logger.error(f"Error getting edges for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve edges")
+        raise HTTPException(status_code=500, detail="Error al obtener los tramos")
 
 
 # Trip endpoints
@@ -327,7 +328,7 @@ async def get_network_trips(
         raise
     except Exception as e:
         logger.error(f"Error getting trips for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve trips")
+        raise HTTPException(status_code=500, detail="Error al obtener los trayectos")
 
 
 # Feature endpoints
@@ -374,7 +375,7 @@ async def get_network_features(
         raise
     except Exception as e:
         logger.error(f"Error getting features for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve features")
+        raise HTTPException(status_code=500, detail="Error al obtener los elementos")
 
 
 # GeoJSON endpoints
@@ -430,7 +431,7 @@ async def get_network_edges_geojson(
         raise
     except Exception as e:
         logger.error(f"Error getting GeoJSON edges for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON edges")
+        raise HTTPException(status_code=500, detail="Error al obtener la geometría de los tramos")
 
 
 @router.get("/cities/{city_id}/features/geojson", response_model=GeoJSONResponse)
@@ -485,7 +486,7 @@ async def get_network_features_geojson(
         raise
     except Exception as e:
         logger.error(f"Error getting GeoJSON features for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve GeoJSON features")
+        raise HTTPException(status_code=500, detail="Error al obtener la geometría de los elementos")
 
 
 # Station endpoints
@@ -506,7 +507,7 @@ async def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
         raise
     except Exception as e:
         logger.error(f"Error getting stations for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve stations")
+        raise HTTPException(status_code=500, detail="Error al obtener las estaciones")
 
 
 @router.get("/cities/{city_id}/stations/{station_id}/hourly-availability")
@@ -527,7 +528,7 @@ async def get_station_hourly_availability_api(
         raise
     except Exception as e:
         logger.error(f"Error getting hourly availability for station {station_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve hourly availability")
+        raise HTTPException(status_code=500, detail="Error al obtener la disponibilidad horaria")
 
 
 @router.get("/cities/{city_id}/stations/{station_id}/reach")
@@ -597,7 +598,7 @@ async def get_station_reach(
         raise
     except Exception as e:
         logger.error(f"Error computing reachability for station {station_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to compute reachability")
+        raise HTTPException(status_code=500, detail="Error al calcular el alcance")
 
 
 # Traffic endpoints
@@ -617,7 +618,7 @@ async def get_city_traffic_modes(
         raise
     except Exception as e:
         logger.error(f"Error getting traffic modes for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve traffic modes")
+        raise HTTPException(status_code=500, detail="Error al obtener los modos de tráfico")
 
 
 @router.get("/cities/{city_id}/traffic", response_model=TrafficResponse)
@@ -638,7 +639,7 @@ async def get_city_traffic(
             try:
                 month_date = date_type.fromisoformat(month + "-01")
             except ValueError:
-                raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
+                raise HTTPException(status_code=422, detail="Formato de mes inválido. Use AAAA-MM.")
 
         rows, resolved_gen, resolved_algo, resolved_month = get_edge_traffic(
             conn, city_id,
@@ -721,7 +722,7 @@ async def get_edge_routes(
                 (edge_id, city_id),
             )
             if not cur.fetchone():
-                raise HTTPException(status_code=404, detail="Edge not found in this city")
+                raise HTTPException(status_code=404, detail="Tramo no encontrado en esta ciudad")
 
         total = count_edge_routes(
             conn, city_id, edge_id,
@@ -781,7 +782,7 @@ async def get_edge_routes(
         raise
     except Exception as e:
         logger.error(f"Error getting routes for edge {edge_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve edge routes")
+        raise HTTPException(status_code=500, detail="Error al obtener las rutas de los tramos")
 
 
 # Accidents endpoint
@@ -808,7 +809,7 @@ async def get_city_accidents(
         raise
     except Exception as e:
         logger.error(f"Error getting accidents for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve accident data")
+        raise HTTPException(status_code=500, detail="Error al obtener los datos de accidentes")
 
 
 # ── Infrastructure analytics ──────────────────────────────────────────────────
@@ -844,7 +845,7 @@ async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)
         raise
     except Exception as e:
         logger.error(f"Error getting infra stats for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve infrastructure stats")
+        raise HTTPException(status_code=500, detail="Error al obtener las estadísticas de infraestructura")
 
 
 @router.get("/cities/{city_id}/infrastructure/components", response_model=InfraComponentsResponse)
@@ -858,7 +859,7 @@ async def get_infrastructure_components(city_id: int, conn=Depends(get_db_connec
         raise
     except Exception as e:
         logger.error(f"Error getting infra components for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve infrastructure components")
+        raise HTTPException(status_code=500, detail="Error al obtener los componentes de infraestructura")
 
 
 @router.get("/cities/{city_id}/infrastructure/building-coverage", response_model=InfraComponentsResponse)
@@ -871,7 +872,7 @@ async def get_infrastructure_building_coverage(city_id: int, conn=Depends(get_db
         raise
     except Exception as e:
         logger.error(f"Error getting building coverage components for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve building coverage components")
+        raise HTTPException(status_code=500, detail="Error al obtener los datos de cobertura de edificios")
 
 
 @router.get("/cities/{city_id}/infrastructure/edge-building-coverage", response_model=EdgeBuildingCoverageResponse)
@@ -884,7 +885,7 @@ async def get_infrastructure_edge_building_coverage(city_id: int, conn=Depends(g
         raise
     except Exception as e:
         logger.error(f"Error getting edge building coverage for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve edge building coverage")
+        raise HTTPException(status_code=500, detail="Error al obtener la cobertura de edificios por tramo")
 
 
 # ── Traffic analytics ─────────────────────────────────────────────────────────
@@ -930,7 +931,7 @@ async def get_city_traffic_infra_coverage(
         raise
     except Exception as e:
         logger.error(f"Error getting traffic infra coverage for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve traffic infra coverage")
+        raise HTTPException(status_code=500, detail="Error al obtener la cobertura de infraestructura de tráfico")
 
 
 @router.get("/cities/{city_id}/traffic/histogram", response_model=RouteHistogramResponse)
@@ -958,7 +959,7 @@ async def get_city_route_histogram(
         raise
     except Exception as e:
         logger.error(f"Error getting route histogram for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve route histogram")
+        raise HTTPException(status_code=500, detail="Error al obtener el histograma de rutas")
 
 
 # ── Station analytics ─────────────────────────────────────────────────────────
@@ -976,7 +977,7 @@ async def get_station_building_coverage_route(city_id: int, conn=Depends(get_db_
         )
     except Exception as e:
         logger.error(f"Error getting station building metrics for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve station building metrics")
+        raise HTTPException(status_code=500, detail="Error al obtener las métricas de edificios de estaciones")
 
 
 @router.get("/cities/{city_id}/stations/monthly", response_model=StationMonthlyResponse)
@@ -993,7 +994,7 @@ async def get_city_station_monthly(city_id: int, conn=Depends(get_db_connection)
         raise
     except Exception as e:
         logger.error(f"Error getting station monthly for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve station monthly data")
+        raise HTTPException(status_code=500, detail="Error al obtener los datos mensuales de estaciones")
 
 
 # ── Budget & political data ───────────────────────────────────────────────────
@@ -1027,7 +1028,7 @@ async def get_city_budgets_endpoint(city_id: int, conn=Depends(get_db_connection
         raise
     except Exception as e:
         logger.error(f"Error getting budgets for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve budgets")
+        raise HTTPException(status_code=500, detail="Error al obtener los presupuestos")
 
 
 @router.get("/cities/{city_id}/mayors", response_model=MayorsTimelineResponse)
@@ -1046,7 +1047,7 @@ async def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)
         raise
     except Exception as e:
         logger.error(f"Error getting mayors timeline for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve mayors timeline")
+        raise HTTPException(status_code=500, detail="Error al obtener la historia de alcaldes")
 
 
 @router.get("/cities/{city_id}/context", response_model=CityContextResponse)
@@ -1098,7 +1099,7 @@ def get_city_context(city_id: int, conn=Depends(get_db_connection)):
         raise
     except Exception as e:
         logger.error(f"Error getting city context for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve city context")
+        raise HTTPException(status_code=500, detail="Error al obtener el contexto de la ciudad")
 
 
 # Status endpoint
@@ -1123,7 +1124,7 @@ async def get_system_status(conn=Depends(get_db_connection)):
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
              infra, traffic, traffic_combos, accidents, stations,
-             mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count) = row
+             mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count, station_coverage) = row
 
             city_stats.append({
                 "id": city_id,
@@ -1181,7 +1182,7 @@ async def get_system_status(conn=Depends(get_db_connection)):
         }
     except Exception as e:
         logger.error(f"Error getting system status: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve system status")
+        raise HTTPException(status_code=500, detail="Error al obtener el estado del sistema")
 
 
 # Health check with database validation

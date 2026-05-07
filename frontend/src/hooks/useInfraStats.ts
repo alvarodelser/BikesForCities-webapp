@@ -41,7 +41,7 @@ export function useInfraStats(cityId: number | null): InfraStatsResult {
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch infra stats');
+        setError(err instanceof Error ? err.message : 'Error al cargar las estadísticas de infraestructura');
         setLoading(false);
       });
 

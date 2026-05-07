@@ -41,7 +41,7 @@ export const getModeStats = (selectedMode: MapMode | string, city: CityData): Mo
     case MAP_MODES.INFRASTRUCTURE:
       return {
         stats: [
-          { label: 'Longitud de red', value: `${formatDistance(city.cyclingNetwork)} km`, trend: 'up', icon: BarChart3 },
+          { label: 'Longitud de red', value: `${formatDistance(city.cyclingNetwork || 0)} km`, trend: 'up', icon: BarChart3 },
           { label: 'Puntuación de conectividad', value: '78%', trend: 'up', icon: Target },
           { label: 'Extensiones planificadas', value: `${formatDistance(12)} km`, trend: 'up', icon: TrendingUp },
           { label: 'Densidad de red', value: '2,3 km/km²', trend: 'neutral', icon: Activity }

@@ -24,7 +24,7 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch station monthly data');
+        setError(err instanceof Error ? err.message : 'Error al cargar los datos mensuales de estaciones');
         setLoading(false);
       });
 

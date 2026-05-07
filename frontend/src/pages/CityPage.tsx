@@ -20,7 +20,7 @@ const CityPage: React.FC = () => {
     setError(null);
     fetchCities().then(cities => {
       if (!cities || cities.length === 0) {
-        setError("Unable to find city data. The database might be empty or unreachable.");
+        setError("No se han encontrado datos de las ciudades. Por favor, inténtelo de nuevo más tarde.");
         setInitialLoading(false);
         return;
       }
@@ -29,7 +29,7 @@ const CityPage: React.FC = () => {
         c.name.toLowerCase().replace(/\s+/g, '') === cityName?.toLowerCase().replace(/\s+/g, '')
       );
       if (!found) {
-        setError(`The city "${cityName}" could not be found.`);
+        setError(`No se ha podido encontrar la ciudad "${cityName}".`);
         setInitialLoading(false);
       } else {
         setCity(found);
@@ -38,7 +38,7 @@ const CityPage: React.FC = () => {
       }
     }).catch(err => {
       console.error(err);
-      setError("Unable to reach the database. Please ensure the backend is running.");
+      setError("No se ha podido conectar con el servidor. Por favor, compruebe su conexión e inténtelo de nuevo.");
       setInitialLoading(false);
     });
   }, [cityName]);
@@ -55,8 +55,8 @@ const CityPage: React.FC = () => {
     return (
       <div className="w-full h-dvh flex flex-col items-center justify-center bg-[var(--blue-dark)]">
         <ErrorContainer
-          title="City Not Found"
-          message={error || "The city you are looking for does not exist."}
+          title="Ciudad no encontrada"
+          message={error || "La ciudad que busca no existe en nuestra base de datos."}
           showHome={true}
         />
       </div>

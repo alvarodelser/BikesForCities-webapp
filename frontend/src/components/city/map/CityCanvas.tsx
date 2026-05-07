@@ -6,6 +6,7 @@ import type { CityData } from '../../../constants/cities';
 import { TILE_SERVER_URL } from '../../../config/api';
 import ActiveLayer from './ActiveLayer';
 import LoadingContainer from '../../ui/LoadingContainer';
+import ErrorContainer from '../../ui/ErrorContainer';
 
 import { MAP_MODES } from '../../../constants/mapModes';
 
@@ -236,19 +237,14 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                     )}
                     {layerState === 'error' && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm z-10">
-                            <div className="bg-white p-6 rounded-xl shadow-xl text-center max-w-sm flex flex-col items-center gap-2">
-                                <h3 className="text-lg font-bold text-slate-800">Error cargando datos</h3>
-                                <p className="text-sm text-slate-600 mb-2">No se pudieron cargar los datos de esta capa.</p>
-                                {onRetry && (
-                                    <button 
-                                        onClick={onRetry}
-                                        className="px-4 py-2 text-white rounded-lg font-semibold transition-colors"
-                                        style={{ backgroundColor: primaryColor }}
-                                    >
-                                        Reintentar
-                                    </button>
-                                )}
-                            </div>
+                            <ErrorContainer 
+                                title="Error cargando datos"
+                                message="No se pudieron cargar los datos de esta capa. Por favor, inténtelo de nuevo."
+                                showRetry={!!onRetry}
+                                onRetry={onRetry}
+                                variant="inline"
+                                className="bg-white p-6 rounded-xl shadow-xl max-w-sm"
+                            />
                         </div>
                     )}
                     {layerState === 'empty' && (

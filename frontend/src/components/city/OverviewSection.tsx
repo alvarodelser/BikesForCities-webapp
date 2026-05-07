@@ -91,7 +91,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               </div>
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Red Ciclista</h3>
             </div>
-            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{formatDistance(city.cyclingNetwork)}km</p>
+            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{formatDistance(city.cyclingNetwork || 0)}km</p>
 
           </GlassCard>
 
@@ -106,7 +106,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               </div>
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Cobertura</h3>
             </div>
-            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{formatPercentage(city.coverage)}%</p>
+            <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">{formatPercentage(city.coverage || 0)}%</p>
 
           </GlassCard>
         </div>

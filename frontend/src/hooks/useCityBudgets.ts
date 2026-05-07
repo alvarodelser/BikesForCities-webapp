@@ -83,7 +83,7 @@ export function useCityBudgets(cityId: number | null): {
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch city budgets');
+        setError(err instanceof Error ? err.message : 'Error al cargar los presupuestos de la ciudad');
         setLoading(false);
       });
 

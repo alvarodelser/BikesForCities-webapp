@@ -66,7 +66,7 @@ async def global_exception_handler(request, exc):
     logger.error(f"Unexpected error: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
-        content={"detail": "Internal server error"}
+        content={"detail": "Error interno del servidor"}
     )
 
 # Health check endpoint

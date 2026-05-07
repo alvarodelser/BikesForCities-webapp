@@ -41,8 +41,6 @@ const LegendItem: React.FC<LegendItemProps> = ({ type, color, label, isInteracta
 );
 
 const BUILDINGS_LAYER_ID = 'bike-path-buildings-layer';
-const COVERAGE_SOURCE_ID = 'building-coverage-source';
-const COVERAGE_LAYER_ID = 'building-coverage-layer';
 
 const COMPONENT_COLORS = [
     '#00cac3',
@@ -78,7 +76,7 @@ const CoverageColorSquare = ({ active }: { active: boolean }) => (
 export default function InfrastructureLegend() {
     const [showBikePathBuildings, setShowBikePathBuildings] = useState(true);
     const [showCoverage, setShowCoverage] = useState(false);
-    const { map, city } = useMap();
+    const { map } = useMap();
 
     // Buildings layer — controlled only by showBikePathBuildings
     useEffect(() => {

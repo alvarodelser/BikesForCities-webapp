@@ -5,7 +5,7 @@ import type * as GeoJSON from 'geojson';
 export const fetchCities = async (): Promise<CityData[]> => {
   const response = await fetch(`${API_BASE_URL}/cities`);
   if (!response.ok) {
-    throw new Error('Failed to fetch cities');
+    throw new Error('Error al cargar las ciudades');
   }
   const result = await response.json();
 
@@ -29,6 +29,7 @@ export const fetchCities = async (): Promise<CityData[]> => {
     stations_count: city.stations_count,
     monthly_trips: city.monthly_trips,
     bicycles_count: city.bicycles_count,
+    station_coverage: city.station_coverage,
     available_modes: city.available_modes,
   }));
 };
@@ -43,14 +44,14 @@ export interface StationData {
   estimated_monthly_trips: number | null;
   downtime_minutes: number | null;
   reach_coverage?: number;
-  building_coverage?: number;
+  building_count?: number;
   extra?: any;
 }
 
 export const fetchStations = async (cityId: number): Promise<StationData[]> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations`);
   if (!response.ok) {
-    throw new Error('Failed to fetch stations');
+    throw new Error('Error al cargar las estaciones');
   }
   const result = await response.json();
   return result.data;
@@ -97,7 +98,7 @@ export interface SystemStatus {
 
 export const fetchSystemStatus = async (): Promise<SystemStatus> => {
   const response = await fetch(`${API_BASE_URL}/status`);
-  if (!response.ok) throw new Error('Failed to fetch system status');
+  if (!response.ok) throw new Error('Error al cargar el estado del sistema');
   const result = await response.json();
   return result.data;
 };
@@ -111,7 +112,7 @@ export const fetchStationHourlyAvailability = async (
     `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/hourly-availability?period=${period}`
   );
   if (!response.ok) {
-    throw new Error('Failed to fetch hourly availability');
+    throw new Error('Error al cargar la disponibilidad horaria');
   }
   const result = await response.json();
   return result.data;
@@ -161,7 +162,7 @@ export const fetchTraffic = async (
   const qs = params.toString();
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic${qs ? `?${qs}` : ''}`);
   if (!response.ok) {
-    throw new Error('Failed to fetch traffic data');
+    throw new Error('Error al cargar los datos de tráfico');
   }
   const result = await response.json();
   return {
@@ -176,9 +177,46 @@ export const fetchTraffic = async (
   };
 };
 
+// Lean alternative to fetchTraffic: resolves (generation_type, algorithm, month) and
+// returns percentile stats without any per-edge data. The trip_count values themselves
+// are now baked into Martin vector tiles via the edges_with_traffic() SQL function.
+export interface TrafficResolveResult {
+  generation_type: string | null;
+  algorithm: string | null;
+  month: string | null;
+  stats: TrafficApiResponse['stats'];
+  available_periods?: string[];
+  max_edge_name?: string | null;
+}
+
+export const fetchTrafficResolve = async (
+  cityId: number,
+  generationType?: string,
+  algorithm?: string,
+  month?: string,
+): Promise<TrafficResolveResult> => {
+  const params = new URLSearchParams();
+  if (generationType) params.set('generation_type', generationType);
+  if (algorithm) params.set('algorithm', algorithm);
+  if (month) params.set('month', month);
+  const qs = params.toString();
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
+  if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
+  const result = await response.json();
+  return {
+    generation_type: result.generation_type ?? null,
+    algorithm: result.algorithm ?? null,
+    month: result.month ?? null,
+    stats: result.stats ?? null,
+    available_periods: result.available_periods,
+    max_edge_name: result.max_edge_name ?? null,
+  };
+};
+
+
 export const fetchTrafficModes = async (cityId: number): Promise<TrafficMode[]> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/modes`);
-  if (!response.ok) throw new Error('Failed to fetch traffic modes');
+  if (!response.ok) throw new Error('Error al cargar los modos de tráfico');
   const result = await response.json();
   return result.data;
 };
@@ -214,7 +252,7 @@ export const fetchEdgeRoutes = async (
   const response = await fetch(
     `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?${qs.toString()}`
   );
-  if (!response.ok) throw new Error('Failed to fetch edge routes');
+  if (!response.ok) throw new Error('Error al cargar las rutas de los tramos');
   const envelope = await response.json();
   return {
     data: envelope.data,
@@ -241,7 +279,7 @@ export const fetchStationReach = async (
     `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/reach?max_distance=${maxDistance}`
   );
   if (!response.ok) {
-    throw new Error('Failed to fetch station reachability');
+    throw new Error('Error al cargar el alcance de la estación');
   }
   const result = await response.json();
   return result.data;
@@ -290,7 +328,7 @@ export interface AccidentsGeoJSON {
 export const fetchAccidents = async (cityId: number): Promise<AccidentsGeoJSON> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=false`);
   if (!response.ok) {
-    throw new Error('Failed to fetch accident data');
+    throw new Error('Error al cargar los datos de accidentes');
   }
   const result = await response.json();
   return result.data;
@@ -312,14 +350,14 @@ export interface InfraStats {
 
 export const fetchInfraComponents = async (cityId: number): Promise<GeoJSON.FeatureCollection> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/components`);
-  if (!response.ok) throw new Error('Failed to fetch infrastructure components');
+  if (!response.ok) throw new Error('Error al cargar los componentes de infraestructura');
   const result = await response.json();
   return result.data;
 };
 
 export const fetchBuildingCoverageComponents = async (cityId: number): Promise<GeoJSON.FeatureCollection> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/building-coverage`);
-  if (!response.ok) throw new Error('Failed to fetch building coverage components');
+  if (!response.ok) throw new Error('Error al cargar los datos de cobertura de edificios');
   const result = await response.json();
   return result.data;
 };
@@ -332,14 +370,14 @@ export interface EdgeBuildingCoverageItem {
 
 export const fetchEdgeBuildingCoverage = async (cityId: number): Promise<EdgeBuildingCoverageItem[]> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/edge-building-coverage`);
-  if (!response.ok) throw new Error('Failed to fetch edge building coverage');
+  if (!response.ok) throw new Error('Error al cargar la cobertura de edificios por tramo');
   const result = await response.json();
   return result.edges;
 };
 
 export const fetchInfraStats = async (cityId: number): Promise<InfraStats> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
-  if (!response.ok) throw new Error('Failed to fetch infrastructure stats');
+  if (!response.ok) throw new Error('Error al cargar las estadísticas de infraestructura');
   const result = await response.json();
   return result.data;
 };
@@ -368,7 +406,7 @@ export const fetchTrafficInfraCoverage = async (
   const response = await fetch(
     `${API_BASE_URL}/cities/${cityId}/traffic/infra-coverage${qs ? `?${qs}` : ''}`
   );
-  if (!response.ok) throw new Error('Failed to fetch traffic infra coverage');
+  if (!response.ok) throw new Error('Error al cargar la cobertura de infraestructura de tráfico');
   const r = await response.json();
   return r.data;
 };
@@ -393,7 +431,7 @@ export const fetchRouteHistogram = async (
   const response = await fetch(
     `${API_BASE_URL}/cities/${cityId}/traffic/histogram?bins=${bins}`
   );
-  if (!response.ok) throw new Error('Failed to fetch route histogram');
+  if (!response.ok) throw new Error('Error al cargar el histograma de rutas');
   const result = await response.json();
   return result.data;
 };
@@ -409,7 +447,7 @@ export interface StationMonthlyPoint {
 
 export const fetchStationMonthly = async (cityId: number): Promise<StationMonthlyPoint[]> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/monthly`);
-  if (!response.ok) throw new Error('Failed to fetch station monthly data');
+  if (!response.ok) throw new Error('Error al cargar los datos mensuales de estaciones');
   const result = await response.json();
   return result.data;
 };
@@ -421,7 +459,7 @@ export interface StationBuildingCoverage {
 
 export const fetchStationBuildingCoverage = async (cityId: number): Promise<StationBuildingCoverage> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/building-coverage`);
-  if (!response.ok) throw new Error('Failed to fetch station building coverage');
+  if (!response.ok) throw new Error('Error al cargar la cobertura de edificios de las estaciones');
   const result = await response.json();
   return {
     avgCount: result.avg_count,
@@ -448,7 +486,7 @@ export interface BudgetYear {
 
 export const fetchCityBudgets = async (cityId: number): Promise<BudgetYear[]> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/budgets`);
-  if (!response.ok) throw new Error('Failed to fetch city budgets');
+  if (!response.ok) throw new Error('Error al cargar los presupuestos de la ciudad');
   const result = await response.json();
   return result.data;
 };
@@ -474,7 +512,7 @@ export interface MayorsTimeline {
 
 export const fetchMayorsTimeline = async (cityId: number): Promise<MayorsTimeline> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/mayors`);
-  if (!response.ok) throw new Error('Failed to fetch mayors timeline');
+  if (!response.ok) throw new Error('Error al cargar la historia de alcaldes');
   return response.json();
 };
 
@@ -504,7 +542,7 @@ export interface CityContextData {
 
 export async function fetchCityContext(cityId: number): Promise<CityContextData> {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/context`);
-  if (!response.ok) throw new Error('Failed to fetch city context');
+  if (!response.ok) throw new Error('Error al cargar el contexto de la ciudad');
   const result = await response.json();
   // Unwrap .data envelope if present (consistent with other endpoints)
   return result.data ?? result;

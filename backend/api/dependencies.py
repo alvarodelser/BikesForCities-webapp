@@ -28,7 +28,7 @@ def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]
         logger.error(f"Database connection error: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Database connection failed"
+            detail="Error interno al conectar con el servidor"
         )
     finally:
         if conn:
@@ -89,7 +89,7 @@ def parse_bbox(bbox_str: Optional[str]) -> Optional[Tuple[float, float, float, f
         logger.warning(f"Invalid bounding box format: {bbox_str}, error: {e}")
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid bounding box format. Expected: min_lon,min_lat,max_lon,max_lat"
+            detail=f"Formato de área inválido. Formato esperado: min_lon,min_lat,max_lon,max_lat"
         )
 
 
@@ -111,14 +111,14 @@ def validate_network_exists(conn: psycopg2.extensions.connection, city_id: int) 
         if not city_exists(conn, city_id):
             raise HTTPException(
                 status_code=404,
-                detail=f"City with ID {city_id} not found"
+                detail=f"Ciudad con ID {city_id} no encontrada"
             )
         return True
     except psycopg2.Error as e:
         logger.error(f"Database error while validating city {city_id}: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Database error while validating city"
+            detail="Error al validar la ciudad"
         )
 
 

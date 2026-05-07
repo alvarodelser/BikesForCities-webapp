@@ -55,7 +55,7 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch stations');
+        setError(err instanceof Error ? err.message : 'Error al cargar las estaciones');
         setLoading(false);
       });
 
@@ -73,7 +73,7 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
 
   const buildingData = useMemo(() => {
     const values = stations
-      .map(s => s.building_coverage)
+      .map(s => s.building_count)
       .filter((v): v is number => v != null);
     return buildBins(values, 10);
   }, [stations]);

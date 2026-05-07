@@ -255,6 +255,7 @@ def get_traffic_stats(
               AND generation_type = %s
               AND algorithm       = %s
               AND month           = %s
+              AND trip_count      > 0
             """,
             (city_id, generation_type, algorithm, month),
         )

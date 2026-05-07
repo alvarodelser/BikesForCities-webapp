@@ -31,7 +31,7 @@ export function useMayorHistory(cityId: number | null): {
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch mayor history');
+        setError(err instanceof Error ? err.message : 'Error al cargar la historia de alcaldes');
         setLoading(false);
       });
 

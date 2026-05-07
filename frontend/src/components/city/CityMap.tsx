@@ -82,22 +82,18 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
 
     const reset = useCallback(() => {
         if (!mapInstance) return;
-        const generateRectBoundary = (lon: number, lat: number, angleDeg: number) => {
-            const limit = 10000;
-            const angleRad = (angleDeg * Math.PI) / 180;
-            const metersPerLat = 111320;
-            const metersPerLon = 111320 * Math.cos((lat * Math.PI) / 180);
-            const offsets: [number, number][] = [[-limit / 2, -limit / 2], [limit / 2, -limit / 2], [limit / 2, limit / 2], [-limit / 2, limit / 2]];
-            return offsets.map(([dx, dy]) => [
-                lon + (dx * Math.cos(angleRad) + dy * Math.sin(angleRad)) / metersPerLon,
-                lat + (-dx * Math.sin(angleRad) + dy * Math.cos(angleRad)) / metersPerLat,
-            ]);
-        };
-        const coords = generateRectBoundary(city.geoCoords.longitude, city.geoCoords.latitude, city.angle || 0);
-        const lons = coords.map(c => c[0]);
-        const lats = coords.map(c => c[1]);
-        const bounds: [number, number, number, number] = [Math.min(...lons), Math.min(...lats), Math.max(...lons), Math.max(...lats)];
-        mapInstance.fitBounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]], { padding: 40, duration: 1000 });
+        
+        if (city.maxBounds) {
+            mapInstance.fitBounds(city.maxBounds, { padding: 40, duration: 1000 });
+        } else {
+            // Fallback: 10km square around center
+            const limit = 0.05; // approx 5-10km in degrees
+            const { longitude: lon, latitude: lat } = city.geoCoords;
+            mapInstance.fitBounds([
+                [lon - limit, lat - limit],
+                [lon + limit, lat + limit]
+            ], { padding: 40, duration: 1000 });
+        }
     }, [mapInstance, city]);
 
     const toggleBackground = useCallback((show: boolean) => {

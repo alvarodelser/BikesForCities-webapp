@@ -18,6 +18,9 @@ export interface CityData {
   bicycles_count?: number;
   trips_per_inhabitant?: number;
   available_modes?: Record<string, unknown>;
+  cyclingNetwork?: number;
+  coverage?: number;
+  station_coverage?: number;
   mode_scores?: {
     [mode: string]: {
       overall: number;

@@ -77,7 +77,7 @@ export function useTrafficStats(
       })
       .catch(err => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch traffic stats');
+        setError(err instanceof Error ? err.message : 'Error al cargar las estadísticas de tráfico');
         setLoading(false);
       });
 

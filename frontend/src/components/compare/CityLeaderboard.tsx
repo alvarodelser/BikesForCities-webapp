@@ -105,7 +105,7 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
         setLoading(false);
       })
       .catch(() => {
-        setError('Error loading cities.');
+        setError('Error al cargar las ciudades.');
         setLoading(false);
       });
   }, []);
@@ -140,7 +140,7 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
   const sortedCities = useMemo(() => sortCities(cities, sortKey, sortDir), [cities, sortKey, sortDir]);
 
   if (loading) return <div className="flex justify-center py-16"><LoadingContainer /></div>;
-  if (error) return <ErrorContainer title="Error" message={error} />;
+  if (error) return <ErrorContainer title="Error de carga" message={error} />;
 
   const topCities = sortedCities.slice(0, 3);
   const activeColor = MODE_META.find(m => m.id === activeMode)?.color || 'var(--blue)';
