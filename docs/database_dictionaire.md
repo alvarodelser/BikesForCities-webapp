@@ -160,7 +160,7 @@ Metadata for bike-share docking stations.
 | `first_seen` | `030_load_stations.py`: Discovery. | `GET /.../stations` | `out: get_paginated_stations` | `StatusPage` |
 | `last_seen` | `030_load_stations.py`: Last active. | `GET /.../stations` | `out: get_paginated_stations` | `StatusPage` |
 | `reach_coverage` | `032_calculate_reach.py`: % reachable. | `GET /.../stations/{id}/reach`| `in: update_station_reach_coverage` | `StationsLayer` (Reach analysis) |
-| `building_count` | `032_calculate_reach.py`: Count. | `GET /.../stations/building-coverage` | `out: get_station_building_coverage` | `useStationsStats` |
+| `building_count` | `032_calculate_reach.py`: Count. | `GET /.../stations/building-coverage` | `out: get_avg_station_building_count` | `useStationsStats` |
 
 ### `station_readings`
 Historical time-series of bike availability.
