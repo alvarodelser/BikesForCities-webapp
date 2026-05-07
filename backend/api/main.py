@@ -2,7 +2,7 @@
 FastAPI application for Bikes for Cities API.
 """
 
-from fastapi import FastAPI, HTTPException, Security, Depends
+from fastapi import FastAPI, HTTPException, Security, Depends, Request
 from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 import os
 
 env = os.getenv("ENVIRONMENT", "development")
+# root_path should only be active if we are actually behind the /b4c_api proxy
 root_path = "/b4c_api" if env == "production" else ""
 
 # Security Configuration
@@ -30,16 +31,22 @@ API_KEY = os.getenv("API_KEY")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 async def get_api_key(
+    request: Request,
     api_key_header: str = Security(api_key_header),
 ):
-    # Only enforce API key in production/staging environments
+    # 1. Always allow preflight (OPTIONS) requests
+    if request.method == "OPTIONS":
+        return None
+        
+    # 2. Only enforce API key if NOT in development mode
     if env == "development":
         return api_key_header
         
+    # 3. Skip if no API_KEY is configured on the server
     if not API_KEY:
-        logger.warning("API_KEY environment variable not set, skipping security check")
         return api_key_header
 
+    # 4. Validate the key
     if api_key_header == API_KEY:
         return api_key_header
     
@@ -81,8 +88,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["X-API-Key", "Content-Type", "Authorization"],
 )
 
 # Include API routes with global security dependency if not in dev
