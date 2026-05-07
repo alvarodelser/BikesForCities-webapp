@@ -16,7 +16,7 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities,
     compute_all_reach_coverages, update_station_reach_coverage,
-    compute_station_building_coverages,
+    compute_station_building_coverages, update_city_station_coverage,
     get_ingestion_status, check_prerequisites,
 )
 from backend.database.db_io.cities import upsert_ingestion_status
@@ -68,8 +68,10 @@ def main():
 
             update_station_reach_coverage(conn, city_id, coverages)
 
-            print(f"   ▶️  Computing station building_coverage…")
             compute_station_building_coverages(conn, city_id)
+            
+            print(f"   ▶️  Computing city-wide station coverage (study area)…")
+            update_city_station_coverage(conn, city_id)
             conn.commit()
 
             vals = list(coverages.values())

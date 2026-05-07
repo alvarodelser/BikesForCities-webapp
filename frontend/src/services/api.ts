@@ -414,11 +414,19 @@ export const fetchStationMonthly = async (cityId: number): Promise<StationMonthl
   return result.data;
 };
 
-export const fetchStationBuildingCoverage = async (cityId: number): Promise<number> => {
+export interface StationBuildingCoverage {
+  avgCount: number;
+  cityCoverage: number;
+}
+
+export const fetchStationBuildingCoverage = async (cityId: number): Promise<StationBuildingCoverage> => {
   const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/building-coverage`);
   if (!response.ok) throw new Error('Failed to fetch station building coverage');
   const result = await response.json();
-  return result.coverage;
+  return {
+    avgCount: result.avg_count,
+    cityCoverage: result.city_coverage
+  };
 };
 
 // ── Budget & political data ───────────────────────────────────────────────────

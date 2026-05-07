@@ -151,7 +151,7 @@ class StationResponse(BaseModel):
     estimated_monthly_trips: Optional[float] = None
     downtime_minutes: Optional[float] = None
     reach_coverage: Optional[float] = None
-    building_coverage: Optional[float] = None
+    building_count: Optional[int] = None
     extra: Optional[Dict[str, Any]] = None
 
     class Config:
@@ -371,7 +371,8 @@ class EdgeBuildingCoverageResponse(BaseResponse):
 
 
 class StationBuildingCoverageResponse(BaseResponse):
-    coverage: float
+    avg_count: float
+    city_coverage: float
 
 
 # ── Traffic analytics models ──────────────────────────────────────────────────

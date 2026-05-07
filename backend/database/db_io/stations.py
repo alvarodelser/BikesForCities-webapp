@@ -53,7 +53,7 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
         query = """
             SELECT
                 s.id, s.station_id, s.name, s.lat, s.lon, s.citybikes_network_id,
-                s.extra, s.reach_coverage, s.building_coverage,
+                s.extra, s.reach_coverage, s.building_count,
                 sm.estimated_trips  AS estimated_monthly_trips,
                 sm.downtime_minutes
             FROM stations s
@@ -228,7 +228,7 @@ def update_station_reach_coverage(conn, city_id: int, coverages: dict):
 
 
 def compute_station_building_coverages(conn, city_id: int):
-    """Compute and store building_coverage per station (fraction of bike_path_buildings within 150 m).
+    """Compute and store building_count per station (absolute number of bike_path_buildings within 150 m).
 
     Runs once at ingestion time — acceptable cost. Avoids expensive spatial
     join on every API request.
@@ -237,42 +237,103 @@ def compute_station_building_coverages(conn, city_id: int):
         cur.execute(
             """
             UPDATE stations s
-            SET building_coverage = sub.coverage
+            SET building_count = sub.cnt
             FROM (
                 SELECT
                     s2.id AS station_id,
-                    COUNT(b.id)::float / NULLIF(total.cnt, 0) AS coverage
+                    COUNT(b.id) AS cnt
                 FROM stations s2
-                CROSS JOIN (
-                    SELECT COUNT(*) AS cnt FROM features
-                    WHERE city_id = %s AND feature_type = 'bike_path_buildings'
-                ) total
                 LEFT JOIN features b
                     ON b.city_id = %s
                     AND b.feature_type = 'bike_path_buildings'
                     AND ST_DWithin(s2.geom::geography, b.geometry::geography, 150)
                 WHERE s2.city_id = %s AND s2.merged_into_id IS NULL
-                GROUP BY s2.id, total.cnt
+                GROUP BY s2.id
             ) sub
             WHERE s.id = sub.station_id
             """,
-            (city_id, city_id, city_id),
+            (city_id, city_id),
         )
 
 
-def get_station_building_coverage(conn, city_id: int) -> float:
-    """Return avg pre-computed building_coverage across active stations (populated at station ingestion)."""
+def get_avg_station_building_count(conn, city_id: int) -> float:
+    """Return avg pre-computed building_count across active stations (populated at station ingestion)."""
     with conn.cursor() as cur:
         cur.execute(
             """
-            SELECT AVG(building_coverage)
+            SELECT AVG(building_count)
             FROM stations
             WHERE city_id = %s
               AND merged_into_id IS NULL
-              AND building_coverage IS NOT NULL
+              AND building_count IS NOT NULL
             """,
             (city_id,),
         )
         row = cur.fetchone()
         return float(row[0]) if row and row[0] is not None else 0.0
 
+
+def update_city_station_coverage(conn, city_id: int):
+    """Calculate the true city-wide station coverage (fraction of buildings in the 10x10km study area
+    near any station) and store it in city_metrics for the latest available month.
+    """
+    with conn.cursor() as cur:
+        # 1. Calculate the fraction
+        cur.execute(
+            """
+            WITH center AS (
+                SELECT ST_Transform(ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), 3857) AS pt
+                FROM cities WHERE id = %s
+            ),
+            study_area AS (
+                SELECT ST_Transform(
+                    ST_MakeEnvelope(ST_X(pt)-5000, ST_Y(pt)-5000, ST_X(pt)+5000, ST_Y(pt)+5000, 3857),
+                    4326
+                ) AS geom
+                FROM center
+            ),
+            building_stats AS (
+                SELECT
+                    COUNT(DISTINCT f.id) FILTER (WHERE EXISTS (
+                        SELECT 1 FROM stations s 
+                        WHERE s.city_id = %s AND s.merged_into_id IS NULL
+                        AND ST_DWithin(s.geom::geography, f.geometry::geography, 150)
+                    )) AS covered_cnt,
+                    COUNT(*) AS total_cnt
+                FROM features f
+                JOIN study_area sa ON ST_Intersects(f.geometry, sa.geom)
+                WHERE f.city_id = %s AND f.feature_type IN ('buildings', 'bike_path_buildings')
+            )
+            SELECT covered_cnt::float / NULLIF(total_cnt, 0) FROM building_stats
+            """,
+            (city_id, city_id, city_id),
+        )
+        row = cur.fetchone()
+        coverage = float(row[0]) if row and row[0] is not None else 0.0
+
+        # 2. Update city_metrics (latest month)
+        cur.execute(
+            """
+            UPDATE city_metrics
+            SET station_coverage = %s
+            WHERE city_id = %s
+              AND metric_month = (SELECT MAX(metric_month) FROM city_metrics WHERE city_id = %s)
+            """,
+            (coverage, city_id, city_id),
+        )
+
+def get_city_station_coverage(conn, city_id: int) -> float:
+    """Retrieve the stored station_coverage from city_metrics for the latest month."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT station_coverage
+            FROM city_metrics
+            WHERE city_id = %s
+            ORDER BY metric_month DESC
+            LIMIT 1
+            """,
+            (city_id,),
+        )
+        row = cur.fetchone()
+        return float(row[0]) if row and row[0] is not None else 0.0

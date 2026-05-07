@@ -42,11 +42,36 @@ def get_city_id(city_name: str) -> Optional[int]:
         None,
     )
     if match:
-        return match["id"]
+        return match
 
     print(f"❌ City '{city_name}' not found")
     print(f"   Available: {', '.join(c['name'] for c in cities[:10])}")
     return None
+
+
+def test_city_details(city_id: int):
+    """GET /cities/{id} — check global station-related stats."""
+    print("\n🏙 Testing /cities/{id} stats...")
+    try:
+        resp = requests.get(f"{API_BASE}/cities/{city_id}", timeout=TIMEOUT)
+        resp.raise_for_status()
+        city = resp.json().get("data", {})
+
+        print(f"   ✓ City: {city.get('name')}")
+        print(f"      stations_count: {city.get('stations_count')}")
+        print(f"      bicycles_count: {city.get('bicycles_count')}")
+        print(f"      monthly_trips: {city.get('monthly_trips')}")
+        print(f"      service_name: {city.get('service_name')}")
+
+        if not city.get('stations_count'):
+            print("   ⚠ WARNING: stations_count is missing or 0 in city metadata")
+        if not city.get('bicycles_count'):
+            print("   ⚠ WARNING: bicycles_count is missing or 0 in city metadata")
+
+    except Exception as e:
+        print(f"   ❌ Error: {e}")
+        return False
+    return True
 
 
 def test_stations_list(city_id: int):
@@ -61,15 +86,25 @@ def test_stations_list(city_id: int):
 
         if stations:
             first = stations[0]
-            print(f"   ✓ Sample: {first.get('name')} (id={first.get('station_id')})")
-            print(f"      available_bikes={first.get('available_bikes')}")
-            print(f"      capacity={first.get('capacity')}")
+            # Calculate aggregate stats used in the frontend
+            stations_with_trips = [s for s in stations if s.get("estimated_monthly_trips") is not None]
+            total_trips = sum(s.get("estimated_monthly_trips", 0) for s in stations_with_trips)
+            
+            stations_with_downtime = [s for s in stations if s.get("downtime_minutes") is not None]
+            avg_downtime = (sum(s.get("downtime_minutes", 0) for s in stations_with_downtime) / len(stations_with_downtime)) if stations_with_downtime else 0
+            
+            trips_bike_day = (total_trips / len(stations) / 30) if stations else 0
 
-            bikes_reported = [s.get("available_bikes") for s in stations if s.get("available_bikes") is not None]
-            print(f"   ✓ {len(bikes_reported)}/{len(stations)} stations have available_bikes data")
+            print(f"   ✓ Aggregate Stats (calculated from station list):")
+            print(f"      Total Stations: {len(stations)}")
+            print(f"      Avg Downtime: {avg_downtime:.1f} min/day")
+            print(f"      Total Est. Trips: {total_trips:,.0f} / month")
+            print(f"      Usage: {trips_bike_day:.2f} trips/bike/day")
 
-            if not bikes_reported:
-                print("   ⚠ WARNING: No available_bikes data — station readings may be stale")
+            if not total_trips:
+                print("   ⚠ WARNING: No estimated trip data across all stations")
+            if not avg_downtime:
+                print("   ⚠ WARNING: No downtime data across all stations")
 
         else:
             print("   ⚠ WARNING: No stations returned")
@@ -131,11 +166,13 @@ def test_stations_monthly(city_id: int):
 
         if data:
             first = data[0]
+            # The model uses estimated_trips and actual_trips, not total_trips or avg_availability
             print(f"   ✓ Sample: month={first.get('month')}")
-            print(f"      avg_availability={first.get('avg_availability')}")
-            print(f"      total_trips={first.get('total_trips')}")
+            print(f"      estimated_trips={first.get('estimated_trips')}")
+            print(f"      actual_trips={first.get('actual_trips')}")
+            print(f"      active_stations={first.get('active_stations')}")
 
-            months_with_trips = [r for r in data if (r.get("total_trips") or 0) > 0]
+            months_with_trips = [r for r in data if (r.get("estimated_trips") or 0) > 0 or (r.get("actual_trips") or 0) > 0]
             print(f"   ✓ {len(months_with_trips)}/{len(data)} months have trip data")
 
             if not months_with_trips:
@@ -160,23 +197,14 @@ def test_stations_building_coverage(city_id: int):
     try:
         resp = requests.get(f"{API_BASE}/cities/{city_id}/stations/building-coverage", timeout=TIMEOUT)
         resp.raise_for_status()
-        data = resp.json().get("data", [])
-
-        print(f"   ✓ {len(data)} stations with building coverage data")
-
-        if data:
-            coverages = [s.get("coverage", 0) for s in data if s.get("coverage") is not None]
-            if coverages:
-                avg_coverage = sum(coverages) / len(coverages)
-                print(f"   ✓ Average building coverage: {avg_coverage:.1f}%")
-
-                if all(c == 0 for c in coverages):
-                    print("   ⚠ WARNING: All stations have 0 building coverage — features data missing?")
-            else:
-                print("   ⚠ WARNING: No coverage values")
-
+        # Note: This endpoint returns a single value (coverage), not a list of stations
+        data = resp.json()
+        avg_coverage = data.get("coverage")
+        
+        if avg_coverage is not None:
+            print(f"   ✓ Average station building coverage: {avg_coverage}")
         else:
-            print("   ⚠ WARNING: No building coverage data")
+            print(f"   ⚠ WARNING: Unexpected response format: {data}")
 
     except Exception as e:
         print(f"   ❌ Error: {e}")
@@ -197,10 +225,11 @@ def main():
     print(f"API: {API_BASE}")
     print(f"City: {args.city}")
 
-    city_id = get_city_id(args.city)
-    if not city_id:
+    city_data = get_city_id(args.city)
+    if not city_data:
         sys.exit(1)
-
+    
+    city_id = city_data["id"]
     print(f"✓ Using city_id={city_id}")
 
     # Fetch stations for reachability test
@@ -212,6 +241,7 @@ def main():
         stations = []
 
     results = [
+        test_city_details(city_id),
         test_stations_list(city_id),
         test_stations_reach(city_id, stations),
         test_stations_monthly(city_id),

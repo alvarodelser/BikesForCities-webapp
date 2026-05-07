@@ -18,7 +18,7 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
 const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
   const {
     activeStations,
-    reachCoverage,
+    cityCoverage,
     tripsBikeDay,
     avgStopMinutes,
     loading,
@@ -42,7 +42,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
   const bikesPerThousandStr = loading ? '—' : fmt(bikesPerThousand, 1, '/ 1k hab');
   const tripsBikeDayStr = loading ? '—' : fmt(derivedTripsBikeDay, 2, '');
   const activeStationsStr = loading ? '—' : fmt(stationsCount, 0, '');
-  const reachCoverageStr = loading ? '—' : fmt(reachCoverage != null ? reachCoverage * 100 : null, 1, '%');
+  const cityCoverageStr = loading ? '—' : fmt(cityCoverage != null ? cityCoverage * 100 : null, 1, '%');
   const avgStopStr = loading ? '—' : fmt(avgStopMinutes, 0, 'min');
 
   const cityId = city.id ?? 0;
@@ -105,22 +105,21 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
         </div>
         <div className="grid grid-cols-2 gap-4">
           <MetricPill
-          loading={loading}
-            value={reachCoverageStr}
+            loading={loading}
+            value={cityCoverageStr}
             label="Cobertura"
-            sublabel="% edificios a <150m de estación"
+            sublabel="% edificios a <150m"
             icon={TrendingUp}
             accent={ACCENT}
-            helpContent="Porcentaje de edificios de la ciudad que tienen al menos una estación de bicicleta pública a menos de 150 metros. Se calcula comparando los edificios dentro del radio de influencia de alguna estación frente al total de edificios de la ciudad."
+            helpContent="Porcentaje de edificios del área de estudio que tienen al menos una estación a menos de 150 metros. Refleja el alcance geográfico real del servicio."
           />
           <MetricPill
-          loading={loading}
+            loading={loading}
             value={avgStopStr}
             label="Tiempo inoperativa"
             sublabel="Min. sin bicis / día"
             icon={Clock}
-            accent={ACCENT}
-            helpContent="Tiempo medio diario que una estación permanece inoperativa, definida como el período en que tiene menos de 2 bicicletas disponibles. Un valor alto indica que la estación se queda sin servicio durante largos períodos — ya sea por alta demanda o por falta de reposición."
+            helpContent="Tiempo medio diario que una estación permanece inoperativa. Un valor alto indica que la estación se queda sin servicio durante largos períodos."
           />
         </div>
       </div>

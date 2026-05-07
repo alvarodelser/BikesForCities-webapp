@@ -44,7 +44,7 @@ from backend.database.db_io import (
     get_edge_building_coverage, get_infra_budget, get_building_coverage_fraction,
     get_traffic_infra_coverage, get_route_histogram,
     get_station_monthly_agg,
-    get_station_building_coverage,
+    get_avg_station_building_count, get_city_station_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
     get_best_traffic_mode, get_latest_traffic_month,
 )
@@ -965,13 +965,18 @@ async def get_city_route_histogram(
 
 @router.get("/cities/{city_id}/stations/building-coverage", response_model=StationBuildingCoverageResponse)
 async def get_station_building_coverage_route(city_id: int, conn=Depends(get_db_connection)):
-    """Percentage of city buildings within 150 m of at least one station."""
+    """Return station building metrics: avg count per station and true city-wide coverage % (study area)."""
     try:
-        coverage = get_station_building_coverage(conn, city_id)
-        return StationBuildingCoverageResponse(message="Station building coverage retrieved", coverage=coverage)
+        avg_count = get_avg_station_building_count(conn, city_id)
+        city_coverage = get_city_station_coverage(conn, city_id)
+        return StationBuildingCoverageResponse(
+            message="Station building metrics retrieved", 
+            avg_count=avg_count,
+            city_coverage=city_coverage
+        )
     except Exception as e:
-        logger.error(f"Error getting station building coverage for city {city_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to retrieve station building coverage")
+        logger.error(f"Error getting station building metrics for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve station building metrics")
 
 
 @router.get("/cities/{city_id}/stations/monthly", response_model=StationMonthlyResponse)

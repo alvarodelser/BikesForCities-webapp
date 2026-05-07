@@ -75,8 +75,7 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
     const values = stations
       .map(s => s.building_coverage)
       .filter((v): v is number => v != null);
-    // building_coverage is 0–1; convert to percentage for display
-    return buildBins(values.map(v => v * 100), 10);
+    return buildBins(values, 10);
   }, [stations]);
 
   if (loading) {
@@ -118,14 +117,14 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
       <BarHistogram
         data={buildingData}
         accent="#6b8cae"
-        title="Cobertura de edificios"
-        subtitle="Fracción de edificios cubiertos (%)"
+        title="Densidad de edificios"
+        subtitle="Edificios en 150m (recuento)"
         yUnit="estaciones"
         gradient
         helpContent={
           <p>
-            Distribución de las estaciones según el porcentaje de edificios que cubre (dentro de 150 metros).
-            Las estaciones con mayor cobertura de edificios alcanzan a más residencias potenciales.
+            Distribución de las estaciones según el número absoluto de edificios que cubre (dentro de 150 metros).
+            Las estaciones con mayor número de edificios alcanzan a más residencias potenciales.
           </p>
         }
       />

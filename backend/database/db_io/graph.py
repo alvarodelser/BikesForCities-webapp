@@ -2,6 +2,7 @@
 graph.py – CRUD for spatial graph tables: nodes and edges.
 """
 from typing import List, Tuple, Optional
+import math
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -586,14 +587,36 @@ def get_building_coverage_components_geojson(conn, city_id: int) -> dict:
 
 
 def get_edge_building_coverage(conn, city_id: int) -> list:
-    """Return per-edge building counts for the cycling network.
+    """Return per-edge building counts for the cycling network within the study area.
 
     For each cycleway edge: return pre-computed building_count
     (calculated during feature ingestion) and return
     [{edge_id, length_m, building_count}].  Used to histogram edge
     effectiveness (buildings/km) on the client side.
+
+    Restricted to a 10km axis-aligned bbox around the city center for consistency.
     """
+    from .cities import get_city_center
+    center = get_city_center(conn, city_id)
+    if not center:
+        return []
+    
+    center_lat, center_lon, _ = center
+    dy = 5000.0 / 111320.0
+    dx = 5000.0 / (111320.0 * math.cos(math.radians(center_lat)))
+
     with conn.cursor() as cur:
+        # Define the study area bbox
+        bbox_query = """
+            SELECT ST_Translate(
+                ST_GeomFromText(%s, 4326),
+                %s, %s
+            ) AS geom
+        """
+        poly_wkt = f"POLYGON(({-dx} {-dy}, {dx} {-dy}, {dx} {dy}, {-dx} {dy}, {-dx} {-dy}))"
+        cur.execute(bbox_query, (poly_wkt, center_lon, center_lat))
+        bbox_geom = cur.fetchone()[0]
+
         cur.execute(
             """
             SELECT
@@ -604,9 +627,10 @@ def get_edge_building_coverage(conn, city_id: int) -> list:
             WHERE city_id = %s
               AND highway LIKE '%%cycleway%%'
               AND length  > 0
+              AND ST_Intersects(geom, %s)
             ORDER BY id
             """,
-            (city_id,),
+            (city_id, bbox_geom),
         )
         rows = cur.fetchall()
 

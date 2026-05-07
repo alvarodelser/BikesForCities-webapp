@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMap } from '../../MapContext';
-import { fetchBuildingCoverageComponents } from '../../../../../services/api';
 
 interface LegendItemProps {
     type: string;
@@ -79,10 +78,7 @@ const CoverageColorSquare = ({ active }: { active: boolean }) => (
 export default function InfrastructureLegend() {
     const [showBikePathBuildings, setShowBikePathBuildings] = useState(true);
     const [showCoverage, setShowCoverage] = useState(false);
-    const [loadingCoverage, setLoadingCoverage] = useState(false);
-    const [coverageError, setCoverageError] = useState(false);
     const { map, city } = useMap();
-    const abortRef = useRef<AbortController | null>(null);
 
     // Buildings layer — controlled only by showBikePathBuildings
     useEffect(() => {
@@ -103,66 +99,22 @@ export default function InfrastructureLegend() {
         };
     }, [map, showBikePathBuildings, showCoverage]);
 
-    // Coverage GeoJSON layer — sits on top of buildings, replaces appearance with component colors
+    // Toggle building appearance between solid color and component-based coverage
     useEffect(() => {
-        if (!map || !city?.id) return;
+        if (!map || !map.getLayer(BUILDINGS_LAYER_ID)) return;
 
-        if (!showCoverage) {
-            if (map.getLayer(COVERAGE_LAYER_ID)) map.removeLayer(COVERAGE_LAYER_ID);
-            if (map.getSource(COVERAGE_SOURCE_ID)) map.removeSource(COVERAGE_SOURCE_ID);
-            return;
+        if (showCoverage && showBikePathBuildings) {
+            // Apply component-based coloring
+            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', buildColorExpression() as any);
+            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
+        } else {
+            // Restore default appearance
+            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
+            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
         }
+    }, [map, showCoverage, showBikePathBuildings]);
 
-        abortRef.current?.abort();
-        const controller = new AbortController();
-        abortRef.current = controller;
-        setLoadingCoverage(true);
-        setCoverageError(false);
-
-        if (city.id === undefined) return;
-        fetchBuildingCoverageComponents(city.id)
-            .then(geojson => {
-                if (controller.signal.aborted || !map) return;
-
-                if (map.getSource(COVERAGE_SOURCE_ID)) {
-                    (map.getSource(COVERAGE_SOURCE_ID) as any).setData(geojson);
-                } else {
-                    map.addSource(COVERAGE_SOURCE_ID, { type: 'geojson', data: geojson as any });
-                }
-
-                if (!map.getLayer(COVERAGE_LAYER_ID)) {
-                    const beforeLayer = map.getLayer('carto-labels-layer') ? 'carto-labels-layer' : undefined;
-                    map.addLayer({
-                        id: COVERAGE_LAYER_ID,
-                        type: 'fill',
-                        source: COVERAGE_SOURCE_ID,
-                        paint: {
-                            'fill-color': buildColorExpression() as any,
-                            'fill-opacity': 1,
-                        },
-                    }, beforeLayer);
-                }
-                setLoadingCoverage(false);
-            })
-            .catch(err => {
-                if (err.name !== 'AbortError') {
-                    console.error('InfrastructureLegend: failed to load building coverage', err);
-                    setLoadingCoverage(false);
-                    setCoverageError(true);
-                    // Do NOT revert showCoverage — let user see error state
-                }
-            });
-
-        return () => {
-            controller.abort();
-            try {
-                if (map.getLayer(COVERAGE_LAYER_ID)) map.removeLayer(COVERAGE_LAYER_ID);
-                if (map.getSource(COVERAGE_SOURCE_ID)) map.removeSource(COVERAGE_SOURCE_ID);
-            } catch { /* map may have been removed */ }
-        };
-    }, [map, city, showCoverage]);
-
-    const coverageDisabled = !showBikePathBuildings || loadingCoverage;
+    const coverageDisabled = !showBikePathBuildings;
 
     return (
         <div className="flex flex-col gap-y-2.5">
@@ -202,13 +154,13 @@ export default function InfrastructureLegend() {
                         onClick={() => !coverageDisabled && setShowCoverage(v => !v)}
                     >
                         <span className={`text-[var(--text-xs)] font-medium transition-colors ${showCoverage ? 'text-black/70' : 'text-black/40'}`}>
-                            {loadingCoverage ? 'Cargando…' : coverageError ? 'Sin datos' : 'Cobertura conectada'}
+                            Cobertura conectada
                         </span>
                         <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-300 flex-shrink-0 ml-2 ${
-                            showCoverage && !coverageError ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-gray-300'
+                            showCoverage ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-gray-300'
                         }`}>
                             <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-all duration-300 ${
-                                showCoverage && !coverageError ? 'left-4' : 'left-0.5'
+                                showCoverage ? 'left-4' : 'left-0.5'
                             }`} />
                         </div>
                     </div>

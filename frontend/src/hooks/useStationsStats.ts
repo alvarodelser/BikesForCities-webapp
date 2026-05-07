@@ -4,9 +4,8 @@ import { fetchStations, fetchStationBuildingCoverage } from '../services/api';
 export interface StationsStatsResult {
   totalBikes: number | null;
   activeStations: number | null;
-  reachCoverage: number | null;
-  tripsBikeDay: number | null;
-  avgStopMinutes: number | null;
+  avgBuildingCount: number | null;
+  cityCoverage: number | null;
   loading: boolean;
   error: string | null;
 }
@@ -14,7 +13,8 @@ export interface StationsStatsResult {
 export function useStationsStats(cityId: number | null): StationsStatsResult {
   const [totalBikes, setTotalBikes] = useState<number | null>(null);
   const [activeStations, setActiveStations] = useState<number | null>(null);
-  const [reachCoverage, setReachCoverage] = useState<number | null>(null);
+  const [avgBuildingCount, setAvgBuildingCount] = useState<number | null>(null);
+  const [cityCoverage, setCityCoverage] = useState<number | null>(null);
   const [tripsBikeDay, setTripsBikeDay] = useState<number | null>(null);
   const [avgStopMinutes, setAvgStopMinutes] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -46,7 +46,8 @@ export function useStationsStats(cityId: number | null): StationsStatsResult {
           setTripsBikeDay(null);
         }
 
-        setReachCoverage(buildingCoverage);
+        setAvgBuildingCount(buildingCoverage?.avgCount ?? null);
+        setCityCoverage(buildingCoverage?.cityCoverage ?? null);
 
         const stationsWithDowntime = stations.filter(s => s.downtime_minutes != null);
         if (stationsWithDowntime.length > 0) {
@@ -76,7 +77,8 @@ export function useStationsStats(cityId: number | null): StationsStatsResult {
   return {
     totalBikes,
     activeStations,
-    reachCoverage,
+    avgBuildingCount,
+    cityCoverage,
     tripsBikeDay,
     avgStopMinutes,
     loading,

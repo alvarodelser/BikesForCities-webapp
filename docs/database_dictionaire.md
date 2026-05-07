@@ -74,7 +74,7 @@ OSM edges representing road segments between nodes.
 | `oneway` | `020_load_osm.py`: Oneway flag. | `GET /.../edges` | `out: get_paginated_edges` | `TrafficLayer` |
 | `tunnel` | `020_load_osm.py`: Tunnel flag. | `GET /.../edges` | `out: get_paginated_edges` | `TrafficLayer` |
 | `bridge` | `020_load_osm.py`: Bridge flag. | `GET /.../edges` | `out: get_paginated_edges` | `TrafficLayer` |
-| `building_count`| `021_calculate_infra_metrics.py`: Count. | `GET /.../infra/edge-building-coverage` | `out: get_edge_building_coverage` | `BuildingsDensityHistogram` |
+| `building_count`| `020_load_osm.py`: Count. | `GET /.../infra/edge-building-coverage` | `out: get_edge_building_coverage` | `BuildingsDensityHistogram` |
 | `component_id` | `020_load_osm.py`: GCC ranking. | `GET /.../infra/components` | `out: get_cycling_components_geojson` | `InfrastructureMode` |
 
 ### `features`
@@ -160,7 +160,7 @@ Metadata for bike-share docking stations.
 | `first_seen` | `030_load_stations.py`: Discovery. | `GET /.../stations` | `out: get_paginated_stations` | `StatusPage` |
 | `last_seen` | `030_load_stations.py`: Last active. | `GET /.../stations` | `out: get_paginated_stations` | `StatusPage` |
 | `reach_coverage` | `032_calculate_reach.py`: % reachable. | `GET /.../stations/{id}/reach`| `in: update_station_reach_coverage` | `StationsLayer` (Reach analysis) |
-| `building_coverage` | `031_calculate_traffic.py`: Coverage. | `GET /.../stations/building-coverage` | `out: get_station_building_coverage` | `useStationsStats` |
+| `building_count` | `032_calculate_reach.py`: Count. | `GET /.../stations/building-coverage` | `out: get_station_building_coverage` | `useStationsStats` |
 
 ### `station_readings`
 Historical time-series of bike availability.

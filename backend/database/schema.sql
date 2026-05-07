@@ -56,6 +56,7 @@ CREATE TABLE IF NOT EXISTS city_metrics (
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     metric_month TIMESTAMPTZ NOT NULL,
     coverage DOUBLE PRECISION,
+    station_coverage DOUBLE PRECISION,
     total_kilometers DOUBLE PRECISION,
     estimated_monthly_trips DOUBLE PRECISION,
     actual_monthly_trips DOUBLE PRECISION,  -- overwritten by real trip data if available
@@ -281,7 +282,7 @@ CREATE TABLE IF NOT EXISTS stations (
     last_seen TIMESTAMPTZ,
     merged_into_id INTEGER REFERENCES stations(id) ON DELETE SET NULL,
     reach_coverage DOUBLE PRECISION,
-    building_coverage DOUBLE PRECISION,             -- fraction of bike_path_buildings within 150m (computed at ingestion)
+    building_count DOUBLE PRECISION,             -- absolute count of bike_path_buildings within 150m (computed at ingestion)
     UNIQUE (citybikes_network_id, station_id)
 );
 CREATE INDEX IF NOT EXISTS idx_stations_merged_into ON stations(merged_into_id);
