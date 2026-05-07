@@ -4,21 +4,35 @@ This document outlines the step-by-step strategy for deploying the Bikes for Cit
 
 ## 1. Environment Variables Configuration (`.env`)
 
-You must configure the `.env` file explicitly on the server's filesystem since this file is ignored by Git to protect passwords. 
+You must configure the `.env` file explicitly on the server's filesystem. Since we support multiple environments (Staging/Production) on the same server, we use variables to prevent port and container name conflicts.
 
-**Create `/opt/bikes-for-cities/.env`:**
+**Create your `.env` (Production example):**
 ```env
 # Essential Environment Flag
 ENVIRONMENT=production
+DEBUG=false
 
 # Core Authentication
 POSTGRES_USER=your_secure_user
 POSTGRES_PASSWORD=your_secure_password
 POSTGRES_DB=bikes_database
+
+# Internal Docker Networking (Optional, defaults are usually fine)
+POSTGRES_HOST=b4c_database
+POSTGRES_INTERNAL_PORT=5432
+
+# External Host Ports (Must be unique per instance)
+DB_PORT_HOST=127.0.0.1:4000
+API_PORT_HOST=127.0.0.1:4001
+TILE_PORT_HOST=127.0.0.1:4002
+
+# Container Names (Must be unique per instance)
+DB_CONTAINER_NAME=b4c_database
+API_CONTAINER_NAME=b4c_backend_api
+TILE_CONTAINER_NAME=b4c_tile_server
 ```
 
-> **Why `ENVIRONMENT=production`?** 
-> Your `main.py` explicitly looks for this key. When active, it enforces strict CORS validation only recognizing `https://bikesforcities-7wypojwsq-alvarodelsers-projects.vercel.app` as legitimate frontend traffic. If omitted (like in local development), it automatically allows `localhost` requests.
+> **Multi-Instance Support**: If you are deploying a **Staging** version in a different folder, ensure you change the `_PORT_HOST` values (e.g., to `4100`, `4101`, `4102`) and append `_stg` to the `_CONTAINER_NAME` values to avoid Docker conflicts.
 
 ## 2. Docker Deployment
 
@@ -31,7 +45,18 @@ Your `docker-compose.yml` natively binds the services (`b4c_database`, `b4c_back
    docker-compose up -d --build
    ```
 
-## 3. Nginx Reverse Proxy Configuration
+## 3. Database Migrations
+
+The project includes an automatic migration system located in `backend/database/migrations`. 
+
+- **Automatic Execution**: The `run_migrations.py` script executes automatically inside the `b4c_backend_api` container every time it starts. It will wait for the database to be available before running any pending `.sql` files.
+- **Tracking**: Executed migrations are recorded in the `schema_migrations` table to ensure each script runs exactly once.
+- **Manual Execution**: If needed, you can run migrations manually from the server shell (ensure your `.env` is loaded):
+  ```bash
+  ./b4c_venv/bin/python backend/database/run_migrations.py
+  ```
+
+## 4. Nginx Reverse Proxy Configuration
 
 To allow external legitimate traffic, proxy port `80/443` down to your securely bound docker containers.
 
@@ -62,7 +87,7 @@ server {
 ```
 *(Make sure to use Certbot for TLS/SSL certificates over your domain!)*
 
-## 4. The Ingestion Pipeline Deployment
+## 5. The Ingestion Pipeline Deployment
 
 The python ingestion scripts populate PostGIS with mapping constraints and live trip data. It must safely connect locally to execute reliably.
 

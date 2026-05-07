@@ -2,12 +2,13 @@
 FastAPI application for Bikes for Cities API.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Security, Depends
+from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import logging
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from .routes import router as api_router
 
@@ -23,6 +24,30 @@ import os
 env = os.getenv("ENVIRONMENT", "development")
 root_path = "/b4c_api" if env == "production" else ""
 
+# Security Configuration
+API_KEY_NAME = "X-API-Key"
+API_KEY = os.getenv("API_KEY")
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
+
+async def get_api_key(
+    api_key_header: str = Security(api_key_header),
+):
+    # Only enforce API key in production/staging environments
+    if env == "development":
+        return api_key_header
+        
+    if not API_KEY:
+        logger.warning("API_KEY environment variable not set, skipping security check")
+        return api_key_header
+
+    if api_key_header == API_KEY:
+        return api_key_header
+    
+    raise HTTPException(
+        status_code=403,
+        detail="Could not validate credentials"
+    )
+
 # Create FastAPI app
 app = FastAPI(
     title="Bikes for Cities API",
@@ -34,31 +59,35 @@ app = FastAPI(
 )
 
 # Add CORS middleware
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
 
-if env == "production":
-    # Restrict to strictly your Vercel instance
-    origins = [
-        "https://bikesforcities-7wypojwsq-alvarodelsers-projects.vercel.app"
-    ]
+# We always allow localhost for your development workflow,
+# and your specific domains for production.
+default_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "https://bikesforcities.es",
+    "https://www.bikesforcities.es",
+    "https://bikesforcities-7wypojwsq-alvarodelsers-projects.vercel.app"
+]
+
+if allowed_origins_env:
+    origins = list(set(default_origins + [o.strip() for o in allowed_origins_env.split(",")]))
 else:
-    # Allow local frontend ports
-    origins = [
-        "http://localhost:5173", 
-        "http://localhost:3000",
-        "127.0.0.1:5173",
-        "*"
-    ]
+    origins = default_origins
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API routes
-app.include_router(api_router, prefix="/api")
+# Include API routes with global security dependency if not in dev
+dependencies = [Depends(get_api_key)] if env != "development" else []
+app.include_router(api_router, prefix="/api", dependencies=dependencies)
 
 # Global exception handler
 @app.exception_handler(Exception)

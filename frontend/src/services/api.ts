@@ -1,9 +1,17 @@
-import { API_BASE_URL } from '../config/api';
+import { API_BASE_URL, API_KEY } from '../config/api';
 import type { CityData } from '../constants/cities';
 import type * as GeoJSON from 'geojson';
 
+const apiFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const headers = new Headers(options.headers || {});
+  if (API_KEY) {
+    headers.set('X-API-Key', API_KEY);
+  }
+  return fetch(url, { ...options, headers });
+};
+
 export const fetchCities = async (): Promise<CityData[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities`);
+  const response = await apiFetch(`${API_BASE_URL}/cities`);
   if (!response.ok) {
     throw new Error('Error al cargar las ciudades');
   }
@@ -49,7 +57,7 @@ export interface StationData {
 }
 
 export const fetchStations = async (cityId: number): Promise<StationData[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/stations`);
   if (!response.ok) {
     throw new Error('Error al cargar las estaciones');
   }
@@ -97,7 +105,7 @@ export interface SystemStatus {
 }
 
 export const fetchSystemStatus = async (): Promise<SystemStatus> => {
-  const response = await fetch(`${API_BASE_URL}/status`);
+  const response = await apiFetch(`${API_BASE_URL}/status`);
   if (!response.ok) throw new Error('Error al cargar el estado del sistema');
   const result = await response.json();
   return result.data;
@@ -108,7 +116,7 @@ export const fetchStationHourlyAvailability = async (
   stationId: string,
   period: string = 'all'
 ): Promise<HourlyAvailability[]> => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/hourly-availability?period=${period}`
   );
   if (!response.ok) {
@@ -160,7 +168,7 @@ export const fetchTraffic = async (
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
   const qs = params.toString();
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic${qs ? `?${qs}` : ''}`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic${qs ? `?${qs}` : ''}`);
   if (!response.ok) {
     throw new Error('Error al cargar los datos de tráfico');
   }
@@ -200,7 +208,7 @@ export const fetchTrafficResolve = async (
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
   const qs = params.toString();
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
   if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
   const result = await response.json();
   return {
@@ -215,7 +223,7 @@ export const fetchTrafficResolve = async (
 
 
 export const fetchTrafficModes = async (cityId: number): Promise<TrafficMode[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/modes`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/modes`);
   if (!response.ok) throw new Error('Error al cargar los modos de tráfico');
   const result = await response.json();
   return result.data;
@@ -249,7 +257,7 @@ export const fetchEdgeRoutes = async (
   if (params.generationType) qs.set('generation_type', params.generationType);
   if (params.algorithm) qs.set('algorithm', params.algorithm);
   if (params.month) qs.set('month', params.month);
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?${qs.toString()}`
   );
   if (!response.ok) throw new Error('Error al cargar las rutas de los tramos');
@@ -275,7 +283,7 @@ export const fetchStationReach = async (
   stationId: string,
   maxDistance: number = 1000
 ): Promise<StationReachData> => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/reach?max_distance=${maxDistance}`
   );
   if (!response.ok) {
@@ -326,7 +334,7 @@ export interface AccidentsGeoJSON {
 }
 
 export const fetchAccidents = async (cityId: number): Promise<AccidentsGeoJSON> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=false`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=false`);
   if (!response.ok) {
     throw new Error('Error al cargar los datos de accidentes');
   }
@@ -349,14 +357,14 @@ export interface InfraStats {
 }
 
 export const fetchInfraComponents = async (cityId: number): Promise<GeoJSON.FeatureCollection> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/components`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/components`);
   if (!response.ok) throw new Error('Error al cargar los componentes de infraestructura');
   const result = await response.json();
   return result.data;
 };
 
 export const fetchBuildingCoverageComponents = async (cityId: number): Promise<GeoJSON.FeatureCollection> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/building-coverage`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/building-coverage`);
   if (!response.ok) throw new Error('Error al cargar los datos de cobertura de edificios');
   const result = await response.json();
   return result.data;
@@ -369,14 +377,14 @@ export interface EdgeBuildingCoverageItem {
 }
 
 export const fetchEdgeBuildingCoverage = async (cityId: number): Promise<EdgeBuildingCoverageItem[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/edge-building-coverage`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/edge-building-coverage`);
   if (!response.ok) throw new Error('Error al cargar la cobertura de edificios por tramo');
   const result = await response.json();
   return result.edges;
 };
 
 export const fetchInfraStats = async (cityId: number): Promise<InfraStats> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/infrastructure/stats`);
   if (!response.ok) throw new Error('Error al cargar las estadísticas de infraestructura');
   const result = await response.json();
   return result.data;
@@ -403,7 +411,7 @@ export const fetchTrafficInfraCoverage = async (
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
   const qs = params.toString();
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/traffic/infra-coverage${qs ? `?${qs}` : ''}`
   );
   if (!response.ok) throw new Error('Error al cargar la cobertura de infraestructura de tráfico');
@@ -428,7 +436,7 @@ export const fetchRouteHistogram = async (
   cityId: number,
   bins = 20,
 ): Promise<RouteHistogramSeries[]> => {
-  const response = await fetch(
+  const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/traffic/histogram?bins=${bins}`
   );
   if (!response.ok) throw new Error('Error al cargar el histograma de rutas');
@@ -446,7 +454,7 @@ export interface StationMonthlyPoint {
 }
 
 export const fetchStationMonthly = async (cityId: number): Promise<StationMonthlyPoint[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/monthly`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/stations/monthly`);
   if (!response.ok) throw new Error('Error al cargar los datos mensuales de estaciones');
   const result = await response.json();
   return result.data;
@@ -458,7 +466,7 @@ export interface StationBuildingCoverage {
 }
 
 export const fetchStationBuildingCoverage = async (cityId: number): Promise<StationBuildingCoverage> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/stations/building-coverage`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/stations/building-coverage`);
   if (!response.ok) throw new Error('Error al cargar la cobertura de edificios de las estaciones');
   const result = await response.json();
   return {
@@ -485,7 +493,7 @@ export interface BudgetYear {
 }
 
 export const fetchCityBudgets = async (cityId: number): Promise<BudgetYear[]> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/budgets`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/budgets`);
   if (!response.ok) throw new Error('Error al cargar los presupuestos de la ciudad');
   const result = await response.json();
   return result.data;
@@ -511,7 +519,7 @@ export interface MayorsTimeline {
 }
 
 export const fetchMayorsTimeline = async (cityId: number): Promise<MayorsTimeline> => {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/mayors`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/mayors`);
   if (!response.ok) throw new Error('Error al cargar la historia de alcaldes');
   return response.json();
 };
@@ -541,7 +549,7 @@ export interface CityContextData {
 }
 
 export async function fetchCityContext(cityId: number): Promise<CityContextData> {
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/context`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/context`);
   if (!response.ok) throw new Error('Error al cargar el contexto de la ciudad');
   const result = await response.json();
   // Unwrap .data envelope if present (consistent with other endpoints)
