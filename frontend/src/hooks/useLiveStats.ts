@@ -5,7 +5,7 @@ import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import {
   fetchStations,
-  fetchTrafficResolve,
+  fetchTraffic,
   fetchTrafficModes,
   fetchInfraStats,
   fetchTrafficInfraCoverage,
@@ -133,7 +133,7 @@ export function useLiveStats(
 
         if (mode === MAP_MODES.TRAFFIC) {
           const [traffic, fetchedModes, infraCov] = await Promise.all([
-            fetchTrafficResolve(city.id, generation || undefined, routing || undefined, period || undefined),
+            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined),
             fetchTrafficModes(city.id),
             fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
           ]);
