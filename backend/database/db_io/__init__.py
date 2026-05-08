@@ -95,6 +95,7 @@ from .stations import (
     update_station_reach_coverage,
     compute_station_building_coverages,
     get_avg_station_building_count,
+    update_city_station_coverage,
     get_city_station_coverage,
 )
 
@@ -179,7 +180,8 @@ __all__ = [
     "get_stations", "get_paginated_stations", "has_station_readings_for_month",
     "get_nearby_unmerged_station", "upsert_stations", "insert_station_readings",
     "get_station_hourly_availability", "update_station_reach_coverage",
-    "compute_station_building_coverages", "get_avg_station_building_count", "get_city_station_coverage",
+    "compute_station_building_coverages", "get_avg_station_building_count",
+    "update_city_station_coverage", "get_city_station_coverage",
     # traffic
     "upsert_edge_traffic", "upsert_edge_traffic_for_city",
     "get_traffic_modes", "get_best_traffic_mode",
