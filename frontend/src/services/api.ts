@@ -197,6 +197,7 @@ export interface TrafficResolveResult {
   stats: TrafficApiResponse['stats'];
   available_periods?: string[];
   max_edge_name?: string | null;
+  count?: number | null;
 }
 
 export const fetchTrafficResolve = async (
@@ -210,7 +211,8 @@ export const fetchTrafficResolve = async (
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
   const qs = params.toString();
-  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
+  // Using /traffic as /traffic/resolve is not available in this branch
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic${qs ? `?${qs}` : ''}`);
   if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
   const result = await response.json();
   return {
@@ -220,6 +222,7 @@ export const fetchTrafficResolve = async (
     stats: result.stats ?? null,
     available_periods: result.available_periods,
     max_edge_name: result.max_edge_name ?? null,
+    count: result.count ?? null,
   };
 };
 

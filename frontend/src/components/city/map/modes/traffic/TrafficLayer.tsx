@@ -76,7 +76,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
     const submodeRef = useRef<string>(submode);
-    const trafficDataRef = useRef<Map<number, number>>(new Map());
     const routeInfoRef = useRef<HTMLElement | null>(null);
     const lastSelectionRef = useRef<SelectionDetail | null>(null);
     // Stores the latest percentile stats so doDeselect can restore the opacity expression

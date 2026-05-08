@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { GlassCard } from './GlassCard';
 import { FlatCard } from './FlatCard';
