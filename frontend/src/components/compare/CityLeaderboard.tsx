@@ -42,6 +42,7 @@ const MODE_METRICS: Record<string, MetricConfig[]> = {
     { key: 'bicycles_count', label: 'Bicicletas', format: v => v ? formatPopulation(v) : '-' },
     { key: 'stations_count', label: 'Estaciones', format: v => v ? formatPopulation(v) : '-' },
     { key: 'monthly_trips', label: 'Viajes/mes', format: v => v ? formatPopulation(v) : '-' },
+    { key: 'station_coverage', label: 'Cobertura', format: v => v ? `${formatPercentage(v)}%` : '-' },
   ],
   [MAP_MODES.TRAFFIC]: [
     { key: 'monthly_trips', label: 'Viajes/mes', format: v => v ? formatPopulation(v) : '-' },

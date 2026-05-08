@@ -136,7 +136,7 @@ def get_all_cities(conn) -> List[Tuple]:
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
                 cm.total_stations,
-                cm.estimated_monthly_trips AS monthly_trips,
+                COALESCE(cm.actual_monthly_trips, cm.estimated_monthly_trips) AS monthly_trips,
                 cm.bicycles_count,
                 cm.station_coverage
             FROM cities c
@@ -198,7 +198,7 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
                 cm.total_stations AS stations_count,
-                cm.estimated_monthly_trips AS monthly_trips,
+                COALESCE(cm.actual_monthly_trips, cm.estimated_monthly_trips) AS monthly_trips,
                 cm.bicycles_count,
                 cm.station_coverage,
                 m.infrastructure, m.traffic, m.traffic_combinations,

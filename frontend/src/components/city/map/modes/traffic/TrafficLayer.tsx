@@ -3,33 +3,27 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
-import { fetchTraffic, fetchEdgeRoutes } from '../../../../../services/api';
+import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
+import { TILE_SERVER_URL } from '../../../../../config/api';
 import type * as GeoJSON from 'geojson';
 import type { SelectionDetail } from '../../../../../types/selection';
 
 const LAYER_ID = 'traffic-layer';
 const SOURCE_ID = 'edges-source';
-const TRACES_SOURCE = 'route-traces-source';
-const TRACES_LAYER = 'route-traces-layer';
-const OD_SOURCE = 'route-od-source';
-const OD_LAYER = 'route-od-layer';
+const TRACES_SOURCE = 'traces-source';
+const TRACES_LAYER = 'traces-layer';
+const OD_SOURCE = 'od-source';
+const OD_LAYER = 'od-layer';
 
-interface TrafficLayerProps {
+export interface TrafficLayerProps {
     submode: string;
 }
 
-// ---- DOM popup builder ----
-function buildEdgePopupDOM(
-    edgeName: string | null,
-    tripCount: number | null,
-    onClose: () => void,
-): HTMLElement {
+function buildEdgePopupDOM(edgeName: string | null, tripCount: number | null, onClose: () => void): HTMLElement {
     const container = document.createElement('div');
-    container.style.cssText = "font-family:'Archivo Narrow',sans-serif;padding:8px 10px;min-width:150px;";
-
+    container.style.cssText = 'padding:10px;min-width:200px;';
     const header = document.createElement('div');
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px;border-bottom:1px solid rgba(0,0,0,0.05);padding-bottom:4px;';
-
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
     const nameSpan = document.createElement('span');
     nameSpan.style.cssText = 'font-size:12px;font-weight:700;color:#1a202c;';
     nameSpan.textContent = edgeName ?? 'Tramo sin nombre';
@@ -60,33 +54,19 @@ function buildEdgePopupDOM(
     return container;
 }
 
-// Builds a MapLibre color expression: P5→lightest green, P50→mid, P95+→dark (clamped).
-function buildColorExpr(q5: number, q50: number, q95: number): unknown[] {
-    const s1 = Math.max(q5, 0);
-    const s2 = Math.max(q50, s1 + 1);
-    const s3 = Math.max(q95, s2 + 1);
-    return [
-        'case',
-        ['==', ['feature-state', 'selected'], true], '#f0c040',
-        ['interpolate', ['linear'],
-            ['coalesce', ['feature-state', 'trip_count'], 0],
-            s1, '#edf8e9',
-            s2, '#74c476',
-            s3, '#005a32',
-        ],
-    ];
-}
+const buildColorExpr = (q5: number, q50: number, q95: number) => [
+    'interpolate', ['linear'], ['coalesce', ['get', 'trip_count'], 0],
+    0, '#edf8e9',
+    q5, '#edf8e9',
+    q50, '#74c476',
+    q95, '#005a32'
+];
 
-// Edges below P5 (and no-data edges) are hidden; selected edges always visible.
-function buildOpacityExpr(q5: number): unknown[] {
-    const s1 = Math.max(q5, 0);
-    return [
-        'case',
-        ['==', ['feature-state', 'selected'], true], 1,
-        ['>=', ['coalesce', ['feature-state', 'trip_count'], -1], s1], 1,
-        0,
-    ];
-}
+const buildOpacityExpr = (q5: number) => [
+    'case',
+    ['>=', ['coalesce', ['get', 'trip_count'], 0], Math.max(q5, 1)], 1,
+    0
+];
 
 
 export default function TrafficLayer({ submode }: TrafficLayerProps) {
@@ -359,7 +339,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         prevRouteRef.current = routing;
 
         if (modeActuallyChanged && map.getSource(SOURCE_ID)) {
-            map.removeFeatureState({ source: SOURCE_ID, sourceLayer: 'edges' });
             // Re-apply selection highlight that was wiped by the bulk clear
             if (stickyRef.current) {
                 map.setFeatureState(
@@ -373,57 +352,51 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchTraffic(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
+            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
                 if (cancelled || !map) return;
 
-                if (!result.data || result.data.length === 0) {
+                if (!result.generation_type || !result.month) {
                     setLayerState?.('empty');
                     return;
                 }
                 setLayerState?.('idle');
 
-                // On first load with empty URL params, write resolved values back so the
-                // legend selectors and bookmarks reflect the actual mode being shown.
+                // Write resolved values back to URL params if they were missing.
                 if (!urlParamsSetRef.current) {
                     urlParamsSetRef.current = true;
                     if (!generation && result.generation_type) setGeneration(result.generation_type);
                     if (!routing && result.algorithm) setRouting(result.algorithm);
                 }
 
-                result.data.forEach(t => {
-                    map.setFeatureState(
-                        { source: SOURCE_ID, sourceLayer: 'edges', id: t.edge_id },
-                        { trip_count: t.trip_count }
-                    );
-                });
-
-                const dataMap = new Map<number, number>();
-                result.data.forEach(t => { dataMap.set(t.edge_id, t.trip_count); });
-                trafficDataRef.current = dataMap;
-
-                // Use server-computed percentile stats; fall back to client-side sort if absent
-                let stats = result.stats;
-                if (!stats && result.data.length > 0) {
-                    const counts = result.data.map(t => t.trip_count).sort((a, b) => a - b);
-                    stats = {
-                        q5: counts[Math.floor(counts.length * 0.05)],
-                        q50: counts[Math.floor(counts.length * 0.50)],
-                        q95: counts[Math.floor(counts.length * 0.95)],
-                        min: counts[0],
-                        max: counts[counts.length - 1],
-                    };
+                // Re-point the tile source to the resolved (gen, algo, month) slice.
+                const src = map.getSource(SOURCE_ID) as maplibregl.VectorTileSource | undefined;
+                if (src) {
+                    const resolvedMonth = result.month ? result.month.slice(0, 7) + '-01' : '';
+                    const tileParams = new URLSearchParams();
+                    tileParams.set('generation_type', result.generation_type);
+                    tileParams.set('algorithm', result.algorithm || '');
+                    tileParams.set('month', resolvedMonth);
+                    
+                    const newTileUrl = `${TILE_SERVER_URL}/edges/{z}/{x}/{y}?${tileParams.toString()}`;
+                    console.log(`[TrafficLayer] Updating tile source: ${newTileUrl}`);
+                    
+                    const currentTiles = (src as any).tiles;
+                    if (!currentTiles || currentTiles[0] !== newTileUrl) {
+                        (src as any).setTiles([newTileUrl]);
+                    }
                 }
 
+                const stats = result.stats;
                 if (stats) {
                     thresholdsRef.current = stats;
                     const { q5, q50, q95, min, max } = stats;
                     setThresholds({ q5, q50, q95, max, min });
                     if (map.getLayer(LAYER_ID)) {
                         map.setPaintProperty(LAYER_ID, 'line-color', buildColorExpr(q5, q50, q95));
-                        // Only restore full opacity if no edge is currently selected
                         if (!stickyRef.current) {
                             map.setPaintProperty(LAYER_ID, 'line-opacity', buildOpacityExpr(q5));
                         }
+                        map.setLayoutProperty(LAYER_ID, 'visibility', 'visible');
                     }
                 } else {
                     thresholdsRef.current = null;
@@ -431,7 +404,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 }
             }).catch(err => {
                 if (cancelled) return;
-                console.error('Failed to load traffic:', err);
+                console.error('Failed to resolve traffic:', err);
                 setLayerState?.('error');
             });
         };
@@ -471,7 +444,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             }
 
             const edgeName = (feature.properties?.name as string | undefined) ?? null;
-            const tripCount = trafficDataRef.current.get(edgeId) ?? null;
+            const tripCount = (feature.properties?.trip_count as number | undefined) ?? null;
 
             map.setFeatureState(
                 { source: SOURCE_ID, sourceLayer: 'edges', id: edgeId },

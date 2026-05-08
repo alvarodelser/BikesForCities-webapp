@@ -5,7 +5,7 @@ import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import {
   fetchStations,
-  fetchTraffic,
+  fetchTrafficResolve,
   fetchTrafficModes,
   fetchInfraStats,
   fetchTrafficInfraCoverage,
@@ -133,7 +133,7 @@ export function useLiveStats(
 
         if (mode === MAP_MODES.TRAFFIC) {
           const [traffic, fetchedModes, infraCov] = await Promise.all([
-            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined),
+            fetchTrafficResolve(city.id, generation || undefined, routing || undefined, period || undefined),
             fetchTrafficModes(city.id),
             fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
           ]);
@@ -141,7 +141,7 @@ export function useLiveStats(
 
           // Get current period from response
           const currentPeriod = traffic.month || '';
-          const periods = currentPeriod ? [currentPeriod] : [];
+          const periods = traffic.available_periods || (currentPeriod ? [currentPeriod] : []);
 
           // TODO: Enhance to fetch all available periods from backend
           // For now, we set the periods to at least the current period
@@ -184,15 +184,15 @@ export function useLiveStats(
             { label: 'Bicicletas / 100k hab.', value: `${bikesPerInhabitant}`, icon: Activity },
             { label: 'Estaciones', value: (city.stations_count ?? 0).toLocaleString('es'), icon: MapPin },
             {
-              label: 'Tiempo parado medio',
-              value: meanDowntime !== null ? `${meanDowntime} min/día` : '—',
-              icon: Clock,
-            },
-            {
-              label: 'Cobertura por alcance',
+              label: 'Cobertura',
               value: meanReach !== null ? `${meanReach} %` : '—',
               icon: TrendingUp,
               trend: meanReach !== null ? 'up' : 'neutral',
+            },
+            {
+              label: 'Inoperativa',
+              value: meanDowntime !== null ? `${meanDowntime} min/día` : '—',
+              icon: Clock,
             },
           ];
         }

@@ -3,8 +3,6 @@ import type { CityData } from '../../constants/cities';
 import { GlassCard } from './GlassCard';
 import { FlatCard } from './FlatCard';
 import { formatPopulation, formatCurrency, formatDistance, formatPercentage } from '../../utils/formatters';
-import { fetchInfraStats } from '../../services/api';
-import type { InfraStats } from '../../services/api';
 
 interface CityCardProps {
   city: CityData;
@@ -28,12 +26,6 @@ const CityCard: React.FC<CityCardProps> = ({
   onCityNavigate,
   isDragging = false
 }) => {
-  const [infraStats, setInfraStats] = useState<InfraStats | null>(null);
-
-  useEffect(() => {
-    if (!city.id) return;
-    fetchInfraStats(city.id).catch(() => setInfraStats(null));
-  }, [city.id]);
   const distance = Math.abs(position);
   
   // Calculate scale based on distance from center (carousel mode only)
@@ -94,12 +86,12 @@ const CityCard: React.FC<CityCardProps> = ({
 
           <GlassCard surface="inset" size="sm" depth="lg" className="text-center">
             <h3 className="font-semibold text-white/90 mb-1 text-xs">Red Ciclista</h3>
-            <p className="font-bold text-white text-sm">{infraStats?.total_km ? `${formatDistance(infraStats.total_km)} km` : '—'}</p>
+            <p className="font-bold text-white text-sm">{city.cyclingNetwork ? `${formatDistance(city.cyclingNetwork)} km` : '—'}</p>
           </GlassCard>
 
           <GlassCard surface="inset" size="sm" depth="lg" className="text-center">
             <h3 className="font-semibold text-white/90 mb-1 text-xs">Cobertura</h3>
-            <p className="font-bold text-white text-sm">{infraStats?.coverage != null ? `${formatPercentage(infraStats.coverage)}%` : '—'}</p>
+            <p className="font-bold text-white text-sm">{city.coverage != null ? `${formatPercentage(city.coverage)}%` : '—'}</p>
           </GlassCard>
         </div>
 
@@ -201,7 +193,7 @@ const CityCard: React.FC<CityCardProps> = ({
               Red Ciclista
             </h3>
             <p className="font-bold text-white drop-shadow-lg text-sm">
-              {infraStats?.total_km ? `${formatDistance(infraStats.total_km)}km` : '—'}
+              {city.cyclingNetwork ? `${formatDistance(city.cyclingNetwork)}km` : '—'}
             </p>
           </GlassCard>
 
@@ -210,7 +202,7 @@ const CityCard: React.FC<CityCardProps> = ({
               Cobertura
             </h3>
             <p className="font-bold text-white drop-shadow-lg text-sm">
-              {infraStats?.coverage != null ? `${formatPercentage(infraStats.coverage)}%` : '—'}
+              {city.coverage != null ? `${formatPercentage(city.coverage)}%` : '—'}
             </p>
           </GlassCard>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchTraffic } from '../services/api';
+import { fetchTrafficResolve } from '../services/api';
 
 export interface TrafficOptions {
   period?: string;              // YYYY-MM
@@ -44,7 +44,7 @@ export function useTrafficStats(
     setLoading(true);
     setError(null);
 
-    fetchTraffic(
+    fetchTrafficResolve(
       cityId,
       options.generationType,
       options.algorithm,
@@ -53,8 +53,7 @@ export function useTrafficStats(
       .then(traffic => {
         if (cancelled) return;
 
-        // Derive trips per month from stats (use median trip count × edge count as proxy,
-        // or use the count field which represents number of route records)
+        // Use the new count field which represents number of edges with traffic
         const trips = traffic.count ?? null;
         setTripsPerMonth(trips);
 
@@ -64,9 +63,7 @@ export function useTrafficStats(
             : null;
         setTripsPerThousandHab(tph);
 
-        // Infra fraction is not returned by fetchTraffic directly;
-        // caller should derive from fetchTrafficInfraCoverage if needed.
-        // Here we leave it null — TrafficStats wires it separately.
+        // Infra fraction is handled separately
         setInfraFraction(null);
 
         setMaxVolume(traffic.stats?.max ?? null);

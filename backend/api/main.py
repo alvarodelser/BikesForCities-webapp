@@ -73,6 +73,9 @@ allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
 default_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
     "http://localhost:3000",
     "https://bikesforcities.es",
     "https://www.bikesforcities.es",
@@ -89,7 +92,7 @@ app.add_middleware(
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["X-API-Key", "Content-Type", "Authorization"],
+    allow_headers=["*"],
 )
 
 # Include API routes with global security dependency if not in dev

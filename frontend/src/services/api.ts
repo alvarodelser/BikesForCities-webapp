@@ -38,6 +38,8 @@ export const fetchCities = async (): Promise<CityData[]> => {
     monthly_trips: city.monthly_trips,
     bicycles_count: city.bicycles_count,
     station_coverage: city.station_coverage,
+    coverage: city.coverage,
+    cyclingNetwork: city.cycling_network,
     available_modes: city.available_modes,
   }));
 };

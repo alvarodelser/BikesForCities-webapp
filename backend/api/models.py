@@ -43,6 +43,8 @@ class CityResponse(NetworkBase):
     available_modes: Optional[Dict[str, Any]] = None
     mode_scores: Optional[Dict[str, Any]] = None
     station_coverage: Optional[float] = None
+    coverage: Optional[float] = None
+    cycling_network: Optional[float] = None
 
     class Config:
         from_attributes = True

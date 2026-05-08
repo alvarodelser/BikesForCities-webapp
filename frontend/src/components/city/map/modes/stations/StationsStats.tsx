@@ -20,7 +20,6 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
     totalBikes: hookTotalBikes,
     activeStations,
     cityCoverage,
-    avgBuildingCount,
     tripsBikeDay,
     avgStopMinutes,
     loading,
@@ -46,7 +45,6 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
   const tripsBikeDayStr = loading ? '—' : fmt(derivedTripsBikeDay, 2, '');
   const activeStationsStr = loading ? '—' : fmt(stationsCount, 0, '');
   const cityCoverageStr = loading ? '—' : fmt(resolvedCityCoverage != null ? resolvedCityCoverage * 100 : null, 1, '%');
-  const avgBuildingCountStr = loading ? '—' : fmt(avgBuildingCount, 0, 'edif.');
   const avgStopStr = loading ? '—' : fmt(avgStopMinutes, 0, 'min');
 
   const cityId = city.id ?? 0;
@@ -85,8 +83,8 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
         />
       </div>
 
-      {/* Second row: 3 columns for density, usage, coverage, surroundings, and downtime */}
-      <div className="grid grid-cols-3 gap-4">
+      {/* Second row: 4 columns for density, usage, coverage, and inoperative time */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <MetricPill
           loading={loading}
           value={bikesPerThousandStr}
@@ -116,19 +114,11 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
         />
         <MetricPill
           loading={loading}
-          value={avgBuildingCountStr}
-          label="Entorno"
-          sublabel="Edif. por estación"
-          icon={Clock}
-          accent={ACCENT}
-          helpContent="Número medio de edificios cubiertos por cada estación (en un radio de 150m). Indica la densidad urbana en la que se sitúan las estaciones."
-        />
-        <MetricPill
-          loading={loading}
           value={avgStopStr}
           label="Inoperativa"
           sublabel="Min. sin bicis / día"
           icon={Clock}
+          accent={ACCENT}
           helpContent="Tiempo medio diario que una estación permanece inoperativa (sin bicicletas o sin anclajes libres). Un valor alto indica problemas de reposición."
         />
       </div>

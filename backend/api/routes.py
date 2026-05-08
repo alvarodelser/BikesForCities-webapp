@@ -105,7 +105,9 @@ async def list_networks(conn=Depends(get_db_connection)):
                 bicycles_count=int(bicycles_count) if bicycles_count is not None else None,
                 bounds=bounds,
                 available_modes=available_modes,
-                station_coverage=station_coverage
+                station_coverage=station_coverage,
+                coverage=coverage,
+                cycling_network=cycling_network
             )
             cities.append(city_obj)
 
@@ -157,7 +159,10 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
             monthly_trips=city_dict.get("monthly_trips"),
             bicycles_count=city_dict.get("bicycles_count"),
             bounds=bounds_dict,
-            available_modes=available_modes
+            available_modes=available_modes,
+            station_coverage=city_dict.get("station_coverage"),
+            coverage=city_dict.get("coverage"),
+            cycling_network=city_dict.get("cycling_network")
         )
         return CityDetailResponse(
             data=city,
