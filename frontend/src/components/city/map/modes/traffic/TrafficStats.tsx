@@ -3,7 +3,7 @@ import { Navigation, Users, TrendingUp, Activity, Calendar, Network, Route } fro
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
 import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
-import { fetchTrafficResolve, fetchTrafficInfraCoverage } from '../../../../../services/api';
+import { fetchTraffic, fetchTrafficInfraCoverage } from '../../../../../services/api';
 import MetricPill from '../../../pills/MetricPill';
 import RouteHistograms from '../../../plots/RouteHistograms';
 import LineAreaChart from '../../../plots/LineAreaChart';
@@ -114,7 +114,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
     let cancelled = false;
     Promise.allSettled(
       availablePeriods.map(period =>
-        fetchTrafficResolve(city.id!, generationType, algorithm, period).then(t => ({
+        fetchTraffic(city.id!, generationType, algorithm, period).then(t => ({
           period,
           tripsPerMonth: t.count,
         })),

@@ -187,44 +187,6 @@ export const fetchTraffic = async (
   };
 };
 
-// Lean alternative to fetchTraffic: resolves (generation_type, algorithm, month) and
-// returns percentile stats without any per-edge data. The trip_count values themselves
-// are now baked into Martin vector tiles via the edges_with_traffic() SQL function.
-export interface TrafficResolveResult {
-  generation_type: string | null;
-  algorithm: string | null;
-  month: string | null;
-  stats: TrafficApiResponse['stats'];
-  available_periods?: string[];
-  max_edge_name?: string | null;
-  count?: number | null;
-}
-
-export const fetchTrafficResolve = async (
-  cityId: number,
-  generationType?: string,
-  algorithm?: string,
-  month?: string,
-): Promise<TrafficResolveResult> => {
-  const params = new URLSearchParams();
-  if (generationType) params.set('generation_type', generationType);
-  if (algorithm) params.set('algorithm', algorithm);
-  if (month) params.set('month', month);
-  const qs = params.toString();
-  // Using /traffic as /traffic/resolve is not available in this branch
-  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic${qs ? `?${qs}` : ''}`);
-  if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
-  const result = await response.json();
-  return {
-    generation_type: result.generation_type ?? null,
-    algorithm: result.algorithm ?? null,
-    month: result.month ?? null,
-    stats: result.stats ?? null,
-    available_periods: result.available_periods,
-    max_edge_name: result.max_edge_name ?? null,
-    count: result.count ?? null,
-  };
-};
 
 
 export const fetchTrafficModes = async (cityId: number): Promise<TrafficMode[]> => {

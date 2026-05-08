@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchTrafficResolve } from '../services/api';
+import { fetchTraffic } from '../services/api';
 
 export interface TrafficOptions {
   period?: string;              // YYYY-MM
@@ -44,7 +44,7 @@ export function useTrafficStats(
     setLoading(true);
     setError(null);
 
-    fetchTrafficResolve(
+    fetchTraffic(
       cityId,
       options.generationType,
       options.algorithm,

@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
-import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
+import { fetchTraffic, fetchEdgeRoutes } from '../../../../../services/api';
 import { TILE_SERVER_URL } from '../../../../../config/api';
 import type * as GeoJSON from 'geojson';
 import type { SelectionDetail } from '../../../../../types/selection';
@@ -351,7 +351,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
+            fetchTraffic(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
                 if (cancelled || !map) return;
 
                 if (!result.generation_type || !result.month) {
