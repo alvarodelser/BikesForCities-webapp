@@ -17,10 +17,19 @@ def connect_db():
         except socket.gaierror:
             # We are likely on the host machine
             host = "localhost"
-            # If we are on the host, we should use the port mapped in docker-compose
-            # which is 4000 for production (or 4100 for staging)
-            if port == "5432":
-                port = "4000" 
+            
+            # Use the host-side port if we are on the host
+            # Try to get it from DB_PORT_HOST first (e.g. "127.0.0.1:4000")
+            db_port_host = os.getenv("DB_PORT_HOST")
+            if db_port_host and ":" in db_port_host:
+                port = db_port_host.split(":")[-1]
+            elif port == "5432":
+                # Fallback to defaults based on folder name or just 4000/4100
+                cwd = os.getcwd()
+                if "stg" in cwd or "staging" in cwd:
+                    port = "4100"
+                else:
+                    port = "4000"
 
     return psycopg2.connect(
         dbname=os.getenv("POSTGRES_DB"),
