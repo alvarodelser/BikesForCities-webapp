@@ -158,21 +158,24 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
   useEffect(() => {
     if (!city.id || availablePeriods.length === 0) return;
     let cancelled = false;
-    Promise.allSettled(
-      availablePeriods.map(p =>
-        fetchTrafficResolve(city.id!, generation || undefined, routing || undefined, p).then(t => ({
-          period: p,
-          tripsPerMonth: t.edge_count ?? 0,
-        })),
-      ),
-    ).then(results => {
-      if (cancelled) return;
-      const points = results
-        .filter(r => r.status === 'fulfilled')
-        .map(r => (r as PromiseFulfilledResult<{ period: string; tripsPerMonth: number }>).value)
-        .sort((a, b) => a.period.localeCompare(b.period));
-      setEvolutionData(points);
-    });
+
+    // Fetch periods sequentially to avoid flooding the single-worker API
+    // with 17 parallel requests that queue up and stall everything else.
+    async function loadEvolution() {
+      const points: { period: string; tripsPerMonth: number }[] = [];
+      for (const p of availablePeriods) {
+        if (cancelled) return;
+        try {
+          const t = await fetchTrafficResolve(city.id!, generation || undefined, routing || undefined, p);
+          points.push({ period: p, tripsPerMonth: t.edge_count ?? 0 });
+        } catch {
+          // skip failed periods
+        }
+      }
+      if (!cancelled) setEvolutionData([...points].sort((a, b) => a.period.localeCompare(b.period)));
+    }
+
+    loadEvolution();
     return () => { cancelled = true; };
   }, [city.id, availablePeriods, generation, routing]);
 
