@@ -19,6 +19,6 @@ functions:
   # edges_with_traffic LEFT JOINs edge_traffic at tile-render time so trip_count
   # is baked into each tile feature. The client passes generation_type, algorithm
   # and month as URL query parameters; when absent trip_count defaults to 0.
-  edges:
+  edges_with_traffic:
     schema: public
     function: edges_with_traffic
