@@ -1037,6 +1037,8 @@ async def get_city_route_histogram(
     """Return route-length and infra-fraction histograms for all available strategies."""
     try:
         validate_network_exists(conn, city_id)
+        with conn.cursor() as _cur:
+            _cur.execute("SET LOCAL statement_timeout = '20s'")
         data = get_route_histogram(conn, city_id, bins=bins)
         series = [
             RouteHistogramSeries(
