@@ -234,6 +234,31 @@ export default function SelectionPanel({
                                 }
                             }} />
                         )}
+                        {selection.colormap && (() => {
+                            const { q5, q50, q95, value } = selection.colormap;
+                            const range = Math.max(q95 - q5, 1);
+                            const clampedVal = value != null ? Math.max(q5, Math.min(q95, value)) : null;
+                            const pct = clampedVal != null ? ((clampedVal - q5) / range) * 100 : null;
+                            return (
+                                <div className="mt-2 flex flex-col gap-1">
+                                    <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Intensidad</span>
+                                    <div className="relative h-2.5 rounded-full overflow-visible"
+                                        style={{ background: 'linear-gradient(to right, #edf8e9, #74c476, #005a32)' }}>
+                                        {pct != null && (
+                                            <div
+                                                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md"
+                                                style={{ left: `${pct}%`, transform: 'translate(-50%, -50%)', backgroundColor: '#027A76' }}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between text-[8px] text-black/30 font-semibold">
+                                        <span>{Math.round(q5)}</span>
+                                        <span>{Math.round(q50)}</span>
+                                        <span>{Math.round(q95)}+</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         {extraContent}
                     </div>
                 )}

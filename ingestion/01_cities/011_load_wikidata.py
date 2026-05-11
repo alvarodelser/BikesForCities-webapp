@@ -5,6 +5,7 @@ Fetches population, website, and an entire deduplicated timeline of historic may
 import sys
 import argparse
 import requests
+import time
 from pathlib import Path
 from dotenv import load_dotenv
 import pandas as pd
@@ -16,47 +17,72 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import connect_db, get_all_cities, update_city_wikidata, put_historical_mayors, upsert_ingestion_status, get_ingestion_status, check_prerequisites
 
 def query_wikidata(sparql_query):
-    sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
-    sparql.setQuery(sparql_query)
-    sparql.setReturnFormat(JSON)
-    results = sparql.query().convert()
-    
-    parsed_results = []
-    for result in results.get("results", {}).get("bindings", []):
-        row = {}
-        for key in result:
-            row[key] = result[key]["value"]
-        parsed_results.append(row)
-        
-    if not parsed_results: return pd.DataFrame()
-    return pd.DataFrame(parsed_results)
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            sparql = SPARQLWrapper("https://query.wikidata.org/sparql")
+            sparql.setQuery(sparql_query)
+            sparql.setReturnFormat(JSON)
+            results = sparql.query().convert()
+
+            parsed_results = []
+            for result in results.get("results", {}).get("bindings", []):
+                row = {}
+                for key in result:
+                    row[key] = result[key]["value"]
+                parsed_results.append(row)
+
+            if not parsed_results: return pd.DataFrame()
+            return pd.DataFrame(parsed_results)
+        except Exception as e:
+            if "429" in str(e) or "rate" in str(e).lower():
+                wait_time = 65 * (2 ** attempt)
+                print(f"  ⏳ Rate limited on mayors query. Retrying in {wait_time}s...")
+                time.sleep(wait_time)
+            elif attempt == max_retries - 1:
+                raise
+            else:
+                wait_time = 65 * (2 ** attempt)
+                print(f"  ⏳ Query failed, retrying in {wait_time}s...")
+                time.sleep(wait_time)
 
 
 def get_city_basics(wikidata_id: str):
     query = f"""
     SELECT ?population ?website WHERE {{
-      wd:{wikidata_id} wdt:P31/wdt:P279* wd:Q2074737. 
+      wd:{wikidata_id} wdt:P31/wdt:P279* wd:Q2074737.
       OPTIONAL {{ wd:{wikidata_id} wdt:P1082 ?population. }}
       OPTIONAL {{ wd:{wikidata_id} wdt:P856 ?website. }}
     }} LIMIT 1
     """
-    try:
-        url = "https://query.wikidata.org/sparql"
-        headers = { "Accept": "application/json", "User-Agent": "BikesForCities/1.0" }
-        response = requests.get(url, params={'query': query}, headers=headers)
-        response.raise_for_status()
-        bindings = response.json().get("results", {}).get("bindings", [])
-        if not bindings: return None
-        result = bindings[0]
-        pop_str = result.get("population", {}).get("value")
-        
-        return {
-            "population": int(pop_str) if pop_str else None,
-            "website": result.get("website", {}).get("value")
-        }
-    except Exception as e:
-        print(f"Error fetching basics: {e}")
-        return None
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            url = "https://query.wikidata.org/sparql"
+            headers = { "Accept": "application/json", "User-Agent": "BikesForCities/1.0" }
+            response = requests.get(url, params={'query': query}, headers=headers)
+            if response.status_code == 429:
+                wait_time = 65 * (2 ** attempt)
+                print(f"  ⏳ Rate limited. Retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
+                continue
+            response.raise_for_status()
+            bindings = response.json().get("results", {}).get("bindings", [])
+            if not bindings: return None
+            result = bindings[0]
+            pop_str = result.get("population", {}).get("value")
+
+            return {
+                "population": int(pop_str) if pop_str else None,
+                "website": result.get("website", {}).get("value")
+            }
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"  ❌ Error fetching basics: {e}")
+                return None
+            wait_time = 65 * (2 ** attempt)
+            print(f"  ⏳ Request failed, retrying in {wait_time}s...")
+            time.sleep(wait_time)
 
 
 def get_historical_mayors(wikidata_id: str):
@@ -158,6 +184,7 @@ def main():
             print(f"▶️  Fetching data for '{city_name}' ({wikidata_id})...")
             basics = get_city_basics(wikidata_id)
             df_mayors = get_historical_mayors(wikidata_id)
+            time.sleep(65)  # Respect Wikidata rate limit (~1 req/min during outage)
             
             mayor_current = None
             party_current = None

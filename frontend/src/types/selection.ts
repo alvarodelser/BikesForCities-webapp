@@ -4,6 +4,13 @@ export interface SelectionParticipant {
     label: string;
 }
 
+export interface SelectionColormap {
+    q5: number;
+    q50: number;
+    q95: number;
+    value: number | null;
+}
+
 // Shared type for the SelectionPanel event contract
 export interface SelectionDetail {
     type: 'station' | 'edge' | 'reach' | 'accident';
@@ -13,6 +20,7 @@ export interface SelectionDetail {
     badge?: { text: string; color: string; textColor?: string };
     loading?: boolean;
     chart?: HTMLElement | null;
+    colormap?: SelectionColormap;
     periodOptions?: Array<{ id: string; label: string }>;
     activePeriod?: string;
     onPeriodChange?: (period: string) => void;

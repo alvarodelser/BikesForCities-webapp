@@ -5,8 +5,6 @@ import { useMapState } from '../../../hooks/useMapState';
 import { useViewport } from '../../../hooks/useViewport';
 import { commonLegendItems } from './modes/common';
 import SelectionPanel, { PANEL_WIDTH } from './SelectionPanel';
-import TrafficModeSelectors from './modes/traffic/TrafficModeSelectors';
-import { MAP_MODES } from '../../../constants/mapModes';
 import type { SelectionDetail } from '../../../types/selection';
 
 const SUBMODE_LABELS: Record<string, string> = {
@@ -74,8 +72,7 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
     const LegendContent = config.legend;
     const submodes = config.submodes;
     const activeSubmode = submode || config.defaultSubmode;
-    // Traffic submode (Trayecto/Calor) is shown at the top of SelectionPanel instead
-    const hasSubmodes = submodes.length > 0 && mode !== MAP_MODES.TRAFFIC;
+    const hasSubmodes = submodes.length > 0;
     const hasSelection = !!selection;
 
     const accent = colorScheme?.primary ?? '#027A76';
@@ -105,9 +102,6 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
     // Both collapsed → show round icon only
     const bothCollapsed = !legendOpen && (!hasSelection || selectionMinimized);
 
-    // Traffic selectors go in SelectionPanel when edge selected; standalone panel otherwise
-    const isTraffic = mode === MAP_MODES.TRAFFIC;
-
     const commonItems = commonLegendItems
         .filter(item => !(mode === 'stations' && item.label === 'Límite Municipal'));
 
@@ -124,7 +118,6 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
                     colorScheme={colorScheme}
                     minimized={selectionMinimized}
                     onMinimizeChange={setSelectionMinimized}
-                    extraContent={isTraffic ? <TrafficModeSelectors accent={accent} /> : undefined}
                 />
             </div>
 

@@ -796,6 +796,7 @@ def get_edge_routes(
     generation_type: Optional[str] = Query(None, description="Trip generation filter"),
     algorithm: Optional[str] = Query(None, description="Path algorithm filter"),
     month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
+    skip_count: bool = Query(False, description="Skip the total count query; use tile trip_count instead"),
     conn=Depends(get_db_connection),
 ):
     """Return routes passing through a specific edge as GeoJSON.
@@ -821,7 +822,7 @@ def get_edge_routes(
             if not cur.fetchone():
                 raise HTTPException(status_code=404, detail="Tramo no encontrado en esta ciudad")
 
-        total = count_edge_routes(
+        total = 0 if skip_count else count_edge_routes(
             conn, city_id, edge_id,
             generation_type=generation_type,
             algorithm=algorithm,

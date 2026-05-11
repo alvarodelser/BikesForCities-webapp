@@ -255,6 +255,7 @@ export interface EdgeRoutesParams {
   generationType?: string;
   algorithm?: string;
   month?: string;
+  skipCount?: boolean;
   signal?: AbortSignal;
 }
 
@@ -270,6 +271,7 @@ export const fetchEdgeRoutes = async (
   if (params.generationType) qs.set('generation_type', params.generationType);
   if (params.algorithm) qs.set('algorithm', params.algorithm);
   if (params.month) qs.set('month', params.month);
+  if (params.skipCount) qs.set('skip_count', 'true');
   const fetchFn = params.signal
     ? (url: string) => apiFetchWithSignal(url, params.signal!, {})
     : apiFetch;
