@@ -197,6 +197,7 @@ export interface TrafficResolveResult {
   stats: TrafficApiResponse['stats'];
   available_periods?: string[];
   max_edge_name?: string | null;
+  edge_count?: number | null;
 }
 
 export const fetchTrafficResolve = async (
@@ -220,6 +221,7 @@ export const fetchTrafficResolve = async (
     stats: result.stats ?? null,
     available_periods: result.available_periods,
     max_edge_name: result.max_edge_name ?? null,
+    edge_count: result.edge_count ?? null,
   };
 };
 

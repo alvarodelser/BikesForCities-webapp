@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchTraffic } from '../services/api';
+import { fetchTrafficResolve } from '../services/api';
 
 export interface TrafficOptions {
   period?: string;              // YYYY-MM
@@ -44,7 +44,7 @@ export function useTrafficStats(
     setLoading(true);
     setError(null);
 
-    fetchTraffic(
+    fetchTrafficResolve(
       cityId,
       options.generationType,
       options.algorithm,
@@ -53,8 +53,7 @@ export function useTrafficStats(
       .then(traffic => {
         if (cancelled) return;
 
-        // Use the new count field which represents number of edges with traffic
-        const trips = traffic.count ?? null;
+        const trips = traffic.edge_count ?? null;
         setTripsPerMonth(trips);
 
         const tph =
@@ -63,7 +62,6 @@ export function useTrafficStats(
             : null;
         setTripsPerThousandHab(tph);
 
-        // Infra fraction is handled separately
         setInfraFraction(null);
 
         setMaxVolume(traffic.stats?.max ?? null);
@@ -81,7 +79,7 @@ export function useTrafficStats(
     return () => {
       cancelled = true;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityId, serialized, population]);
 
   return {

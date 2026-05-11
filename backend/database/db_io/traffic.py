@@ -260,7 +260,8 @@ def get_traffic_stats(
                 PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY trip_count) AS q50,
                 PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY trip_count) AS q95,
                 MIN(trip_count) AS min,
-                MAX(trip_count) AS max
+                MAX(trip_count) AS max,
+                COUNT(*) AS edge_count
             FROM edge_traffic
             WHERE city_id        = %s
               AND generation_type = %s
@@ -274,11 +275,12 @@ def get_traffic_stats(
         if not row or row[0] is None:
             return None
         return {
-            'q5':  float(row[0]),
-            'q50': float(row[1]),
-            'q95': float(row[2]),
-            'min': float(row[3]),
-            'max': float(row[4]),
+            'q5':        float(row[0]),
+            'q50':       float(row[1]),
+            'q95':       float(row[2]),
+            'min':       float(row[3]),
+            'max':       float(row[4]),
+            'edge_count': int(row[5]),
         }
 
 

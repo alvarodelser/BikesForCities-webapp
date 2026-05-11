@@ -743,10 +743,12 @@ async def resolve_city_traffic(
 
         stats = None
         max_edge_name = None
+        edge_count = None
         raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
         if raw:
-            stats = TrafficStats(**raw)
-        
+            edge_count = raw.get('edge_count')
+            stats = TrafficStats(**{k: v for k, v in raw.items() if k != 'edge_count'})
+
         max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
         if max_edge:
             max_edge_name = max_edge.get('edge_name')
@@ -775,6 +777,7 @@ async def resolve_city_traffic(
             stats=stats,
             available_periods=available_periods,
             max_edge_name=max_edge_name,
+            edge_count=edge_count,
         )
     except HTTPException:
         raise

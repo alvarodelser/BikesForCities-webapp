@@ -391,7 +391,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     tileParams.set('algorithm', result.algorithm);
                     tileParams.set('month', result.month); // already YYYY-MM-DD from backend
 
-                    const newTileUrl = `${TILE_SERVER_URL}/edges/{z}/{x}/{y}?${tileParams.toString()}`;
+                    const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
                     console.log(`[TrafficLayer] Updating tile source: ${newTileUrl}`);
 
                     const currentTiles = (src as any).tiles;

@@ -5,7 +5,7 @@ import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import {
   fetchStations,
-  fetchTraffic,
+  fetchTrafficResolve,
   fetchTrafficModes,
   fetchInfraStats,
   fetchTrafficInfraCoverage,
@@ -133,22 +133,16 @@ export function useLiveStats(
 
         if (mode === MAP_MODES.TRAFFIC) {
           const [traffic, fetchedModes, infraCov] = await Promise.all([
-            fetchTraffic(city.id, generation || undefined, routing || undefined, period || undefined),
+            fetchTrafficResolve(city.id, generation || undefined, routing || undefined, period || undefined),
             fetchTrafficModes(city.id),
             fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
           ]);
           modes = fetchedModes;
 
-          // Get current period from response
-          const currentPeriod = traffic.month || '';
-          const periods = traffic.available_periods || (currentPeriod ? [currentPeriod] : []);
-
-          // TODO: Enhance to fetch all available periods from backend
-          // For now, we set the periods to at least the current period
-          // Backend should provide an endpoint like /cities/{id}/traffic/periods
-          // that returns all available periods for this city
-          if (periods.length > 0) {
-            setAvailablePeriods(periods);
+          if (traffic.available_periods && traffic.available_periods.length > 0) {
+            setAvailablePeriods(traffic.available_periods);
+          } else if (traffic.month) {
+            setAvailablePeriods([traffic.month.slice(0, 7)]);
           }
           const monthlyTrips = city.monthly_trips
             ? city.monthly_trips.toLocaleString('es')

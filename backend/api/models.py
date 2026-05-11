@@ -342,6 +342,7 @@ class TrafficResolveResponse(BaseResponse):
     stats: Optional[TrafficStats] = None
     available_periods: Optional[List[str]] = None
     max_edge_name: Optional[str] = None
+    edge_count: Optional[int] = None
 
 
 class EdgeRoutesResponse(BaseResponse):
