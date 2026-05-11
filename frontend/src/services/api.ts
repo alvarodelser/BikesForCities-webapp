@@ -211,7 +211,7 @@ export const fetchTrafficResolve = async (
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
   const qs = params.toString();
-  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
   if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
   const result = await response.json();
   return {
