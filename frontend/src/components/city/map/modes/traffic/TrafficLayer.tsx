@@ -393,30 +393,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
                     const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
 
-                    const currentTiles = (src as any).tiles as string[] | undefined;
-                    if (!currentTiles || currentTiles[0] !== newTileUrl) {
-                        console.log(`[TrafficLayer] setTiles → ${newTileUrl}`);
-                        if (typeof (src as any).setTiles === 'function') {
-                            (src as any).setTiles([newTileUrl]);
-                        } else {
-                            // Fallback for MapLibre versions without setTiles: remove and re-add source
-                            console.warn('[TrafficLayer] setTiles not available, rebuilding source');
-                            if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
-                            map.removeSource(SOURCE_ID);
-                            map.addSource(SOURCE_ID, {
-                                type: 'vector',
-                                tiles: [newTileUrl],
-                                minzoom: 0, maxzoom: 22,
-                                promoteId: 'id',
-                            });
-                            map.addLayer({
-                                id: LAYER_ID, type: 'line', source: SOURCE_ID,
-                                'source-layer': 'edges',
-                                filter: ['==', ['get', 'city_id'], city?.id as number],
-                                paint: { 'line-width': ['case', ['==', ['feature-state', 'selected'], true], 5, 1.5], 'line-color': '#edf8e9', 'line-opacity': 0 },
-                            });
-                        }
-                    }
+                    console.log(`[TrafficLayer] setTiles → ${newTileUrl}`);
+                    src.setTiles([newTileUrl]);
                 }
 
                 const stats = result.stats;

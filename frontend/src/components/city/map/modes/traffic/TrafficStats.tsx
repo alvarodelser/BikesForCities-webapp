@@ -82,6 +82,55 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
   );
 }
 
+interface PeriodDropdownProps {
+  periods: string[];
+  value: string | undefined;
+  onChange: (v: string) => void;
+}
+
+function PeriodDropdown({ periods, value, onChange }: PeriodDropdownProps) {
+  return (
+    <div
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden"
+      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+    >
+      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+        <div
+          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
+        >
+          <Calendar className="w-4 h-4 text-white" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-[var(--blue-dark)]">Período</h3>
+          <p className="text-[10px] text-[var(--blue)] opacity-70 truncate">Mes / período de datos</p>
+        </div>
+      </div>
+      <div className="px-4 pb-4">
+        <select
+          value={value ?? ''}
+          onChange={e => onChange(e.target.value)}
+          className="w-full px-3 py-1.5 rounded-xl text-xs font-bold border transition-all appearance-none cursor-pointer"
+          style={{
+            borderColor: value ? ACCENT : 'rgba(0,0,0,0.08)',
+            color: 'var(--blue-dark)',
+            backgroundColor: 'white',
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233A6C7F' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 10px center',
+            paddingRight: '28px',
+          }}
+        >
+          {periods.length === 0 && <option value="">—</option>}
+          {periods.map(p => (
+            <option key={p} value={p}>{p}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
   // Shared state via URL params — TrafficLayer reads/writes the same values
   const { generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
@@ -142,13 +191,10 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
 
       {/* ── Filter cards ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3">
-        <FilterCard
-          icon={Calendar}
-          title="Período"
-          description="Mes / período de datos"
-          options={availablePeriods.map(p => ({ value: p, label: p }))}
-          activeValue={period || undefined}
-          onSelect={v => setPeriod(v)}
+        <PeriodDropdown
+          periods={availablePeriods}
+          value={period || undefined}
+          onChange={v => setPeriod(v)}
         />
         <FilterCard
           icon={Network}
