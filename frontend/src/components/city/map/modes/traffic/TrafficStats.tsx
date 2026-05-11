@@ -3,22 +3,22 @@ import { Navigation, Users, TrendingUp, Activity, Calendar, Network, Route } fro
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
 import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
-import { fetchTrafficResolve, fetchTrafficInfraCoverage } from '../../../../../services/api';
+import { fetchTrafficInfraCoverage, fetchTrafficResolve } from '../../../../../services/api';
+import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
-import RouteHistograms from '../../../plots/RouteHistograms';
 import LineAreaChart from '../../../plots/LineAreaChart';
 
 export interface TrafficStatsProps {
   city: CityData;
 }
 
-const GENERATION_OPTIONS: { value: TrafficOptions['generationType']; label: string }[] = [
+const GENERATION_OPTIONS: { value: string; label: string }[] = [
   { value: 'real', label: 'GPS real' },
   { value: 'station_based', label: 'Estaciones' },
   { value: 'buildings_population', label: 'Población' },
 ];
 
-const ALGORITHM_OPTIONS: { value: TrafficOptions['algorithm']; label: string }[] = [
+const ALGORITHM_OPTIONS: { value: string; label: string }[] = [
   { value: 'map_matched', label: 'Map-matched' },
   { value: 'shortest', label: 'Ruta corta' },
   { value: 'safest', label: 'Ruta segura' },
@@ -35,9 +35,9 @@ interface FilterCardProps {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
-  options: { value: string | undefined; label: string }[];
+  options: { value: string; label: string }[];
   activeValue: string | undefined;
-  onSelect: (v: string | undefined) => void;
+  onSelect: (v: string) => void;
 }
 
 function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect }: FilterCardProps) {
@@ -63,7 +63,7 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
           const isActive = activeValue === opt.value;
           return (
             <button
-              key={String(opt.value)}
+              key={opt.value}
               onClick={() => onSelect(opt.value)}
               className="px-3 py-1 rounded-xl text-xs font-bold transition-all border"
               style={{
@@ -83,11 +83,14 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
 }
 
 const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(undefined);
-  const [generationType, setGenerationType] = useState<TrafficOptions['generationType']>(undefined);
-  const [algorithm, setAlgorithm] = useState<TrafficOptions['algorithm']>(undefined);
+  // Shared state via URL params — TrafficLayer reads/writes the same values
+  const { generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
 
-  const options: TrafficOptions = { period: selectedPeriod, generationType, algorithm };
+  const options: TrafficOptions = {
+    period: period || undefined,
+    generationType: (generation || undefined) as TrafficOptions['generationType'],
+    algorithm: (routing || undefined) as TrafficOptions['algorithm'],
+  };
 
   const { tripsPerMonth, tripsPerThousandHab, maxVolume, maxEdgeName, availablePeriods, loading } =
     useTrafficStats(city.id ?? null, options, city.population);
@@ -96,26 +99,20 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
   useEffect(() => {
     if (!city.id) return;
     let cancelled = false;
-    fetchTrafficInfraCoverage(city.id, generationType, algorithm, selectedPeriod)
+    fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined, period || undefined)
       .then(cov => { if (!cancelled) setInfraFraction(cov?.infra_fraction ?? null); })
       .catch(() => { if (!cancelled) setInfraFraction(null); });
     return () => { cancelled = true; };
-  }, [city.id, generationType, algorithm, selectedPeriod]);
-
-  useEffect(() => {
-    if (availablePeriods.length > 0 && !selectedPeriod) {
-      setSelectedPeriod(availablePeriods[0]);
-    }
-  }, [availablePeriods, selectedPeriod]);
+  }, [city.id, generation, routing, period]);
 
   const [evolutionData, setEvolutionData] = useState<Record<string, unknown>[]>([]);
   useEffect(() => {
     if (!city.id || availablePeriods.length === 0) return;
     let cancelled = false;
     Promise.allSettled(
-      availablePeriods.map(period =>
-        fetchTrafficResolve(city.id!, generationType, algorithm, period).then(t => ({
-          period,
+      availablePeriods.map(p =>
+        fetchTrafficResolve(city.id!, generation || undefined, routing || undefined, p).then(t => ({
+          period: p,
           tripsPerMonth: t.edge_count ?? 0,
         })),
       ),
@@ -128,7 +125,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
       setEvolutionData(points);
     });
     return () => { cancelled = true; };
-  }, [city.id, availablePeriods, generationType, algorithm]);
+  }, [city.id, availablePeriods, generation, routing]);
 
   const tripsStr = loading ? '—' : fmt(tripsPerMonth, 0, '');
   const tphStr = loading ? '—' : fmt(tripsPerThousandHab, 1, '');
@@ -150,24 +147,24 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
           title="Período"
           description="Mes / período de datos"
           options={availablePeriods.map(p => ({ value: p, label: p }))}
-          activeValue={selectedPeriod}
-          onSelect={v => setSelectedPeriod(v)}
+          activeValue={period || undefined}
+          onSelect={v => setPeriod(v)}
         />
         <FilterCard
           icon={Network}
           title="Generación"
           description="Estimación de la demanda"
-          options={GENERATION_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
-          activeValue={generationType}
-          onSelect={v => setGenerationType(v as TrafficOptions['generationType'])}
+          options={GENERATION_OPTIONS}
+          activeValue={generation || undefined}
+          onSelect={v => setGeneration(v)}
         />
         <FilterCard
           icon={Route}
           title="Enrutamiento"
           description="Algoritmo de asignación de rutas"
-          options={ALGORITHM_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
-          activeValue={algorithm}
-          onSelect={v => setAlgorithm(v as TrafficOptions['algorithm'])}
+          options={ALGORITHM_OPTIONS}
+          activeValue={routing || undefined}
+          onSelect={v => setRouting(v)}
         />
       </div>
 
@@ -216,31 +213,28 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
       </div>
 
       {/* ── Charts ───────────────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-4">
-        {city.id != null && <RouteHistograms cityId={city.id} accent={ACCENT} />}
-        {evolutionData.length > 0 && (
-          <LineAreaChart
-            data={evolutionData}
-            xKey="period"
-            title="Evolución de viajes"
-            subtitle="Total de rutas generadas por mes"
-            series={[
-              {
-                key: 'tripsPerMonth',
-                label: 'Viajes/mes',
-                color: '#4b749f',
-                type: 'area',
-              },
-            ]}
-            helpContent={
-              <p>
-                Evolución mensual del número total de rutas estimadas en bicicleta para la configuración seleccionada.
-                Permite identificar tendencias de crecimiento o estacionalidad en la demanda ciclista.
-              </p>
-            }
-          />
-        )}
-      </div>
+      {evolutionData.length > 0 && (
+        <LineAreaChart
+          data={evolutionData}
+          xKey="period"
+          title="Evolución de viajes"
+          subtitle="Total de rutas generadas por mes"
+          series={[
+            {
+              key: 'tripsPerMonth',
+              label: 'Viajes/mes',
+              color: '#4b749f',
+              type: 'area',
+            },
+          ]}
+          helpContent={
+            <p>
+              Evolución mensual del número total de rutas estimadas en bicicleta para la configuración seleccionada.
+              Permite identificar tendencias de crecimiento o estacionalidad en la demanda ciclista.
+            </p>
+          }
+        />
+      )}
     </div>
   );
 };
