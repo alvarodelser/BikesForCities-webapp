@@ -10,6 +10,7 @@ import LineAreaChart from '../../../plots/LineAreaChart';
 
 export interface TrafficStatsProps {
   city: CityData;
+  variant?: 'light' | 'darkTint';
 }
 
 const GENERATION_OPTIONS: { value: string; label: string }[] = [
@@ -35,7 +36,7 @@ interface FilterCardProps {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
   activeValue: string | undefined;
   onSelect: (v: string) => void;
 }
@@ -61,16 +62,20 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
       <div className="px-4 pb-4 flex flex-wrap gap-1.5">
         {options.map(opt => {
           const isActive = activeValue === opt.value;
+          const isDisabled = opt.disabled === true;
           return (
             <button
               key={opt.value}
-              onClick={() => onSelect(opt.value)}
+              onClick={() => !isDisabled && onSelect(opt.value)}
+              disabled={isDisabled}
               className="px-3 py-1 rounded-xl text-xs font-bold transition-all border"
               style={{
                 backgroundColor: isActive ? ACCENT : 'white',
                 borderColor: isActive ? ACCENT : 'rgba(0,0,0,0.08)',
-                color: isActive ? 'white' : 'var(--blue-dark)',
+                color: isActive ? 'white' : isDisabled ? 'rgba(0,0,0,0.25)' : 'var(--blue-dark)',
                 boxShadow: isActive ? `0 4px 12px ${ACCENT}40` : undefined,
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                opacity: isDisabled ? 0.45 : 1,
               }}
             >
               {opt.label}
@@ -131,9 +136,31 @@ function PeriodDropdown({ periods, value, onChange }: PeriodDropdownProps) {
   );
 }
 
-const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
+type Combo = { generation_type: string; algorithm: string };
+
+const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
   // Shared state via URL params — TrafficLayer reads/writes the same values
   const { generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
+
+  const combos = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
+
+  // Which generation types have any data for this city
+  const availableGenerations = new Set(combos.map(c => c.generation_type));
+
+  // Which algorithms are valid for the currently-selected generation (or all if none selected)
+  const availableAlgorithms = generation
+    ? new Set(combos.filter(c => c.generation_type === generation).map(c => c.algorithm))
+    : new Set(combos.map(c => c.algorithm));
+
+  const handleGenerationSelect = (v: string) => {
+    setGeneration(v);
+    // If current routing is not valid for the new generation, pick the first valid one
+    const validAlgos = new Set(combos.filter(c => c.generation_type === v).map(c => c.algorithm));
+    if (routing && !validAlgos.has(routing)) {
+      const firstValid = combos.find(c => c.generation_type === v)?.algorithm;
+      if (firstValid) setRouting(firstValid);
+    }
+  };
 
   const options: TrafficOptions = {
     period: period || undefined,
@@ -189,7 +216,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
 
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-white">Tráfico Ciclista</h2>
+        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Tráfico Ciclista</h2>
       </div>
 
       {/* ── Filter cards ─────────────────────────────────────────────────── */}
@@ -203,15 +230,15 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
           icon={Network}
           title="Generación"
           description="Estimación de la demanda"
-          options={GENERATION_OPTIONS}
+          options={GENERATION_OPTIONS.map(o => ({ ...o, disabled: !availableGenerations.has(o.value) }))}
           activeValue={generation || undefined}
-          onSelect={v => setGeneration(v)}
+          onSelect={handleGenerationSelect}
         />
         <FilterCard
           icon={Route}
           title="Enrutamiento"
           description="Algoritmo de asignación de rutas"
-          options={ALGORITHM_OPTIONS}
+          options={ALGORITHM_OPTIONS.map(o => ({ ...o, disabled: !availableAlgorithms.has(o.value) }))}
           activeValue={routing || undefined}
           onSelect={v => setRouting(v)}
         />
@@ -226,6 +253,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
           sublabel="Rutas estimadas en el período"
           icon={Navigation}
           accent={ACCENT}
+          variant={variant}
           helpContent="Número total de rutas estimadas para el período y configuración seleccionados. Cada ruta representa un viaje en bicicleta modelado a partir de la fuente de generación elegida."
         />
         <MetricPill
@@ -235,6 +263,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
           sublabel="% rutas sobre infra. ciclista"
           icon={TrendingUp}
           accent={ACCENT}
+          variant={variant}
           helpContent="Porcentaje de los viajes generados que discurren por carriles bici existentes. Un valor alto indica que la infraestructura está bien alineada con los flujos de demanda."
         />
       </div>
@@ -248,6 +277,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
           sublabel="Viajes / 1.000 hab."
           icon={Users}
           accent={ACCENT}
+          variant={variant}
           helpContent="Viajes estimados por cada 1.000 habitantes. Permite comparar la intensidad del uso ciclista entre ciudades de distinto tamaño."
         />
         <MetricPill
@@ -257,6 +287,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city }) => {
           sublabel={loading ? 'Cargando…' : (maxEdgeName ?? 'Sin nombre')}
           icon={Activity}
           accent={ACCENT}
+          variant={variant}
           helpContent="Número máximo de viajes que pasan por un único tramo de la red ciclista, identificando el corredor de mayor demanda."
         />
       </div>

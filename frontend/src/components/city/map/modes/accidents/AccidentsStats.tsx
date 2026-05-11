@@ -10,6 +10,7 @@ import { Car, Bus, Truck, Gauge, PersonStanding, Bike } from 'lucide-react';
 export interface AccidentsStatsProps {
   city: CityData;
   onLayerToggle?: (layer: 'all' | 'bike') => void;
+  variant?: 'light' | 'darkTint';
 }
 
 const SEVERITY_LABELS = ['Ileso', 'Leve', 'Grave', 'Fatal'];
@@ -31,7 +32,7 @@ const PEDESTRIAN_ROW_ICONS = [
   <Bike size={13} color="#22c55e" />,
 ];
 
-const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle }) => {
+const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle, variant }) => {
   const {
     totalAccidents,
     cyclistAccidents,
@@ -56,7 +57,7 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle }) 
       {/* ── Header with toggle ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-1">
         <div>
-          <h2 className="text-2xl font-bold text-white">Siniestralidad Vial</h2>
+          <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Siniestralidad Vial</h2>
         </div>
 
         <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl border border-black/5">
@@ -91,23 +92,27 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle }) 
           value={fmt(totalAccidents)}
           label="Total accidentes"
           accent={ACCENT}
+          variant={variant}
           helpContent="Número total de accidentes registrados en el municipio para el último año disponible."
         />
         <MetricPill
           value={fmt(cyclistAccidents)}
           label="Accidentes con bici"
           accent={ACCENT}
+          variant={variant}
           helpContent="Accidentes donde al menos un vehículo implicado era una bicicleta."
         />
         <MetricPill
           value={totalAccidents > 0 ? `${((cyclistAccidents / totalAccidents) * 100).toFixed(1)} %` : '—'}
           label="Incidencia ciclista"
           accent={ACCENT}
+          variant={variant}
         />
         <MetricPill
           value={loading ? '—' : '2023'}
           label="Año de datos"
           accent="#6b7280"
+          variant={variant}
         />
       </div>
 

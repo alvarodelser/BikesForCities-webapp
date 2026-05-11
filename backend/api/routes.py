@@ -55,7 +55,7 @@ router = APIRouter()
 
 # City endpoints
 @router.get("/cities", response_model=CityListResponse)
-async def list_networks(conn=Depends(get_db_connection)):
+def list_networks(conn=Depends(get_db_connection)):
     """Get all cities."""
     try:
         networks_data = get_all_cities(conn)
@@ -122,7 +122,7 @@ async def list_networks(conn=Depends(get_db_connection)):
 
 
 @router.get("/cities/{city_id}", response_model=CityDetailResponse)
-async def get_city(city_id: int, conn=Depends(get_db_connection)):
+def get_city(city_id: int, conn=Depends(get_db_connection)):
     """Get city details."""
     try:
         validate_network_exists(conn, city_id)
@@ -176,7 +176,7 @@ async def get_city(city_id: int, conn=Depends(get_db_connection)):
 
 
 @router.get("/cities/{city_id}/stats", response_model=CityStatsResponse)
-async def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
+def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
     """Get city statistics."""
     try:
         validate_network_exists(conn, city_id)
@@ -213,7 +213,7 @@ async def get_network_stats(city_id: int, conn=Depends(get_db_connection)):
 
 # Node endpoints
 @router.get("/cities/{city_id}/nodes", response_model=PaginatedNodesResponse)
-async def get_network_nodes(
+def get_network_nodes(
     city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
@@ -251,7 +251,7 @@ async def get_network_nodes(
 
 # Edge endpoints
 @router.get("/cities/{city_id}/edges", response_model=PaginatedEdgesResponse)
-async def get_network_edges(
+def get_network_edges(
     city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
@@ -291,7 +291,7 @@ async def get_network_edges(
 # Trip endpoints
 @router.get("/cities/{city_id}/trips", response_model=PaginatedTripsResponse)
 @router.get("/cities/{city_id}/routes", response_model=PaginatedTripsResponse)  # backward compat
-async def get_network_trips(
+def get_network_trips(
     city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
@@ -338,7 +338,7 @@ async def get_network_trips(
 
 # Feature endpoints
 @router.get("/cities/{city_id}/features", response_model=PaginatedFeaturesResponse)
-async def get_network_features(
+def get_network_features(
     city_id: int,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(100, ge=1, le=1000, description="Items per page"),
@@ -385,7 +385,7 @@ async def get_network_features(
 
 # GeoJSON endpoints
 @router.get("/cities/{city_id}/edges/geojson", response_model=GeoJSONResponse)
-async def get_network_edges_geojson(
+def get_network_edges_geojson(
     city_id: int,
     highway: Optional[str] = Query(None, description="Filter by highway type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
@@ -440,7 +440,7 @@ async def get_network_edges_geojson(
 
 
 @router.get("/cities/{city_id}/features/geojson", response_model=GeoJSONResponse)
-async def get_network_features_geojson(
+def get_network_features_geojson(
     city_id: int,
     feature_type: Optional[str] = Query(None, description="Filter by feature type"),
     bbox: Optional[str] = Query(None, description="Bounding box filter (min_lon,min_lat,max_lon,max_lat)"),
@@ -496,7 +496,7 @@ async def get_network_features_geojson(
 
 # Station endpoints
 @router.get("/cities/{city_id}/stations", response_model=StationListResponse)
-async def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
+def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
     """Get all stations for a city."""
     try:
         stations_data, _ = get_paginated_stations(conn, city_id, limit=10000, offset=0)
@@ -516,7 +516,7 @@ async def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
 
 
 @router.get("/cities/{city_id}/stations/{station_id}/hourly-availability")
-async def get_station_hourly_availability_api(
+def get_station_hourly_availability_api(
     city_id: int, station_id: str, 
     period: str = Query("all", description="Filtering period: all, week, weekend"),
     conn=Depends(get_db_connection)
@@ -537,7 +537,7 @@ async def get_station_hourly_availability_api(
 
 
 @router.get("/cities/{city_id}/stations/{station_id}/reach")
-async def get_station_reach(
+def get_station_reach(
     city_id: int, station_id: str,
     max_distance: float = Query(1000.0, ge=100, le=5000, description="Max reachability distance in metres"),
     conn=Depends(get_db_connection),
@@ -608,7 +608,7 @@ async def get_station_reach(
 
 # Traffic endpoints
 @router.get("/cities/{city_id}/traffic/modes", response_model=TrafficModesResponse)
-async def get_city_traffic_modes(
+def get_city_traffic_modes(
     city_id: int,
     conn=Depends(get_db_connection)
 ):
@@ -627,7 +627,7 @@ async def get_city_traffic_modes(
 
 
 @router.get("/cities/{city_id}/traffic", response_model=TrafficResponse)
-async def get_city_traffic(
+def get_city_traffic(
     city_id: int,
     generation_type: Optional[str] = Query(None, description="Filter: real | station_based | buildings_population"),
     algorithm: Optional[str] = Query(None, description="Filter: map_matched | safest | shortest | grouped"),
@@ -698,7 +698,7 @@ async def get_city_traffic(
 
 
 @router.get("/cities/{city_id}/traffic/resolve", response_model=TrafficResolveResponse)
-async def resolve_city_traffic(
+def resolve_city_traffic(
     city_id: int,
     generation_type: Optional[str] = Query(None),
     algorithm: Optional[str] = Query(None),
@@ -787,7 +787,7 @@ async def resolve_city_traffic(
 
 
 @router.get("/cities/{city_id}/edges/{edge_id}/routes", response_model=EdgeRoutesResponse)
-async def get_edge_routes(
+def get_edge_routes(
     city_id: int,
     edge_id: int,
     mode: Literal["traces", "heatmap"] = Query("traces", description="Visualisation mode: traces or heatmap"),
@@ -807,6 +807,9 @@ async def get_edge_routes(
     so the client can iteratively load all matching routes.
     """
     try:
+        with conn.cursor() as _cur:
+            _cur.execute("SET LOCAL statement_timeout = '15s'")
+
         validate_network_exists(conn, city_id)
 
         # Verify the edge belongs to this city
@@ -881,7 +884,7 @@ async def get_edge_routes(
 
 # Accidents endpoint
 @router.get("/cities/{city_id}/accidents")
-async def get_city_accidents(
+def get_city_accidents(
     city_id: int,
     cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
     conn=Depends(get_db_connection),
@@ -909,7 +912,7 @@ async def get_city_accidents(
 # ── Infrastructure analytics ──────────────────────────────────────────────────
 
 @router.get("/cities/{city_id}/infrastructure/stats", response_model=InfraStatsResponse)
-async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)):
+def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)):
     """Return infrastructure analytics: GCC coverage and Vías Públicas budget (cod. 153)."""
     try:
         validate_network_exists(conn, city_id)
@@ -943,7 +946,7 @@ async def get_infrastructure_stats(city_id: int, conn=Depends(get_db_connection)
 
 
 @router.get("/cities/{city_id}/infrastructure/components", response_model=InfraComponentsResponse)
-async def get_infrastructure_components(city_id: int, conn=Depends(get_db_connection)):
+def get_infrastructure_components(city_id: int, conn=Depends(get_db_connection)):
     """Return cycling edges as GeoJSON with component_id (0 = largest component)."""
     try:
         validate_network_exists(conn, city_id)
@@ -957,7 +960,7 @@ async def get_infrastructure_components(city_id: int, conn=Depends(get_db_connec
 
 
 @router.get("/cities/{city_id}/infrastructure/building-coverage", response_model=InfraComponentsResponse)
-async def get_infrastructure_building_coverage(city_id: int, conn=Depends(get_db_connection)):
+def get_infrastructure_building_coverage(city_id: int, conn=Depends(get_db_connection)):
     """Return bike_path_buildings as GeoJSON with component_id based on 150m buffer connectivity."""
     try:
         geojson = get_building_coverage_components_geojson(conn, city_id)
@@ -970,7 +973,7 @@ async def get_infrastructure_building_coverage(city_id: int, conn=Depends(get_db
 
 
 @router.get("/cities/{city_id}/infrastructure/edge-building-coverage", response_model=EdgeBuildingCoverageResponse)
-async def get_infrastructure_edge_building_coverage(city_id: int, conn=Depends(get_db_connection)):
+def get_infrastructure_edge_building_coverage(city_id: int, conn=Depends(get_db_connection)):
     """Return per-edge building counts for histogram of edge effectiveness (buildings/km)."""
     try:
         edges = get_edge_building_coverage(conn, city_id)
@@ -985,7 +988,7 @@ async def get_infrastructure_edge_building_coverage(city_id: int, conn=Depends(g
 # ── Traffic analytics ─────────────────────────────────────────────────────────
 
 @router.get("/cities/{city_id}/traffic/infra-coverage", response_model=TrafficInfraCoverage)
-async def get_city_traffic_infra_coverage(
+def get_city_traffic_infra_coverage(
     city_id: int,
     generation_type: Optional[str] = Query(None),
     algorithm: Optional[str] = Query(None),
@@ -1029,7 +1032,7 @@ async def get_city_traffic_infra_coverage(
 
 
 @router.get("/cities/{city_id}/traffic/histogram", response_model=RouteHistogramResponse)
-async def get_city_route_histogram(
+def get_city_route_histogram(
     city_id: int,
     bins: int = Query(20, ge=5, le=50, description="Number of histogram bins"),
     conn=Depends(get_db_connection),
@@ -1061,7 +1064,7 @@ async def get_city_route_histogram(
 # ── Station analytics ─────────────────────────────────────────────────────────
 
 @router.get("/cities/{city_id}/stations/building-coverage", response_model=StationBuildingCoverageResponse)
-async def get_station_building_coverage_route(city_id: int, conn=Depends(get_db_connection)):
+def get_station_building_coverage_route(city_id: int, conn=Depends(get_db_connection)):
     """Return station building metrics: avg count per station and true city-wide coverage % (study area)."""
     try:
         avg_count = get_avg_station_building_count(conn, city_id)
@@ -1077,7 +1080,7 @@ async def get_station_building_coverage_route(city_id: int, conn=Depends(get_db_
 
 
 @router.get("/cities/{city_id}/stations/monthly", response_model=StationMonthlyResponse)
-async def get_city_station_monthly(city_id: int, conn=Depends(get_db_connection)):
+def get_city_station_monthly(city_id: int, conn=Depends(get_db_connection)):
     """Return monthly aggregated station trips (estimated + actual) for the city."""
     try:
         validate_network_exists(conn, city_id)
@@ -1096,7 +1099,7 @@ async def get_city_station_monthly(city_id: int, conn=Depends(get_db_connection)
 # ── Budget & political data ───────────────────────────────────────────────────
 
 @router.get("/cities/{city_id}/budgets", response_model=CityBudgetsResponse)
-async def get_city_budgets_endpoint(city_id: int, conn=Depends(get_db_connection)):
+def get_city_budgets_endpoint(city_id: int, conn=Depends(get_db_connection)):
     """Return all budget years with functional category lines for sunburst visualization."""
     try:
         validate_network_exists(conn, city_id)
@@ -1128,7 +1131,7 @@ async def get_city_budgets_endpoint(city_id: int, conn=Depends(get_db_connection
 
 
 @router.get("/cities/{city_id}/mayors", response_model=MayorsTimelineResponse)
-async def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)):
+def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)):
     """Return historical mayors list and electoral results for a timeline/Gantt chart."""
     try:
         validate_network_exists(conn, city_id)
@@ -1200,7 +1203,7 @@ def get_city_context(city_id: int, conn=Depends(get_db_connection)):
 
 # Status endpoint
 @router.get("/status")
-async def get_system_status(conn=Depends(get_db_connection)):
+def get_system_status(conn=Depends(get_db_connection)):
     """System status: city stats + ingestion pipeline overview."""
     try:
         import datetime
@@ -1283,7 +1286,7 @@ async def get_system_status(conn=Depends(get_db_connection)):
 
 # Health check with database validation
 @router.get("/health/detailed")
-async def detailed_health_check(conn=Depends(get_db_connection)):
+def detailed_health_check(conn=Depends(get_db_connection)):
     """Detailed health check including database connectivity."""
     try:
         db_healthy = check_database_health(conn)

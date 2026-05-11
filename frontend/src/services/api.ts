@@ -10,6 +10,14 @@ const apiFetch = async (url: string, options: RequestInit = {}): Promise<Respons
   return fetch(url, { ...options, headers });
 };
 
+const apiFetchWithSignal = async (url: string, signal: AbortSignal, options: RequestInit = {}): Promise<Response> => {
+  const headers = new Headers(options.headers || {});
+  if (API_KEY) {
+    headers.set('X-API-Key', API_KEY);
+  }
+  return fetch(url, { ...options, headers, signal });
+};
+
 export const fetchCities = async (): Promise<CityData[]> => {
   const response = await apiFetch(`${API_BASE_URL}/cities`);
   if (!response.ok) {
@@ -247,6 +255,7 @@ export interface EdgeRoutesParams {
   generationType?: string;
   algorithm?: string;
   month?: string;
+  signal?: AbortSignal;
 }
 
 export const fetchEdgeRoutes = async (
@@ -261,7 +270,10 @@ export const fetchEdgeRoutes = async (
   if (params.generationType) qs.set('generation_type', params.generationType);
   if (params.algorithm) qs.set('algorithm', params.algorithm);
   if (params.month) qs.set('month', params.month);
-  const response = await apiFetch(
+  const fetchFn = params.signal
+    ? (url: string) => apiFetchWithSignal(url, params.signal!, {})
+    : apiFetch;
+  const response = await fetchFn(
     `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?${qs.toString()}`
   );
   if (!response.ok) throw new Error('Error al cargar las rutas de los tramos');

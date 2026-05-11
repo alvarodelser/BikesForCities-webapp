@@ -54,9 +54,9 @@ export default function InfrastructureLayer({ submode: _submode }: { submode: st
                 type: 'line',
                 source: BOUNDARY_SOURCE,
                 paint: {
-                    'line-color': '#027A76',
+                    'line-color': '#4a5568',
                     'line-width': 2,
-                    'line-dasharray': [6, 3],
+                    'line-dasharray': [4, 4],
                     'line-opacity': 0.7,
                 },
             } as any, before);

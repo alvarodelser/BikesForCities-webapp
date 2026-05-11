@@ -8,6 +8,7 @@ import StationHistograms from '../../../plots/StationHistograms';
 
 export interface StationsStatsProps {
   city: CityData;
+  variant?: 'light' | 'darkTint';
 }
 
 function fmt(value: number | null, decimals: number, suffix: string): string {
@@ -15,7 +16,7 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
   return `${value.toFixed(decimals)} ${suffix}`;
 }
 
-const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
+const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
   const {
     totalBikes: hookTotalBikes,
     activeStations,
@@ -55,10 +56,10 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
     <div className="w-full flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-white">Bicicleta Pública</h2>
+        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Bicicleta Pública</h2>
         <div className="flex items-center gap-2 mt-1">
           <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: ACCENT }} />
-          <p className="text-base text-white/80">{city.service_name ?? city.name}</p>
+          <p className={`text-base ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-white/80'}`}>{city.service_name ?? city.name}</p>
         </div>
       </div>
 
@@ -71,6 +72,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
           sublabel="Flota del servicio público"
           icon={Bike}
           accent={ACCENT}
+          variant={variant}
           helpContent="Número total de bicicletas disponibles en el sistema de bicicleta pública de la ciudad, incluyendo las disponibles en estaciones y las que pueden estar en tránsito."
         />
         <MetricPill
@@ -80,6 +82,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
           sublabel="Puntos de anclaje operativos"
           icon={MapPin}
           accent={ACCENT}
+          variant={variant}
           helpContent="Número de estaciones de anclaje operativas. Las estaciones inactivas por obras, averías o retirada temporal no se contabilizan en este total."
         />
       </div>
@@ -93,6 +96,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
           sublabel="Bicis / 1.000 hab."
           icon={Users}
           accent={ACCENT}
+          variant={variant}
           helpContent="Número de bicicletas disponibles por cada 1.000 habitantes. Permite comparar la intensidad del servicio entre ciudades de distintos tamaños en igualdad de condiciones."
         />
         <MetricPill
@@ -102,6 +106,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
           sublabel="Viajes / bici / día"
           icon={Activity}
           accent={ACCENT}
+          variant={variant}
           helpContent="Número de viajes por bicicleta y día. Un valor alto indica un servicio con alta demanda y rotación. Se calcula dividiendo los viajes mensuales entre el número de bicicletas y los días del mes."
         />
         <MetricPill
@@ -111,6 +116,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
           sublabel="% edificios a <150m"
           icon={TrendingUp}
           accent={ACCENT}
+          variant={variant}
           helpContent="Porcentaje de edificios del área de estudio que tienen al menos una estación a menos de 150 metros. Refleja el alcance geográfico real del servicio."
         />
         <MetricPill
@@ -120,6 +126,7 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city }) => {
           sublabel="Min. sin bicis / día"
           icon={Clock}
           accent={ACCENT}
+          variant={variant}
           helpContent="Tiempo medio diario que una estación permanece inoperativa (sin bicicletas o sin anclajes libres). Un valor alto indica problemas de reposición."
         />
       </div>

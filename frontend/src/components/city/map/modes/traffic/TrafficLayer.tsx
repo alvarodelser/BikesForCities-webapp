@@ -209,6 +209,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
 
     const ROUTE_PAGE_SIZE = 100;
+    const MAX_ROUTES = 500;
 
     /**
      * Iteratively loads all routes for an edge in pages of ROUTE_PAGE_SIZE,
@@ -236,7 +237,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         let offset = 0;
         let total = 0;
 
-        const updateLabel = (loaded: number, knownTotal: number) => {
+        const updateLabel = (loaded: number, knownTotal: number, capped: boolean) => {
             if (knownTotal === 0) {
                 const label = 'Sin rutas';
                 if (routeInfoEl) routeInfoEl.textContent = label;
@@ -251,9 +252,11 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 }
                 return;
             }
-            const label = loaded >= knownTotal
-                ? `${knownTotal} rutas`
-                : `${loaded} / ${knownTotal} rutas`;
+            const label = capped
+                ? `${loaded}+ rutas`
+                : loaded >= knownTotal
+                    ? `${knownTotal} rutas`
+                    : `${loaded} / ${knownTotal} rutas`;
             if (routeInfoEl) routeInfoEl.textContent = label;
             const prev = lastSelectionRef.current;
             if (prev && prev.type === 'edge') {
@@ -276,6 +279,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     generationType: generation || undefined,
                     algorithm: routing || undefined,
                     month: period || undefined,
+                    signal: controller.signal,
                 });
 
                 if (controller.signal.aborted) return;
@@ -284,15 +288,16 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 total = result.total;
                 accumulated.push(...result.data.features);
 
+                const capped = accumulated.length >= MAX_ROUTES;
                 if (accumulated.length > 0) {
                     renderOverlay(
                         { type: 'FeatureCollection', features: accumulated },
                         mode,
                     );
                 }
-                updateLabel(accumulated.length, total);
+                updateLabel(accumulated.length, total, capped);
 
-                if (result.count === 0) break;
+                if (result.count === 0 || capped) break;
                 offset += ROUTE_PAGE_SIZE;
             } while (accumulated.length < total);
         } catch (err) {
@@ -360,10 +365,14 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
+            console.log(`[TrafficLayer] resolve → city=${city!.id} gen=${generation} routing=${routing} period=${period}`);
+        fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
                 if (cancelled || !map) return;
 
+                console.log('[TrafficLayer] resolve result →', result);
+
                 if (!result.generation_type || !result.algorithm || !result.month) {
+                    console.warn('[TrafficLayer] resolve returned empty, skipping setTiles');
                     setLayerState?.('empty');
                     return;
                 }
@@ -381,10 +390,14 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                     urlChanged = true;
                 }
 
-                if (urlChanged) return; // Wait for next render driven by URL change
+                if (urlChanged) {
+                    console.log('[TrafficLayer] urlChanged=true, waiting for next render');
+                    return;
+                }
 
                 // Re-point the tile source to the resolved (gen, algo, month) slice.
                 const src = map.getSource(SOURCE_ID) as maplibregl.VectorTileSource | undefined;
+                console.log(`[TrafficLayer] source exists: ${!!src}`);
                 if (src) {
                     const tileParams = new URLSearchParams();
                     tileParams.set('generation_type', result.generation_type);
