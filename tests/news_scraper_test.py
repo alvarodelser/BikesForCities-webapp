@@ -107,3 +107,91 @@ def test_get_next_unfetched_month_skips_failed():
     from scripts.news_scrapper import get_next_unfetched_month
     result = get_next_unfetched_month(metadata)
     assert result == "2026-03"
+
+
+def test_scraper_integration_single_month(tmp_path, monkeypatch):
+    """Test full scraper flow for a single month."""
+    import os
+    os.chdir(tmp_path)
+
+    # Create data/news directory
+    os.makedirs("data/news", exist_ok=True)
+
+    # Create empty archive
+    with open("data/news/movilidad_news.json", 'w') as f:
+        json.dump([], f)
+
+    # Mock feedparser to return test data
+    from scripts import news_scrapper
+
+    original_parse = None
+    def mock_parse(url):
+        class MockEntry:
+            def __init__(self):
+                self.title = "Test Article - Test Source"
+                self.link = "http://example.com/test"
+                self.summary = "<p>Test description</p>"
+                self.published = "2026-04-15T10:00:00Z"
+            def get(self, key, default=None):
+                if key == 'source':
+                    return {'title': 'Test News'}
+                return default
+
+        class MockFeed:
+            entries = [MockEntry()]
+
+        return MockFeed()
+
+    monkeypatch.setattr(news_scrapper.feedparser, "parse", mock_parse)
+
+    # Run scraper for April 2026
+    news_scrapper.scrape_spanish_mobility_news(max_results=100, target_month="2026-04")
+
+    # Verify metadata was updated
+    metadata = news_scrapper.load_scraper_metadata()
+    assert "2026-04" in metadata["fetched_months"]
+
+    # Verify archive was updated
+    with open("data/news/movilidad_news.json", 'r') as f:
+        archive = json.load(f)
+    assert len(archive) > 0
+
+
+def test_scraper_metadata_persistence(tmp_path, monkeypatch):
+    """Test that metadata persists across multiple runs."""
+    import os
+    os.chdir(tmp_path)
+    os.makedirs("data/news", exist_ok=True)
+
+    with open("data/news/movilidad_news.json", 'w') as f:
+        json.dump([], f)
+
+    from scripts import news_scrapper
+
+    def mock_parse(url):
+        class MockEntry:
+            def __init__(self, link):
+                self.title = f"Article {link}"
+                self.link = link
+                self.summary = "Test"
+                self.published = "2026-04-15T10:00:00Z"
+            def get(self, key, default=None):
+                return {'title': 'Test'} if key == 'source' else default
+
+        class MockFeed:
+            entries = [MockEntry(f"http://test.com/{link}") for link in ["article1", "article2"]]
+
+        return MockFeed()
+
+    monkeypatch.setattr(news_scrapper.feedparser, "parse", mock_parse)
+
+    # First run
+    news_scrapper.scrape_spanish_mobility_news(target_month="2026-05")
+
+    # Second run
+    news_scrapper.scrape_spanish_mobility_news(target_month="2026-04")
+
+    # Verify both months in metadata
+    metadata = news_scrapper.load_scraper_metadata()
+    assert "2026-05" in metadata["fetched_months"]
+    assert "2026-04" in metadata["fetched_months"]
