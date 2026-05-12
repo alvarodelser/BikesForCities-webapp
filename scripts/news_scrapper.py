@@ -150,12 +150,18 @@ def scrape_spanish_mobility_news(max_results=100):
     """
     import json
 
-    # 1. Define search queries (multiple to get more articles)
+    # 1. Define search queries (multiple to get comprehensive coverage)
     queries = [
         'carril bici',
         'movilidad urbana',
         'bicicleta España',
-        'infraestructura ciclista'
+        'infraestructura ciclista',
+        'ciclovía',
+        'transporte sostenible',
+        'movilidad sostenible',
+        'bike sharing',
+        'bicicleta eléctrica',
+        'transporte urbano'
     ]
 
     # 2. Collect articles from multiple queries
@@ -186,9 +192,10 @@ def scrape_spanish_mobility_news(max_results=100):
 
     # 4. Process new articles
     newly_discovered = []
-    print(f"\n--- Processing {min(len(all_entries), max_results)} articles from RSS feed ---\n")
+    articles_to_process = min(len(all_entries), max_results)
+    print(f"\n--- Processing {articles_to_process} articles from {len(all_entries)} total ---\n")
 
-    for entry in all_entries[:max_results]:
+    for entry in all_entries[:articles_to_process]:
         title = entry.title.split(" - ")[0]  # Clean publisher name
 
         soup = BeautifulSoup(entry.summary, "html.parser")
@@ -267,4 +274,5 @@ def scrape_spanish_mobility_news(max_results=100):
 
 # Run the scraper
 if __name__ == "__main__":
-    scrape_spanish_mobility_news(max_results=200)
+    # Process all available articles (up to 400 from 4 query sources x 100 each)
+    scrape_spanish_mobility_news(max_results=400)
