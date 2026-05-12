@@ -36,6 +36,17 @@
     --white: #FFFFFF;
     --black: #1E1E1E;
 
+    /* ========== FORUM ========== */
+    --forum-bg:                  #EDE0CC;
+    --forum-building-fill:       rgba(139, 99, 64, 0.09);
+    --forum-building-stroke:     rgba(139, 99, 64, 0.22);
+    --forum-building-fill-pop:   rgba(2, 122, 118, 0.12);
+    --forum-building-stroke-pop: rgba(2, 122, 118, 0.40);
+    --forum-card-bg:             rgba(255, 248, 235, 0.52);
+    --forum-card-border:         rgba(255, 255, 255, 0.65);
+    --forum-track:               rgba(59, 32, 18, 0.25);
+    --forum-dot:                 rgba(59, 32, 18, 0.28);
+
     /* ========== BREAKPOINTS ========== */
     --breakpoint-3xl: 1920px;
 

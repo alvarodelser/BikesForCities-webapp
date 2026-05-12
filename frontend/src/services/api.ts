@@ -573,3 +573,26 @@ export async function fetchCityContext(cityId: number): Promise<CityContextData>
   // Unwrap .data envelope if present (consistent with other endpoints)
   return result.data ?? result;
 }
+
+export interface BuildingFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'Polygon' | 'MultiPolygon';
+    coordinates: number[][][];
+  };
+  properties: Record<string, unknown>;
+}
+
+export interface BuildingGeoJSON {
+  type: 'FeatureCollection';
+  features: BuildingFeature[];
+}
+
+export const fetchBuildingFootprints = async (cityId: number): Promise<BuildingGeoJSON> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/features/geojson?feature_type=buildings&limit=3000`
+  );
+  if (!response.ok) throw new Error('Error al cargar los edificios');
+  const result = await response.json();
+  return result.data as BuildingGeoJSON;
+};
