@@ -1,6 +1,33 @@
 import feedparser
 from bs4 import BeautifulSoup
 import urllib.parse
+import difflib
+
+def calculate_content_similarity(headline1, desc1, headline2, desc2):
+    """
+    Calculate word overlap similarity between two articles.
+    Returns True if >80% of words overlap between combined headline+description.
+    """
+    # Normalize: lowercase and split into words, remove common words
+    def get_unique_words(headline, description):
+        text = f"{headline} {description}".lower()
+        # Simple stop words to skip common articles/prepositions
+        stop_words = {'el', 'la', 'de', 'en', 'y', 'a', 'los', 'las', 'del', 'por', 'con', 'al', 'un', 'una', 'o', 'para'}
+        words = set(w for w in text.split() if w not in stop_words and len(w) > 2)
+        return words
+
+    words1 = get_unique_words(headline1, desc1)
+    words2 = get_unique_words(headline2, desc2)
+
+    if not words1 or not words2:
+        return False
+
+    # Calculate overlap percentage
+    overlap = len(words1 & words2)
+    total = len(words1 | words2)
+    similarity = overlap / total if total > 0 else 0
+
+    return similarity >= 0.8
 
 def scrape_spanish_mobility_news(max_results=5):
     # 1. Define the search query targeted at Spain
