@@ -61,7 +61,7 @@ const ForumPage: React.FC = () => {
   }, []);
 
   return (
-    <div ref={pageRef} className="scrollbar-hide" style={{ position: 'relative', background: 'var(--forum-bg)' }}>
+    <div ref={pageRef} className="scrollbar-hide min-h-screen" style={{ position: 'relative', background: 'var(--forum-bg)' }}>
       <CityBuildingBackground cityId={selectedCityId} ref={bgRef} />
       <BuildingTrajectories bgRef={bgRef} />
       {/* Header */}
