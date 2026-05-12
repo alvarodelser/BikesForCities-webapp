@@ -6,6 +6,44 @@ import json
 import os
 from datetime import datetime, timedelta
 
+def get_month_date_filters(month_str):
+    """
+    Generate date filters for Google News RSS query.
+    Input: "2026-04" (YYYY-MM)
+    Returns tuple: (after_date, before_date) as "YYYY-MM-DD" strings
+    Example: ("2026-04-01", "2026-04-30")
+    """
+    year = int(month_str[:4])
+    month = int(month_str[5:7])
+
+    # First day of month
+    after_date = f"{year:04d}-{month:02d}-01"
+
+    # Last day of month (next month's first day - 1)
+    if month == 12:
+        next_month = 1
+        next_year = year + 1
+    else:
+        next_month = month + 1
+        next_year = year
+
+    last_day = datetime(next_year, next_month, 1) - timedelta(days=1)
+    before_date = last_day.strftime("%Y-%m-%d")
+
+    return (after_date, before_date)
+
+def build_rss_url_with_date_filter(query, after_date=None, before_date=None):
+    """
+    Build Google News RSS URL with optional date filters.
+    If after_date/before_date provided, adds to query: "query after:DATE before:DATE"
+    """
+    if after_date and before_date:
+        query = f"{query} after:{after_date} before:{before_date}"
+
+    encoded_query = urllib.parse.quote(query)
+    rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=es&gl=ES&ceid=ES:es"
+    return rss_url
+
 def load_scraper_metadata(base_path="data/news"):
     """
     Load scraper metadata tracking which months have been fetched.
