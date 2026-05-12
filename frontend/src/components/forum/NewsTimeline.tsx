@@ -16,6 +16,7 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   const thumbRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const [thumbTop, setThumbTop] = useState(0);
+  const [thumbHeight, setThumbHeight] = useState(0);
 
   // Compute proportional positions for dots and year labels
   const dates = items.map(i => new Date(i.publication_dt).getTime());
@@ -39,15 +40,23 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     }
   });
 
-  // Handle feed scroll → update thumb position
+  // Handle feed scroll → update thumb position and height
   const handleFeedScroll = useCallback(() => {
     if (!scrollRef.current || !timelineRef.current) return;
     const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const trackHeight = timelineRef.current.clientHeight;
+
+    // Thumb height = proportion of visible content to total content
+    const newThumbHeight = Math.max(32, (clientHeight / scrollHeight) * trackHeight);
+
+    // Thumb position = scroll progress
     const scrollFraction = scrollHeight > clientHeight
       ? scrollTop / (scrollHeight - clientHeight)
       : 0;
-    const trackHeight = timelineRef.current.clientHeight;
-    setThumbTop(Math.max(0, scrollFraction * (trackHeight - 24))); // 24px thumb height
+    const newThumbTop = scrollFraction * (trackHeight - newThumbHeight);
+
+    setThumbHeight(newThumbHeight);
+    setThumbTop(Math.max(0, newThumbTop));
   }, [scrollRef]);
 
   // Handle thumb drag → update feed scroll
@@ -62,11 +71,12 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     const trackRect = timelineRef.current.getBoundingClientRect();
     const trackHeight = trackRect.height;
     const dragY = e.clientY - trackRect.top;
-    const fraction = Math.max(0, Math.min(1, dragY / trackHeight));
+    const constrainedY = Math.max(0, Math.min(dragY, trackHeight - thumbHeight));
+    const fraction = trackHeight > thumbHeight ? constrainedY / (trackHeight - thumbHeight) : 0;
 
     const { scrollHeight, clientHeight } = scrollRef.current;
     scrollRef.current.scrollTop = fraction * (scrollHeight - clientHeight);
-  }, [scrollRef]);
+  }, [scrollRef, thumbHeight]);
 
   const handlePointerUp = () => {
     isDraggingRef.current = false;
@@ -124,8 +134,8 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
         <div
           ref={thumbRef}
           onPointerDown={handleThumbPointerDown}
-          className="absolute left-1/2 -translate-x-1/2 w-5 h-6 rounded-full bg-[var(--green-dark)] cursor-grab active:cursor-grabbing transition-colors hover:bg-[var(--green)] shadow-sm"
-          style={{ top: `${thumbTop}px` }}
+          className="absolute left-1/2 -translate-x-1/2 w-5 rounded-full bg-[var(--green-dark)] cursor-grab active:cursor-grabbing transition-colors hover:bg-[var(--green)] shadow-sm"
+          style={{ top: `${thumbTop}px`, height: `${thumbHeight}px` }}
         />
       </div>
     </div>
