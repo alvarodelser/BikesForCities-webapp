@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { fetchBuildingFootprints, BuildingFeature } from '../../services/api';
+import { fetchBuildingFootprints, type BuildingFeature } from '../../services/api';
 import { SVG_W, SVG_H, computeGeoBbox, projectGeoCoords, GeoBbox } from '../../utils/geoProjection';
 
 // ---- Types ----
