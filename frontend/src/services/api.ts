@@ -578,7 +578,7 @@ export interface BuildingFeature {
   type: 'Feature';
   geometry: {
     type: 'Polygon' | 'MultiPolygon';
-    coordinates: number[][][];
+    coordinates: number[][][] | number[][][][];
   };
   properties: Record<string, unknown>;
 }
