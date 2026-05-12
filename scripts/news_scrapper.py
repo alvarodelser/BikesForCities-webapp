@@ -293,21 +293,30 @@ def scrape_spanish_mobility_news(max_results=100, target_month=None, delay_secon
     if target_month:
         date_filters = get_month_date_filters(target_month)
 
-    for query in queries:
-        if date_filters:
-            rss_url = build_rss_url_with_date_filter(query, date_filters[0], date_filters[1])
-        else:
-            rss_url = build_rss_url_with_date_filter(query)
+    try:
+        for query in queries:
+            if date_filters:
+                rss_url = build_rss_url_with_date_filter(query, date_filters[0], date_filters[1])
+            else:
+                rss_url = build_rss_url_with_date_filter(query)
 
-        feed = feedparser.parse(rss_url)
+            feed = feedparser.parse(rss_url)
 
-        print(f"Fetching '{query}': found {len(feed.entries)} articles")
+            print(f"Fetching '{query}': found {len(feed.entries)} articles")
 
-        for entry in feed.entries:
-            # Skip duplicates within RSS results
-            if entry.link not in seen_urls:
-                all_entries.append(entry)
-                seen_urls.add(entry.link)
+            for entry in feed.entries:
+                # Skip duplicates within RSS results
+                if entry.link not in seen_urls:
+                    all_entries.append(entry)
+                    seen_urls.add(entry.link)
+    except Exception as e:
+        if target_month:
+            metadata = load_scraper_metadata()
+            if target_month not in metadata["failed_months"]:
+                metadata["failed_months"].append(target_month)
+            save_scraper_metadata(metadata)
+            print(f"✗ Error fetching {target_month}: {str(e)}")
+        raise
 
     feed_entries = all_entries
 
@@ -399,6 +408,20 @@ def scrape_spanish_mobility_news(max_results=100, target_month=None, delay_secon
         print(f"\n✓ No new articles found (all were duplicates/merged)")
 
     print(f"--- Total articles in archive: {len(archive_articles)} ---\n")
+
+    # 8. Update metadata if target month was specified
+    if target_month:
+        metadata = load_scraper_metadata()
+
+        if target_month not in metadata["fetched_months"]:
+            metadata["fetched_months"].append(target_month)
+            # Remove from failed if it was there (retry successful)
+            if target_month in metadata["failed_months"]:
+                metadata["failed_months"].remove(target_month)
+
+        # Sort months in reverse chronological order for clarity
+        metadata["fetched_months"].sort(reverse=True)
+        save_scraper_metadata(metadata)
 
     # Final delay for rate limiting
     import time
