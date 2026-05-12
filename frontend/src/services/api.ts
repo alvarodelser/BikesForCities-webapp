@@ -596,3 +596,26 @@ export const fetchBuildingFootprints = async (cityId: number): Promise<BuildingG
   const result = await response.json();
   return result.data as BuildingGeoJSON;
 };
+
+export interface StreetFeature {
+  type: 'Feature';
+  geometry: {
+    type: 'LineString' | 'MultiLineString';
+    coordinates: number[][] | number[][][];
+  };
+  properties: Record<string, unknown>;
+}
+
+export interface StreetGeoJSON {
+  type: 'FeatureCollection';
+  features: StreetFeature[];
+}
+
+export const fetchStreetNetwork = async (cityId: number): Promise<StreetGeoJSON> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/features/geojson?feature_type=bike_paths&limit=5000`
+  );
+  if (!response.ok) throw new Error('Error al cargar las calles');
+  const result = await response.json();
+  return result.data as StreetGeoJSON;
+};

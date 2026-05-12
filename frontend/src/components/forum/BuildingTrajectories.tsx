@@ -8,11 +8,13 @@ import { SVG_W, SVG_H } from '../../utils/geoProjection';
 
 interface BuildingTrajectoriesProps {
   bgRef: React.RefObject<CityBuildingBackgroundHandle>;
+  trajectoryPaths: string[];
 }
 
 // ---- Constants ----
 
-const PATHS = [
+// Default fallback paths if street data is unavailable
+const DEFAULT_PATHS = [
   'M 0,98  Q 250,70 500,154  T 1000,126',  // upper sweep L→R
   'M 0,385 Q 250,350 500,420 T 1000,385',  // mid sweep L→R
   'M 1000,546 Q 750,511 500,574 T 0,546',  // lower sweep R→L
@@ -33,7 +35,8 @@ type PathPhase = 'idle' | 'drawing' | 'holding' | 'fading';
 
 // ---- Component ----
 
-const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef }) => {
+const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, trajectoryPaths }) => {
+  const PATHS = trajectoryPaths.length > 0 ? trajectoryPaths : DEFAULT_PATHS;
   const pathRefs = [
     useRef<SVGPathElement>(null),
     useRef<SVGPathElement>(null),

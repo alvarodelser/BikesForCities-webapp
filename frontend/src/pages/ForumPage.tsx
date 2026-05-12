@@ -5,8 +5,9 @@ import NewsTimeline from '../components/forum/NewsTimeline';
 import { Search, X } from 'lucide-react';
 import CityBuildingBackground, { type CityBuildingBackgroundHandle } from '../components/forum/CityBuildingBackground';
 import BuildingTrajectories from '../components/forum/BuildingTrajectories';
-import { fetchCities } from '../services/api';
+import { fetchCities, fetchStreetNetwork } from '../services/api';
 import type { CityData } from '../constants/cities';
+import { extractStreetSegments, findMarginCrossingPaths, geoLineToSvgPath } from '../utils/streetPathfinding';
 
 const ForumPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -15,6 +16,7 @@ const ForumPage: React.FC = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const bgRef = useRef<CityBuildingBackgroundHandle | null>(null);
   const [cities, setCities] = useState<CityData[]>([]);
+  const [trajectoryPaths, setTrajectoryPaths] = useState<string[]>([]);
   const selectedCityId = useMemo(
     () => {
       if (cities.length === 0) return 1;
@@ -67,10 +69,84 @@ const ForumPage: React.FC = () => {
     });
   }, []);
 
+  // Load street network and compute trajectories when city changes
+  React.useEffect(() => {
+    if (selectedCityId === 1) return; // Don't fetch until city is loaded
+
+    fetchStreetNetwork(selectedCityId)
+      .then((streetGeoJSON) => {
+        // Extract street segments
+        const segments = extractStreetSegments(streetGeoJSON.features, {
+          minLon: 0,
+          maxLon: 1,
+          minLat: 0,
+          maxLat: 1,
+        });
+
+        // We need to compute bbox from streets to find margin-crossing paths
+        // For now, use fallback paths if we can't compute them properly
+        if (segments.length === 0) {
+          setTrajectoryPaths([]);
+          return;
+        }
+
+        // Extract all coordinates to compute bbox
+        const allCoords: [number, number][] = [];
+        segments.forEach((seg) => {
+          allCoords.push(...seg.points);
+        });
+
+        if (allCoords.length === 0) {
+          setTrajectoryPaths([]);
+          return;
+        }
+
+        // Compute bbox
+        const bbox = {
+          minLon: Math.min(...allCoords.map((c) => c[0])),
+          maxLon: Math.max(...allCoords.map((c) => c[0])),
+          minLat: Math.min(...allCoords.map((c) => c[1])),
+          maxLat: Math.max(...allCoords.map((c) => c[1])),
+        };
+
+        // Compute center zone (40% like buildings)
+        const lonWidth = bbox.maxLon - bbox.minLon;
+        const latHeight = bbox.maxLat - bbox.minLat;
+        const centerZone = {
+          minLon: bbox.minLon + lonWidth * 0.3,
+          maxLon: bbox.maxLon - lonWidth * 0.3,
+          minLat: bbox.minLat + latHeight * 0.3,
+          maxLat: bbox.maxLat - latHeight * 0.3,
+        };
+
+        // Filter segments to center zone
+        const centerSegments = segments.filter((seg) =>
+          seg.points.some(([lon, lat]) =>
+            lon >= centerZone.minLon &&
+            lon <= centerZone.maxLon &&
+            lat >= centerZone.minLat &&
+            lat <= centerZone.maxLat
+          )
+        );
+
+        // Find margin-crossing paths
+        const crossingPaths = findMarginCrossingPaths(centerSegments, centerZone);
+
+        // Convert to SVG paths
+        const svgPaths = crossingPaths.map((path) => geoLineToSvgPath(path.points, centerZone));
+
+        setTrajectoryPaths(svgPaths);
+      })
+      .catch(() => {
+        // Silent fail - use default paths
+        setTrajectoryPaths([]);
+      });
+  }, [selectedCityId]);
+
   return (
     <div ref={pageRef} className="scrollbar-hide min-h-screen" style={{ position: 'relative', background: 'var(--forum-bg)' }}>
       <CityBuildingBackground cityId={selectedCityId} ref={bgRef} />
-      <BuildingTrajectories bgRef={bgRef} />
+      <BuildingTrajectories bgRef={bgRef} trajectoryPaths={trajectoryPaths} />
       {/* Header */}
       <div
         className="sticky top-0 z-50 border-b border-[var(--blue-light)] py-6 px-8"
