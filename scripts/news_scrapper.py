@@ -88,6 +88,7 @@ def merge_articles(existing_article, new_article):
 def load_existing_news():
     """
     Load existing news from data/news/movilidad_news.json.
+    Converts old format to new format with 'id' and 'sources' fields.
     Returns list of articles, empty list if file doesn't exist.
     """
     import os
@@ -100,7 +101,25 @@ def load_existing_news():
 
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            articles = json.load(f)
+
+        # Convert old format to new format
+        for article in articles:
+            # Add 'id' field if missing
+            if "id" not in article:
+                article["id"] = generate_stable_id(article.get("headline", ""))
+
+            # Convert 'link' and 'source' to 'sources' array if needed
+            if "sources" not in article and "link" in article:
+                article["sources"] = [
+                    {
+                        "name": article.get("source", "Unknown"),
+                        "link": article.get("link", ""),
+                        "date": article.get("publication_date", "")
+                    }
+                ]
+
+        return articles
     except (json.JSONDecodeError, IOError):
         print(f"Warning: Could not load {file_path}, starting fresh")
         return []
