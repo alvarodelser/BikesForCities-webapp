@@ -257,11 +257,16 @@ def save_news(articles, filename="movilidad_news.json"):
 
     print(f"✓ Saved {len(articles)} articles to {file_path}")
 
-def scrape_spanish_mobility_news(max_results=100):
+def scrape_spanish_mobility_news(max_results=100, target_month=None, delay_seconds=1.5):
     """
     Scrape Spanish mobility news from Google News RSS.
     Deduplicate against existing articles, merge duplicates.
     Save archive to movilidad_news.json and new articles to movilidad_news_new.json
+
+    Args:
+        max_results: Max articles to process per query (default 100)
+        target_month: Optional month to fetch (e.g., "2026-04"). If None, fetches recent.
+        delay_seconds: Seconds to wait after scraping (default 1.5 for rate limiting)
     """
     import json
 
@@ -283,9 +288,17 @@ def scrape_spanish_mobility_news(max_results=100):
     all_entries = []
     seen_urls = set()
 
+    # Generate date filters if target month specified
+    date_filters = None
+    if target_month:
+        date_filters = get_month_date_filters(target_month)
+
     for query in queries:
-        encoded_query = urllib.parse.quote(query)
-        rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=es&gl=ES&ceid=ES:es"
+        if date_filters:
+            rss_url = build_rss_url_with_date_filter(query, date_filters[0], date_filters[1])
+        else:
+            rss_url = build_rss_url_with_date_filter(query)
+
         feed = feedparser.parse(rss_url)
 
         print(f"Fetching '{query}': found {len(feed.entries)} articles")
@@ -387,7 +400,33 @@ def scrape_spanish_mobility_news(max_results=100):
 
     print(f"--- Total articles in archive: {len(archive_articles)} ---\n")
 
-# Run the scraper
+    # Final delay for rate limiting
+    import time
+    time.sleep(delay_seconds)
+
 if __name__ == "__main__":
-    # Process all available articles (up to 400 from 4 query sources x 100 each)
-    scrape_spanish_mobility_news(max_results=400)
+    import sys
+
+    target_month = None
+
+    # Check for --month argument
+    if len(sys.argv) > 1 and sys.argv[1] == "--month":
+        if len(sys.argv) > 2:
+            target_month = sys.argv[2]
+        else:
+            print("Error: --month requires a month argument (e.g., 2026-04)")
+            sys.exit(1)
+
+    # If no month specified, auto-detect next unfetched month
+    if not target_month:
+        metadata = load_scraper_metadata()
+        target_month = get_next_unfetched_month(metadata)
+
+        if target_month:
+            print(f"Auto-detected next month to fetch: {target_month}\n")
+        else:
+            print("All months have been fetched! Archive is complete.")
+            sys.exit(0)
+
+    # Run scraper for target month
+    scrape_spanish_mobility_news(max_results=100, target_month=target_month, delay_seconds=1.5)
