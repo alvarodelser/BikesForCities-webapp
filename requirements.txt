@@ -20,3 +20,5 @@ SPARQLWrapper
 requests
 leuvenmapmatching
 rtree
+feedparser
+beautifulsoup4

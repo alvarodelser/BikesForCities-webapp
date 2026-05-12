@@ -124,15 +124,15 @@ def load_existing_news():
         print(f"Warning: Could not load {file_path}, starting fresh")
         return []
 
-def save_news(articles):
+def save_news(articles, filename="movilidad_news.json"):
     """
-    Save articles to data/news/movilidad_news.json.
+    Save articles to data/news/{filename}.
     Creates directory if it doesn't exist.
     """
     import os
     import json
 
-    file_path = "data/news/movilidad_news.json"
+    file_path = f"data/news/{filename}"
 
     # Ensure directory exists
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
@@ -142,36 +142,53 @@ def save_news(articles):
 
     print(f"✓ Saved {len(articles)} articles to {file_path}")
 
-def scrape_spanish_mobility_news(max_results=12):
+def scrape_spanish_mobility_news(max_results=100):
     """
     Scrape Spanish mobility news from Google News RSS.
     Deduplicate against existing articles, merge duplicates.
-    Save to data/news/movilidad_news.json
+    Save archive to movilidad_news.json and new articles to movilidad_news_new.json
     """
     import json
 
-    # 1. Define search query
-    query = '"carril bici" OR "movilidad urbana"'
-    encoded_query = urllib.parse.quote(query)
+    # 1. Define search queries (multiple to get more articles)
+    queries = [
+        'carril bici',
+        'movilidad urbana',
+        'bicicleta España',
+        'infraestructura ciclista'
+    ]
 
-    # 2. Build Google News RSS URL
-    rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=es&gl=ES&ceid=ES:es"
+    # 2. Collect articles from multiple queries
+    all_entries = []
+    seen_urls = set()
 
-    # 3. Parse feed
-    feed = feedparser.parse(rss_url)
+    for query in queries:
+        encoded_query = urllib.parse.quote(query)
+        rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=es&gl=ES&ceid=ES:es"
+        feed = feedparser.parse(rss_url)
 
-    if not feed.entries:
+        print(f"Fetching '{query}': found {len(feed.entries)} articles")
+
+        for entry in feed.entries:
+            # Skip duplicates within RSS results
+            if entry.link not in seen_urls:
+                all_entries.append(entry)
+                seen_urls.add(entry.link)
+
+    feed_entries = all_entries
+
+    if not all_entries:
         print("No new news found from RSS.")
         return
 
-    # 4. Load existing articles
-    existing_articles = load_existing_news()
+    # 3. Load existing articles
+    archive_articles = load_existing_news()
 
-    # 5. Process new articles
-    print(f"\n--- Processing {len(feed.entries[:max_results])} new articles ---\n")
+    # 4. Process new articles
+    newly_discovered = []
+    print(f"\n--- Processing {min(len(all_entries), max_results)} articles from RSS feed ---\n")
 
-    new_articles = []
-    for entry in feed.entries[:max_results]:
+    for entry in all_entries[:max_results]:
         title = entry.title.split(" - ")[0]  # Clean publisher name
 
         soup = BeautifulSoup(entry.summary, "html.parser")
@@ -189,7 +206,7 @@ def scrape_spanish_mobility_news(max_results=12):
 
         # Check for URL match
         url_match_found = False
-        for existing in existing_articles:
+        for existing in archive_articles:
             # Check if URL is already in sources
             if "sources" in existing:
                 existing_links = [s.get("link") for s in existing["sources"]]
@@ -207,7 +224,7 @@ def scrape_spanish_mobility_news(max_results=12):
 
         # Check for content similarity
         similarity_match_found = False
-        for existing in existing_articles:
+        for existing in archive_articles:
             existing_headline = existing.get("headline", "")
             existing_desc = existing.get("description", "")
 
@@ -223,7 +240,7 @@ def scrape_spanish_mobility_news(max_results=12):
                 break
 
         if not similarity_match_found:
-            # New article, add to file
+            # New article - add to both archive and new list
             print(f"[NEW] Adding: {title}")
             new_article["id"] = generate_stable_id(new_article["headline"])
             new_article["sources"] = [
@@ -233,12 +250,21 @@ def scrape_spanish_mobility_news(max_results=12):
                     "date": new_article.get("publication_date", "")
                 }
             ]
-            existing_articles.append(new_article)
+            archive_articles.append(new_article)
+            newly_discovered.append(new_article)
 
-    # 6. Save deduplicated results
-    save_news(existing_articles)
-    print(f"\n--- Total articles in database: {len(existing_articles)} ---\n")
+    # 6. Save archive (all articles including merged)
+    save_news(archive_articles, "movilidad_news.json")
+
+    # 7. Save newly discovered articles separately
+    if newly_discovered:
+        save_news(newly_discovered, "movilidad_news_new.json")
+        print(f"\n✓ Found {len(newly_discovered)} NEW articles")
+    else:
+        print(f"\n✓ No new articles found (all were duplicates/merged)")
+
+    print(f"--- Total articles in archive: {len(archive_articles)} ---\n")
 
 # Run the scraper
 if __name__ == "__main__":
-    scrape_spanish_mobility_news(max_results=12)
+    scrape_spanish_mobility_news(max_results=200)
