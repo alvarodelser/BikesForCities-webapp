@@ -4,12 +4,23 @@ import NewsCard from '../components/forum/NewsCard';
 import NewsSearch from '../components/forum/NewsSearch';
 import NewsTimeline from '../components/forum/NewsTimeline';
 import { Search, X } from 'lucide-react';
+import CityBuildingBackground, { CityBuildingBackgroundHandle } from '../components/forum/CityBuildingBackground';
+import BuildingTrajectories from '../components/forum/BuildingTrajectories';
+import { fetchCities } from '../services/api';
+import type { CityData } from '../constants/cities';
 
 const ForumPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [showSearch, setShowSearch] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const bgRef = useRef<CityBuildingBackgroundHandle>(null);
+  const [cities, setCities] = useState<CityData[]>([]);
+  const selectedCityId = useMemo(
+    () => (cities.length > 0 ? cities[Math.floor(Math.random() * cities.length)].id ?? 1 : 1),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cities.length > 0]
+  );
 
   const allNews = useMemo(() => getNews(), []);
 
@@ -44,10 +55,26 @@ const ForumPage: React.FC = () => {
     }
   }, [showSearch]);
 
+  React.useEffect(() => {
+    fetchCities().then(setCities).catch(() => {
+      // Silent fail — default city id 1 will be used
+    });
+  }, []);
+
   return (
-    <div ref={pageRef} className="scrollbar-hide">
+    <div ref={pageRef} className="scrollbar-hide" style={{ position: 'relative', background: 'var(--forum-bg)' }}>
+      <CityBuildingBackground cityId={selectedCityId} ref={bgRef} />
+      <BuildingTrajectories bgRef={bgRef} />
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-[var(--cream)] border-b border-[var(--blue-light)] py-6 px-8">
+      <div
+        className="sticky top-0 z-50 border-b border-[var(--blue-light)] py-6 px-8"
+        style={{
+          background: 'rgba(237, 224, 204, 0.72)',
+          backdropFilter: 'blur(18px)',
+          WebkitBackdropFilter: 'blur(18px)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.5)',
+        }}
+      >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <h1 className="font-heading text-2xl font-bold text-[var(--blue-dark)]">Foro de Noticias</h1>
           <button
@@ -78,7 +105,7 @@ const ForumPage: React.FC = () => {
       </div>
 
       {/* Feed content */}
-      <div className="pr-8 max-w-4xl mx-auto py-8">
+      <div className="pr-8 max-w-4xl mx-auto py-8" style={{ position: 'relative', zIndex: 3 }}>
         {filteredNews.length > 0 ? (
           filteredNews.map((item) => (
             <div key={item.id} data-news-id={item.id}>
