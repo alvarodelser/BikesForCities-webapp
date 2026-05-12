@@ -2,6 +2,7 @@ import feedparser
 from bs4 import BeautifulSoup
 import urllib.parse
 import difflib
+import hashlib
 
 def calculate_content_similarity(headline1, desc1, headline2, desc2):
     """
@@ -28,6 +29,15 @@ def calculate_content_similarity(headline1, desc1, headline2, desc2):
     similarity = overlap / total if total > 0 else 0
 
     return similarity >= 0.8
+
+def generate_stable_id(headline):
+    """
+    Generate a stable hash-based ID from headline.
+    Same headline always produces same ID across runs.
+    """
+    normalized = headline.lower().strip()
+    hash_obj = hashlib.md5(normalized.encode())
+    return hash_obj.hexdigest()[:12]  # Use first 12 chars of MD5
 
 def scrape_spanish_mobility_news(max_results=5):
     # 1. Define the search query targeted at Spain
