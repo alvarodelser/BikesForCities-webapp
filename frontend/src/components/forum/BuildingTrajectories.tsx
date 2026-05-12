@@ -265,7 +265,7 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef }) =>
       viewBox={`0 0 ${SVG_W} ${SVG_H}`}
       preserveAspectRatio="xMidYMid slice"
       style={{
-        position: 'absolute',
+        position: 'fixed',
         inset: 0,
         width: '100%',
         height: '100%',

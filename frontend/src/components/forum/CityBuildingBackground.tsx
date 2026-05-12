@@ -40,6 +40,21 @@ function extractOuterRings(features: BuildingFeature[]): [number, number][][] {
   return rings;
 }
 
+function computeCenterZone(bbox: GeoBbox): GeoBbox {
+  // Extract center 60% of the bbox (30% padding on each side)
+  const lonWidth = bbox.maxLon - bbox.minLon;
+  const latHeight = bbox.maxLat - bbox.minLat;
+  const lonPadding = lonWidth * 0.2; // 20% on each side
+  const latPadding = latHeight * 0.2;
+
+  return {
+    minLon: bbox.minLon + lonPadding,
+    maxLon: bbox.maxLon - lonPadding,
+    minLat: bbox.minLat + latPadding,
+    maxLat: bbox.maxLat - latPadding,
+  };
+}
+
 function projectPolygons(rings: [number, number][][], bbox: GeoBbox): ProjectedPolygon[] {
   return rings.map((ring, index) => {
     const pointStr = ring
@@ -75,12 +90,34 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
           const rings = extractOuterRings(features);
           if (rings.length === 0) return;
 
-          // Collect all coordinate pairs for bbox
+          // Collect all coordinate pairs to compute overall bbox
           const allCoords: [number, number][] = rings.flat();
           if (allCoords.length === 0) return;
 
-          const bbox = computeGeoBbox(allCoords);
-          const projected = projectPolygons(rings, bbox);
+          const fullBbox = computeGeoBbox(allCoords);
+          // Focus on center zone (60% of bbox)
+          const centerZone = computeCenterZone(fullBbox);
+
+          // Filter rings to only those within center zone
+          const centerRings = rings.filter((ring) => {
+            // Check if any point in the ring falls within center zone
+            return ring.some(
+              ([lon, lat]) =>
+                lon >= centerZone.minLon &&
+                lon <= centerZone.maxLon &&
+                lat >= centerZone.minLat &&
+                lat <= centerZone.maxLat
+            );
+          });
+
+          if (centerRings.length === 0) {
+            // Fallback: use all rings if filtering results in nothing
+            const projected = projectPolygons(rings, fullBbox);
+            setPolygons(projected);
+            return;
+          }
+
+          const projected = projectPolygons(centerRings, centerZone);
           setPolygons(projected);
         })
         .catch(() => {
@@ -152,7 +189,7 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
           viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           preserveAspectRatio="xMidYMid slice"
           style={{
-            position: 'absolute',
+            position: 'fixed',
             inset: 0,
             width: '100%',
             height: '100%',
