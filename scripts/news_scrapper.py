@@ -39,6 +39,52 @@ def generate_stable_id(headline):
     hash_obj = hashlib.md5(normalized.encode())
     return hash_obj.hexdigest()[:12]  # Use first 12 chars of MD5
 
+def merge_articles(existing_article, new_article):
+    """
+    Merge two duplicate articles into one.
+    existing_article: article from file (dict)
+    new_article: newly scraped article (dict)
+    Returns merged article with multiple sources.
+    """
+    # Create sources array if not already present
+    if "sources" not in existing_article:
+        # Convert old format to new format
+        existing_article["sources"] = [
+            {
+                "name": existing_article.get("source", "Unknown"),
+                "link": existing_article.get("link", ""),
+                "date": existing_article.get("publication_date", "")
+            }
+        ]
+
+    # Add new source if not already present
+    new_source = {
+        "name": new_article.get("source", "Unknown"),
+        "link": new_article.get("link", ""),
+        "date": new_article.get("publication_date", "")
+    }
+
+    # Check if link already exists in sources
+    existing_links = [s.get("link") for s in existing_article["sources"]]
+    if new_source["link"] not in existing_links:
+        existing_article["sources"].append(new_source)
+
+    # Keep earliest publication date
+    existing_date = existing_article.get("publication_date", "")
+    new_date = new_article.get("publication_date", "")
+    if new_date and (not existing_date or new_date < existing_date):
+        existing_article["publication_date"] = new_date
+
+    # Merge topics (union)
+    existing_topics = set(existing_article.get("topics", []))
+    new_topics = set(new_article.get("topics", []))
+    existing_article["topics"] = sorted(list(existing_topics | new_topics))
+
+    # Generate stable ID
+    existing_article["id"] = generate_stable_id(existing_article.get("headline", ""))
+
+    return existing_article
+
 def scrape_spanish_mobility_news(max_results=5):
     # 1. Define the search query targeted at Spain
     query = '"carril bici" OR "movilidad urbana"'
