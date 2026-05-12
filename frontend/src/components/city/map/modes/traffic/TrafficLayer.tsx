@@ -172,12 +172,16 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     }, [map, clearOverlay, setSelectedEdgeId]);
 
 
-    const SAMPLE_SIZE = 50;
+    const ROUTE_PAGE_SIZE = 100;
+
+    const handleStopRoutes = useCallback(() => {
+        routeLoadAbortRef.current?.abort();
+    }, []);
 
     /**
-     * Loads a representative sample of routes through the edge (up to SAMPLE_SIZE).
-     * Uses tile's trip_count as the known total to avoid the slow COUNT query.
-     * Cancels via AbortController when the user selects a different edge or changes filters.
+     * Auto-paginates all routes through the edge, updating the selection panel with
+     * a progress bar after each page. Uses tile trip_count as total (skips slow COUNT
+     * query). Cancellable via the stop button (or by selecting a different edge).
      */
     const loadRoutes = useCallback(async (
         edgeId: number,
@@ -191,47 +195,63 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         routeLoadAbortRef.current = controller;
         clearOverlay();
 
-        const updateLabel = (loaded: number) => {
-            const total = knownTotal ?? 0;
-            const label = total > loaded
-                ? `${loaded} muestras de ${total.toLocaleString('es-ES')} total`
-                : loaded === 0 ? 'Sin rutas' : `${loaded} rutas`;
+        const total = knownTotal ?? 0;
+        const accumulated: GeoJSON.Feature[] = [];
+        let offset = 0;
+
+        const pushProgress = (loaded: number, done: boolean) => {
             const prev = lastSelectionRef.current;
-            if (prev && prev.type === 'edge') {
-                window.dispatchEvent(new CustomEvent('map-selection', {
-                    detail: {
-                        ...prev,
-                        rows: [{ label: 'Muestra', value: label }],
-                    } as SelectionDetail
-                }));
-            }
+            if (!prev || prev.type !== 'edge') return;
+            const rowValue = loaded === 0
+                ? 'Cargando…'
+                : total > 0
+                    ? `${loaded.toLocaleString('es-ES')} / ${total.toLocaleString('es-ES')}`
+                    : `${loaded.toLocaleString('es-ES')} rutas`;
+            window.dispatchEvent(new CustomEvent('map-selection', {
+                detail: {
+                    ...prev,
+                    rows: [{ label: 'Rutas', value: done ? `${loaded.toLocaleString('es-ES')} rutas` : rowValue }],
+                    routeProgress: done ? undefined : { loaded, total, onStop: handleStopRoutes },
+                } as SelectionDetail,
+            }));
         };
 
         try {
-            if (controller.signal.aborted) return;
-            const result = await fetchEdgeRoutes(city.id, edgeId, {
-                mode: mode as 'traces' | 'heatmap',
-                limit: SAMPLE_SIZE,
-                offset: 0,
-                generationType: generation || undefined,
-                algorithm: routing || undefined,
-                month: period || undefined,
-                skipCount: true,
-                signal: controller.signal,
-            });
+            do {
+                if (controller.signal.aborted) break;
+                const result = await fetchEdgeRoutes(city.id, edgeId, {
+                    mode: mode as 'traces' | 'heatmap',
+                    limit: ROUTE_PAGE_SIZE,
+                    offset,
+                    generationType: generation || undefined,
+                    algorithm: routing || undefined,
+                    month: period || undefined,
+                    skipCount: true,
+                    signal: controller.signal,
+                });
 
-            if (controller.signal.aborted) return;
-            if (!stickyRef.current || stickyRef.current.edgeId !== edgeId) return;
+                if (controller.signal.aborted) break;
+                if (!stickyRef.current || stickyRef.current.edgeId !== edgeId) return;
 
-            if (result.data.features.length > 0) {
-                renderOverlay({ type: 'FeatureCollection', features: result.data.features }, mode);
-            }
-            updateLabel(result.data.features.length);
+                accumulated.push(...result.data.features);
+                if (accumulated.length > 0) {
+                    renderOverlay({ type: 'FeatureCollection', features: accumulated }, mode);
+                }
+                pushProgress(accumulated.length, false);
+
+                if (result.count === 0) break;
+                offset += ROUTE_PAGE_SIZE;
+            } while (total === 0 || accumulated.length < total);
+
+            pushProgress(accumulated.length, true);
         } catch (err) {
-            if (controller.signal.aborted) return;
+            if (controller.signal.aborted) {
+                pushProgress(accumulated.length, true);
+                return;
+            }
             console.error('Failed to fetch edge routes:', err);
         }
-    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period]);
+    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, handleStopRoutes]);
 
 
     // --- Mount: show layer, hide others ---
@@ -420,10 +440,16 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
                 badge: tripCount != null
                     ? { text: `${Math.round(tripCount)} v/mes`, color: '#027A76' }
                     : { text: 'Sin datos', color: '#9ca3af' },
-                rows: [{ label: 'Muestra', value: 'Cargando…' }],
+                rows: [{ label: 'Rutas', value: 'Cargando…' }],
                 colormap: thresholdsRef.current
                     ? { ...thresholdsRef.current, value: tripCount }
                     : undefined,
+                submodeOptions: [
+                    { id: 'traces', label: 'Trayecto' },
+                    { id: 'heatmap', label: 'Calor' },
+                ],
+                activeSubmode: submodeRef.current,
+                onSubmodeChange: (id: string) => setSubmode(id),
             };
             lastSelectionRef.current = detail;
             window.dispatchEvent(new CustomEvent('map-selection', { detail }));

@@ -809,7 +809,7 @@ def get_edge_routes(
     """
     try:
         with conn.cursor() as _cur:
-            _cur.execute("SET LOCAL statement_timeout = '15s'")
+            _cur.execute("SET LOCAL statement_timeout = '30s'")
 
         validate_network_exists(conn, city_id)
 

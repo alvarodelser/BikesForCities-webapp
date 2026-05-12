@@ -1,14 +1,24 @@
+import { useEffect, useState } from 'react';
 import { useThresholds } from '../../ThresholdsContext';
 import TrafficModeSelectors from './TrafficModeSelectors';
 
 export default function TrafficLegend() {
     const { thresholds } = useThresholds();
 
+    // When an edge is selected, the selection panel shows the blue colormap — hide the green one
+    const [hasSelection, setHasSelection] = useState(false);
+    useEffect(() => {
+        const handler = (e: Event) => setHasSelection(!!(e as CustomEvent).detail);
+        window.addEventListener('map-selection', handler);
+        return () => window.removeEventListener('map-selection', handler);
+    }, []);
+
     return (
         <div className="flex flex-col gap-2 w-full">
-            {thresholds == null ? (
+            {!hasSelection && thresholds == null && (
                 <div className="text-[10px] text-black/30 italic text-center py-2">Sin datos de tráfico</div>
-            ) : (
+            )}
+            {!hasSelection && thresholds != null && (
                 <>
                     <div className="flex gap-3 h-24 my-1 relative">
                         <div className="flex flex-col w-3.5 h-full rounded-full overflow-hidden border border-black/10 shadow-sm">

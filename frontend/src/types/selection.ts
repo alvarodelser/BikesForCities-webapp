@@ -11,6 +11,12 @@ export interface SelectionColormap {
     value: number | null;
 }
 
+export interface SelectionRouteProgress {
+    loaded: number;
+    total: number;
+    onStop?: () => void;
+}
+
 // Shared type for the SelectionPanel event contract
 export interface SelectionDetail {
     type: 'station' | 'edge' | 'reach' | 'accident';
@@ -21,6 +27,7 @@ export interface SelectionDetail {
     loading?: boolean;
     chart?: HTMLElement | null;
     colormap?: SelectionColormap;
+    routeProgress?: SelectionRouteProgress;
     periodOptions?: Array<{ id: string; label: string }>;
     activePeriod?: string;
     onPeriodChange?: (period: string) => void;

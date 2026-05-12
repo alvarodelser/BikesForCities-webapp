@@ -48,17 +48,11 @@ def count_edge_routes(
             f"""
             SELECT COUNT(*) FROM (
                 SELECT DISTINCT r.path_id
-                FROM routes r
-                JOIN trips t ON t.id = r.trip_id
-                JOIN paths p ON p.id = r.path_id
-                WHERE r.city_id = %(city_id)s
-                  AND r.path_id IN (
-                    SELECT DISTINCT pe2.path_id
-                    FROM path_edges pe2
-                    JOIN edges e2 ON e2.id = pe2.edge_id
-                    WHERE pe2.edge_id = %(edge_id)s
-                      AND e2.city_id  = %(city_id)s
-                  )
+                FROM path_edges pe2
+                JOIN routes r  ON r.path_id  = pe2.path_id AND r.city_id = %(city_id)s
+                JOIN trips t   ON t.id        = r.trip_id
+                JOIN paths p   ON p.id        = r.path_id
+                WHERE pe2.edge_id = %(edge_id)s
                   {trip_clause}
                   {path_clause}
             ) sub
@@ -94,17 +88,11 @@ def get_edge_route_traces(
             f"""
             WITH matching AS (
                 SELECT DISTINCT r.path_id
-                FROM routes r
-                JOIN trips t ON t.id = r.trip_id
-                JOIN paths p ON p.id = r.path_id
-                WHERE r.city_id = %(city_id)s
-                  AND r.path_id IN (
-                    SELECT DISTINCT pe2.path_id
-                    FROM path_edges pe2
-                    JOIN edges e2 ON e2.id = pe2.edge_id
-                    WHERE pe2.edge_id = %(edge_id)s
-                      AND e2.city_id  = %(city_id)s
-                  )
+                FROM path_edges pe2
+                JOIN routes r  ON r.path_id  = pe2.path_id AND r.city_id = %(city_id)s
+                JOIN trips t   ON t.id        = r.trip_id
+                JOIN paths p   ON p.id        = r.path_id
+                WHERE pe2.edge_id = %(edge_id)s
                   {trip_clause}
                   {path_clause}
                 ORDER BY r.path_id
@@ -147,19 +135,13 @@ def get_edge_route_od(
             SELECT
                 n_o.lon AS origin_lon, n_o.lat AS origin_lat,
                 n_d.lon AS dest_lon,   n_d.lat AS dest_lat
-            FROM trips   t
-            JOIN routes  r  ON r.trip_id = t.id
-            JOIN paths   p  ON p.id = r.path_id
-            JOIN nodes   n_o ON n_o.id = t.origin_node
-            JOIN nodes   n_d ON n_d.id = t.dest_node
-            WHERE t.city_id = %(city_id)s
-              AND r.path_id IN (
-                SELECT DISTINCT pe2.path_id
-                FROM path_edges pe2
-                JOIN edges e2 ON e2.id = pe2.edge_id
-                WHERE pe2.edge_id = %(edge_id)s
-                  AND e2.city_id  = %(city_id)s
-              )
+            FROM path_edges pe2
+            JOIN routes  r  ON r.path_id  = pe2.path_id AND r.city_id = %(city_id)s
+            JOIN trips   t  ON t.id        = r.trip_id
+            JOIN paths   p  ON p.id        = r.path_id
+            JOIN nodes   n_o ON n_o.id    = t.origin_node
+            JOIN nodes   n_d ON n_d.id    = t.dest_node
+            WHERE pe2.edge_id = %(edge_id)s
               {trip_clause}
               {path_clause}
             ORDER BY t.id

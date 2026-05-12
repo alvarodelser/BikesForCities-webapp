@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Maximize2, Minus } from 'lucide-react';
+import { X, Maximize2, Minus, Square } from 'lucide-react';
 import type { SelectionDetail } from '../../../types/selection';
 
 export type { SelectionDetail };
@@ -91,23 +91,20 @@ export default function SelectionPanel({
     return (
         <div ref={rootRef} className="mb-2 transition-all duration-300 ease-in-out" style={{ width: PANEL_WIDTH }}>
             <div className="rounded-2xl overflow-hidden" style={glassStyle}>
-                {/* Submode buttons (traffic mode) - at the very top */}
+                {/* Submode pill toggles */}
                 {selection.submodeOptions && selection.submodeOptions.length > 0 && (
-                    <div
-                        className="relative z-10 flex border-b"
-                        style={{ borderColor: 'rgba(0,0,0,0.08)' }}
-                    >
-                        {selection.submodeOptions.map((s, i) => {
+                    <div className="flex gap-1 px-3 pt-2.5">
+                        {selection.submodeOptions.map(s => {
                             const isActive = selection.activeSubmode === s.id;
                             return (
                                 <button
                                     key={s.id}
                                     onClick={() => selection.onSubmodeChange?.(s.id)}
-                                    className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
+                                    className="px-2.5 py-1 rounded-full text-[9px] font-bold transition-all cursor-pointer border"
                                     style={{
-                                        backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
-                                        color: isActive ? accent : 'rgba(0,0,0,0.45)',
-                                        borderLeft: i > 0 ? '1px solid rgba(0,0,0,0.08)' : undefined,
+                                        backgroundColor: isActive ? accent : 'transparent',
+                                        color: isActive ? 'white' : 'rgba(0,0,0,0.45)',
+                                        borderColor: isActive ? accent : 'rgba(0,0,0,0.1)',
                                     }}
                                 >
                                     {s.label}
@@ -234,6 +231,31 @@ export default function SelectionPanel({
                                 }
                             }} />
                         )}
+                        {selection.routeProgress && (() => {
+                            const { loaded, total, onStop } = selection.routeProgress;
+                            const pct = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
+                            return (
+                                <div className="mt-1.5 flex flex-col gap-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-black/8">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-300"
+                                                style={{ width: `${pct}%`, backgroundColor: accent }}
+                                            />
+                                        </div>
+                                        {onStop && (
+                                            <button
+                                                onClick={onStop}
+                                                title="Detener carga"
+                                                className="flex items-center justify-center w-5 h-5 rounded-full border border-black/10 bg-black/5 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-black/35 transition-all shrink-0"
+                                            >
+                                                <Square className="w-2.5 h-2.5 fill-current" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         {selection.colormap && (() => {
                             const { q5, q50, q95, value } = selection.colormap;
                             const range = Math.max(q95 - q5, 1);
@@ -243,11 +265,11 @@ export default function SelectionPanel({
                                 <div className="mt-2 flex flex-col gap-1">
                                     <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Intensidad</span>
                                     <div className="relative h-2.5 rounded-full overflow-visible"
-                                        style={{ background: 'linear-gradient(to right, #edf8e9, #74c476, #005a32)' }}>
+                                        style={{ background: 'linear-gradient(to right, #dbeafe, #3b82f6, #1e3a8a)' }}>
                                         {pct != null && (
                                             <div
-                                                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md"
-                                                style={{ left: `${pct}%`, transform: 'translate(-50%, -50%)', backgroundColor: '#027A76' }}
+                                                className="absolute top-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md"
+                                                style={{ left: `${pct}%`, transform: 'translate(-50%, -50%)', backgroundColor: '#2563eb' }}
                                             />
                                         )}
                                     </div>
