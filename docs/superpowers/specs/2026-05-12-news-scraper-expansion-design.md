@@ -54,11 +54,11 @@ Expand the Google News mobility scraper to deduplicate articles across multiple 
 - Check if article URL already exists in any article's sources array
 - If found, merge into that article
 
-### Phase 2: Headline Similarity
-- For unmatched articles, compare headline similarity
-- Simple word-overlap method: convert headlines to lowercase word sets, check if >80% of words overlap
+### Phase 2: Content Similarity
+- For unmatched articles, compare both headline and description for similarity
+- Simple word-overlap method: combine headline + description, extract key words, check if >80% of words overlap between articles
 - Can be expanded to Levenshtein distance or NLP-based similarity later
-- Example: "carriles bici en madrid" vs "madrid añade carriles bici" → 3/4 words match → treated as duplicate
+- Example: Article A (headline + desc) vs Article B (headline + desc) → 80%+ word match → treated as duplicate
 
 ### Merge Logic
 When duplicates are found:
