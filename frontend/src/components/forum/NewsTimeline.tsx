@@ -3,20 +3,17 @@ import type { NewsItem } from '../../types/news';
 
 interface NewsTimelineProps {
   items: NewsItem[];
-  scrollRef: React.RefObject<HTMLDivElement | null>;
   onDotClick: (index: number) => void;
 }
 
 const NewsTimeline: React.FC<NewsTimelineProps> = ({
   items,
-  scrollRef,
   onDotClick,
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
-  const thumbRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const [thumbTop, setThumbTop] = useState(0);
-  const [thumbHeight, setThumbHeight] = useState(0);
+  const [thumbHeight, setThumbHeight] = useState(64);
 
   // Compute proportional positions for dots and year labels
   const dates = items.map(i => new Date(i.publication_dt).getTime());
@@ -40,24 +37,19 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     }
   });
 
-  // Handle feed scroll → update thumb position and height
-  const handleFeedScroll = useCallback(() => {
-    if (!scrollRef.current || !timelineRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+  // Handle page scroll → update thumb position
+  const handlePageScroll = useCallback(() => {
+    if (!timelineRef.current) return;
     const trackHeight = timelineRef.current.clientHeight;
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
 
-    // Thumb height = proportion of visible content to total content
-    const newThumbHeight = Math.max(32, (clientHeight / scrollHeight) * trackHeight);
+    if (docHeight === 0) return;
 
-    // Thumb position = scroll progress
-    const scrollFraction = scrollHeight > clientHeight
-      ? scrollTop / (scrollHeight - clientHeight)
-      : 0;
-    const newThumbTop = scrollFraction * (trackHeight - newThumbHeight);
+    const scrollFraction = window.scrollY / docHeight;
+    const newThumbTop = scrollFraction * (trackHeight - thumbHeight);
 
-    setThumbHeight(newThumbHeight);
     setThumbTop(Math.max(0, newThumbTop));
-  }, [scrollRef]);
+  }, [thumbHeight]);
 
   // Handle thumb drag → update feed scroll
   const handleThumbPointerDown = (e: React.PointerEvent) => {
@@ -66,7 +58,7 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   };
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
-    if (!isDraggingRef.current || !timelineRef.current || !scrollRef.current) return;
+    if (!isDraggingRef.current || !timelineRef.current) return;
 
     const trackRect = timelineRef.current.getBoundingClientRect();
     const trackHeight = trackRect.height;
@@ -74,9 +66,9 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     const constrainedY = Math.max(0, Math.min(dragY, trackHeight - thumbHeight));
     const fraction = trackHeight > thumbHeight ? constrainedY / (trackHeight - thumbHeight) : 0;
 
-    const { scrollHeight, clientHeight } = scrollRef.current;
-    scrollRef.current.scrollTop = fraction * (scrollHeight - clientHeight);
-  }, [scrollRef, thumbHeight]);
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+    window.scrollTo({ top: fraction * docHeight, behavior: 'auto' });
+  }, [thumbHeight]);
 
   const handlePointerUp = () => {
     isDraggingRef.current = false;
@@ -88,32 +80,33 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   };
 
   useEffect(() => {
-    const feedDiv = scrollRef.current;
-    if (feedDiv) {
-      feedDiv.addEventListener('scroll', handleFeedScroll);
-    }
+    window.addEventListener('scroll', handlePageScroll);
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
 
     return () => {
-      if (feedDiv) feedDiv.removeEventListener('scroll', handleFeedScroll);
+      window.removeEventListener('scroll', handlePageScroll);
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [handleFeedScroll, handlePointerMove]);
+  }, [handlePageScroll, handlePointerMove]);
 
   return (
     <div
       ref={timelineRef}
-      className="sticky top-0 h-[calc(100vh-80px)] w-7 flex flex-col items-center bg-[var(--cream)] py-4"
+      className="fixed right-0 top-0 h-screen w-20 flex flex-col items-center bg-[var(--cream)] py-20 pointer-events-none z-40"
+      style={{ paddingTop: '80px' }}
     >
-      <div className="relative flex-1 w-1 bg-[var(--blue-light)]">
-        {/* Year labels */}
+      <div className="relative flex-1 w-full flex items-center justify-center">
+        {/* Vertical track line */}
+        <div className="absolute h-full w-0.5 bg-[var(--blue-light)] left-1/2 -translate-x-1/2" />
+
+        {/* Year labels on the left */}
         {yearLabels.map((label) => (
           <div
             key={label.year}
-            className="absolute left-3 text-xs text-[var(--black)] whitespace-nowrap"
-            style={{ top: `${label.position}%` }}
+            className="absolute left-0 text-xs text-[var(--black)] font-bold pl-1"
+            style={{ top: `${label.position}%`, transform: 'translateY(-50%)' }}
           >
             {label.year}
           </div>
@@ -124,7 +117,7 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
           <button
             key={item.id}
             onClick={() => handleDotClick(idx)}
-            className="absolute left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[var(--blue-dark)] hover:bg-[var(--green-dark)] transition-colors cursor-pointer"
+            className="absolute w-2.5 h-2.5 rounded-full bg-[var(--blue-dark)] hover:bg-[var(--green-dark)] transition-colors cursor-pointer pointer-events-auto left-1/2 -translate-x-1/2 hover:scale-150"
             style={{ top: `${dotPositions[idx]}%` }}
             title={item.headline}
           />
@@ -132,10 +125,9 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
         {/* Draggable thumb */}
         <div
-          ref={thumbRef}
           onPointerDown={handleThumbPointerDown}
-          className="absolute left-1/2 -translate-x-1/2 w-5 rounded-full bg-[var(--green-dark)] cursor-grab active:cursor-grabbing transition-colors hover:bg-[var(--green)] shadow-sm"
-          style={{ top: `${thumbTop}px`, height: `${thumbHeight}px` }}
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-[var(--green-dark)] cursor-grab active:cursor-grabbing transition-colors hover:bg-[var(--green)] shadow-lg pointer-events-auto"
+          style={{ top: `${thumbTop}px`, height: `${thumbHeight}px`, width: '18px' }}
         />
       </div>
     </div>
