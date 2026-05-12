@@ -410,11 +410,15 @@ if __name__ == "__main__":
     target_month = None
 
     # Check for --month argument
-    if len(sys.argv) > 1 and sys.argv[1] == "--month":
-        if len(sys.argv) > 2:
-            target_month = sys.argv[2]
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "--month":
+            if len(sys.argv) > 2:
+                target_month = sys.argv[2]
+            else:
+                print("Error: --month requires a month argument (e.g., 2026-04)")
+                sys.exit(1)
         else:
-            print("Error: --month requires a month argument (e.g., 2026-04)")
+            print(f"Error: Unknown argument '{sys.argv[1]}'. Use: python news_scrapper.py [--month YYYY-MM]")
             sys.exit(1)
 
     # If no month specified, auto-detect next unfetched month
@@ -428,5 +432,17 @@ if __name__ == "__main__":
             print("All months have been fetched! Archive is complete.")
             sys.exit(0)
 
-    # Run scraper for target month
-    scrape_spanish_mobility_news(max_results=100, target_month=target_month, delay_seconds=1.5)
+    # Validate target month format before scraping
+    try:
+        get_month_date_filters(target_month)
+    except ValueError as e:
+        print(f"Error: Invalid month format: {e}")
+        sys.exit(1)
+
+    # Run scraper for target month with error handling
+    try:
+        scrape_spanish_mobility_news(max_results=100, target_month=target_month, delay_seconds=1.5)
+    except Exception as e:
+        print(f"Error during scraping: {str(e)}")
+        print("Scraper failed. You can retry the same month or continue with the next one.")
+        sys.exit(1)
