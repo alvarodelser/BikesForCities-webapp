@@ -1,14 +1,12 @@
 import json
 import os
 import tempfile
-from pathlib import Path
 from scripts.news_scrapper import load_scraper_metadata, save_scraper_metadata
 
 
 def test_load_scraper_metadata_nonexistent():
     """Test loading metadata when file doesn't exist returns empty structure."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        original_path = None  # Will set in function
         result = load_scraper_metadata(tmpdir)
         assert result["fetched_months"] == []
         assert result["failed_months"] == []

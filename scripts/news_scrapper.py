@@ -1,17 +1,16 @@
 import feedparser
 from bs4 import BeautifulSoup
 import urllib.parse
-import difflib
 import hashlib
 import json
+import os
+from datetime import datetime
 
 def load_scraper_metadata(base_path="data/news"):
     """
     Load scraper metadata tracking which months have been fetched.
     Returns dict with fetched_months, failed_months, oldest_target_month, last_updated.
     """
-    import os
-
     metadata_path = os.path.join(base_path, "scraper_metadata.json")
 
     if not os.path.exists(metadata_path):
@@ -39,9 +38,6 @@ def save_scraper_metadata(metadata, base_path="data/news"):
     Save scraper metadata to data/news/scraper_metadata.json.
     Updates last_updated timestamp.
     """
-    import os
-    from datetime import datetime
-
     metadata["last_updated"] = datetime.utcnow().isoformat() + "Z"
 
     metadata_path = os.path.join(base_path, "scraper_metadata.json")
