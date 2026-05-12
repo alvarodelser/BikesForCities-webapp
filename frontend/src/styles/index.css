@@ -10,3 +10,12 @@ body {
   font-family: "Archivo Narrow", sans-serif;
   color: var(--black);
 }
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

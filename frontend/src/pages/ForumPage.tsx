@@ -41,7 +41,7 @@ const ForumPage: React.FC = () => {
         <NewsSearch value={searchQuery} onChange={setSearchQuery} />
         <div
           ref={feedRef}
-          className="flex-1 overflow-y-scroll"
+          className="flex-1 overflow-y-scroll scrollbar-hide"
         >
           {filteredNews.length > 0 ? (
             filteredNews.map((item) => (

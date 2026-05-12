@@ -14,8 +14,8 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
   const [thumbTop, setThumbTop] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
 
   // Compute proportional positions for dots and year labels
   const dates = items.map(i => new Date(i.publication_dt).getTime());
@@ -52,12 +52,12 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
   // Handle thumb drag → update feed scroll
   const handleThumbPointerDown = (e: React.PointerEvent) => {
-    setIsDragging(true);
+    isDraggingRef.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
-    if (!isDragging || !timelineRef.current || !scrollRef.current) return;
+    if (!isDraggingRef.current || !timelineRef.current || !scrollRef.current) return;
 
     const trackRect = timelineRef.current.getBoundingClientRect();
     const trackHeight = trackRect.height;
@@ -66,10 +66,10 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
     const { scrollHeight, clientHeight } = scrollRef.current;
     scrollRef.current.scrollTop = fraction * (scrollHeight - clientHeight);
-  }, [isDragging, scrollRef]);
+  }, [scrollRef]);
 
   const handlePointerUp = () => {
-    setIsDragging(false);
+    isDraggingRef.current = false;
   };
 
   // Handle dot click → jump feed to that article
