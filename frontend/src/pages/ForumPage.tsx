@@ -16,7 +16,14 @@ const ForumPage: React.FC = () => {
   const bgRef = useRef<CityBuildingBackgroundHandle | null>(null);
   const [cities, setCities] = useState<CityData[]>([]);
   const selectedCityId = useMemo(
-    () => (cities.length > 0 ? cities[Math.floor(Math.random() * cities.length)].id ?? 1 : 1),
+    () => {
+      if (cities.length === 0) return 1;
+      // Pick the city with the largest population for denser buildings
+      const largest = cities.reduce((prev, current) =>
+        (current.population || 0) > (prev.population || 0) ? current : prev
+      );
+      return largest.id ?? 1;
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cities.length > 0]
   );
