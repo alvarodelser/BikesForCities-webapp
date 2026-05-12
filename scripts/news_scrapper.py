@@ -1,3 +1,26 @@
+"""
+Spanish Mobility News Scraper with Monthly Progressive Fetching
+
+Usage:
+  # Auto-detect and fetch next unfetched month
+  python scripts/news_scrapper.py
+
+  # Fetch specific month
+  python scripts/news_scrapper.py --month 2026-04
+
+  # Loop to fetch multiple months (with 2s delay between runs)
+  while python scripts/news_scrapper.py; do sleep 2; done
+
+Progress Tracking:
+  Metadata is stored in data/news/scraper_metadata.json
+  - fetched_months: List of successfully fetched months
+  - failed_months: List of months that failed (can be retried)
+  - oldest_target_month: Oldest month to attempt (default: 2023-05)
+  - last_updated: Timestamp of last update
+
+Each run waits 1.5s before returning to respect rate limits.
+"""
+
 import feedparser
 from bs4 import BeautifulSoup
 import urllib.parse
