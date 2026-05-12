@@ -48,17 +48,12 @@ const ForumPage: React.FC = () => {
 
   const handleDotClick = (index: number) => {
     if (!pageRef.current) return;
-
     const cards = pageRef.current.querySelectorAll('[data-news-id]');
-    if (cards[index]) {
-      const card = cards[index] as HTMLElement;
-      const cardTop = card.getBoundingClientRect().top;
-      const pageTop = pageRef.current.getBoundingClientRect().top;
-      window.scrollBy({
-        top: cardTop - pageTop - 120,
-        behavior: 'smooth'
-      });
-    }
+    const card = cards[index] as HTMLElement | undefined;
+    if (!card) return;
+    // Convert viewport-relative top to absolute scroll position, offset for sticky header
+    const absoluteTop = window.scrollY + card.getBoundingClientRect().top - 96;
+    window.scrollTo({ top: absoluteTop, behavior: 'smooth' });
   };
 
   React.useEffect(() => {

@@ -16,9 +16,9 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   const [thumbTop, setThumbTop] = useState(0);
   const [thumbHeight, setThumbHeight] = useState(32);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [scrollFraction, setScrollFraction] = useState(0);
 
   // Compute proportional positions — newest at top (0%), oldest at bottom (100%)
-  // items[0] is newest (feed is reversed: newest first)
   const dates = items.map(i => new Date(i.publication_dt).getTime());
   const minDate = Math.min(...dates);
   const maxDate = Math.max(...dates);
@@ -30,10 +30,17 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     return ((maxDate - itemDate) / dateRange) * 100;
   });
 
-  // Year labels: one per year, positioned where that year first appears on the track
+  // Progressive reveal: at scroll=0 show only last 12 months; expand as user scrolls back in time
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const initialWindow = Math.min(ONE_YEAR_MS, dateRange);
+  const visibleCutoff = maxDate - initialWindow - scrollFraction * (dateRange - initialWindow);
+
+  // Year labels: one per visible year
   const yearLabels: { year: number; position: number }[] = [];
   const seenYears = new Set<number>();
   items.forEach((item, idx) => {
+    const itemDate = new Date(item.publication_dt).getTime();
+    if (itemDate < visibleCutoff) return;
     const year = new Date(item.publication_dt).getFullYear();
     if (!seenYears.has(year)) {
       seenYears.add(year);
@@ -50,7 +57,7 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     return Math.max(32, (viewportHeight / docHeight) * trackHeight);
   }, []);
 
-  // Handle page scroll → update thumb position
+  // Handle page scroll → update thumb position + scroll fraction
   const handlePageScroll = useCallback(() => {
     if (!timelineRef.current) return;
     const trackHeight = timelineRef.current.clientHeight;
@@ -61,8 +68,9 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     const newThumbHeight = computeThumbHeight();
     setThumbHeight(newThumbHeight);
 
-    const scrollFraction = window.scrollY / docHeight;
-    const newThumbTop = scrollFraction * (trackHeight - newThumbHeight);
+    const fraction = window.scrollY / docHeight;
+    setScrollFraction(fraction);
+    const newThumbTop = fraction * (trackHeight - newThumbHeight);
 
     setThumbTop(Math.max(0, newThumbTop));
   }, [computeThumbHeight]);
@@ -185,6 +193,8 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
         {/* Article dots */}
         {items.map((item, idx) => {
           const isActive = hoveredIdx === idx;
+          const itemDate = new Date(item.publication_dt).getTime();
+          const isVisible = itemDate >= visibleCutoff;
           return (
             <button
               key={item.id}
@@ -202,11 +212,12 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
                 borderRadius: '50%',
                 background: isActive ? '#027A76' : 'rgba(59,32,18,0.28)',
                 boxShadow: isActive ? '0 0 5px rgba(2,122,118,0.5)' : 'none',
-                transition: 'background 150ms, box-shadow 150ms, transform 150ms',
+                opacity: isVisible ? 1 : 0,
+                transition: 'background 150ms, box-shadow 150ms, transform 150ms, opacity 400ms',
                 border: 'none',
                 padding: 0,
                 cursor: 'pointer',
-                pointerEvents: 'auto',
+                pointerEvents: isVisible ? 'auto' : 'none',
               }}
             />
           );

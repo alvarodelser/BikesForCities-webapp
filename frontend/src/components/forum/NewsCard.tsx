@@ -22,7 +22,6 @@ const NewsCard: React.FC<NewsCardProps> = ({ item }) => {
       href={item.link}
       target="_blank"
       rel="noopener noreferrer"
-      data-news-id={item.id}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
