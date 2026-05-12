@@ -21,15 +21,16 @@ const ForumPage: React.FC = () => {
   }, [searchQuery, allNews]);
 
   const handleDotClick = (index: number) => {
-    if (!feedRef.current) return;
+    const feedDiv = feedRef.current;
+    if (!feedDiv) return;
 
-    const cards = feedRef.current.querySelectorAll('[data-news-id]');
+    const cards = feedDiv.querySelectorAll('[data-news-id]');
     if (cards[index]) {
       const card = cards[index] as HTMLElement;
-      const feedTop = feedRef.current.getBoundingClientRect().top;
+      const feedTop = feedDiv.getBoundingClientRect().top;
       const cardTop = card.getBoundingClientRect().top;
       const scrollOffset = cardTop - feedTop;
-      feedRef.current.scrollTop += scrollOffset - 20; // 20px padding
+      feedDiv.scrollTop += scrollOffset - 20; // 20px padding
     }
   };
 

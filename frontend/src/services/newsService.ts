@@ -1,5 +1,5 @@
 import newsData from '../data/movilidad_news.json';
-import { NewsItem } from '../types/news';
+import type { NewsItem } from '../types/news';
 
 interface RawNewsItem {
   headline: string;

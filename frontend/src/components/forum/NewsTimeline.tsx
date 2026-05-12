@@ -1,9 +1,9 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { NewsItem } from '../../types/news';
+import type { NewsItem } from '../../types/news';
 
 interface NewsTimelineProps {
   items: NewsItem[];
-  scrollRef: React.RefObject<HTMLDivElement>;
+  scrollRef: React.RefObject<HTMLDivElement | null>;
   onDotClick: (index: number) => void;
 }
 

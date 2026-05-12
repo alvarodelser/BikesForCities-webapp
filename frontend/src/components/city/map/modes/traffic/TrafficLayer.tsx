@@ -254,10 +254,12 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
     }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, handleStopRoutes]);
 
 
-    // --- Mount: show layer, hide others ---
+    // --- Mount: hide other-mode layers; traffic-layer stays hidden until
+    // the resolve handler calls setTiles + visibility after params are known.
+    // Setting it visible here would cause MapLibre to start fetching tiles from
+    // the placeholder /edges/ URL, which then races with the setTiles() call.
     useEffect(() => {
         if (!map) return;
-        if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'visible');
         if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', 'none');
         if (map.getLayer('bike-paths-layer')) map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
         return () => {
@@ -282,10 +284,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             thresholdsRef.current = null;
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Tracks whether we've written resolved generation/routing back to the URL already
-    const urlParamsSetRef = useRef(false);
-    useEffect(() => { urlParamsSetRef.current = false; }, [city?.id]);
 
     // --- Data fetch: resolve traffic params, then re-point the tile source ---
     useEffect(() => {
