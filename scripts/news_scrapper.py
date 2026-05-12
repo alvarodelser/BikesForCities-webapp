@@ -4,7 +4,7 @@ import urllib.parse
 import hashlib
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def load_scraper_metadata(base_path="data/news"):
     """
@@ -47,6 +47,29 @@ def save_scraper_metadata(metadata, base_path="data/news"):
         json.dump(metadata, f, ensure_ascii=False, indent=2)
 
     print(f"✓ Metadata saved: {len(metadata['fetched_months'])} months fetched")
+
+def get_next_unfetched_month(metadata):
+    """
+    Determine next month to fetch, working backwards from May 2026 to oldest_target_month.
+    Returns month string (e.g., "2026-04") or None if all months complete.
+    """
+    # Start from current month, work backwards
+    current_date = datetime(2026, 5, 1)
+    oldest_date = datetime(int(metadata["oldest_target_month"][:4]),
+                          int(metadata["oldest_target_month"][5:7]), 1)
+
+    fetched = set(metadata.get("fetched_months", []))
+    failed = set(metadata.get("failed_months", []))
+    attempted = fetched | failed  # Both fetched and failed are attempted
+
+    while current_date >= oldest_date:
+        month_str = current_date.strftime("%Y-%m")
+        if month_str not in attempted:
+            return month_str
+        # Move to previous month
+        current_date = (current_date - timedelta(days=1)).replace(day=1)
+
+    return None  # All months complete
 
 def calculate_content_similarity(headline1, desc1, headline2, desc2):
     """
