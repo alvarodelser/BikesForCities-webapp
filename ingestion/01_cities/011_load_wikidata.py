@@ -162,8 +162,8 @@ def main():
     updated_count = 0
     
     for city_row in cities:
-        city_id, city_name, _, wikidata_id, *rest = city_row
-        
+        city_id, city_name, city_alt_name, city_slug, city_description, wikidata_id, *rest = city_row
+
         if not wikidata_id:
             print(f"⏭️  Skipping '{city_name}' (No wikidata_id in DB)")
             continue

@@ -474,6 +474,21 @@ def refresh_city_modes(conn, city_id: int) -> dict:
     writes the full city_modes row. Call after ingesting any data.
     Returns the updated modes dict.
     """
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return _refresh_city_modes_impl(conn, city_id)
+        except psycopg2.errors.DeadlockDetected:
+            if attempt < max_retries - 1:
+                backoff = 0.1 * (2 ** attempt)
+                time.sleep(backoff)
+                conn.rollback()
+            else:
+                raise
+
+def _refresh_city_modes_impl(conn, city_id: int) -> dict:
+    """Implementation of refresh_city_modes with deadlock handling."""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
