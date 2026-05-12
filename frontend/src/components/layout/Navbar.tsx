@@ -15,6 +15,7 @@ type NavbarProps = {
 const navLinks = [
   { name: "Inicio", to: "/" },
   { name: "Compara", to: "/compare" },
+  { name: "Foro", to: "/forum" },
   { name: "Acerca de", to: "/about" },
 ];
 
