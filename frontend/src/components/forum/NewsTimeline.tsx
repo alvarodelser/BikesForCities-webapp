@@ -17,7 +17,8 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   const [thumbHeight, setThumbHeight] = useState(32);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  // Compute proportional positions for dots and year labels
+  // Compute proportional positions — newest at top (0%), oldest at bottom (100%)
+  // items[0] is newest (feed is reversed: newest first)
   const dates = items.map(i => new Date(i.publication_dt).getTime());
   const minDate = Math.min(...dates);
   const maxDate = Math.max(...dates);
@@ -25,10 +26,11 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
   const dotPositions = items.map(item => {
     const itemDate = new Date(item.publication_dt).getTime();
-    return ((itemDate - minDate) / dateRange) * 100;
+    // Invert: newest → 0% (top), oldest → 100% (bottom)
+    return ((maxDate - itemDate) / dateRange) * 100;
   });
 
-  // Year labels: map unique years to their first position
+  // Year labels: one per year, positioned where that year first appears on the track
   const yearLabels: { year: number; position: number }[] = [];
   const seenYears = new Set<number>();
   items.forEach((item, idx) => {

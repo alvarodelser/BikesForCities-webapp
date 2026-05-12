@@ -45,14 +45,7 @@ const ForumPage: React.FC = () => {
     return [...filtered].reverse();
   }, [searchQuery, allNews]);
 
-  // Scroll to bottom on mount to show latest news
-  React.useEffect(() => {
-    // Delay to ensure content is rendered
-    const timer = setTimeout(() => {
-      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
+  // Newest is at top — no initial scroll needed
 
   const handleDotClick = (index: number) => {
     if (!pageRef.current) return;
