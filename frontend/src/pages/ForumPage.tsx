@@ -1,10 +1,9 @@
 import React, { useRef, useMemo, useState } from 'react';
 import { getNews } from '../services/newsService';
 import NewsCard from '../components/forum/NewsCard';
-import NewsSearch from '../components/forum/NewsSearch';
 import NewsTimeline from '../components/forum/NewsTimeline';
 import { Search, X } from 'lucide-react';
-import CityBuildingBackground, { CityBuildingBackgroundHandle } from '../components/forum/CityBuildingBackground';
+import CityBuildingBackground, { type CityBuildingBackgroundHandle } from '../components/forum/CityBuildingBackground';
 import BuildingTrajectories from '../components/forum/BuildingTrajectories';
 import { fetchCities } from '../services/api';
 import type { CityData } from '../constants/cities';
@@ -14,7 +13,7 @@ const ForumPage: React.FC = () => {
   const [showSearch, setShowSearch] = useState(false);
   const pageRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const bgRef = useRef<CityBuildingBackgroundHandle>(null);
+  const bgRef = useRef<CityBuildingBackgroundHandle | null>(null);
   const [cities, setCities] = useState<CityData[]>([]);
   const selectedCityId = useMemo(
     () => (cities.length > 0 ? cities[Math.floor(Math.random() * cities.length)].id ?? 1 : 1),
