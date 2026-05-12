@@ -105,6 +105,24 @@ def load_existing_news():
         print(f"Warning: Could not load {file_path}, starting fresh")
         return []
 
+def save_news(articles):
+    """
+    Save articles to data/news/movilidad_news.json.
+    Creates directory if it doesn't exist.
+    """
+    import os
+    import json
+
+    file_path = "data/news/movilidad_news.json"
+
+    # Ensure directory exists
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(articles, f, ensure_ascii=False, indent=2)
+
+    print(f"✓ Saved {len(articles)} articles to {file_path}")
+
 def scrape_spanish_mobility_news(max_results=5):
     # 1. Define the search query targeted at Spain
     query = '"carril bici" OR "movilidad urbana"'
