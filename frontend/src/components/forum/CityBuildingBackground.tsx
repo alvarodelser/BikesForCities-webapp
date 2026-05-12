@@ -41,11 +41,11 @@ function extractOuterRings(features: BuildingFeature[]): [number, number][][] {
 }
 
 function computeCenterZone(bbox: GeoBbox): GeoBbox {
-  // Extract center 60% of the bbox (30% padding on each side)
+  // Extract center 40% of the bbox (30% padding on each side for more zoom)
   const lonWidth = bbox.maxLon - bbox.minLon;
   const latHeight = bbox.maxLat - bbox.minLat;
-  const lonPadding = lonWidth * 0.2; // 20% on each side
-  const latPadding = latHeight * 0.2;
+  const lonPadding = lonWidth * 0.3; // 30% on each side
+  const latPadding = latHeight * 0.3;
 
   return {
     minLon: bbox.minLon + lonPadding,
@@ -95,7 +95,7 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
           if (allCoords.length === 0) return;
 
           const fullBbox = computeGeoBbox(allCoords);
-          // Focus on center zone (60% of bbox)
+          // Focus on center zone (40% of bbox for aggressive zoom)
           const centerZone = computeCenterZone(fullBbox);
 
           // Filter rings to only those within center zone
@@ -111,8 +111,26 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
           });
 
           if (centerRings.length === 0) {
-            // Fallback: use all rings if filtering results in nothing
-            const projected = projectPolygons(rings, fullBbox);
+            // Fallback: if center zone has no buildings, expand to 60% of bbox
+            const expandedZone: GeoBbox = {
+              minLon: fullBbox.minLon + (fullBbox.maxLon - fullBbox.minLon) * 0.2,
+              maxLon: fullBbox.maxLon - (fullBbox.maxLon - fullBbox.minLon) * 0.2,
+              minLat: fullBbox.minLat + (fullBbox.maxLat - fullBbox.minLat) * 0.2,
+              maxLat: fullBbox.maxLat - (fullBbox.maxLat - fullBbox.minLat) * 0.2,
+            };
+            const expandedRings = rings.filter((ring) =>
+              ring.some(
+                ([lon, lat]) =>
+                  lon >= expandedZone.minLon &&
+                  lon <= expandedZone.maxLon &&
+                  lat >= expandedZone.minLat &&
+                  lat <= expandedZone.maxLat
+              )
+            );
+            const projected = projectPolygons(
+              expandedRings.length > 0 ? expandedRings : rings,
+              expandedRings.length > 0 ? expandedZone : fullBbox
+            );
             setPolygons(projected);
             return;
           }
