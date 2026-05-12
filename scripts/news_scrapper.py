@@ -71,7 +71,15 @@ def load_scraper_metadata(base_path="data/news"):
 
     try:
         with open(metadata_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
+            metadata = json.load(f)
+
+        # Ensure no duplicate months (deduplicate on load as safety measure)
+        if "fetched_months" in metadata:
+            metadata["fetched_months"] = list(dict.fromkeys(metadata["fetched_months"]))
+        if "failed_months" in metadata:
+            metadata["failed_months"] = list(dict.fromkeys(metadata["failed_months"]))
+
+        return metadata
     except (json.JSONDecodeError, IOError):
         print(f"Warning: Could not load {metadata_path}, starting fresh")
         return {
@@ -310,11 +318,17 @@ def scrape_spanish_mobility_news(max_results=100, target_month=None, delay_secon
                     all_entries.append(entry)
                     seen_urls.add(entry.link)
     except Exception as e:
+        # Catch any errors during RSS fetching (network, parsing, etc.)
+        # This is intentionally broad to handle unknown feedparser errors
         if target_month:
-            metadata = load_scraper_metadata()
-            if target_month not in metadata["failed_months"]:
-                metadata["failed_months"].append(target_month)
-            save_scraper_metadata(metadata)
+            try:
+                metadata = load_scraper_metadata()
+                if target_month not in metadata["failed_months"]:
+                    metadata["failed_months"].append(target_month)
+                save_scraper_metadata(metadata)
+            except Exception as meta_error:
+                # If metadata save fails, log but don't mask the original error
+                print(f"⚠ Warning: Failed to update metadata: {str(meta_error)}")
             print(f"✗ Error fetching {target_month}: {str(e)}")
         raise
 
