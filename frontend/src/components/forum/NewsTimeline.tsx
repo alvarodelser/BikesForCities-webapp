@@ -12,6 +12,7 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
+  const dragOffsetRef = useRef(0); // Offset from cursor to thumb center
   const [thumbTop, setThumbTop] = useState(0);
   const [thumbHeight, setThumbHeight] = useState(32);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
@@ -73,7 +74,14 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
   // Handle thumb drag → update feed scroll
   const handleThumbPointerDown = (e: React.PointerEvent) => {
+    if (!timelineRef.current) return;
     isDraggingRef.current = true;
+
+    // Calculate offset from cursor to thumb center
+    const trackRect = timelineRef.current.getBoundingClientRect();
+    const thumbCenter = thumbTop + thumbHeight / 2;
+    dragOffsetRef.current = (e.clientY - trackRect.top) - thumbCenter;
+
     e.currentTarget.setPointerCapture(e.pointerId);
   };
 
@@ -82,7 +90,10 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
     const trackRect = timelineRef.current.getBoundingClientRect();
     const trackHeight = trackRect.height;
-    const dragY = e.clientY - trackRect.top;
+
+    // Position thumb so cursor stays on same point relative to thumb
+    const thumbCenter = e.clientY - trackRect.top - dragOffsetRef.current;
+    const dragY = thumbCenter - thumbHeight / 2;
     const constrainedY = Math.max(0, Math.min(dragY, trackHeight - thumbHeight));
     const fraction = trackHeight > thumbHeight ? constrainedY / (trackHeight - thumbHeight) : 0;
 

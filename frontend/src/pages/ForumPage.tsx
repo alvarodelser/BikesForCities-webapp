@@ -33,14 +33,26 @@ const ForumPage: React.FC = () => {
   const allNews = useMemo(() => getNews(), []);
 
   const filteredNews = useMemo(() => {
-    if (!searchQuery.trim()) return allNews;
-
-    const query = searchQuery.toLowerCase();
-    return allNews.filter(item =>
-      item.headline.toLowerCase().includes(query) ||
-      (item.summary && item.summary.toLowerCase().includes(query))
-    );
+    let filtered = allNews;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = allNews.filter(item =>
+        item.headline.toLowerCase().includes(query) ||
+        (item.summary && item.summary.toLowerCase().includes(query))
+      );
+    }
+    // Reverse order: newest first (most recent at top)
+    return [...filtered].reverse();
   }, [searchQuery, allNews]);
+
+  // Scroll to bottom on mount to show latest news
+  React.useEffect(() => {
+    // Delay to ensure content is rendered
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'smooth' });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleDotClick = (index: number) => {
     if (!pageRef.current) return;
