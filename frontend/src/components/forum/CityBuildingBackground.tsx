@@ -186,15 +186,18 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
       <>
         <style>{`
           .bldg-poly {
-            fill: var(--forum-building-fill);
-            stroke: var(--forum-building-stroke);
-            stroke-width: 0.5;
-            transition: fill 300ms, stroke 300ms;
+            fill: rgba(220, 200, 170, 0.18);
+            stroke: rgba(180, 160, 130, 0.35);
+            stroke-width: 0.8;
+            transition: fill 300ms, stroke 300ms, filter 300ms;
+            filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.3));
+            opacity: 0.85;
           }
           .bldg-poly--popped {
             fill: var(--forum-building-fill-pop);
             stroke: var(--forum-building-stroke-pop);
             animation: bldg-pop 500ms ease-in-out;
+            filter: drop-shadow(0 0 3px rgba(2, 122, 118, 0.5));
           }
           @keyframes bldg-pop {
             0%   { transform: scale(1); }
