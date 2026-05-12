@@ -13,7 +13,8 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   const timelineRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const [thumbTop, setThumbTop] = useState(0);
-  const [thumbHeight, setThumbHeight] = useState(64);
+  const [thumbHeight, setThumbHeight] = useState(32);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   // Compute proportional positions for dots and year labels
   const dates = items.map(i => new Date(i.publication_dt).getTime());
@@ -37,6 +38,15 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
     }
   });
 
+  // Compute thumb height based on viewport vs document ratio
+  const computeThumbHeight = useCallback(() => {
+    if (!timelineRef.current) return 32;
+    const trackHeight = timelineRef.current.clientHeight;
+    const docHeight = document.documentElement.scrollHeight;
+    const viewportHeight = window.innerHeight;
+    return Math.max(32, (viewportHeight / docHeight) * trackHeight);
+  }, []);
+
   // Handle page scroll → update thumb position
   const handlePageScroll = useCallback(() => {
     if (!timelineRef.current) return;
@@ -45,11 +55,21 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
 
     if (docHeight === 0) return;
 
+    const newThumbHeight = computeThumbHeight();
+    setThumbHeight(newThumbHeight);
+
     const scrollFraction = window.scrollY / docHeight;
-    const newThumbTop = scrollFraction * (trackHeight - thumbHeight);
+    const newThumbTop = scrollFraction * (trackHeight - newThumbHeight);
 
     setThumbTop(Math.max(0, newThumbTop));
-  }, [thumbHeight]);
+  }, [computeThumbHeight]);
+
+  // Handle window resize → recompute thumb height and position
+  const handleResize = useCallback(() => {
+    const newThumbHeight = computeThumbHeight();
+    setThumbHeight(newThumbHeight);
+    handlePageScroll();
+  }, [computeThumbHeight, handlePageScroll]);
 
   // Handle thumb drag → update feed scroll
   const handleThumbPointerDown = (e: React.PointerEvent) => {
@@ -80,54 +100,121 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   };
 
   useEffect(() => {
+    // Initialize thumb height on mount
+    const initialThumbHeight = computeThumbHeight();
+    setThumbHeight(initialThumbHeight);
+
     window.addEventListener('scroll', handlePageScroll);
+    window.addEventListener('resize', handleResize);
     document.addEventListener('pointermove', handlePointerMove);
     document.addEventListener('pointerup', handlePointerUp);
 
     return () => {
       window.removeEventListener('scroll', handlePageScroll);
+      window.removeEventListener('resize', handleResize);
       document.removeEventListener('pointermove', handlePointerMove);
       document.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [handlePageScroll, handlePointerMove]);
+  }, [handlePageScroll, handlePointerMove, handleResize, computeThumbHeight]);
 
   return (
     <div
       ref={timelineRef}
-      className="fixed right-0 top-0 h-screen w-20 flex flex-col items-center bg-[var(--cream)] py-20 pointer-events-none z-40 select-none"
-      style={{ paddingTop: '80px' }}
+      style={{
+        position: 'fixed',
+        right: 0,
+        top: 0,
+        height: '100vh',
+        width: '40px',
+        zIndex: 10,
+        background: 'none',
+        paddingTop: '80px',
+        paddingBottom: '80px',
+        boxSizing: 'border-box',
+        pointerEvents: 'none',
+        userSelect: 'none',
+      }}
     >
-      <div className="relative flex-1 w-full flex items-center justify-center">
-        {/* Vertical track line */}
-        <div className="absolute h-full w-0.5 bg-[var(--blue-light)] left-1/2 -translate-x-1/2" />
+      <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+        {/* Vertical track line with gradient fade at top and bottom */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            bottom: 0,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '1px',
+            background: 'linear-gradient(to bottom, transparent 0%, rgba(59,32,18,0.25) 8%, rgba(59,32,18,0.25) 92%, transparent 100%)',
+          }}
+        />
 
-        {/* Year labels on the left */}
+        {/* Year labels to the left of the dot */}
         {yearLabels.map((label) => (
           <div
             key={label.year}
-            className="absolute left-0 text-xs text-[var(--black)] font-bold pl-1"
-            style={{ top: `${label.position}%`, transform: 'translateY(-50%)' }}
+            style={{
+              position: 'absolute',
+              top: `${label.position}%`,
+              left: 0,
+              transform: 'translateY(-50%)',
+              fontSize: '0.46rem',
+              fontWeight: 'bold',
+              color: 'rgba(59,32,18,0.38)',
+              lineHeight: 1,
+              pointerEvents: 'none',
+            }}
           >
             {label.year}
           </div>
         ))}
 
         {/* Article dots */}
-        {items.map((item, idx) => (
-          <button
-            key={item.id}
-            onClick={() => handleDotClick(idx)}
-            className="absolute w-2.5 h-2.5 rounded-full bg-[var(--blue-dark)] hover:bg-[var(--green-dark)] transition-colors cursor-pointer pointer-events-auto left-1/2 -translate-x-1/2 hover:scale-150"
-            style={{ top: `${dotPositions[idx]}%` }}
-            title={item.headline}
-          />
-        ))}
+        {items.map((item, idx) => {
+          const isActive = hoveredIdx === idx;
+          return (
+            <button
+              key={item.id}
+              onClick={() => handleDotClick(idx)}
+              onMouseEnter={() => setHoveredIdx(idx)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              title={item.headline}
+              style={{
+                position: 'absolute',
+                top: `${dotPositions[idx]}%`,
+                left: '50%',
+                transform: `translateX(-50%) translateY(-50%) scale(${isActive ? 1.4 : 1})`,
+                width: '5px',
+                height: '5px',
+                borderRadius: '50%',
+                background: isActive ? '#027A76' : 'rgba(59,32,18,0.28)',
+                boxShadow: isActive ? '0 0 5px rgba(2,122,118,0.5)' : 'none',
+                transition: 'background 150ms, box-shadow 150ms, transform 150ms',
+                border: 'none',
+                padding: 0,
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+              }}
+            />
+          );
+        })}
 
-        {/* Draggable thumb */}
+        {/* Draggable proportional thumb */}
         <div
           onPointerDown={handleThumbPointerDown}
-          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-[var(--green-dark)] cursor-grab active:cursor-grabbing transition-colors hover:bg-[var(--green)] shadow-lg pointer-events-auto"
-          style={{ top: `${thumbTop}px`, height: `${thumbHeight}px`, width: '18px' }}
+          style={{
+            position: 'absolute',
+            top: `${thumbTop}px`,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '10px',
+            height: `${thumbHeight}px`,
+            borderRadius: '5px',
+            background: 'rgba(2,122,118,0.75)',
+            boxShadow: '0 1px 4px rgba(2,122,118,0.3)',
+            cursor: 'grab',
+            pointerEvents: 'auto',
+          }}
         />
       </div>
     </div>
