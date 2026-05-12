@@ -112,7 +112,8 @@ def test_get_next_unfetched_month_skips_failed():
 def test_scraper_integration_single_month(tmp_path, monkeypatch):
     """Test full scraper flow for a single month."""
     import os
-    os.chdir(tmp_path)
+    monkeypatch.chdir(tmp_path)  # Use monkeypatch for automatic cleanup
+    monkeypatch.setattr("time.sleep", lambda x: None)  # Skip rate limiting delay in tests
 
     # Create data/news directory
     os.makedirs("data/news", exist_ok=True)
@@ -151,16 +152,20 @@ def test_scraper_integration_single_month(tmp_path, monkeypatch):
     metadata = news_scrapper.load_scraper_metadata()
     assert "2026-04" in metadata["fetched_months"]
 
-    # Verify archive was updated
+    # Verify archive was updated with proper structure
     with open("data/news/movilidad_news.json", 'r') as f:
         archive = json.load(f)
-    assert len(archive) > 0
+    assert len(archive) > 0, "Archive should contain articles"
+    assert all(k in archive[0] for k in ["id", "headline", "link", "sources"]), \
+        "Article should have required fields"
+    assert archive[0]["headline"] == "Test Article", "Article headline should match mock"
 
 
 def test_scraper_metadata_persistence(tmp_path, monkeypatch):
     """Test that metadata persists across multiple runs."""
     import os
-    os.chdir(tmp_path)
+    monkeypatch.chdir(tmp_path)  # Use monkeypatch for automatic cleanup
+    monkeypatch.setattr("time.sleep", lambda x: None)  # Skip rate limiting delay in tests
     os.makedirs("data/news", exist_ok=True)
 
     with open("data/news/movilidad_news.json", 'w') as f:
