@@ -107,11 +107,7 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
         }
 
         popTimeoutRef.current = setTimeout(() => {
-          setPoppedIds((prev) => {
-            const next = new Set(prev);
-            ids.forEach((id) => next.delete(id));
-            return next;
-          });
+          setPoppedIds(new Set());
           popTimeoutRef.current = null;
         }, 2500);
       },
