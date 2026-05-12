@@ -85,6 +85,26 @@ def merge_articles(existing_article, new_article):
 
     return existing_article
 
+def load_existing_news():
+    """
+    Load existing news from data/news/movilidad_news.json.
+    Returns list of articles, empty list if file doesn't exist.
+    """
+    import os
+    import json
+
+    file_path = "data/news/movilidad_news.json"
+
+    if not os.path.exists(file_path):
+        return []
+
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        print(f"Warning: Could not load {file_path}, starting fresh")
+        return []
+
 def scrape_spanish_mobility_news(max_results=5):
     # 1. Define the search query targeted at Spain
     query = '"carril bici" OR "movilidad urbana"'
