@@ -94,7 +94,7 @@ const NewsTimeline: React.FC<NewsTimelineProps> = ({
   return (
     <div
       ref={timelineRef}
-      className="fixed right-0 top-0 h-screen w-20 flex flex-col items-center bg-[var(--cream)] py-20 pointer-events-none z-40"
+      className="fixed right-0 top-0 h-screen w-20 flex flex-col items-center bg-[var(--cream)] py-20 pointer-events-none z-40 select-none"
       style={{ paddingTop: '80px' }}
     >
       <div className="relative flex-1 w-full flex items-center justify-center">
