@@ -41,8 +41,7 @@ const ForumPage: React.FC = () => {
         (item.summary && item.summary.toLowerCase().includes(query))
       );
     }
-    // Reverse order: newest first (most recent at top)
-    return [...filtered].reverse();
+    return filtered;
   }, [searchQuery, allNews]);
 
   // Newest is at top — no initial scroll needed
