@@ -123,36 +123,102 @@ def save_news(articles):
 
     print(f"✓ Saved {len(articles)} articles to {file_path}")
 
-def scrape_spanish_mobility_news(max_results=5):
-    # 1. Define the search query targeted at Spain
+def scrape_spanish_mobility_news(max_results=12):
+    """
+    Scrape Spanish mobility news from Google News RSS.
+    Deduplicate against existing articles, merge duplicates.
+    Save to data/news/movilidad_news.json
+    """
+    import json
+
+    # 1. Define search query
     query = '"carril bici" OR "movilidad urbana"'
     encoded_query = urllib.parse.quote(query)
-    
-    # 2. Build the Google News RSS URL (Forcing Spanish language and Spain region)
+
+    # 2. Build Google News RSS URL
     rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=es&gl=ES&ceid=ES:es"
-    
-    # 3. Parse the feed
+
+    # 3. Parse feed
     feed = feedparser.parse(rss_url)
-    
+
     if not feed.entries:
-        print("No news found.")
+        print("No new news found from RSS.")
         return
 
-    # 4. Extract and clean the data
-    print(f"--- Top {max_results} Mobility News in Spain ---\n")
+    # 4. Load existing articles
+    existing_articles = load_existing_news()
+
+    # 5. Process new articles
+    print(f"\n--- Processing {len(feed.entries[:max_results])} new articles ---\n")
+
+    new_articles = []
     for entry in feed.entries[:max_results]:
-        title = entry.title.split(" - ")[0] # Cleans the publisher name from the title
-        
-        # Google News puts HTML in the summary. We use BeautifulSoup to extract just the text.
+        title = entry.title.split(" - ")[0]  # Clean publisher name
+
         soup = BeautifulSoup(entry.summary, "html.parser")
         clean_text = soup.get_text(separator=" ")
-        
-        # Grab the first ~25 words
         first_words = " ".join(clean_text.split()[:25]) + "..."
-        
-        print(f"Title: {title}")
-        print(f"First Words: {first_words}")
-        print("-" * 50)
+
+        new_article = {
+            "headline": title,
+            "description": first_words,
+            "link": entry.link,
+            "publication_date": entry.published,
+            "source": entry.get('source', {}).get('title', 'Unknown'),
+            "topics": []
+        }
+
+        # Check for URL match
+        url_match_found = False
+        for existing in existing_articles:
+            # Check if URL is already in sources
+            if "sources" in existing:
+                existing_links = [s.get("link") for s in existing["sources"]]
+            else:
+                existing_links = [existing.get("link")]
+
+            if new_article["link"] in existing_links:
+                print(f"[URL MATCH] Merging: {title}")
+                merge_articles(existing, new_article)
+                url_match_found = True
+                break
+
+        if url_match_found:
+            continue
+
+        # Check for content similarity
+        similarity_match_found = False
+        for existing in existing_articles:
+            existing_headline = existing.get("headline", "")
+            existing_desc = existing.get("description", "")
+
+            if calculate_content_similarity(
+                title,
+                new_article["description"],
+                existing_headline,
+                existing_desc
+            ):
+                print(f"[SIMILARITY MATCH] Merging: {title} with {existing_headline}")
+                merge_articles(existing, new_article)
+                similarity_match_found = True
+                break
+
+        if not similarity_match_found:
+            # New article, add to file
+            print(f"[NEW] Adding: {title}")
+            new_article["id"] = generate_stable_id(new_article["headline"])
+            new_article["sources"] = [
+                {
+                    "name": new_article.get("source", "Unknown"),
+                    "link": new_article.get("link", ""),
+                    "date": new_article.get("publication_date", "")
+                }
+            ]
+            existing_articles.append(new_article)
+
+    # 6. Save deduplicated results
+    save_news(existing_articles)
+    print(f"\n--- Total articles in database: {len(existing_articles)} ---\n")
 
 # Run the scraper
 if __name__ == "__main__":
