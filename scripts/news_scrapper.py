@@ -13,8 +13,14 @@ def get_month_date_filters(month_str):
     Returns tuple: (after_date, before_date) as "YYYY-MM-DD" strings
     Example: ("2026-04-01", "2026-04-30")
     """
+    if not month_str or len(month_str) != 7 or month_str[4] != '-':
+        raise ValueError(f"Invalid month format: '{month_str}'. Expected YYYY-MM")
+
     year = int(month_str[:4])
     month = int(month_str[5:7])
+
+    if not (1 <= month <= 12):
+        raise ValueError(f"Invalid month: {month}. Must be 1-12")
 
     # First day of month
     after_date = f"{year:04d}-{month:02d}-01"
@@ -36,7 +42,11 @@ def build_rss_url_with_date_filter(query, after_date=None, before_date=None):
     """
     Build Google News RSS URL with optional date filters.
     If after_date/before_date provided, adds to query: "query after:DATE before:DATE"
+    Both dates must be provided together or neither should be provided.
     """
+    if (after_date is None) != (before_date is None):
+        raise ValueError("Both after_date and before_date must be provided together, or neither")
+
     if after_date and before_date:
         query = f"{query} after:{after_date} before:{before_date}"
 
