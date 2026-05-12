@@ -3,6 +3,54 @@ from bs4 import BeautifulSoup
 import urllib.parse
 import difflib
 import hashlib
+import json
+
+def load_scraper_metadata(base_path="data/news"):
+    """
+    Load scraper metadata tracking which months have been fetched.
+    Returns dict with fetched_months, failed_months, oldest_target_month, last_updated.
+    """
+    import os
+
+    metadata_path = os.path.join(base_path, "scraper_metadata.json")
+
+    if not os.path.exists(metadata_path):
+        return {
+            "fetched_months": [],
+            "failed_months": [],
+            "oldest_target_month": "2023-05",
+            "last_updated": None
+        }
+
+    try:
+        with open(metadata_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        print(f"Warning: Could not load {metadata_path}, starting fresh")
+        return {
+            "fetched_months": [],
+            "failed_months": [],
+            "oldest_target_month": "2023-05",
+            "last_updated": None
+        }
+
+def save_scraper_metadata(metadata, base_path="data/news"):
+    """
+    Save scraper metadata to data/news/scraper_metadata.json.
+    Updates last_updated timestamp.
+    """
+    import os
+    from datetime import datetime
+
+    metadata["last_updated"] = datetime.utcnow().isoformat() + "Z"
+
+    metadata_path = os.path.join(base_path, "scraper_metadata.json")
+    os.makedirs(base_path, exist_ok=True)
+
+    with open(metadata_path, 'w', encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=2)
+
+    print(f"✓ Metadata saved: {len(metadata['fetched_months'])} months fetched")
 
 def calculate_content_similarity(headline1, desc1, headline2, desc2):
     """
