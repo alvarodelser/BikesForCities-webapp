@@ -91,5 +91,15 @@ describe('geoProjection', () => {
       expect(result.x).toBeCloseTo((0.75 * svgWidth), 0);
       expect(result.y).toBeCloseTo((0.25 * svgHeight), 0);
     });
+
+    it('throws when bbox has zero longitude range', () => {
+      const bbox: GeoBbox = { minLon: 0, maxLon: 0, minLat: -1, maxLat: 1 };
+      expect(() => projectGeoCoords(0, 0, bbox, 1000, 700)).toThrow();
+    });
+
+    it('throws when bbox has zero latitude range', () => {
+      const bbox: GeoBbox = { minLon: -1, maxLon: 1, minLat: 0, maxLat: 0 };
+      expect(() => projectGeoCoords(0, 0, bbox, 1000, 700)).toThrow();
+    });
   });
 });

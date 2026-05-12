@@ -48,6 +48,10 @@ export function projectGeoCoords(
   const lonRange = bbox.maxLon - bbox.minLon;
   const latRange = bbox.maxLat - bbox.minLat;
 
+  if (lonRange === 0 || latRange === 0) {
+    throw new Error('Bounding box must have non-zero width and height');
+  }
+
   const x = ((lon - bbox.minLon) / lonRange) * svgWidth;
   const y = ((bbox.maxLat - lat) / latRange) * svgHeight;
 
