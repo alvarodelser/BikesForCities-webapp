@@ -255,6 +255,10 @@ CREATE TABLE IF NOT EXISTS routes (
 CREATE INDEX IF NOT EXISTS idx_routes_city_id ON routes(city_id);
 CREATE INDEX IF NOT EXISTS idx_routes_trip_id ON routes(trip_id);
 CREATE INDEX IF NOT EXISTS idx_routes_path_id ON routes(path_id);
+CREATE INDEX IF NOT EXISTS idx_routes_path_city
+    ON routes(path_id, city_id);
+CREATE INDEX IF NOT EXISTS idx_path_edges_path_id
+    ON path_edges(path_id);
 
 -- OSM Features table
 CREATE TABLE IF NOT EXISTS features (
@@ -313,6 +317,8 @@ CREATE TABLE IF NOT EXISTS edge_traffic (
 );
 CREATE INDEX IF NOT EXISTS idx_edge_traffic_city_id ON edge_traffic(city_id);
 CREATE INDEX IF NOT EXISTS idx_edge_traffic_month ON edge_traffic(month);
+CREATE INDEX IF NOT EXISTS idx_edge_traffic_lookup
+    ON edge_traffic(city_id, generation_type, algorithm, month);
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_nodes_network_id ON nodes(city_id);
@@ -377,6 +383,23 @@ CREATE INDEX IF NOT EXISTS idx_accidents_timestamp ON accidents(timestamp);
 CREATE INDEX IF NOT EXISTS idx_accidents_closest_edge ON accidents(closest_edge_id);
 CREATE INDEX IF NOT EXISTS idx_participants_accident_id ON accident_participants(accident_db_id);
  
+-- Bike-share news and updates
+CREATE TABLE IF NOT EXISTS news (
+    id             SERIAL PRIMARY KEY,
+    headline       TEXT NOT NULL,
+    summary        TEXT,
+    link           TEXT,
+    source         TEXT,
+    publication_dt DATE,
+    topics         TEXT[],
+    raw_txt        TEXT,
+    city           TEXT,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_news_publication_dt ON news(publication_dt);
+CREATE INDEX IF NOT EXISTS idx_news_city ON news(city);
+
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version VARCHAR(255) PRIMARY KEY,
     executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -389,6 +412,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 --   generation_type TEXT, algorithm TEXT, month TEXT (YYYY-MM-DD).
 -- When params are absent, trip_count defaults to 0 so the layer still renders.
 -- See martin-config.yaml [functions.edges] and migration 003.
+-- Fixed in migration 005: SRID mismatch (ST_TileEnvelope returns 3857, edges.geom is 4326)
 CREATE OR REPLACE FUNCTION edges_with_traffic(z integer, x integer, y integer, query_params json)
 RETURNS bytea
 LANGUAGE plpgsql
@@ -396,34 +420,42 @@ STABLE
 PARALLEL SAFE
 AS $$
 DECLARE
-    gen_type  TEXT := query_params->>'generation_type';
-    algo      TEXT := query_params->>'algorithm';
-    month_val DATE := (query_params->>'month')::DATE;
-    tile      BYTEA;
+    gen_type       TEXT     := query_params->>'generation_type';
+    algo           TEXT     := query_params->>'algorithm';
+    month_val      DATE     := (query_params->>'month')::DATE;
+    tile_3857      GEOMETRY := ST_TileEnvelope(z, x, y);
+    tile_4326      GEOMETRY := ST_Transform(tile_3857, 4326);
+    tile           BYTEA;
 BEGIN
     SELECT ST_AsMVT(q, 'edges', 4096, 'geom')
     INTO tile
     FROM (
         SELECT
-            e.id,
-            e.city_id,
-            e.name,
-            e.highway,
-            e.length,
-            COALESCE(et.trip_count, 0)                        AS trip_count,
-            ST_AsMVTGeom(
-                e.geom,
-                ST_TileEnvelope(z, x, y),
-                4096, 0, true
-            )                                                 AS geom
-        FROM edges e
-        LEFT JOIN edge_traffic et
-               ON et.edge_id        = e.id
-              AND et.generation_type = gen_type
-              AND et.algorithm       = algo
-              AND et.month           = month_val
-        WHERE e.geom && ST_TileEnvelope(z, x, y)
-          AND ST_AsMVTGeom(e.geom, ST_TileEnvelope(z, x, y), 4096, 0, true) IS NOT NULL
+            src.id,
+            src.city_id,
+            src.name,
+            src.highway,
+            src.length,
+            src.trip_count,
+            ST_AsMVTGeom(src.geom_3857, tile_3857, 4096, 0, true) AS geom
+        FROM (
+            SELECT
+                e.id,
+                e.city_id,
+                e.name,
+                e.highway,
+                e.length,
+                COALESCE(et.trip_count, 0)    AS trip_count,
+                ST_Transform(e.geom, 3857)    AS geom_3857
+            FROM edges e
+            LEFT JOIN edge_traffic et
+                   ON et.edge_id         = e.id
+                  AND et.generation_type  = gen_type
+                  AND et.algorithm        = algo
+                  AND et.month            = month_val
+            WHERE e.geom && tile_4326
+        ) src
+        WHERE ST_AsMVTGeom(src.geom_3857, tile_3857, 4096, 0, true) IS NOT NULL
     ) q;
 
     RETURN COALESCE(tile, ''::BYTEA);
