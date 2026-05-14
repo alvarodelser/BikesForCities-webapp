@@ -34,8 +34,33 @@ def get_accidents_geojson(
                 a.injured,
                 a.killed,
                 a.vehicles_involved,
-                MAX(ap.injury_code) AS max_injury_code,
-                (ARRAY_AGG(ap.injury_status ORDER BY COALESCE(ap.injury_code, 0) DESC))[1]
+                -- Resolve worst injury code by severity rank, not by numeric value.
+                -- Madrid codes are NOT ordinal: 14 (uninjured) > 4 (fatal) numerically,
+                -- so MAX(injury_code) would incorrectly pick code 14 over code 4.
+                CASE MIN(CASE ap.injury_code
+                    WHEN 4  THEN 1            -- fatal
+                    WHEN 3  THEN 2            -- serious
+                    WHEN 1  THEN 3
+                    WHEN 2  THEN 3
+                    WHEN 5  THEN 3
+                    WHEN 6  THEN 3
+                    WHEN 7  THEN 3            -- minor
+                    WHEN 14 THEN 4            -- uninjured
+                    ELSE 5                    -- unknown / no participants
+                END)
+                    WHEN 1 THEN 4
+                    WHEN 2 THEN 3
+                    WHEN 3 THEN 1
+                    WHEN 4 THEN 14
+                    ELSE NULL
+                END AS max_injury_code,
+                (ARRAY_AGG(ap.injury_status ORDER BY CASE ap.injury_code
+                    WHEN 4  THEN 1
+                    WHEN 3  THEN 2
+                    WHEN 1  THEN 3 WHEN 2 THEN 3 WHEN 5 THEN 3 WHEN 6 THEN 3 WHEN 7 THEN 3
+                    WHEN 14 THEN 4
+                    ELSE 5
+                END ASC NULLS LAST) FILTER (WHERE ap.injury_status IS NOT NULL))[1]
                     AS worst_injury_status,
                 JSON_AGG(
                     JSON_BUILD_OBJECT(
@@ -46,7 +71,7 @@ def get_accidents_geojson(
                         'alcohol_positive', ap.alcohol_positive,
                         'drugs_positive', ap.drugs_positive
                     )
-                ) AS participants
+                ) FILTER (WHERE ap.id IS NOT NULL) AS participants
             FROM accidents a
             LEFT JOIN accident_participants ap ON ap.accident_db_id = a.id
             WHERE a.city_id = %s

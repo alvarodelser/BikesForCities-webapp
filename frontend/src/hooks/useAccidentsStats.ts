@@ -24,11 +24,7 @@ export interface AccidentsStatsResult {
   error: string | null;
 }
 
-// Extend AccidentFeature properties with the vehicles_involved field that the
-// API returns but is not yet reflected in the TypeScript interface.
-type AccidentProps = AccidentFeature['properties'] & {
-  vehicles_involved?: string[];
-};
+type AccidentProps = AccidentFeature['properties'];
 
 // Severity colours (Ileso / Leve / Grave / Fatal)
 const SEV_COLORS = {
@@ -186,13 +182,8 @@ export function useAccidentsStats(cityId: number | null): AccidentsStatsResult {
         const features = geojson.features;
         const total = features.length;
 
-        const hasCyclist = (f: AccidentFeature): boolean => {
-          const props = f.properties as AccidentProps;
-          return (
-            (props.cyclists_involved ?? 0) > 0 ||
-            getVehicles(props).includes('bike_vmu')
-          );
-        };
+        const hasCyclist = (f: AccidentFeature): boolean =>
+          getVehicles(f.properties).includes('bike_vmu');
 
         const cyclistCount = features.filter(hasCyclist).length;
 
