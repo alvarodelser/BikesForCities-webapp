@@ -16,6 +16,7 @@ import ErrorContainer from '../ui/ErrorContainer';
 interface CityLeaderboardProps {
   selectedCityPaths: string[];
   onToggleCity: (city: CityData) => void;
+  activeMode: MapMode;
 }
 
 const MODE_META = [
@@ -79,12 +80,11 @@ function sortCities(cities: CityData[], key: SortKey, dir: SortDir): CityData[] 
   });
 }
 
-const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, onToggleCity }) => {
+const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, onToggleCity, activeMode }) => {
   const [cities, setCities] = useState<CityData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeMode, setActiveMode] = useState<MapMode>(MAP_MODES.INFRASTRUCTURE);
   const [sortKey, setSortKey] = useState<SortKey>('coverage');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [width, setWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1200);
@@ -111,12 +111,11 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
       });
   }, []);
 
-  const handleModeChange = (mode: MapMode) => {
-    setActiveMode(mode);
-    const firstMetric = MODE_METRICS[mode as string][0].key;
-    setSortKey(firstMetric);
-    setSortDir('desc');
-  };
+  // Reset sort when external mode changes
+  useEffect(() => {
+    const firstMetric = MODE_METRICS[activeMode as string]?.[0]?.key;
+    if (firstMetric) { setSortKey(firstMetric as SortKey); setSortDir('desc'); }
+  }, [activeMode]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -203,28 +202,7 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
   return (
     <div className="w-full flex flex-col gap-12">
       
-      {/* 1. Mode Selector */}
-      <div className="flex justify-center w-full">
-        <div className="flex flex-wrap gap-2 justify-center bg-black/20 p-1.5 rounded-2xl md:rounded-full border border-white/10">
-          {MODE_META.map(m => {
-            const isActive = activeMode === m.id;
-            const Icon = m.icon;
-            return (
-              <button
-                key={m.id}
-                onClick={() => handleModeChange(m.id)}
-                className={`flex items-center gap-2 px-4 py-2 md:py-2.5 rounded-xl md:rounded-full text-sm font-semibold transition-all duration-300 ${isActive ? 'bg-white shadow-lg scale-105' : 'hover:bg-white/10 text-white/70 hover:text-white'}`}
-                style={isActive ? { color: m.color } : {}}
-              >
-                <Icon size={16} />
-                <span className="hidden md:inline">{m.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 2. Podium */}
+      {/* 1. Podium */}
       <div className="max-w-4xl mx-auto w-full px-4">
         <div className="flex items-end justify-center gap-2 md:gap-4 mt-8 h-80">
           <div className="w-1/3 max-w-[240px]">
