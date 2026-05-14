@@ -104,7 +104,7 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
     const bothCollapsed = !legendOpen && (!hasSelection || selectionMinimized);
 
     const commonItems = commonLegendItems
-        .filter(item => !(mode === 'stations' && item.label === 'Límite Municipal'));
+        .filter(item => !(mode === 'stations' && (item.label as string) === 'Límite Municipal'));
 
     return (
         <div

@@ -51,8 +51,6 @@ const ComparePage: React.FC = () => {
     </div>
   );
 
-  const activeModeConfig = MODES.find(m => m.key === activeMode)!;
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--blue-dark)' }}>
 

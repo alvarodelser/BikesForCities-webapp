@@ -292,9 +292,6 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         if (!map || !city?.id) return;
         let cancelled = false;
 
-        const prevGen = prevGenRef.current;
-        const prevRoute = prevRouteRef.current;
-        const modeActuallyChanged = (prevGen || prevRoute) && (prevGen !== generation || prevRoute !== routing);
         prevGenRef.current = generation;
         prevRouteRef.current = routing;
 
