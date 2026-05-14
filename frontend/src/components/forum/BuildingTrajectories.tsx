@@ -13,23 +13,22 @@ interface BuildingTrajectoriesProps {
 
 // ---- Constants ----
 
-// Default fallback paths if street data is unavailable
 const DEFAULT_PATHS = [
-  'M 0,98  Q 250,70 500,154  T 1000,126',  // upper sweep L→R
-  'M 0,385 Q 250,350 500,420 T 1000,385',  // mid sweep L→R
-  'M 1000,546 Q 750,511 500,574 T 0,546',  // lower sweep R→L
+  'M -60,98  L 150,70  L 500,154  L 750,120  L 1060,126',
+  'M -60,385 L 200,350 L 500,420 L 800,370 L 1060,385',
+  'M 1060,546 L 800,511 L 500,574 L 200,530 L -60,546',
 ];
 
-const INITIAL_DELAYS = [0, 4000, 8000];
+const INITIAL_DELAYS = [0, 4500, 9000];
 
-const DRAW_DURATION = 2500;
-const POP_AT = 1250;      // ms into draw phase
-const HOLD_DURATION = 1000;
-const FADE_DURATION = 500;
-const IDLE_MIN = 8000;
-const IDLE_MAX = 16000;
-const SAMPLE_COUNT = 20;
-const POP_THRESHOLD = 30;
+const DRAW_DURATION = 3200;
+const HOLD_DURATION = 800;
+const FADE_DURATION = 700;
+const IDLE_MIN = 10000;
+const IDLE_MAX = 18000;
+const SAMPLE_STEP = 28;   // px of path per progressive sample
+const POP_THRESHOLD = 32;
+const PATH_COUNT = 3;
 
 type PathPhase = 'idle' | 'drawing' | 'holding' | 'fading';
 
@@ -37,6 +36,7 @@ type PathPhase = 'idle' | 'drawing' | 'holding' | 'fading';
 
 const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, trajectoryPaths }) => {
   const PATHS = trajectoryPaths.length > 0 ? trajectoryPaths : DEFAULT_PATHS;
+
   const pathRefs = [
     useRef<SVGPathElement>(null),
     useRef<SVGPathElement>(null),
@@ -47,11 +47,15 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
   const [phases, setPhases] = useState<PathPhase[]>(['idle', 'idle', 'idle']);
   const [dashOffsets, setDashOffsets] = useState<number[]>([0, 0, 0]);
   const [opacities, setOpacities] = useState<number[]>([1, 1, 1]);
-  const [circlePositions, setCirclePositions] = useState<{ x: number; y: number }[]>([
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
+
+  // Per-path progressive illumination tracking
+  const lastSampledRef = useRef<number[]>([0, 0, 0]);
+  const litBuildingIdsRef = useRef<[Set<string>, Set<string>, Set<string>]>([
+    new Set(),
+    new Set(),
+    new Set(),
   ]);
+  const buildingRectsRef = useRef<Map<string, SvgRect> | null>(null);
 
   // Measure path lengths after mount
   useEffect(() => {
@@ -59,55 +63,32 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
       ref.current ? ref.current.getTotalLength() : 0
     );
     setPathLengths(lengths);
-    // Initialize dashOffsets to pathLengths (hidden)
     setDashOffsets(lengths);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Lazily build/refresh building rect cache
+  function getBuildingRects(): Map<string, SvgRect> {
+    if (buildingRectsRef.current) return buildingRectsRef.current;
+    const map = new Map<string, SvgRect>();
+    const svgEl = bgRef.current?.svgElement;
+    if (!svgEl) return map;
+    svgEl.querySelectorAll('.bldg-poly').forEach((el) => {
+      if (el.id) {
+        const bbox = (el as SVGGraphicsElement).getBBox();
+        map.set(el.id, { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height });
+      }
+    });
+    buildingRectsRef.current = map;
+    return map;
+  }
 
   // State machine for each path
   useEffect(() => {
     if (pathLengths.every((l) => l === 0)) return;
 
-    const timeoutHandles: (ReturnType<typeof setTimeout>)[] = [];
+    const timeoutHandles: ReturnType<typeof setTimeout>[] = [];
     const rafHandles: number[] = [0, 0, 0];
-
-    function triggerPopForPath(pathIndex: number): void {
-      if (!bgRef.current) return;
-      const pathEl = pathRefs[pathIndex].current;
-      if (!pathEl) return;
-      const svgEl = bgRef.current.svgElement;
-      if (!svgEl) return;
-
-      const pathLength = pathLengths[pathIndex];
-      if (pathLength === 0) return;
-
-      // Sample points along the path
-      const samplePoints: SvgPoint[] = [];
-      for (let i = 0; i < SAMPLE_COUNT; i++) {
-        const t = i / (SAMPLE_COUNT - 1);
-        const pt = pathEl.getPointAtLength(t * pathLength);
-        samplePoints.push({ x: pt.x, y: pt.y });
-      }
-
-      // Build building bounding boxes map
-      const buildingRects = new Map<string, SvgRect>();
-      const bldgPolys = svgEl.querySelectorAll('.bldg-poly');
-      bldgPolys.forEach((el) => {
-        if (el.id) {
-          const bbox = (el as SVGGraphicsElement).getBBox();
-          buildingRects.set(el.id, {
-            x: bbox.x,
-            y: bbox.y,
-            width: bbox.width,
-            height: bbox.height,
-          });
-        }
-      });
-
-      // Find nearby buildings and trigger pop
-      const nearbyIds = findBuildingsNearPoints(samplePoints, buildingRects, POP_THRESHOLD);
-      bgRef.current.triggerPop(nearbyIds);
-    }
 
     function startRAFLoop(pathIndex: number, startTime: number): void {
       const pathLength = pathLengths[pathIndex];
@@ -117,12 +98,30 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
       function tick(now: number): void {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / DRAW_DURATION, 1);
-        const pt = pathEl!.getPointAtLength(progress * pathLength);
-        setCirclePositions((prev) => {
-          const next = [...prev];
-          next[pathIndex] = { x: pt.x, y: pt.y };
-          return next;
-        });
+        const drawnLength = progress * pathLength;
+
+        // Progressive illumination: sample newly-drawn segment
+        const lastSampled = lastSampledRef.current[pathIndex];
+        if (drawnLength > lastSampled + SAMPLE_STEP) {
+          const rects = getBuildingRects();
+          const newPoints: SvgPoint[] = [];
+          for (let l = lastSampled + SAMPLE_STEP; l <= drawnLength; l += SAMPLE_STEP) {
+            const pt = pathEl.getPointAtLength(l);
+            newPoints.push({ x: pt.x, y: pt.y });
+          }
+          lastSampledRef.current[pathIndex] =
+            Math.floor(drawnLength / SAMPLE_STEP) * SAMPLE_STEP;
+
+          if (newPoints.length > 0 && bgRef.current) {
+            const nearIds = findBuildingsNearPoints(newPoints, rects, POP_THRESHOLD);
+            const alreadyLit = litBuildingIdsRef.current[pathIndex];
+            const freshIds = nearIds.filter((id) => !alreadyLit.has(id));
+            if (freshIds.length > 0) {
+              freshIds.forEach((id) => alreadyLit.add(id));
+              bgRef.current.addLitBuildings(freshIds, pathIndex);
+            }
+          }
+        }
 
         if (progress < 1) {
           rafHandles[pathIndex] = requestAnimationFrame(tick);
@@ -140,11 +139,15 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
     }
 
     function runCycle(pathIndex: number, initialDelay: number): void {
-      // IDLE → wait initialDelay → DRAWING
       const idleHandle = setTimeout(() => {
         const pathLength = pathLengths[pathIndex];
 
-        // Enter DRAWING: reset dashOffset to pathLength (no transition), set opacity to 1
+        // Reset tracking for this path
+        lastSampledRef.current[pathIndex] = 0;
+        litBuildingIdsRef.current[pathIndex].clear();
+        // Refresh building rect cache on each new cycle
+        buildingRectsRef.current = null;
+
         setDashOffsets((prev) => {
           const next = [...prev];
           next[pathIndex] = pathLength;
@@ -156,31 +159,20 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
           return next;
         });
 
-        // Small delay to allow the reset to apply before starting the transition
         const drawStartHandle = setTimeout(() => {
           setPhases((prev) => {
             const next = [...prev] as PathPhase[];
             next[pathIndex] = 'drawing';
             return next;
           });
-
-          // Start the stroke animation: set dashOffset to 0 with transition
           setDashOffsets((prev) => {
             const next = [...prev];
             next[pathIndex] = 0;
             return next;
           });
 
-          // Start RAF loop for circle traveller
           startRAFLoop(pathIndex, performance.now());
 
-          // Pop trigger at midpoint
-          const popHandle = setTimeout(() => {
-            triggerPopForPath(pathIndex);
-          }, POP_AT);
-          timeoutHandles.push(popHandle);
-
-          // After draw completes → HOLDING
           const holdHandle = setTimeout(() => {
             stopRAFLoop(pathIndex);
             setPhases((prev) => {
@@ -189,7 +181,6 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
               return next;
             });
 
-            // After hold → FADING
             const fadeHandle = setTimeout(() => {
               setPhases((prev) => {
                 const next = [...prev] as PathPhase[];
@@ -202,14 +193,15 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
                 return next;
               });
 
-              // After fade → IDLE + schedule next cycle
+              // Clear this path's building illumination
+              bgRef.current?.clearLit(pathIndex);
+
               const idleStartHandle = setTimeout(() => {
                 setPhases((prev) => {
                   const next = [...prev] as PathPhase[];
                   next[pathIndex] = 'idle';
                   return next;
                 });
-                // Reset dashOffset (hidden) without transition
                 setDashOffsets((prev) => {
                   const next = [...prev];
                   next[pathIndex] = pathLength;
@@ -221,9 +213,7 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
                   return next;
                 });
 
-                // Random idle wait before next cycle
-                const idleWait =
-                  IDLE_MIN + Math.random() * (IDLE_MAX - IDLE_MIN);
+                const idleWait = IDLE_MIN + Math.random() * (IDLE_MAX - IDLE_MIN);
                 runCycle(pathIndex, idleWait);
               }, FADE_DURATION);
               timeoutHandles.push(idleStartHandle);
@@ -231,13 +221,12 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
             timeoutHandles.push(fadeHandle);
           }, DRAW_DURATION);
           timeoutHandles.push(holdHandle);
-        }, 20); // small rAF-friendly delay for reset to flush
+        }, 20);
         timeoutHandles.push(drawStartHandle);
       }, initialDelay);
       timeoutHandles.push(idleHandle);
     }
 
-    // Start each path with its staggered initial delay
     INITIAL_DELAYS.forEach((delay, i) => {
       runCycle(i, delay);
     });
@@ -251,15 +240,10 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathLengths]);
 
-  // Build transition style per path based on phase
   function getTransitionStyle(pathIndex: number): string {
     const phase = phases[pathIndex];
-    if (phase === 'drawing') {
-      return `stroke-dashoffset ${DRAW_DURATION}ms ease-in-out`;
-    }
-    if (phase === 'fading') {
-      return `opacity ${FADE_DURATION}ms`;
-    }
+    if (phase === 'drawing') return `stroke-dashoffset ${DRAW_DURATION}ms linear`;
+    if (phase === 'fading') return `opacity ${FADE_DURATION}ms ease-in`;
     return 'none';
   }
 
@@ -277,30 +261,22 @@ const BuildingTrajectories: React.FC<BuildingTrajectoriesProps> = ({ bgRef, traj
         zIndex: 2,
       }}
     >
-      {PATHS.map((d, i) => (
-        <g key={i}>
-          <path
-            ref={pathRefs[i]}
-            d={d}
-            fill="none"
-            stroke="var(--green-dark)"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            style={{
-              strokeDasharray: pathLengths[i] || 0,
-              strokeDashoffset: dashOffsets[i],
-              opacity: opacities[i],
-              transition: getTransitionStyle(i),
-            }}
-          />
-          <circle
-            cx={circlePositions[i].x}
-            cy={circlePositions[i].y}
-            r={4}
-            fill="var(--green-dark)"
-            opacity={phases[i] === 'drawing' || phases[i] === 'holding' ? opacities[i] : 0}
-          />
-        </g>
+      {PATHS.slice(0, PATH_COUNT).map((d, i) => (
+        <path
+          key={i}
+          ref={pathRefs[i]}
+          d={d}
+          fill="none"
+          stroke="var(--forum-traj-stroke)"
+          strokeWidth={1.4}
+          strokeLinecap="round"
+          style={{
+            strokeDasharray: pathLengths[i] || 0,
+            strokeDashoffset: dashOffsets[i],
+            opacity: opacities[i],
+            transition: getTransitionStyle(i),
+          }}
+        />
       ))}
     </svg>
   );

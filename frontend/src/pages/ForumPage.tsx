@@ -7,7 +7,30 @@ import CityBuildingBackground, { type CityBuildingBackgroundHandle } from '../co
 import BuildingTrajectories from '../components/forum/BuildingTrajectories';
 import { fetchCities, fetchStreetNetwork } from '../services/api';
 import type { CityData } from '../constants/cities';
+import type { GeoBbox } from '../utils/geoProjection';
 import { extractStreetSegments, findMarginCrossingPaths, geoLineToSvgPath } from '../utils/streetPathfinding';
+
+// Radius (degrees) around city center to display — ~2.2 km for dense downtown
+const DOWNTOWN_RADIUS = 0.022;
+
+function selectMadridCity(cities: CityData[]): CityData | undefined {
+  return (
+    cities.find((c) => c.name.toLowerCase().includes('madrid')) ??
+    cities.reduce((prev, cur) =>
+      (cur.population || 0) > (prev.population || 0) ? cur : prev
+    )
+  );
+}
+
+function buildViewBbox(city: CityData): GeoBbox {
+  const { longitude: lon, latitude: lat } = city.geoCoords;
+  return {
+    minLon: lon - DOWNTOWN_RADIUS,
+    maxLon: lon + DOWNTOWN_RADIUS,
+    minLat: lat - DOWNTOWN_RADIUS,
+    maxLat: lat + DOWNTOWN_RADIUS,
+  };
+}
 
 const ForumPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -17,17 +40,18 @@ const ForumPage: React.FC = () => {
   const bgRef = useRef<CityBuildingBackgroundHandle | null>(null);
   const [cities, setCities] = useState<CityData[]>([]);
   const [trajectoryPaths, setTrajectoryPaths] = useState<string[]>([]);
-  const selectedCityId = useMemo(
-    () => {
-      if (cities.length === 0) return 1;
-      // Pick the city with the largest population for denser buildings
-      const largest = cities.reduce((prev, current) =>
-        (current.population || 0) > (prev.population || 0) ? current : prev
-      );
-      return largest.id ?? 1;
-    },
+
+  const selectedCity = useMemo(
+    () => (cities.length > 0 ? selectMadridCity(cities) : undefined),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [cities.length > 0]
+  );
+
+  const selectedCityId = selectedCity?.id ?? 1;
+  const viewBbox: GeoBbox | undefined = useMemo(
+    () => (selectedCity ? buildViewBbox(selectedCity) : undefined),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedCity?.id]
   );
 
   const allNews = useMemo(() => getNews(), []);
@@ -36,22 +60,20 @@ const ForumPage: React.FC = () => {
     let filtered = allNews;
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = allNews.filter(item =>
-        item.headline.toLowerCase().includes(query) ||
-        (item.summary && item.summary.toLowerCase().includes(query))
+      filtered = allNews.filter(
+        (item) =>
+          item.headline.toLowerCase().includes(query) ||
+          (item.summary && item.summary.toLowerCase().includes(query))
       );
     }
     return filtered;
   }, [searchQuery, allNews]);
-
-  // Newest is at top — no initial scroll needed
 
   const handleDotClick = (index: number) => {
     if (!pageRef.current) return;
     const cards = pageRef.current.querySelectorAll('[data-news-id]');
     const card = cards[index] as HTMLElement | undefined;
     if (!card) return;
-    // Convert viewport-relative top to absolute scroll position, offset for sticky header
     const absoluteTop = window.scrollY + card.getBoundingClientRect().top - 96;
     window.scrollTo({ top: absoluteTop, behavior: 'smooth' });
   };
@@ -63,89 +85,58 @@ const ForumPage: React.FC = () => {
   }, [showSearch]);
 
   React.useEffect(() => {
-    fetchCities().then(setCities).catch(() => {
-      // Silent fail — default city id 1 will be used
-    });
+    fetchCities().then(setCities).catch(() => {});
   }, []);
 
-  // Load street network and compute trajectories when city changes
+  // Load street network and compute trajectories when city + viewBbox are ready
   React.useEffect(() => {
-    if (selectedCityId === 1) return; // Don't fetch until city is loaded
+    if (!selectedCity || !viewBbox) return;
 
     fetchStreetNetwork(selectedCityId)
       .then((streetGeoJSON) => {
-        // Extract street segments
-        const segments = extractStreetSegments(streetGeoJSON.features, {
-          minLon: 0,
-          maxLon: 1,
-          minLat: 0,
-          maxLat: 1,
-        });
+        const segments = extractStreetSegments(streetGeoJSON.features, viewBbox);
 
-        // We need to compute bbox from streets to find margin-crossing paths
-        // For now, use fallback paths if we can't compute them properly
         if (segments.length === 0) {
           setTrajectoryPaths([]);
           return;
         }
 
-        // Extract all coordinates to compute bbox
-        const allCoords: [number, number][] = [];
-        segments.forEach((seg) => {
-          allCoords.push(...seg.points);
-        });
-
-        if (allCoords.length === 0) {
-          setTrajectoryPaths([]);
-          return;
-        }
-
-        // Compute bbox
-        const bbox = {
-          minLon: Math.min(...allCoords.map((c) => c[0])),
-          maxLon: Math.max(...allCoords.map((c) => c[0])),
-          minLat: Math.min(...allCoords.map((c) => c[1])),
-          maxLat: Math.max(...allCoords.map((c) => c[1])),
-        };
-
-        // Compute center zone (40% like buildings)
-        const lonWidth = bbox.maxLon - bbox.minLon;
-        const latHeight = bbox.maxLat - bbox.minLat;
-        const centerZone = {
-          minLon: bbox.minLon + lonWidth * 0.3,
-          maxLon: bbox.maxLon - lonWidth * 0.3,
-          minLat: bbox.minLat + latHeight * 0.3,
-          maxLat: bbox.maxLat - latHeight * 0.3,
-        };
-
-        // Filter segments to center zone
+        // Filter to segments within the downtown view
         const centerSegments = segments.filter((seg) =>
-          seg.points.some(([lon, lat]) =>
-            lon >= centerZone.minLon &&
-            lon <= centerZone.maxLon &&
-            lat >= centerZone.minLat &&
-            lat <= centerZone.maxLat
+          seg.points.some(
+            ([lon, lat]) =>
+              lon >= viewBbox.minLon &&
+              lon <= viewBbox.maxLon &&
+              lat >= viewBbox.minLat &&
+              lat <= viewBbox.maxLat
           )
         );
 
-        // Find margin-crossing paths
-        const crossingPaths = findMarginCrossingPaths(centerSegments, centerZone);
+        const crossingPaths = findMarginCrossingPaths(
+          centerSegments.length > 0 ? centerSegments : segments,
+          viewBbox
+        );
 
-        // Convert to SVG paths
-        const svgPaths = crossingPaths.map((path) => geoLineToSvgPath(path.points, centerZone));
+        const svgPaths = crossingPaths.map((path) =>
+          geoLineToSvgPath(path.points, viewBbox)
+        );
 
         setTrajectoryPaths(svgPaths);
       })
       .catch(() => {
-        // Silent fail - use default paths
         setTrajectoryPaths([]);
       });
-  }, [selectedCityId]);
+  }, [selectedCityId, viewBbox]);
 
   return (
-    <div ref={pageRef} className="scrollbar-hide min-h-screen" style={{ position: 'relative', background: 'var(--forum-bg)' }}>
-      <CityBuildingBackground cityId={selectedCityId} ref={bgRef} />
+    <div
+      ref={pageRef}
+      className="scrollbar-hide min-h-screen"
+      style={{ position: 'relative', background: 'var(--forum-bg)' }}
+    >
+      <CityBuildingBackground cityId={selectedCityId} ref={bgRef} viewBbox={viewBbox} />
       <BuildingTrajectories bgRef={bgRef} trajectoryPaths={trajectoryPaths} />
+
       {/* Header */}
       <div
         className="sticky top-0 z-50 border-b border-[var(--blue-light)] py-6 px-8"
@@ -157,7 +148,9 @@ const ForumPage: React.FC = () => {
         }}
       >
         <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <h1 className="font-heading text-2xl font-bold text-[var(--blue-dark)]">Foro de Noticias</h1>
+          <h1 className="font-heading text-2xl font-bold text-[var(--blue-dark)]">
+            Foro de Noticias
+          </h1>
           <button
             onClick={() => setShowSearch(!showSearch)}
             className="p-2 hover:bg-[var(--blue-light)]/20 rounded transition-colors"
@@ -170,7 +163,6 @@ const ForumPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Search bar - hidden by default */}
         {showSearch && (
           <div className="max-w-4xl mx-auto mt-4">
             <input
@@ -185,8 +177,11 @@ const ForumPage: React.FC = () => {
         )}
       </div>
 
-      {/* Feed content */}
-      <div className="pr-8 max-w-4xl mx-auto py-8" style={{ position: 'relative', zIndex: 3 }}>
+      {/* Feed */}
+      <div
+        className="pr-8 max-w-4xl mx-auto py-8"
+        style={{ position: 'relative', zIndex: 3 }}
+      >
         {filteredNews.length > 0 ? (
           filteredNews.map((item) => (
             <div key={item.id} data-news-id={item.id}>
@@ -200,11 +195,8 @@ const ForumPage: React.FC = () => {
         )}
       </div>
 
-      {/* Right: Fixed Timeline */}
-      <NewsTimeline
-        items={filteredNews}
-        onDotClick={handleDotClick}
-      />
+      {/* Fixed Timeline */}
+      <NewsTimeline items={filteredNews} onDotClick={handleDotClick} />
     </div>
   );
 };

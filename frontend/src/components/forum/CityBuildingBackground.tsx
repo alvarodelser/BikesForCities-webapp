@@ -5,12 +5,14 @@ import { SVG_W, SVG_H, computeGeoBbox, projectGeoCoords, type GeoBbox } from '..
 // ---- Types ----
 
 export interface CityBuildingBackgroundHandle {
-  triggerPop: (polygonIds: string[]) => void;
+  addLitBuildings: (polygonIds: string[], pathIndex: number) => void;
+  clearLit: (pathIndex: number) => void;
   svgElement: SVGSVGElement | null;
 }
 
 interface CityBuildingBackgroundProps {
   cityId: number;
+  viewBbox?: GeoBbox;
 }
 
 // ---- Helpers ----
@@ -41,12 +43,10 @@ function extractOuterRings(features: BuildingFeature[]): [number, number][][] {
 }
 
 function computeCenterZone(bbox: GeoBbox): GeoBbox {
-  // Extract center 40% of the bbox (30% padding on each side for more zoom)
   const lonWidth = bbox.maxLon - bbox.minLon;
   const latHeight = bbox.maxLat - bbox.minLat;
-  const lonPadding = lonWidth * 0.3; // 30% on each side
+  const lonPadding = lonWidth * 0.3;
   const latPadding = latHeight * 0.3;
-
   return {
     minLon: bbox.minLon + lonPadding,
     maxLon: bbox.maxLon - lonPadding,
@@ -70,11 +70,15 @@ function projectPolygons(rings: [number, number][][], bbox: GeoBbox): ProjectedP
 // ---- Component ----
 
 const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuildingBackgroundProps>(
-  ({ cityId }, ref) => {
+  ({ cityId, viewBbox }, ref) => {
     const svgRef = useRef<SVGSVGElement>(null);
     const [polygons, setPolygons] = useState<ProjectedPolygon[]>([]);
-    const [poppedIds, setPoppedIds] = useState<Set<string>>(new Set());
-    const popTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [litIds, setLitIds] = useState<Set<string>>(new Set());
+    const litIdsByPath = useRef<[Set<string>, Set<string>, Set<string>]>([
+      new Set(),
+      new Set(),
+      new Set(),
+    ]);
 
     // Fetch and project on mount
     useEffect(() => {
@@ -90,95 +94,59 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
           const rings = extractOuterRings(features);
           if (rings.length === 0) return;
 
-          // Collect all coordinate pairs to compute overall bbox
           const allCoords: [number, number][] = rings.flat();
           if (allCoords.length === 0) return;
 
-          const fullBbox = computeGeoBbox(allCoords);
-          // Focus on center zone (40% of bbox for aggressive zoom)
-          const centerZone = computeCenterZone(fullBbox);
-
-          // Filter rings to only those within center zone
-          const centerRings = rings.filter((ring) => {
-            // Check if any point in the ring falls within center zone
-            return ring.some(
-              ([lon, lat]) =>
-                lon >= centerZone.minLon &&
-                lon <= centerZone.maxLon &&
-                lat >= centerZone.minLat &&
-                lat <= centerZone.maxLat
-            );
-          });
-
-          if (centerRings.length === 0) {
-            // Fallback: if center zone has no buildings, expand to 60% of bbox
-            const expandedZone: GeoBbox = {
-              minLon: fullBbox.minLon + (fullBbox.maxLon - fullBbox.minLon) * 0.2,
-              maxLon: fullBbox.maxLon - (fullBbox.maxLon - fullBbox.minLon) * 0.2,
-              minLat: fullBbox.minLat + (fullBbox.maxLat - fullBbox.minLat) * 0.2,
-              maxLat: fullBbox.maxLat - (fullBbox.maxLat - fullBbox.minLat) * 0.2,
-            };
-            const expandedRings = rings.filter((ring) =>
-              ring.some(
-                ([lon, lat]) =>
-                  lon >= expandedZone.minLon &&
-                  lon <= expandedZone.maxLon &&
-                  lat >= expandedZone.minLat &&
-                  lat <= expandedZone.maxLat
-              )
-            );
-            const projected = projectPolygons(
-              expandedRings.length > 0 ? expandedRings : rings,
-              expandedRings.length > 0 ? expandedZone : fullBbox
-            );
-            setPolygons(projected);
-            return;
+          // Use provided viewBbox, or compute from building footprints
+          let displayBbox: GeoBbox;
+          if (viewBbox) {
+            displayBbox = viewBbox;
+          } else {
+            const fullBbox = computeGeoBbox(allCoords);
+            displayBbox = computeCenterZone(fullBbox);
           }
 
-          const projected = projectPolygons(centerRings, centerZone);
+          const visibleRings = rings.filter((ring) =>
+            ring.some(
+              ([lon, lat]) =>
+                lon >= displayBbox.minLon &&
+                lon <= displayBbox.maxLon &&
+                lat >= displayBbox.minLat &&
+                lat <= displayBbox.maxLat
+            )
+          );
+
+          const projected = projectPolygons(
+            visibleRings.length > 0 ? visibleRings : rings,
+            displayBbox
+          );
           setPolygons(projected);
         })
         .catch(() => {
-          // Silent fail — render nothing
+          // Silent fail
         });
 
       return () => {
         cancelled = true;
       };
-    }, [cityId]);
+    }, [cityId, viewBbox]);
 
     // Expose handle
     useImperativeHandle(ref, () => ({
-      triggerPop(ids: string[]) {
-        setPoppedIds((prev) => {
-          const next = new Set(prev);
-          ids.forEach((id) => next.add(id));
-          return next;
-        });
-
-        // Clear previous timeout if any
-        if (popTimeoutRef.current !== null) {
-          clearTimeout(popTimeoutRef.current);
-        }
-
-        popTimeoutRef.current = setTimeout(() => {
-          setPoppedIds(new Set());
-          popTimeoutRef.current = null;
-        }, 2500);
+      addLitBuildings(ids: string[], pathIndex: number) {
+        const sets = litIdsByPath.current;
+        ids.forEach((id) => sets[pathIndex].add(id));
+        setLitIds(new Set([...sets[0], ...sets[1], ...sets[2]]));
+      },
+      clearLit(pathIndex: number) {
+        litIdsByPath.current[pathIndex].clear();
+        const sets = litIdsByPath.current;
+        setLitIds(new Set([...sets[0], ...sets[1], ...sets[2]]));
       },
       get svgElement() {
         return svgRef.current;
       },
     }));
-
-    // Cleanup timeout on unmount
-    useEffect(() => {
-      return () => {
-        if (popTimeoutRef.current !== null) {
-          clearTimeout(popTimeoutRef.current);
-        }
-      };
-    }, []);
 
     if (polygons.length === 0) return null;
 
@@ -186,23 +154,20 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
       <>
         <style>{`
           .bldg-poly {
-            fill: rgba(220, 200, 170, 0.18);
-            stroke: rgba(180, 160, 130, 0.35);
-            stroke-width: 0.8;
-            transition: fill 300ms, stroke 300ms, filter 300ms;
-            filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.3));
-            opacity: 0.85;
+            fill: var(--forum-building-fill);
+            stroke: var(--forum-building-stroke);
+            stroke-width: 0.6;
+            opacity: 0.8;
           }
-          .bldg-poly--popped {
+          .bldg-poly--lit {
             fill: var(--forum-building-fill-pop);
             stroke: var(--forum-building-stroke-pop);
-            animation: bldg-pop 500ms ease-in-out;
-            filter: drop-shadow(0 0 3px rgba(2, 122, 118, 0.5));
+            transition: fill 700ms ease-in-out, stroke 700ms ease-in-out, filter 700ms ease-in-out;
+            filter: drop-shadow(0 0 4px rgba(58, 124, 181, 0.35));
           }
-          @keyframes bldg-pop {
-            0%   { transform: scale(1); }
-            50%  { transform: scale(1.015); }
-            100% { transform: scale(1); }
+          .bldg-poly:not(.bldg-poly--lit) {
+            transition: fill 900ms ease-in-out, stroke 900ms ease-in-out, filter 900ms ease-in-out;
+            filter: none;
           }
         `}</style>
         <svg
@@ -223,7 +188,7 @@ const CityBuildingBackground = forwardRef<CityBuildingBackgroundHandle, CityBuil
             <polygon
               key={poly.id}
               id={poly.id}
-              className={`bldg-poly${poppedIds.has(poly.id) ? ' bldg-poly--popped' : ''}`}
+              className={`bldg-poly${litIds.has(poly.id) ? ' bldg-poly--lit' : ''}`}
               points={poly.points}
             />
           ))}
