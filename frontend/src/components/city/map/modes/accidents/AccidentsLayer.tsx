@@ -49,9 +49,11 @@ function buildSelectionDetail(props: AccidentFeature['properties']): SelectionDe
     let rawParticipants: any[] = [];
     if (props.participants) {
         try {
-            rawParticipants = typeof props.participants === 'string'
+            const parsed = typeof props.participants === 'string'
                 ? JSON.parse(props.participants)
                 : props.participants;
+            // MapLibre may pass [null] for accidents with no participant rows
+            rawParticipants = Array.isArray(parsed) ? parsed.filter(Boolean) : [];
         } catch { /* ignore */ }
     }
 
@@ -96,6 +98,8 @@ function buildSelectionDetail(props: AccidentFeature['properties']): SelectionDe
 export default function AccidentsLayer() {
     const { map, city, setLayerState, setLayerRetry } = useMap();
     const activeIdRef = useRef<string | null>(null);
+    // Keep a stable ref to the global deselect handler so we can remove it on unmount.
+    const globalClickHandlerRef = useRef<((e: maplibregl.MapMouseEvent) => void) | null>(null);
 
     const clearSelection = useCallback(() => {
         if (activeIdRef.current && map) {
@@ -121,6 +125,11 @@ export default function AccidentsLayer() {
             window.removeEventListener('map-selection', onSelectionEvent);
             clearSelection();
             window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
+            // Remove the global deselect handler registered during layer creation.
+            if (globalClickHandlerRef.current) {
+                map.off('click', globalClickHandlerRef.current);
+                globalClickHandlerRef.current = null;
+            }
             try {
                 if (map.getLayer(LAYER_ID))  map.removeLayer(LAYER_ID);
                 if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
@@ -200,15 +209,18 @@ export default function AccidentsLayer() {
                         window.dispatchEvent(new CustomEvent('map-selection', { detail }));
                     });
 
-                    // Click on empty space → deselect
-                    map.on('click', (e) => {
+                    // Click on empty space → deselect. Store the handler so it can be
+                    // removed on unmount (global map.on handlers are not removed with the layer).
+                    const globalClickHandler = (e: maplibregl.MapMouseEvent) => {
                         if (!activeIdRef.current) return;
                         const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
                         if (!hits?.length) {
                             clearSelection();
                             window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
                         }
-                    });
+                    };
+                    globalClickHandlerRef.current = globalClickHandler;
+                    map.on('click', globalClickHandler);
                 }
             }).catch(err => {
                 if (cancelled) return;

@@ -286,8 +286,7 @@ export interface AccidentFeature {
     total_involved: number;
     injured: number;
     killed: number;
-    cyclists_involved: number;
-    pedestrians_involved: number;
+    vehicles_involved: string[];
     severity: 'fatal' | 'serious' | 'minor' | 'uninjured';
     max_injury_code: number | null;
     worst_injury_status: string | null;
