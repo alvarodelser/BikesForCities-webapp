@@ -169,6 +169,7 @@ CREATE TABLE IF NOT EXISTS edges (
     bridge BOOLEAN,
     building_count INTEGER DEFAULT 0,               -- buildings within 150m (computed at feature ingestion)
     component_id INTEGER,                           -- connected component rank (0=GCC) computed at ingestion
+    bike_infra TEXT,                                -- city-specific bike-infra category (Madrid only for now)
 
     UNIQUE(u, v, k)                                 -- enforce unique edge per MultiDiGraph
 );
