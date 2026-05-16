@@ -8,7 +8,7 @@ class SummarizeRequest(BaseModel):
     article_id: str
     text: str
     raw_headline: str
-    max_sentences: int = 3
+    max_sentences: int = Field(default=3, ge=1)
 
 
 class SummarizeResponse(BaseModel):
@@ -35,8 +35,8 @@ class PlaceMention(BaseModel):
 
 class GeotagResponse(BaseModel):
     article_id: str
-    city: str | None
-    city_confidence: float
+    city: str | None = None
+    city_confidence: float = Field(ge=0.0, le=1.0)
     all_places: list[PlaceMention]
 
 
@@ -68,11 +68,13 @@ class DedupResponse(BaseModel):
     indexed: bool
 
 
+class BootstrapArticle(BaseModel):
+    article_id: str
+    text: str
+
+
 class BootstrapRequest(BaseModel):
-    articles: list[dict] = Field(
-        ...,
-        description="Each item: {article_id: str, text: str}"
-    )
+    articles: list[BootstrapArticle]
 
 
 class BootstrapResponse(BaseModel):
