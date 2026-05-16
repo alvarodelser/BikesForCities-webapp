@@ -44,7 +44,9 @@ def readyz(response: Response) -> dict:
 
 def _register_routers() -> None:
     from api.routers import summarize as summarize_router
+    from api.routers import geotag as geotag_router
     app.include_router(summarize_router.router)
+    app.include_router(geotag_router.router)
 
 
 _register_routers()
