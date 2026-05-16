@@ -1,10 +1,11 @@
 # nlp_service/nlp/classifier/taxonomy.py
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
-_CONFIG_PATH = Path("/app/config/topics.yaml")
+_CONFIG_PATH = Path(os.environ.get("TOPICS_YAML_PATH", "/app/config/topics.yaml"))
 _taxonomy: "Taxonomy | None" = None
 
 
