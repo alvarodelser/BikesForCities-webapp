@@ -122,6 +122,8 @@ from .edge_routes import (
 
 from .accidents import (
     get_accidents_geojson,
+    get_accidents_summary,
+    get_accident_detail,
 )
 
 from .scores import (
@@ -192,7 +194,7 @@ __all__ = [
     # edge routes
     "get_edge_route_traces", "get_edge_route_od", "count_edge_routes",
     # accidents
-    "get_accidents_geojson",
+    "get_accidents_geojson", "get_accidents_summary", "get_accident_detail",
     # scores
     "compute_mode_scores",
     # metrics

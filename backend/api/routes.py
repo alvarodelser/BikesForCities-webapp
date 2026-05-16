@@ -39,7 +39,7 @@ from backend.database.db_io import (
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
-    get_accidents_geojson,
+    get_accidents_geojson, get_accidents_summary, get_accident_detail,
     get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson,
     get_edge_building_coverage, get_infra_budget, get_building_coverage_fraction,
     get_traffic_infra_coverage, get_route_histogram,
@@ -883,19 +883,21 @@ def get_edge_routes(
         raise HTTPException(status_code=500, detail="Error al obtener las rutas de los tramos")
 
 
-# Accidents endpoint
+# Accidents endpoints
 @router.get("/cities/{city_id}/accidents")
 def get_city_accidents(
     city_id: int,
     cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
     conn=Depends(get_db_connection),
 ):
-    """Get accident data as GeoJSON for a city.
+    """Slim GeoJSON FeatureCollection for the map (no per-victim participants).
 
-    Returns a GeoJSON FeatureCollection of Point features.
-    Each feature has severity ('fatal', 'serious', 'minor', 'uninjured') and metadata.
+    Each feature has severity ('fatal', 'serious', 'minor', 'uninjured') plus
+    accident-level metadata. Per-victim breakdown is at /accidents/{accident_id}.
     """
     try:
+        with conn.cursor() as _cur:
+            _cur.execute("SET LOCAL statement_timeout = '30s'")
         validate_network_exists(conn, city_id)
         geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only)
         return {
@@ -908,6 +910,35 @@ def get_city_accidents(
     except Exception as e:
         logger.error(f"Error getting accidents for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener los datos de accidentes")
+
+
+@router.get("/cities/{city_id}/accidents/summary")
+def get_city_accidents_summary(city_id: int, conn=Depends(get_db_connection)):
+    """Aggregate counts (total / cyclist / pedestrian / latest_year)."""
+    try:
+        validate_network_exists(conn, city_id)
+        return {"data": get_accidents_summary(conn, city_id)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting accidents summary for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener el resumen de accidentes")
+
+
+@router.get("/cities/{city_id}/accidents/{accident_id}")
+def get_city_accident_detail(city_id: int, accident_id: str, conn=Depends(get_db_connection)):
+    """Per-victim breakdown for a single accident."""
+    try:
+        validate_network_exists(conn, city_id)
+        detail = get_accident_detail(conn, city_id, accident_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="Accidente no encontrado")
+        return {"data": detail}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting accident {accident_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener el detalle del accidente")
 
 
 # ── Infrastructure analytics ──────────────────────────────────────────────────

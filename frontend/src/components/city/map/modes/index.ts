@@ -32,8 +32,8 @@ export const MODES: Record<string, ModeConfig> = {
         layer:          AccidentsLayer,
         legend:         AccidentsLegend,
         stats:          AccidentsStats,
-        submodes:       [],
-        defaultSubmode: '',
+        submodes:       ['bike', 'all'],
+        defaultSubmode: 'bike',
     },
     [MAP_MODES.INFRASTRUCTURE]: {
         layer:          InfrastructureLayer,

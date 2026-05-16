@@ -3,7 +3,35 @@ Database I/O for accident data.
 """
 
 from __future__ import annotations
-from typing import List, Dict, Any, Optional
+from typing import Dict, Any, Optional
+
+
+# Madrid injury codes (cod_lesividad) are NOT ordinal — code 14 (uninjured) is
+# numerically greater than code 4 (fatal). MIN over this rank picks the worst
+# victim per accident; the inverse map below returns the original code.
+_INJURY_RANK_CASE = """
+    CASE ap.injury_code
+        WHEN 4  THEN 1
+        WHEN 3  THEN 2
+        WHEN 1  THEN 3
+        WHEN 2  THEN 3
+        WHEN 5  THEN 3
+        WHEN 6  THEN 3
+        WHEN 7  THEN 3
+        WHEN 14 THEN 4
+        ELSE 5
+    END
+"""
+
+_RANK_TO_CODE_CASE = f"""
+    CASE MIN({_INJURY_RANK_CASE})
+        WHEN 1 THEN 4
+        WHEN 2 THEN 3
+        WHEN 3 THEN 1
+        WHEN 4 THEN 14
+        ELSE NULL
+    END
+"""
 
 
 def get_accidents_geojson(
@@ -11,14 +39,9 @@ def get_accidents_geojson(
     city_id: int,
     cyclists_only: bool = True,
 ) -> Dict[str, Any]:
-    """Return cyclist-involved accidents as a GeoJSON FeatureCollection.
-
-    Each feature is a Point with properties:
-      - accident_id, timestamp, street, district, accident_type, weather,
-        total_involved, injured, killed, vehicles_involved
-    """
+    """Slim GeoJSON for the map (no per-victim participants)."""
+    cyclist_clause = "AND 'bike_vmu' = ANY(a.vehicles_involved)" if cyclists_only else ""
     with conn.cursor() as cur:
-        cyclist_clause = "AND 'bike_vmu' = ANY(a.vehicles_involved)" if cyclists_only else ""
         cur.execute(f"""
             SELECT
                 a.accident_id,
@@ -34,44 +57,9 @@ def get_accidents_geojson(
                 a.injured,
                 a.killed,
                 a.vehicles_involved,
-                -- Resolve worst injury code by severity rank, not by numeric value.
-                -- Madrid codes are NOT ordinal: 14 (uninjured) > 4 (fatal) numerically,
-                -- so MAX(injury_code) would incorrectly pick code 14 over code 4.
-                CASE MIN(CASE ap.injury_code
-                    WHEN 4  THEN 1            -- fatal
-                    WHEN 3  THEN 2            -- serious
-                    WHEN 1  THEN 3
-                    WHEN 2  THEN 3
-                    WHEN 5  THEN 3
-                    WHEN 6  THEN 3
-                    WHEN 7  THEN 3            -- minor
-                    WHEN 14 THEN 4            -- uninjured
-                    ELSE 5                    -- unknown / no participants
-                END)
-                    WHEN 1 THEN 4
-                    WHEN 2 THEN 3
-                    WHEN 3 THEN 1
-                    WHEN 4 THEN 14
-                    ELSE NULL
-                END AS max_injury_code,
-                (ARRAY_AGG(ap.injury_status ORDER BY CASE ap.injury_code
-                    WHEN 4  THEN 1
-                    WHEN 3  THEN 2
-                    WHEN 1  THEN 3 WHEN 2 THEN 3 WHEN 5 THEN 3 WHEN 6 THEN 3 WHEN 7 THEN 3
-                    WHEN 14 THEN 4
-                    ELSE 5
-                END ASC NULLS LAST) FILTER (WHERE ap.injury_status IS NOT NULL))[1]
-                    AS worst_injury_status,
-                JSON_AGG(
-                    JSON_BUILD_OBJECT(
-                        'vehicle_type', ap.vehicle_type,
-                        'person_type', ap.person_type,
-                        'injury_code', ap.injury_code,
-                        'injury_status', ap.injury_status,
-                        'alcohol_positive', ap.alcohol_positive,
-                        'drugs_positive', ap.drugs_positive
-                    )
-                ) FILTER (WHERE ap.id IS NOT NULL) AS participants
+                {_RANK_TO_CODE_CASE} AS max_injury_code,
+                (ARRAY_AGG(ap.injury_status ORDER BY {_INJURY_RANK_CASE} ASC NULLS LAST)
+                 FILTER (WHERE ap.injury_status IS NOT NULL))[1] AS worst_injury_status
             FROM accidents a
             LEFT JOIN accident_participants ap ON ap.accident_db_id = a.id
             WHERE a.city_id = %s
@@ -83,23 +71,15 @@ def get_accidents_geojson(
         rows = cur.fetchall()
 
     features = []
-    for row in rows:
-        (accident_id, ts, street, street_number, district,
+    for (accident_id, ts, street, street_number, district,
          accident_type, weather, lon, lat,
          total_involved, injured, killed,
          vehicles_involved,
-         max_injury_code, worst_injury,
-         participants) = row
-
-        # Determine severity category
+         max_injury_code, worst_injury) in rows:
         severity = _classify_severity(killed, injured, max_injury_code, worst_injury)
-
         features.append({
             "type": "Feature",
-            "geometry": {
-                "type": "Point",
-                "coordinates": [lon, lat],
-            },
+            "geometry": {"type": "Point", "coordinates": [lon, lat]},
             "properties": {
                 "accident_id": accident_id,
                 "timestamp": ts.isoformat() if ts else None,
@@ -115,13 +95,76 @@ def get_accidents_geojson(
                 "severity": severity,
                 "max_injury_code": max_injury_code,
                 "worst_injury_status": worst_injury,
-                "participants": participants,
             },
         })
 
+    return {"type": "FeatureCollection", "features": features}
+
+
+def get_accidents_summary(conn, city_id: int) -> Dict[str, Any]:
+    """Aggregate counts for the stats panel — cheap, no features."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE 'bike_vmu' = ANY(vehicles_involved))   AS cyclist,
+                COUNT(*) FILTER (WHERE 'pedestrian' = ANY(vehicles_involved)) AS pedestrian,
+                MAX(EXTRACT(YEAR FROM timestamp))::INT AS latest_year
+            FROM accidents
+            WHERE city_id = %s AND geom IS NOT NULL
+        """, (city_id,))
+        total, cyclist, pedestrian, latest_year = cur.fetchone()
     return {
-        "type": "FeatureCollection",
-        "features": features,
+        "total": total or 0,
+        "cyclist": cyclist or 0,
+        "pedestrian": pedestrian or 0,
+        "latest_year": latest_year,
+    }
+
+
+def get_accident_detail(conn, city_id: int, accident_id: str) -> Optional[Dict[str, Any]]:
+    """Per-victim participant breakdown + accident metadata."""
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            SELECT
+                a.accident_id,
+                a.timestamp,
+                a.street,
+                a.street_number,
+                a.district,
+                a.accident_type,
+                a.weather,
+                a.vehicles_involved,
+                JSON_AGG(
+                    JSON_BUILD_OBJECT(
+                        'vehicle_type', ap.vehicle_type,
+                        'person_type', ap.person_type,
+                        'injury_code', ap.injury_code,
+                        'injury_status', ap.injury_status,
+                        'alcohol_positive', ap.alcohol_positive,
+                        'drugs_positive', ap.drugs_positive
+                    ) ORDER BY {_INJURY_RANK_CASE} ASC NULLS LAST
+                ) FILTER (WHERE ap.id IS NOT NULL) AS participants
+            FROM accidents a
+            LEFT JOIN accident_participants ap ON ap.accident_db_id = a.id
+            WHERE a.city_id = %s AND a.accident_id = %s
+            GROUP BY a.id
+        """, (city_id, accident_id))
+        row = cur.fetchone()
+    if not row:
+        return None
+    (acc_id, ts, street, street_number, district,
+     accident_type, weather, vehicles_involved, participants) = row
+    return {
+        "accident_id": acc_id,
+        "timestamp": ts.isoformat() if ts else None,
+        "street": street,
+        "street_number": street_number,
+        "district": district,
+        "accident_type": accident_type,
+        "weather": weather,
+        "vehicles_involved": vehicles_involved or [],
+        "participants": participants or [],
     }
 
 
@@ -131,33 +174,20 @@ def _classify_severity(
     max_code: Optional[int],
     worst_status: Optional[str],
 ) -> str:
-    """Map raw accident data to a severity bucket.
-
-    Returns one of: 'fatal', 'serious', 'minor', 'uninjured'.
-    """
     if killed and killed > 0:
         return "fatal"
 
-    status_lower = (worst_status or "").lower()
-
-    # Code-based (Madrid open data)
-    # 4: Fallecido 24 horas
-    # 3: Ingreso hospitalario (>24h)
-    # 1, 2, 5, 6, 7: Asistencia sanitaria / Leve
-    # 14: Sin asistencia sanitaria (Ileso)
-    # 77: Desconocido
     if max_code is not None:
         if max_code == 4:
             return "fatal"
-        elif max_code == 3:
+        if max_code == 3:
             return "serious"
-        elif max_code in (1, 2, 5, 6, 7):
+        if max_code in (1, 2, 5, 6, 7):
             return "minor"
-        elif max_code == 14:
+        if max_code == 14:
             return "uninjured"
-        # If 77 or other, fall through to text-based or injured count
 
-    # Fallback: text-based
+    status_lower = (worst_status or "").lower()
     if any(kw in status_lower for kw in ("fallecido", "muerto")):
         return "fatal"
     if any(kw in status_lower for kw in ("hospitaliz", "grave")):

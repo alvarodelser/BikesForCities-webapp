@@ -341,7 +341,6 @@ export interface AccidentFeature {
     severity: 'fatal' | 'serious' | 'minor' | 'uninjured';
     max_injury_code: number | null;
     worst_injury_status: string | null;
-    participants?: AccidentParticipant[];
   };
 }
 
@@ -350,11 +349,52 @@ export interface AccidentsGeoJSON {
   features: AccidentFeature[];
 }
 
-export const fetchAccidents = async (cityId: number): Promise<AccidentsGeoJSON> => {
-  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=false`);
-  if (!response.ok) {
-    throw new Error('Error al cargar los datos de accidentes');
-  }
+export const fetchAccidents = async (
+  cityId: number,
+  cyclistsOnly: boolean = true,
+): Promise<AccidentsGeoJSON> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=${cyclistsOnly}`,
+  );
+  if (!response.ok) throw new Error('Error al cargar los datos de accidentes');
+  const result = await response.json();
+  return result.data;
+};
+
+export interface AccidentsSummary {
+  total: number;
+  cyclist: number;
+  pedestrian: number;
+  latest_year: number | null;
+}
+
+export const fetchAccidentsSummary = async (cityId: number): Promise<AccidentsSummary> => {
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents/summary`);
+  if (!response.ok) throw new Error('Error al cargar el resumen de accidentes');
+  const result = await response.json();
+  return result.data;
+};
+
+export interface AccidentDetail {
+  accident_id: string;
+  timestamp: string | null;
+  street: string | null;
+  street_number: string | null;
+  district: string | null;
+  accident_type: string | null;
+  weather: string | null;
+  vehicles_involved: string[];
+  participants: AccidentParticipant[];
+}
+
+export const fetchAccidentDetail = async (
+  cityId: number,
+  accidentId: string,
+): Promise<AccidentDetail> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/accidents/${encodeURIComponent(accidentId)}`,
+  );
+  if (!response.ok) throw new Error('Error al cargar el detalle del accidente');
   const result = await response.json();
   return result.data;
 };

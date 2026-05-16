@@ -1,7 +1,11 @@
+import type { LucideIcon } from 'lucide-react';
+
 export interface SelectionParticipant {
-    emoji: string;
+    icon: LucideIcon;
     severityColor: string;
     label: string;
+    alcoholPositive?: boolean;
+    drugsPositive?: boolean;
 }
 
 export interface SelectionColormap {

@@ -1,12 +1,15 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
-import { fetchAccidents } from '../../../../../services/api';
-import type { AccidentFeature } from '../../../../../services/api';
+import { fetchAccidentDetail } from '../../../../../services/api';
+import type { AccidentDetail, AccidentParticipant } from '../../../../../services/api';
+import { TILE_SERVER_URL } from '../../../../../config/api';
 import type { SelectionDetail, SelectionParticipant } from '../../../../../types/selection';
+import { resolveVehicleIcon } from './vehicleIcons';
 
 const SOURCE_ID = 'accidents-source';
 const LAYER_ID = 'accidents-layer';
+const SOURCE_LAYER = 'accidents';
 
 const SEVERITY_COLORS = {
     fatal: '#7f1d1d',
@@ -22,21 +25,6 @@ const SEVERITY_LABELS: Record<string, string> = {
     uninjured: 'Ileso',
 };
 
-function getParticipantEmoji(vehicleType: string | null, personType: string | null): string {
-    const isPedestrian = (personType || '').toLowerCase().includes('peato');
-    if (isPedestrian) return '🚶';
-    const vt = (vehicleType || '').toLowerCase();
-    if (vt.includes('bicicleta') || vt.includes('epac')) return '🚲';
-    if (vt.includes('vmu') || vt.includes('patinete')) return '🛴';
-    if (vt.includes('moto') || vt.includes('ciclomotor') || vt.includes('cuadriciclo')) return '🏍️';
-    if (vt.includes('furgoneta')) return '🚐';
-    if (vt.includes('turismo') || vt.includes('todo terreno')) return '🚗';
-    if (vt.includes('autobús') || vt.includes('autobus')) return '🚌';
-    if (vt.includes('camión') || vt.includes('maquinaria') || vt.includes('tracto')) return '🚛';
-    if (vt.includes('ambulancia')) return '🚑';
-    return '🚘';
-}
-
 function getSeverityColorFromCode(code: number | null | undefined): string {
     if (code === 4)  return SEVERITY_COLORS.fatal;
     if (code === 3)  return SEVERITY_COLORS.serious;
@@ -45,70 +33,82 @@ function getSeverityColorFromCode(code: number | null | undefined): string {
     return '#9ca3af';
 }
 
-function buildSelectionDetail(props: AccidentFeature['properties']): SelectionDetail {
-    let rawParticipants: any[] = [];
-    if (props.participants) {
-        try {
-            const parsed = typeof props.participants === 'string'
-                ? JSON.parse(props.participants)
-                : props.participants;
-            // MapLibre may pass [null] for accidents with no participant rows
-            rawParticipants = Array.isArray(parsed) ? parsed.filter(Boolean) : [];
-        } catch { /* ignore */ }
-    }
+function buildBaseDetail(props: Record<string, unknown>): SelectionDetail {
+    const severity = (props.severity as string) ?? 'uninjured';
+    const severityColor = SEVERITY_COLORS[severity as keyof typeof SEVERITY_COLORS] ?? '#9ca3af';
+    const severityLabel = SEVERITY_LABELS[severity] ?? severity;
 
-    const participants: SelectionParticipant[] = rawParticipants.map(p => ({
-        emoji: getParticipantEmoji(p.vehicle_type, p.person_type),
-        severityColor: getSeverityColorFromCode(p.injury_code),
-        label: p.vehicle_type || p.person_type || '—',
-    }));
-
-    const hasAlcohol = rawParticipants.some(p => p.alcohol_positive);
-    const hasDrugs   = rawParticipants.some(p => p.drugs_positive);
-
-    const severityColor = SEVERITY_COLORS[props.severity as keyof typeof SEVERITY_COLORS] ?? '#9ca3af';
-    const severityLabel = SEVERITY_LABELS[props.severity] ?? props.severity;
-
-    const formatTime = (ts: string | null) => {
-        if (!ts) return null;
-        const d = new Date(ts);
-        return `${d.toLocaleDateString('es-ES')} ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
-    };
-
-    const rows: NonNullable<SelectionDetail['rows']> = [];
-    if (props.timestamp) rows.push({ label: 'FECHA', value: formatTime(props.timestamp) ?? '—' });
-    if (props.accident_type) rows.push({ label: 'TIPO', value: props.accident_type });
-    if (props.district) rows.push({ label: 'DISTRITO', value: props.district });
-    if (hasAlcohol) rows.push({ label: 'ALCOHOL', value: '🍷 Positivo', accent: '#dc2626' });
-    if (hasDrugs)   rows.push({ label: 'DROGAS',  value: '⚗️ Positivo', accent: '#dc2626' });
-
-    const title = props.street
-        ? `${props.street}${props.street_number ? ' ' + props.street_number : ''}`
-        : 'Ubicación desconocida';
-
+    // Vector tiles only carry severity + accident_id; metadata rows come once
+    // the detail endpoint resolves.
     return {
         type: 'accident',
-        title,
+        title: 'Cargando…',
         badge: { text: severityLabel, color: severityColor },
-        rows,
-        participants,
+        rows: [],
+        loading: true,
     };
 }
 
-export default function AccidentsLayer() {
-    const { map, city, setLayerState, setLayerRetry } = useMap();
+function formatTime(ts: string | null): string | null {
+    if (!ts) return null;
+    const d = new Date(ts);
+    return `${d.toLocaleDateString('es-ES')} ${d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function enrichDetail(base: SelectionDetail, detail: AccidentDetail): SelectionDetail {
+    const rows: NonNullable<SelectionDetail['rows']> = [];
+    if (detail.timestamp) rows.push({ label: 'FECHA', value: formatTime(detail.timestamp) ?? '—' });
+    if (detail.accident_type) rows.push({ label: 'TIPO', value: detail.accident_type });
+    if (detail.district) rows.push({ label: 'DISTRITO', value: detail.district });
+
+    const title = detail.street
+        ? `${detail.street}${detail.street_number ? ' ' + detail.street_number : ''}`
+        : 'Ubicación desconocida';
+
+    return {
+        ...base,
+        title,
+        loading: false,
+        rows,
+        participants: toSelectionParticipants(detail.participants),
+    };
+}
+
+function toSelectionParticipants(raw: AccidentParticipant[]): SelectionParticipant[] {
+    return raw.map(p => {
+        const entry = resolveVehicleIcon(p.vehicle_type, p.person_type);
+        return {
+            icon: entry.icon,
+            severityColor: getSeverityColorFromCode(p.injury_code),
+            label: entry.label,
+            alcoholPositive: !!p.alcohol_positive,
+            drugsPositive: !!p.drugs_positive,
+        };
+    });
+}
+
+interface AccidentsLayerProps {
+    submode: string;
+}
+
+export default function AccidentsLayer({ submode }: AccidentsLayerProps) {
+    const { map, city, setLayerState } = useMap();
     const activeIdRef = useRef<string | null>(null);
-    // Keep a stable ref to the global deselect handler so we can remove it on unmount.
     const globalClickHandlerRef = useRef<((e: maplibregl.MapMouseEvent) => void) | null>(null);
+    const detailReqIdRef = useRef(0);
+
+    const cyclistsOnly = submode !== 'all';
 
     const clearSelection = useCallback(() => {
         if (activeIdRef.current && map) {
-            map.setFeatureState({ source: SOURCE_ID, id: activeIdRef.current }, { selected: false });
+            map.setFeatureState(
+                { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: activeIdRef.current },
+                { selected: false },
+            );
             activeIdRef.current = null;
         }
     }, [map]);
 
-    // Mount: hide other layers; clear panel when selection event fires null
     useEffect(() => {
         if (!map) return;
 
@@ -125,118 +125,132 @@ export default function AccidentsLayer() {
             window.removeEventListener('map-selection', onSelectionEvent);
             clearSelection();
             window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
-            // Remove the global deselect handler registered during layer creation.
             if (globalClickHandlerRef.current) {
                 map.off('click', globalClickHandlerRef.current);
                 globalClickHandlerRef.current = null;
             }
             try {
-                if (map.getLayer(LAYER_ID))  map.removeLayer(LAYER_ID);
+                if (map.getLayer(LAYER_ID))   map.removeLayer(LAYER_ID);
                 if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
             } catch { /* map may have been removed */ }
         };
     }, [map, clearSelection]);
 
-    // Data fetch + layer creation
     useEffect(() => {
         if (!map || !city?.id) return;
 
-        let cancelled = false;
+        const cityId = city.id;
+        const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?city_id=${cityId}&cyclists_only=${cyclistsOnly}`;
 
-        const loadData = () => {
-            if (cancelled) return;
-            setLayerState?.('loading');
+        setLayerState?.('loading');
 
-            fetchAccidents(city!.id!).then(geojson => {
-                if (cancelled || !map) return;
-
-                setLayerState?.(geojson.features?.length ? 'idle' : 'empty');
-
-                if (!map.getSource(SOURCE_ID)) {
-                    map.addSource(SOURCE_ID, {
-                        type: 'geojson',
-                        data: geojson,
-                        promoteId: 'accident_id',
-                    });
-                } else {
-                    (map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource).setData(geojson);
-                }
-
-                if (!map.getLayer(LAYER_ID)) {
-                    map.addLayer({
-                        id: LAYER_ID,
-                        type: 'circle',
-                        source: SOURCE_ID,
-                        paint: {
-                            'circle-radius': [
-                                'case',
-                                ['boolean', ['feature-state', 'selected'], false], 10,
-                                ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
-                            ],
-                            'circle-color': [
-                                'match', ['get', 'severity'],
-                                'fatal',    SEVERITY_COLORS.fatal,
-                                'serious',  SEVERITY_COLORS.serious,
-                                'minor',    SEVERITY_COLORS.minor,
-                                'uninjured', SEVERITY_COLORS.uninjured,
-                                '#9ca3af',
-                            ],
-                            'circle-opacity': [
-                                'case', ['boolean', ['feature-state', 'selected'], false], 1, 0.75,
-                            ],
-                            'circle-stroke-width': [
-                                'case', ['boolean', ['feature-state', 'selected'], false], 3, 1.5,
-                            ],
-                            'circle-stroke-color': '#ffffff',
-                        },
-                    });
-
-                    map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
-                    map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
-
-                    map.on('click', LAYER_ID, (e) => {
-                        const feature = e.features?.[0];
-                        if (!feature || !feature.id) return;
-
-                        const accidentId = String(feature.id);
-                        if (activeIdRef.current === accidentId) return;
-
-                        clearSelection();
-                        activeIdRef.current = accidentId;
-                        map.setFeatureState({ source: SOURCE_ID, id: accidentId }, { selected: true });
-
-                        const detail = buildSelectionDetail(feature.properties as AccidentFeature['properties']);
-                        window.dispatchEvent(new CustomEvent('map-selection', { detail }));
-                    });
-
-                    // Click on empty space → deselect. Store the handler so it can be
-                    // removed on unmount (global map.on handlers are not removed with the layer).
-                    const globalClickHandler = (e: maplibregl.MapMouseEvent) => {
-                        if (!activeIdRef.current) return;
-                        const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-                        if (!hits?.length) {
-                            clearSelection();
-                            window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
-                        }
-                    };
-                    globalClickHandlerRef.current = globalClickHandler;
-                    map.on('click', globalClickHandler);
-                }
-            }).catch(err => {
-                if (cancelled) return;
-                console.error('Failed to load accidents:', err);
-                setLayerState?.('error');
-            });
+        const onSourceData = (e: maplibregl.MapSourceDataEvent) => {
+            if (e.sourceId === SOURCE_ID && e.isSourceLoaded) {
+                setLayerState?.('idle');
+            }
         };
+        const onError = (e: maplibregl.ErrorEvent) => {
+            if ((e as any)?.sourceId === SOURCE_ID) setLayerState?.('error');
+        };
+        map.on('sourcedata', onSourceData);
+        map.on('error', onError);
 
-        setLayerRetry?.(loadData);
-        loadData();
+        if (!map.getSource(SOURCE_ID)) {
+            map.addSource(SOURCE_ID, {
+                type: 'vector',
+                tiles: [tileUrl],
+                minzoom: 0,
+                maxzoom: 22,
+                promoteId: { [SOURCE_LAYER]: 'accident_id' },
+            });
+        } else {
+            (map.getSource(SOURCE_ID) as maplibregl.VectorTileSource).setTiles([tileUrl]);
+        }
+
+        if (!map.getLayer(LAYER_ID)) {
+            map.addLayer({
+                id: LAYER_ID,
+                type: 'circle',
+                source: SOURCE_ID,
+                'source-layer': SOURCE_LAYER,
+                paint: {
+                    'circle-radius': [
+                        'case',
+                        ['boolean', ['feature-state', 'selected'], false], 10,
+                        ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
+                    ],
+                    'circle-color': [
+                        'match', ['get', 'severity'],
+                        'fatal',     SEVERITY_COLORS.fatal,
+                        'serious',   SEVERITY_COLORS.serious,
+                        'minor',     SEVERITY_COLORS.minor,
+                        'uninjured', SEVERITY_COLORS.uninjured,
+                        '#9ca3af',
+                    ],
+                    'circle-opacity': [
+                        'case', ['boolean', ['feature-state', 'selected'], false], 1, 0.75,
+                    ],
+                    'circle-stroke-width': [
+                        'case', ['boolean', ['feature-state', 'selected'], false], 3, 1.5,
+                    ],
+                    'circle-stroke-color': '#ffffff',
+                },
+            });
+
+            map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
+            map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
+
+            map.on('click', LAYER_ID, (e) => {
+                const feature = e.features?.[0];
+                if (!feature || feature.id == null) return;
+
+                const accidentId = String(feature.id);
+                if (activeIdRef.current === accidentId) return;
+
+                clearSelection();
+                activeIdRef.current = accidentId;
+                map.setFeatureState(
+                    { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: accidentId },
+                    { selected: true },
+                );
+
+                const baseDetail = buildBaseDetail(feature.properties as Record<string, unknown>);
+                window.dispatchEvent(new CustomEvent('map-selection', { detail: baseDetail }));
+
+                const reqId = ++detailReqIdRef.current;
+                fetchAccidentDetail(cityId, accidentId)
+                    .then(detail => {
+                        if (reqId !== detailReqIdRef.current) return;
+                        if (activeIdRef.current !== accidentId) return;
+                        const enriched = enrichDetail(baseDetail, detail);
+                        window.dispatchEvent(new CustomEvent('map-selection', { detail: enriched }));
+                    })
+                    .catch(err => {
+                        if (reqId !== detailReqIdRef.current) return;
+                        console.error('Failed to load accident detail:', err);
+                        window.dispatchEvent(new CustomEvent('map-selection', {
+                            detail: { ...baseDetail, loading: false },
+                        }));
+                    });
+            });
+
+            const globalClickHandler = (e: maplibregl.MapMouseEvent) => {
+                if (!activeIdRef.current) return;
+                const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
+                if (!hits?.length) {
+                    clearSelection();
+                    window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
+                }
+            };
+            globalClickHandlerRef.current = globalClickHandler;
+            map.on('click', globalClickHandler);
+        }
 
         return () => {
-            cancelled = true;
-            setLayerState?.('idle');
+            map.off('sourcedata', onSourceData);
+            map.off('error', onError);
         };
-    }, [map, city?.id, clearSelection, setLayerState, setLayerRetry]);
+    }, [map, city?.id, cyclistsOnly, clearSelection, setLayerState]);
 
     return null;
 }

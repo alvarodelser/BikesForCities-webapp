@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { CityData } from '../../../../../constants/cities';
 import { useAccidentsStats } from '../../../../../hooks/useAccidentsStats';
+import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
 import StackedBarMatrix from '../../../plots/StackedBarMatrix';
 import BarHistogram from '../../../plots/BarHistogram';
@@ -9,7 +10,6 @@ import { Car, Bus, Truck, Gauge, PersonStanding, Bike } from 'lucide-react';
 
 export interface AccidentsStatsProps {
   city: CityData;
-  onLayerToggle?: (layer: 'all' | 'bike') => void;
   variant?: 'light' | 'darkTint';
 }
 
@@ -32,28 +32,30 @@ const PEDESTRIAN_ROW_ICONS = [
   <Bike size={13} color="#22c55e" />,
 ];
 
-const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle, variant }) => {
+const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
   const {
     totalAccidents,
     cyclistAccidents,
+    latestYear,
     cyclistVehicleMatrix,
     pedestrianVehicleMatrix,
     epacWeatherBars,
     loading,
   } = useAccidentsStats(city.id ?? null);
 
-  const [activeLayer, setActiveLayer] = useState<'all' | 'bike'>('all');
+  const { submode, setSubmode } = useMapState();
+  // Default to bike when no submode is in the URL.
+  const activeLayer: 'all' | 'bike' = submode === 'all' ? 'all' : 'bike';
 
   function handleLayerToggle(layer: 'all' | 'bike') {
-    setActiveLayer(layer);
-    onLayerToggle?.(layer);
+    setSubmode(layer);
   }
 
   const fmt = (n: number) => (loading ? '—' : n.toLocaleString('es'));
 
   return (
     <div className="w-full flex flex-col gap-6">
-      
+
       {/* ── Header with toggle ──────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-1">
         <div>
@@ -61,17 +63,6 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle, va
         </div>
 
         <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl border border-black/5">
-          <button
-            onClick={() => handleLayerToggle('all')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
-              activeLayer === 'all'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-400 hover:text-gray-600'
-            }`}
-          >
-            <div className={`w-2 h-2 rounded-full ${activeLayer === 'all' ? 'bg-gray-400' : 'bg-gray-200'}`} />
-            TODOS ({fmt(totalAccidents)})
-          </button>
           <button
             onClick={() => handleLayerToggle('bike')}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
@@ -82,6 +73,17 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle, va
           >
             <div className={`w-2 h-2 rounded-full ${activeLayer === 'bike' ? 'bg-red-500 animate-pulse' : 'bg-red-200'}`} />
             BICICLETA ({fmt(cyclistAccidents)})
+          </button>
+          <button
+            onClick={() => handleLayerToggle('all')}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
+              activeLayer === 'all'
+                ? 'bg-white text-gray-900 shadow-sm'
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+          >
+            <div className={`w-2 h-2 rounded-full ${activeLayer === 'all' ? 'bg-gray-400' : 'bg-gray-200'}`} />
+            TODOS ({fmt(totalAccidents)})
           </button>
         </div>
       </div>
@@ -109,7 +111,7 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle, va
           variant={variant}
         />
         <MetricPill
-          value={loading ? '—' : '2023'}
+          value={loading ? '—' : (latestYear != null ? String(latestYear) : '—')}
           label="Año de datos"
           accent="#6b7280"
           variant={variant}
@@ -139,8 +141,8 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, onLayerToggle, va
         <BarHistogram
           data={epacWeatherBars}
           accent={ACCENT}
-          title="Bicicleta: regular vs EPAC × seco vs lluvia"
-          subtitle="EPAC: Proporción de bicicletas con asistencia eléctrica"
+          title="Bicicleta: seco vs lluvia"
+          subtitle="Accidentes ciclistas según condiciones meteorológicas"
         />
       </div>
     </div>

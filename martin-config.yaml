@@ -22,3 +22,10 @@ functions:
   edges_with_traffic:
     schema: public
     function: edges_with_traffic
+
+  # accidents_tile filters accidents by city_id (required) and cyclists_only
+  # (optional). Severity is computed at tile-render time from the per-victim
+  # rank over accident_participants and exposed as a feature property.
+  accidents_tile:
+    schema: public
+    function: accidents_tile

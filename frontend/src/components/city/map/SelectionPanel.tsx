@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Maximize2, Minus, Square } from 'lucide-react';
+import { X, Maximize2, Minus, Square, Wine, Pill } from 'lucide-react';
 import type { SelectionDetail } from '../../../types/selection';
 
 export type { SelectionDetail };
@@ -208,19 +208,42 @@ export default function SelectionPanel({
                         )}
                         {selection.participants && selection.participants.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-1">
-                                {selection.participants.map((p, i) => (
-                                    <span
-                                        key={i}
-                                        title={p.label}
-                                        className="inline-flex items-center justify-center w-7 h-7 text-base rounded-full border-2"
-                                        style={{
-                                            borderColor: p.severityColor,
-                                            backgroundColor: `${p.severityColor}22`,
-                                        }}
-                                    >
-                                        {p.emoji}
-                                    </span>
-                                ))}
+                                {selection.participants.map((p, i) => {
+                                    const Icon = p.icon;
+                                    const titleParts = [p.label];
+                                    if (p.alcoholPositive) titleParts.push('alcohol +');
+                                    if (p.drugsPositive)   titleParts.push('drogas +');
+                                    return (
+                                        <span
+                                            key={i}
+                                            title={titleParts.join(' · ')}
+                                            className="relative inline-flex items-center justify-center w-7 h-7 rounded-full border-2"
+                                            style={{
+                                                borderColor: p.severityColor,
+                                                backgroundColor: `${p.severityColor}22`,
+                                                color: p.severityColor,
+                                            }}
+                                        >
+                                            <Icon className="w-3.5 h-3.5" />
+                                            {p.alcoholPositive && (
+                                                <span
+                                                    title="Alcohol positivo"
+                                                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center bg-red-600 text-white shadow-sm border border-white"
+                                                >
+                                                    <Wine className="w-2 h-2" />
+                                                </span>
+                                            )}
+                                            {p.drugsPositive && (
+                                                <span
+                                                    title="Drogas positivo"
+                                                    className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center bg-purple-700 text-white shadow-sm border border-white"
+                                                >
+                                                    <Pill className="w-2 h-2" />
+                                                </span>
+                                            )}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                         {selection.chart && (
