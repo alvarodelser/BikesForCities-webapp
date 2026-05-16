@@ -1,0 +1,30 @@
+labels:
+  - infraestructura
+  - carril bici
+  - accidente
+  - presupuesto
+  - transporte público
+  - movilidad sostenible
+  - regulación
+  - elecciones
+  - evento ciudadano
+  - contaminación
+  - peatonalización
+  - obras urbanas
+  - bicicleta eléctrica
+  - aparcamiento
+  - tráfico
+  - emergencia
+  - seguridad vial
+  - turismo
+  - cultura
+  - vivienda
+  - educación
+  - salud
+  - medio ambiente
+  - urbanismo
+  - opinión
+
+multi_label: true
+score_threshold: 0.5
+top_k: 3
