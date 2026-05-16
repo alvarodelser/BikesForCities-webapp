@@ -281,6 +281,7 @@ $RECYCLE.BIN/
 
 # Docker
 .dockerignore
+!nlp_service/.dockerignore
 Dockerfile.prod
 docker-compose.override.yml
 
