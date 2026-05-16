@@ -12,7 +12,7 @@ router = APIRouter()
 def geotag(req: GeotagRequest) -> GeotagResponse:
     if not req.text.strip():
         raise HTTPException(status_code=422, detail="text must be non-empty")
-    result = geotagger_service.run(req.text)
+    result = geotagger_service.run(req.text, headline=req.headline)
     mark_warm("geotag")
     return GeotagResponse(
         article_id=req.article_id,

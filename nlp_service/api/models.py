@@ -22,6 +22,7 @@ class SummarizeResponse(BaseModel):
 class GeotagRequest(BaseModel):
     article_id: str
     text: str
+    headline: str = ""
 
 
 class PlaceMention(BaseModel):
