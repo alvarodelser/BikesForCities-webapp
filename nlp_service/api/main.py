@@ -3,7 +3,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 
 logging.basicConfig(
     level=os.environ.get("NLP_LOG_LEVEL", "INFO"),
@@ -38,10 +38,11 @@ def healthz() -> dict:
 
 
 @app.get("/readyz")
-def readyz() -> dict:
+def readyz(response: Response) -> dict:
     expected = {"summarize", "geotag", "classify", "dedup"}
     missing = expected - _warm_capabilities
     if missing:
+        response.status_code = 503
         return {"status": "warming", "missing": sorted(missing)}
     return {"status": "ready"}
 
