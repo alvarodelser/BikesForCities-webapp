@@ -1,0 +1,137 @@
+[
+  {
+    "id": "cls-001",
+    "description": "Clear in-scope: cycling infrastructure",
+    "article_id": "cls-001",
+    "text": "El Ayuntamiento de Madrid ha aprobado la construcción de 20 nuevos kilómetros de carril bici en el distrito de Arganzuela. Las obras comenzarán en primavera y conectarán el parque de Madrid Río con la estación de Atocha.",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["carril bici", "infraestructura ciclista"],
+    "notes": "Prototypical in-scope article"
+  },
+  {
+    "id": "cls-002",
+    "description": "Clear in-scope: ZBE + electric scooter regulation",
+    "article_id": "cls-002",
+    "text": "La nueva zona de bajas emisiones de Barcelona amplía su perímetro y prohíbe la circulación de patinetes eléctricos de más de 25 km/h en el centro histórico. Los patinetes deberán registrarse en el nuevo sistema municipal antes del 1 de enero.",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["zonas de bajas emisiones", "patinete eléctrico"],
+    "notes": "Two clear in-scope labels"
+  },
+  {
+    "id": "cls-003",
+    "description": "Clear in-scope: pedestrianisation",
+    "article_id": "cls-003",
+    "text": "El tramo de la calle Fuencarral entre Gran Vía y Tribunal será peatonalizado de forma permanente a partir del próximo otoño. La iniciativa forma parte del plan de urbanismo táctico del Ayuntamiento para ampliar el espacio peatonal en el centro.",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["peatonalización", "urbanismo táctico"],
+    "notes": "Pedestrianisation + tactical urbanism"
+  },
+  {
+    "id": "cls-004",
+    "description": "BLACKLIST: road cycling / sport race — non-urban",
+    "article_id": "cls-004",
+    "text": "El equipo ciclista Movistar Team se proclamó campeón de la Vuelta a España tras una apasionante etapa de montaña en los Pirineos. El líder llegó con dos minutos de ventaja sobre el segundo clasificado.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Road race — explicitly out of scope"
+  },
+  {
+    "id": "cls-005",
+    "description": "BLACKLIST: metro / mass transit as primary subject",
+    "article_id": "cls-005",
+    "text": "Metro de Madrid ampliará la línea 11 con tres nuevas estaciones en el sur de la capital. Las obras, presupuestadas en 450 millones de euros, comenzarán en 2027 y estarán terminadas en 2031.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Metro infrastructure — mass transit, not active mobility"
+  },
+  {
+    "id": "cls-006",
+    "description": "BLACKLIST: bus as primary subject",
+    "article_id": "cls-006",
+    "text": "La EMT de Madrid renovará su flota de autobuses con 300 nuevos vehículos eléctricos. Los nuevos autobuses tendrán mayor capacidad y sistemas de información en tiempo real para los viajeros.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Bus fleet — mass transit, not active mobility"
+  },
+  {
+    "id": "cls-007",
+    "description": "BLACKLIST: parks / ecology without mobility connection",
+    "article_id": "cls-007",
+    "text": "El Parque del Retiro celebra este fin de semana su festival anual de jardines, con exhibiciones de flores y plantas de más de 40 países. La entrada es gratuita para todos los visitantes.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Park event — no mobility content"
+  },
+  {
+    "id": "cls-008",
+    "description": "BLACKLIST: community event without mobility",
+    "article_id": "cls-008",
+    "text": "El festival de verano del barrio de Lavapiés arranca el próximo viernes con conciertos de música latina, actuaciones de danza y una feria gastronómica con productos de toda España.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Neighbourhood festival — no mobility content"
+  },
+  {
+    "id": "cls-009",
+    "description": "BLACKLIST: mountain biking / leisure cycling (non-urban)",
+    "article_id": "cls-009",
+    "text": "La sierra de Guadarrama abre una nueva ruta de mountain bike de 35 kilómetros con desnivel de 1.200 metros. El recorrido pasa por el puerto de Navacerrada y está homologado para nivel intermedio-avanzado.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Mountain biking — out-of-city leisure, explicitly out of scope"
+  },
+  {
+    "id": "cls-010",
+    "description": "BLACKLIST: general housing/urban policy without mobility link",
+    "article_id": "cls-010",
+    "text": "El Ayuntamiento aprueba un plan de vivienda social con 2.000 nuevos pisos de protección oficial. Las familias beneficiarias serán seleccionadas mediante sorteo público entre los inscritos en el registro municipal.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Housing policy — no mobility link"
+  },
+  {
+    "id": "cls-011",
+    "description": "EDGE: park WITH mobility connection (should be in-scope)",
+    "article_id": "cls-011",
+    "text": "El Parque de la Ciutadella abre un nuevo carril bici de 2 km que conecta con el carril de la Av. Marquès de l'Argentera. La mejora forma parte del plan de movilidad sostenible del distrito.",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["carril bici"],
+    "notes": "Park mentioned but the subject IS cycling infrastructure"
+  },
+  {
+    "id": "cls-012",
+    "description": "EDGE: metro mention as secondary context for cycling",
+    "article_id": "cls-012",
+    "text": "El nuevo aparcamiento de bicicletas de la estación de metro de Nuevos Ministerios abrirá en septiembre con 300 plazas. La iniciativa busca fomentar la intermodalidad bici+metro en la ciudad.",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["aparcamiento de bicicletas", "transporte activo"],
+    "notes": "Metro mentioned but cycling is the subject"
+  },
+  {
+    "id": "cls-013",
+    "description": "EDGE: traffic/road safety (general crash, not cycling)",
+    "article_id": "cls-013",
+    "text": "Un accidente en la A-6 implicó a tres camiones y provocó retenciones de 15 km durante la tarde del viernes. La DGT recomienda evitar esa vía durante las próximas horas.",
+    "expected_out_of_scope": true,
+    "expected_topics_include": [],
+    "notes": "Highway crash — general traffic, not urban active mobility"
+  },
+  {
+    "id": "cls-014",
+    "description": "EDGE: opinion piece about urban mobility (in-scope)",
+    "article_id": "cls-014",
+    "text": "La peatonalización del centro histórico divide a comerciantes y ciclistas. Mientras unos celebran la recuperación del espacio público, otros temen que la medida no vaya acompañada de suficiente infraestructura ciclista. ¿Puede Madrid convertirse en la nueva Ámsterdam?",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["opinión y debate", "peatonalización"],
+    "notes": "Opinion/debate framing — in scope because subject is urban mobility"
+  },
+  {
+    "id": "cls-015",
+    "description": "EDGE: air quality article linked to mobility policy",
+    "article_id": "cls-015",
+    "text": "Los niveles de NO2 en el centro de Madrid superaron el límite legal durante 30 días en 2025. Expertos piden ampliar las zonas de bajas emisiones y restringir el tráfico en las horas punta para mejorar la calidad del aire.",
+    "expected_out_of_scope": false,
+    "expected_topics_include": ["contaminación urbana", "zonas de bajas emisiones"],
+    "notes": "Air quality as driver for mobility policy — in scope"
+  }
+]

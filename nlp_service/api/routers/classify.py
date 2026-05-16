@@ -26,4 +26,5 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         article_id=req.article_id,
         topics=result["topics"],
         scores=result["scores"],
+        out_of_scope=result.get("out_of_scope", False),
     )

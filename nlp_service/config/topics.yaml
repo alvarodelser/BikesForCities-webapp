@@ -1,30 +1,46 @@
+# nlp_service/config/topics.yaml
+# Urban alternative mobility taxonomy for BikesForCities.
+#
+# SCOPE: articles about cycling infrastructure, active transport, pedestrianisation,
+# shared micro-mobility, and related urban policy IN A CITY CONTEXT.
+#
+# OUT OF SCOPE (will be flagged via relevance gate):
+#   - Non-urban cycling (mountain biking, road racing, leisure routes)
+#   - Mass transit (bus, metro, tram) as the primary subject
+#   - Ecological/green spaces (parks, trees) without a mobility connection
+#   - Community/neighbourhood events without mobility content
+#   - General urban policy (housing, education, health) without mobility link
+
 labels:
-  - infraestructura
+  - infraestructura ciclista
   - carril bici
-  - accidente
-  - presupuesto
-  - transporte público
+  - accidente de tráfico
+  - presupuesto municipal
   - movilidad sostenible
-  - regulación
-  - elecciones
-  - evento ciudadano
-  - contaminación
+  - regulación de movilidad
+  - evento de movilidad
+  - contaminación urbana
   - peatonalización
-  - obras urbanas
+  - obras de movilidad
   - bicicleta eléctrica
-  - aparcamiento
-  - tráfico
-  - emergencia
+  - aparcamiento de bicicletas
+  - tráfico rodado
   - seguridad vial
-  - turismo
-  - cultura
-  - vivienda
-  - educación
-  - salud
-  - medio ambiente
-  - urbanismo
-  - opinión
+  - transporte activo
+  - patinete eléctrico
+  - zonas de bajas emisiones
+  - política de movilidad
+  - urbanismo táctico
+  - opinión y debate
 
 multi_label: true
 score_threshold: 0.5
 top_k: 3
+
+# Relevance gate: the article must score >= relevance_threshold on this hypothesis
+# to be considered in-scope. Tune this value using the eval notebook.
+relevance_hypothesis: >-
+  Este artículo trata sobre movilidad urbana alternativa: ciclismo en ciudad,
+  bicicletas, patinetes, peatonalización, infraestructura para transporte activo
+  o política de movilidad sostenible urbana.
+relevance_threshold: 0.4

@@ -52,6 +52,7 @@ class ClassifyResponse(BaseModel):
     article_id: str
     topics: list[str]
     scores: dict[str, float]
+    out_of_scope: bool = False
 
 
 # --- Dedup ---

@@ -1,0 +1,140 @@
+[
+  {
+    "id": "dedup-001",
+    "description": "Exact duplicate",
+    "articles": [
+      {
+        "article_id": "dedup-001-a",
+        "text": "El Ayuntamiento de Madrid ha aprobado la ampliación del carril bici en la Gran Vía con un presupuesto de 2,4 millones de euros."
+      },
+      {
+        "article_id": "dedup-001-b",
+        "text": "El Ayuntamiento de Madrid ha aprobado la ampliación del carril bici en la Gran Vía con un presupuesto de 2,4 millones de euros."
+      }
+    ],
+    "expected_pairs": [["dedup-001-a", "dedup-001-b"]],
+    "expected_stage": "minhash",
+    "notes": "Identical text — MinHash should catch at stage 1"
+  },
+  {
+    "id": "dedup-002",
+    "description": "Near-duplicate: different headline/byline, same body",
+    "articles": [
+      {
+        "article_id": "dedup-002-a",
+        "text": "La alcaldesa de Barcelona ha presentado hoy el nuevo plan de movilidad sostenible de la ciudad, que contempla 300 km de nuevos carriles bici y la peatonalización de 45 calles del centro en los próximos cinco años."
+      },
+      {
+        "article_id": "dedup-002-b",
+        "text": "La alcaldesa de Barcelona presentó hoy el nuevo plan de movilidad sostenible de la ciudad, que contempla 300 km de nuevos carriles bici y la peatonalización de 45 calles del centro en los próximos cinco años."
+      }
+    ],
+    "expected_pairs": [["dedup-002-a", "dedup-002-b"]],
+    "expected_stage": "minhash",
+    "notes": "One verb tense change — near-identical, MinHash should still catch"
+  },
+  {
+    "id": "dedup-003",
+    "description": "Paraphrase / rewrite — same facts, different wording",
+    "articles": [
+      {
+        "article_id": "dedup-003-a",
+        "text": "Sevilla inauguró ayer 15 kilómetros de nueva red ciclista en los barrios del norte de la ciudad. La inversión asciende a 1,8 millones de euros financiados con fondos europeos Next Generation."
+      },
+      {
+        "article_id": "dedup-003-b",
+        "text": "La ciudad de Sevilla estrenó ayer una nueva red de carriles bici de 15 km en la zona norte. El proyecto, dotado con 1,8 millones procedentes de los fondos europeos Next Generation, mejorará la conectividad ciclista en esos barrios."
+      }
+    ],
+    "expected_pairs": [["dedup-003-a", "dedup-003-b"]],
+    "expected_stage": "embedding",
+    "notes": "Heavy rewrite — MinHash may miss, embedding should catch"
+  },
+  {
+    "id": "dedup-004",
+    "description": "Clearly distinct articles — same topic, different events",
+    "articles": [
+      {
+        "article_id": "dedup-004-a",
+        "text": "Madrid inaugura hoy el carril bici de la calle Serrano, que une Velázquez con Goya en 800 metros de recorrido."
+      },
+      {
+        "article_id": "dedup-004-b",
+        "text": "Barcelona anuncia un nuevo carril bici en la avenida Diagonal que conectará Les Corts con el centro en 3,2 kilómetros."
+      }
+    ],
+    "expected_pairs": [],
+    "notes": "Same domain but completely different events — should NOT be flagged as duplicates"
+  },
+  {
+    "id": "dedup-005",
+    "description": "Same article seen again after indexing (idempotency)",
+    "articles": [
+      {
+        "article_id": "dedup-005-a",
+        "text": "El Consistorio valenciano aprueba la primera zona de bajas emisiones de Valencia, que entrará en vigor el próximo enero."
+      },
+      {
+        "article_id": "dedup-005-a",
+        "text": "El Consistorio valenciano aprueba la primera zona de bajas emisiones de Valencia, que entrará en vigor el próximo enero."
+      }
+    ],
+    "expected_pairs": [["dedup-005-a", "dedup-005-a"]],
+    "expected_stage": "minhash",
+    "notes": "Same article_id submitted twice — service must detect and not re-index"
+  },
+  {
+    "id": "dedup-006",
+    "description": "Update article: same event, new paragraphs appended",
+    "articles": [
+      {
+        "article_id": "dedup-006-a",
+        "text": "El Ayuntamiento de Zaragoza aprueba 50 nuevas plazas de aparcamiento para bicicletas en el centro. Las instalaciones estarán disponibles antes del verano."
+      },
+      {
+        "article_id": "dedup-006-b",
+        "text": "El Ayuntamiento de Zaragoza aprueba 50 nuevas plazas de aparcamiento para bicicletas en el centro. Las instalaciones estarán disponibles antes del verano. El concejal de Movilidad añadió que este es el primer paso de un plan más amplio que contempla 200 plazas adicionales para 2027, en respuesta a la creciente demanda de la comunidad ciclista local."
+      }
+    ],
+    "expected_pairs": [["dedup-006-a", "dedup-006-b"]],
+    "expected_stage": "embedding",
+    "notes": "Live-blog update with same facts plus additions — embedding should flag as near-dup"
+  },
+  {
+    "id": "dedup-007",
+    "description": "Very short texts — edge case for MinHash (few shingles)",
+    "articles": [
+      {
+        "article_id": "dedup-007-a",
+        "text": "Nuevo carril bici en la calle Mayor de Murcia."
+      },
+      {
+        "article_id": "dedup-007-b",
+        "text": "Nuevo carril bici en la calle Mayor de Murcia."
+      }
+    ],
+    "expected_pairs": [["dedup-007-a", "dedup-007-b"]],
+    "expected_stage": "minhash",
+    "notes": "Very short — only a few 3-word shingles available; MinHash should still match"
+  },
+  {
+    "id": "dedup-008",
+    "description": "Bootstrap order independence",
+    "articles": [
+      {
+        "article_id": "dedup-008-a",
+        "text": "Valencia aprueba la ampliación de la red de bicicletas compartidas Valenbisi con 200 nuevas bicicletas eléctricas y 20 nuevas estaciones."
+      },
+      {
+        "article_id": "dedup-008-b",
+        "text": "El servicio de bicicletas compartidas Valenbisi incorporará 200 bicis eléctricas y 20 nuevas estaciones en Valencia según el acuerdo municipal aprobado esta semana."
+      },
+      {
+        "article_id": "dedup-008-c",
+        "text": "La Junta Municipal de Tráfico de Bilbao debate la implantación de una nueva zona peatonal en el casco viejo que afectará al tráfico en cinco calles principales."
+      }
+    ],
+    "expected_pairs": [["dedup-008-a", "dedup-008-b"]],
+    "notes": "a+b are near-dups; c is unrelated. Bootstrap should flag a→b or b→a"
+  }
+]

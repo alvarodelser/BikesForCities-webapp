@@ -1,0 +1,88 @@
+[
+  {
+    "id": "geo-001",
+    "description": "Single unambiguous city mention",
+    "article_id": "geo-001",
+    "headline": "Nuevo carril bici en Gran Vía de Madrid",
+    "text": "El Ayuntamiento de Madrid ha inaugurado un nuevo tramo de carril bici en la Gran Vía que conecta con la red existente.",
+    "expected_city": "Madrid",
+    "expected_city_present": true,
+    "expected_places_min": 1
+  },
+  {
+    "id": "geo-002",
+    "description": "City with accent (common Spanish name)",
+    "article_id": "geo-002",
+    "headline": "Valladolid invierte en infraestructura ciclista",
+    "text": "El Ayuntamiento de Valladolid aprobó ayer un plan de 3 millones de euros para ampliar la red de carriles bici en la ciudad castellana.",
+    "expected_city": "Valladolid",
+    "expected_city_present": true,
+    "expected_places_min": 1
+  },
+  {
+    "id": "geo-003",
+    "description": "Multiple city mentions — should pick the dominant one",
+    "article_id": "geo-003",
+    "headline": "Barcelona supera a Madrid en kilómetros de carril bici",
+    "text": "Según un estudio reciente, Barcelona cuenta con 250 km de carril bici frente a los 190 km de Madrid. La capital catalana lidera el ranking nacional de movilidad sostenible, seguida de cerca por Sevilla, que ha triplicado su red ciclista en los últimos tres años.",
+    "expected_city": "Barcelona",
+    "expected_city_present": true,
+    "expected_places_min": 2,
+    "notes": "Barcelona appears first and is the article subject"
+  },
+  {
+    "id": "geo-004",
+    "description": "Street mention without explicit city — city inferred from DB snapshot",
+    "article_id": "geo-004",
+    "headline": "Obras en la Diagonal afectan al carril bici",
+    "text": "Las obras de renovación de la Avenida Diagonal han obligado a desviar temporalmente el carril bici. Los vecinos del Eixample se han quejado de los inconvenientes.",
+    "expected_city": "Barcelona",
+    "expected_city_present": true,
+    "expected_places_min": 1,
+    "notes": "'Diagonal' and 'Eixample' are Barcelona-specific"
+  },
+  {
+    "id": "geo-005",
+    "description": "No city — national-level policy article",
+    "article_id": "geo-005",
+    "headline": "El Gobierno aprueba la estrategia nacional de movilidad ciclista",
+    "text": "El Ministerio de Transportes ha presentado la nueva Estrategia Nacional de Movilidad Ciclista 2026-2030, que establece objetivos para todas las ciudades españolas con más de 50.000 habitantes.",
+    "expected_city": null,
+    "expected_city_present": false,
+    "expected_places_min": 0,
+    "notes": "No specific city — should return city=null"
+  },
+  {
+    "id": "geo-006",
+    "description": "Ambiguous place name that could be multiple cities",
+    "article_id": "geo-006",
+    "headline": "La Rambla estrena nueva señalización ciclista",
+    "text": "La Rambla ha estrenado una nueva señalización para mejorar la convivencia entre peatones y ciclistas tras las quejas vecinales.",
+    "expected_city": "Barcelona",
+    "expected_city_present": true,
+    "expected_places_min": 1,
+    "notes": "'La Rambla' is strongly associated with Barcelona in the gazetteer"
+  },
+  {
+    "id": "geo-007",
+    "description": "City mentioned only in headline, not body",
+    "article_id": "geo-007",
+    "headline": "Sevilla amplía el BiciSevilla con 500 nuevas bicis",
+    "text": "El servicio municipal de préstamo de bicicletas sumará 500 nuevas unidades a partir del próximo mes, lo que elevará su flota total a 3.200 bicis distribuidas en 280 estaciones.",
+    "expected_city": "Sevilla",
+    "expected_city_present": true,
+    "expected_places_min": 1,
+    "notes": "City appears in headline ('Sevilla' in 'BiciSevilla'), not body"
+  },
+  {
+    "id": "geo-008",
+    "description": "Edge case: neighbourhood name (not a city)",
+    "article_id": "geo-008",
+    "headline": "El barrio de Gracia tendrá zona de bajas emisiones",
+    "text": "El barrio de Gracia será el primero de Barcelona en implantar una zona de bajas emisiones integral que afecte también a las calles secundarias.",
+    "expected_city": "Barcelona",
+    "expected_city_present": true,
+    "expected_places_min": 1,
+    "notes": "Gracia is a district; city should still resolve to Barcelona"
+  }
+]

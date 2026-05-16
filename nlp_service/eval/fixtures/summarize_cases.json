@@ -1,0 +1,52 @@
+[
+  {
+    "id": "sum-001",
+    "description": "Standard in-scope cycling infrastructure article",
+    "article_id": "sum-001",
+    "raw_headline": "Madrid amplía el carril bici en Gran Vía",
+    "text": "El Ayuntamiento de Madrid ha aprobado esta semana la ampliación del carril bici en la Gran Vía, una de las arterias principales de la capital. La nueva infraestructura ciclista se extenderá desde la plaza de España hasta la calle Alcalá, con una longitud total de 1,3 kilómetros. Las obras, que comenzarán el próximo mes de junio, tienen un presupuesto de 2,4 millones de euros y se prolongarán durante aproximadamente tres semanas. El concejal de Movilidad Sostenible ha destacado que este proyecto forma parte del Plan de Movilidad Urbana 2025-2030, que prevé la construcción de 150 kilómetros adicionales de carril bici en los próximos cinco años. La medida ha sido recibida con satisfacción por las asociaciones ciclistas de la ciudad, aunque algunos vecinos han expresado preocupación por la reducción de plazas de aparcamiento.",
+    "expected_headline_keywords": ["carril bici", "Gran Vía", "Madrid"],
+    "expected_summary_keywords": ["carril bici", "kilómetros", "obras"],
+    "min_rouge1": 0.2
+  },
+  {
+    "id": "sum-002",
+    "description": "Short article — below extractive threshold, direct LLM",
+    "article_id": "sum-002",
+    "raw_headline": "Nuevo aparcamiento de bicicletas en la estación de Atocha",
+    "text": "La estación de Atocha estrena esta semana un nuevo aparcamiento cubierto para bicicletas con capacidad para 200 plazas. La instalación incluye puntos de recarga para bicicletas eléctricas.",
+    "expected_headline_keywords": ["aparcamiento", "bicicletas", "Atocha"],
+    "expected_summary_keywords": ["aparcamiento", "bicicletas", "200"],
+    "min_rouge1": 0.15
+  },
+  {
+    "id": "sum-003",
+    "description": "Long article — extractive pre-step should fire (>500 words)",
+    "article_id": "sum-003",
+    "raw_headline": "Barcelona aprueba su plan de movilidad sostenible 2026",
+    "text": "El Ayuntamiento de Barcelona ha aprobado hoy en pleno su ambicioso Plan de Movilidad Sostenible para el período 2026-2030, que supone la mayor transformación urbana de la ciudad en las últimas décadas. El plan contempla la creación de 300 nuevos kilómetros de carril bici, la peatonalización de 45 calles del centro histórico y la extensión de las zonas de bajas emisiones a prácticamente todo el municipio. La alcaldesa ha subrayado que el objetivo principal es reducir el tráfico rodado en un 40% para el año 2030, lo que equivale a eliminar aproximadamente 200.000 vehículos diarios del centro urbano. Para conseguirlo, el plan contempla una inversión total de 1.200 millones de euros distribuidos en cinco años. Una parte significativa de estos fondos, concretamente 350 millones, se destinará a la mejora de la infraestructura ciclista, incluyendo la construcción de aparcamientos seguros en los principales puntos de interés de la ciudad, como estaciones de metro, hospitales, universidades y centros comerciales. Otros 280 millones se invertirán en la peatonalización y mejora del espacio público, creando nuevas zonas verdes y áreas de estancia en las calles que actualmente están dominadas por el automóvil. El plan también contempla la creación de 50 nuevas superilles, siguiendo el exitoso modelo ya implantado en el Eixample, que ha conseguido reducir el tráfico en esas zonas en más de un 70%. Los expertos en movilidad urbana han valorado positivamente la propuesta, aunque señalan que su éxito dependerá en gran medida de la voluntad política para mantener el rumbo durante los próximos cinco años, independientemente de los posibles cambios de gobierno. Las asociaciones de vecinos han mostrado su apoyo general al plan, si bien algunas han pedido mayor participación ciudadana en el diseño de las actuaciones concretas en cada barrio. Los comerciantes del centro, por su parte, tienen una visión más dividida: mientras que algunos ven en la peatonalización una oportunidad para atraer más clientes, otros temen perder accesibilidad para los vehículos de reparto y para sus clientes que llegan en coche. El plan también incluye medidas para fomentar el uso de la bicicleta eléctrica y el patinete eléctrico de forma segura, con la creación de zonas específicas de estacionamiento y la regulación de la velocidad máxima en las zonas compartidas con peatones. Se prevé la instalación de más de 5.000 puntos de anclaje adicionales para bicicletas en toda la ciudad, así como la ampliación del servicio de bicicletas compartidas Bicing, que pasará de 7.000 a 12.000 unidades disponibles.",
+    "expected_headline_keywords": ["plan", "movilidad", "Barcelona"],
+    "expected_summary_keywords": ["carril bici", "peatonalización", "emisiones"],
+    "min_rouge1": 0.2
+  },
+  {
+    "id": "sum-004",
+    "description": "Edge case: article in mixed tone (accident report)",
+    "article_id": "sum-004",
+    "raw_headline": "Un ciclista resulta herido en accidente en el carril bici de Paseo del Prado",
+    "text": "Un ciclista de 34 años resultó herido leve ayer por la tarde tras ser golpeado por un vehículo en el cruce del carril bici del Paseo del Prado con la calle Cánovas del Castillo. El conductor del turismo, que circulaba en dirección prohibida, fue detenido por la Policía Municipal. El herido fue trasladado al Hospital Gregorio Marañón donde fue atendido y posteriormente dado de alta. Organizaciones ciclistas aprovecharon el incidente para renovar su petición de instalar semáforos con fase exclusiva para ciclistas en los cruces más conflictivos de la ciudad.",
+    "expected_headline_keywords": ["ciclista", "accidente", "carril bici"],
+    "expected_summary_keywords": ["herido", "carril bici", "conductor"],
+    "min_rouge1": 0.2
+  },
+  {
+    "id": "sum-005",
+    "description": "Edge case: article with numbers/data-heavy content",
+    "article_id": "sum-005",
+    "raw_headline": "El uso de la bicicleta crece un 23% en Madrid en 2025",
+    "text": "El número de desplazamientos en bicicleta en Madrid creció un 23% en 2025 respecto al año anterior, según el informe anual de movilidad presentado hoy por el Ayuntamiento. En términos absolutos, se registraron 180.000 trayectos diarios en bici, frente a los 146.000 de 2024. El incremento es especialmente notable en los distritos de Centro (38%), Chamberí (31%) y Arganzuela (28%), zonas donde se han ejecutado los principales proyectos de infraestructura ciclista durante el último año. El servicio de bicicletas públicas BiciMAD registró 4,2 millones de usos en 2025, un 19% más, y ya cuenta con 7.500 bicicletas en 600 estaciones distribuidas por toda la ciudad.",
+    "expected_headline_keywords": ["bicicleta", "Madrid", "2025"],
+    "expected_summary_keywords": ["23%", "180.000", "BiciMAD"],
+    "min_rouge1": 0.2
+  }
+]

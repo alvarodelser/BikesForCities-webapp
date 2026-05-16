@@ -15,6 +15,8 @@ class Taxonomy:
     multi_label: bool
     score_threshold: float
     top_k: int
+    relevance_hypothesis: str
+    relevance_threshold: float
 
 
 def load() -> Taxonomy:
@@ -26,5 +28,7 @@ def load() -> Taxonomy:
             multi_label=bool(data.get("multi_label", True)),
             score_threshold=float(data.get("score_threshold", 0.5)),
             top_k=int(data.get("top_k", 3)),
+            relevance_hypothesis=str(data.get("relevance_hypothesis", "")),
+            relevance_threshold=float(data.get("relevance_threshold", 0.4)),
         )
     return _taxonomy
