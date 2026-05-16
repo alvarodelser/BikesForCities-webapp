@@ -21,5 +21,9 @@ RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTr
 
 COPY . /app/
 
+# Explicit guard: fail the build if geotagger data files are missing.
+RUN test -f /app/nlp/geotagger/data/geonames_es.tsv && \
+    test -f /app/nlp/geotagger/data/cities_snapshot.json
+
 EXPOSE 8000
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
