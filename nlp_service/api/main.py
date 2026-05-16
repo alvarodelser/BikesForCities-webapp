@@ -28,10 +28,12 @@ async def lifespan(app: FastAPI):
     _cls_svc.load()
     _cls_model._ensure_loaded()
     yield
-    log.info("nlp-service shutting down")
-    # Capability shutdown hooks (e.g. dedup flush) are registered as
-    # FastAPI shutdown handlers in their respective routers — they run before
-    # this lifespan exit block.
+    log.info("nlp-service shutting down — flushing dedup state")
+    try:
+        from nlp.dedup import service as dedup_service
+        dedup_service.flush()
+    except Exception:
+        log.exception("dedup flush on shutdown failed (continuing)")
 
 
 app = FastAPI(title="NLP Service", lifespan=lifespan)
@@ -56,9 +58,11 @@ def _register_routers() -> None:
     from api.routers import summarize as summarize_router
     from api.routers import geotag as geotag_router
     from api.routers import classify as classify_router
+    from api.routers import dedup as dedup_router
     app.include_router(summarize_router.router)
     app.include_router(geotag_router.router)
     app.include_router(classify_router.router)
+    app.include_router(dedup_router.router)
 
 
 _register_routers()
