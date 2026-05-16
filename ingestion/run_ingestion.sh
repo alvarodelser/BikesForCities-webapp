@@ -40,6 +40,8 @@ python3 ingestion/01_cities/012_load_electoral.py
 echo -e "\n${GREEN}--- Phase 2: Geometry & Infrastructure ---${NC}"
 python3 ingestion/02_geometry/020_load_osm.py
 python3 ingestion/02_geometry/021_calculate_infra_metrics.py
+# 022 – Madrid-only: enrich edges with municipal bike-infra classification
+python3 ingestion/02_geometry/022_load_madrid_bike_infra.py
 
 # 3. Stations & Accessibility
 echo -e "\n${GREEN}--- Phase 3: Stations & Accessibility ---${NC}"
