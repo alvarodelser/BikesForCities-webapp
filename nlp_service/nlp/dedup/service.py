@@ -1,6 +1,7 @@
 # nlp_service/nlp/dedup/service.py
 import logging
 import os
+import threading
 
 from . import persistence
 
@@ -12,6 +13,7 @@ _mh = None
 _emb = None
 _ids = None
 _indexings_since_flush = 0
+_lock = threading.Lock()
 
 
 def load() -> None:
@@ -30,49 +32,59 @@ def _maybe_flush() -> None:
     global _indexings_since_flush
     _indexings_since_flush += 1
     if _indexings_since_flush >= _PERSIST_EVERY_N:
-        flush()
-        _indexings_since_flush = 0
+        try:
+            flush()
+        except Exception:
+            log.exception("periodic dedup flush failed; will retry next cycle")
+        else:
+            _indexings_since_flush = 0
 
 
 def check(article_id: str, text: str) -> dict:
     """Returns the DedupResponse payload as a plain dict."""
     load()
-    assert _mh is not None and _emb is not None and _ids is not None
+    with _lock:
+        assert _mh is not None and _emb is not None and _ids is not None
 
-    # Already seen — treat as duplicate of itself (don't re-add).
-    if _ids.has(article_id):
-        return {"duplicate_of": article_id, "stage": "minhash", "score": 1.0,
-                "indexed": False}
+        # Already seen — treat as duplicate of itself (don't re-add).
+        if _ids.has(article_id):
+            return {"duplicate_of": article_id, "stage": "minhash", "score": 1.0,
+                    "indexed": False}
 
-    # Stage 1: MinHash LSH
-    best_aid, best_jaccard = _mh.query(text)
-    if best_aid is not None and best_jaccard >= _mh.threshold:
-        return {"duplicate_of": best_aid, "stage": "minhash",
-                "score": float(best_jaccard), "indexed": False}
+        # Stage 1: MinHash LSH
+        best_aid, best_jaccard = _mh.query(text)
+        if best_aid is not None and best_jaccard >= _mh.threshold:
+            return {"duplicate_of": best_aid, "stage": "minhash",
+                    "score": float(best_jaccard), "indexed": False}
 
-    # Stage 2: Embedding
-    best_row, best_cosine = _emb.query(text)
-    if best_row is not None and best_cosine >= _emb.threshold:
-        dup_aid = _ids.article_id_for(best_row)
-        return {"duplicate_of": dup_aid, "stage": "embedding",
-                "score": float(best_cosine), "indexed": False}
+        # Stage 2: Embedding
+        best_row, best_cosine = _emb.query(text)
+        if best_row is not None and best_cosine >= _emb.threshold:
+            dup_aid = _ids.article_id_for(best_row)
+            if dup_aid is None:
+                log.error("FAISS row %d has no IdMap entry; index may be corrupt", best_row)
+                raise RuntimeError(f"dedup index inconsistency: row {best_row} unmapped")
+            return {"duplicate_of": dup_aid, "stage": "embedding",
+                    "score": float(best_cosine), "indexed": False}
 
-    # Not a duplicate — index it.
-    _mh.add(article_id, text)
-    _emb_row = _emb.add(text)
-    mapped_row = _ids.add(article_id)
-    assert _emb_row == mapped_row, "IdMap and FAISS row counters drifted apart"
-    _maybe_flush()
-    return {"duplicate_of": None, "stage": None, "score": None, "indexed": True}
+        # Not a duplicate — index it.
+        _mh.add(article_id, text)
+        _emb_row = _emb.add(text)
+        mapped_row = _ids.add(article_id)
+        assert _emb_row == mapped_row, "IdMap and FAISS row counters drifted apart"
+        _maybe_flush()
+        return {"duplicate_of": None, "stage": None, "score": None, "indexed": True}
 
 
 def bootstrap(articles: list[dict]) -> dict:
     """Rebuild indexes from a list of {article_id, text}."""
     global _mh, _emb, _ids, _indexings_since_flush
     from . import minhash_index, embedding_index, id_map
-    _mh = minhash_index.MinHashIndex()
-    _emb = embedding_index.EmbeddingIndex()
-    _ids = id_map.IdMap()
+    with _lock:
+        _mh = minhash_index.MinHashIndex()
+        _emb = embedding_index.EmbeddingIndex()
+        _ids = id_map.IdMap()
+        _indexings_since_flush = 0
     duplicates_found = 0
     indexed = 0
     for art in articles:
@@ -82,5 +94,6 @@ def bootstrap(articles: list[dict]) -> dict:
         if result["indexed"]:
             indexed += 1
     flush()
-    _indexings_since_flush = 0
+    with _lock:
+        _indexings_since_flush = 0
     return {"processed": len(articles), "duplicates_found": duplicates_found, "indexed": indexed}

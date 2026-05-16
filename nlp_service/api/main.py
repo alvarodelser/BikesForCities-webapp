@@ -23,10 +23,14 @@ async def lifespan(app: FastAPI):
     from nlp.geotagger import service as _geo_svc
     from nlp.classifier import model as _cls_model
     from nlp.classifier import service as _cls_svc
+    from nlp.dedup import service as _dedup_svc
+    from nlp.dedup import embedding_index as _emb_idx
     _ner._ensure_loaded()
     _geo_svc.load()
     _cls_svc.load()
     _cls_model._ensure_loaded()
+    _dedup_svc.load()
+    _emb_idx._ensure_loaded()
     yield
     log.info("nlp-service shutting down — flushing dedup state")
     try:
