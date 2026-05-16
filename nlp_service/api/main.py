@@ -47,4 +47,6 @@ def readyz(response: Response) -> dict:
     return {"status": "ready"}
 
 
-# Routers are registered in later tasks (Task 4, 6, 7, 8).
+from api.routers import summarize as summarize_router  # noqa: E402
+
+app.include_router(summarize_router.router)
