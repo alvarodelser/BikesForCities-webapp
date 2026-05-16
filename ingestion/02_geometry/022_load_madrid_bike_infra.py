@@ -120,8 +120,103 @@ def main():
 
 
 def enrich_madrid_edges(conn, city_id: int) -> int:
-    """Placeholder — implemented in Task 5."""
-    raise NotImplementedError("Implemented in Task 5")
+    """
+    Spatial-match Madrid bike-infra polylines to OSM edges and update
+    edges.bike_infra. Returns number of edges updated.
+
+    Strategy:
+      1. Load Madrid features (reproject to EPSG:25830 — metric).
+      2. Load Madrid edges from DB, project to 25830.
+      3. Buffer each Madrid feature by BUFFER_M meters.
+      4. Spatial-join: edges whose geometry intersects the buffer.
+      5. For each candidate pair, compute overlap length / edge length.
+         Keep if >= MIN_OVERLAP_RATIO.
+      6. If an edge matches multiple Madrid features, prefer 'cycleway' over 'secondary'.
+      7. Bulk UPDATE edges SET bike_infra = ... WHERE id IN (...).
+    """
+    import psycopg2.extras
+    from shapely import wkb as shapely_wkb
+
+    madrid_gdf = load_madrid_infra().to_crs(epsg=25830)
+
+    print(f"  📡 Loading Madrid edges from DB (city_id={city_id})…")
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT id, ST_AsBinary(geom) AS wkb FROM edges WHERE city_id = %s",
+        (city_id,),
+    )
+    rows = cur.fetchall()
+    cur.close()
+    print(f"     {len(rows):,} edges loaded.")
+
+    edges_gdf = gpd.GeoDataFrame(
+        {"id": [r[0] for r in rows]},
+        geometry=[shapely_wkb.loads(bytes(r[1])) for r in rows],
+        crs="EPSG:4326",
+    ).to_crs(epsg=25830)
+    edges_gdf["len_m"] = edges_gdf.geometry.length
+
+    print(f"  🧮 Buffering Madrid features by {BUFFER_M}m and spatial-joining…")
+    madrid_buffers = madrid_gdf.copy()
+    madrid_buffers["geometry"] = madrid_buffers.geometry.buffer(BUFFER_M)
+
+    joined = gpd.sjoin(
+        edges_gdf,
+        madrid_buffers[["bike_infra", "geometry"]],
+        how="inner",
+        predicate="intersects",
+    )
+    print(f"     {len(joined):,} candidate edge × buffer intersections.")
+
+    if joined.empty:
+        print("  ⚠️  No spatial matches; nothing to update.")
+        return 0
+
+    # Reattach buffer geometry so we can compute overlap fraction.
+    joined = joined.reset_index().rename(columns={"index": "edge_idx"})
+    buf_lookup = madrid_buffers[["geometry"]].rename(columns={"geometry": "buf_geom"})
+    joined = joined.merge(buf_lookup, left_on="index_right", right_index=True, how="left")
+
+    def overlap_ratio(row) -> float:
+        edge_geom = edges_gdf.loc[row["edge_idx"], "geometry"]
+        try:
+            inter = edge_geom.intersection(row["buf_geom"])
+            return float(inter.length) / max(float(edge_geom.length), 1e-6)
+        except Exception:
+            return 0.0
+
+    joined["overlap"] = joined.apply(overlap_ratio, axis=1)
+    matches = joined[joined["overlap"] >= MIN_OVERLAP_RATIO].copy()
+    print(f"     {len(matches):,} matches above {MIN_OVERLAP_RATIO:.0%} overlap.")
+
+    # Aggregate per edge: prefer 'cycleway' over 'secondary'.
+    PRIORITY = {"cycleway": 1, "secondary": 0}
+    matches["prio"] = matches["bike_infra"].map(PRIORITY)
+    best = (
+        matches.sort_values("prio", ascending=False)
+        .drop_duplicates(subset=["id"], keep="first")[["id", "bike_infra"]]
+    )
+    print(f"     {len(best):,} unique edges to update.")
+
+    cur = conn.cursor()
+    psycopg2.extras.execute_values(
+        cur,
+        """
+        UPDATE edges AS e
+        SET bike_infra = v.bike_infra
+        FROM (VALUES %s) AS v(id, bike_infra)
+        WHERE e.id = v.id
+        """,
+        list(best.itertuples(index=False, name=None)),
+        template="(%s, %s)",
+        page_size=1000,
+    )
+    cur.close()
+
+    for cat, count in best["bike_infra"].value_counts().items():
+        print(f"     ✓ {cat:10}: {count:,} edges")
+
+    return len(best)
 
 
 if __name__ == "__main__":
