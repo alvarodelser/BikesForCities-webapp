@@ -66,10 +66,14 @@ def main() -> None:
     p.add_argument("--out", required=True, type=Path)
     args = p.parse_args()
 
+    if not args.url.startswith("https://"):
+        raise SystemExit("--url must use HTTPS")
+
     args.out.parent.mkdir(parents=True, exist_ok=True)
 
     log.info("downloading %s", args.url)
-    with urllib.request.urlopen(args.url) as resp:
+    with urllib.request.urlopen(args.url, timeout=60) as resp:
+        # Full read required: ZipFile needs a seekable stream (BytesIO wraps bytes).
         zip_bytes = resp.read()
 
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:

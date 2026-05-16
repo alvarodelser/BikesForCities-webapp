@@ -1,0 +1,4 @@
+# Host-side script dependencies (not baked into the Docker image).
+# Install before running scripts/:
+#   pip install -r nlp_service/requirements-scripts.txt
+psycopg[binary]>=3.1

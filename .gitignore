@@ -189,6 +189,8 @@ frontend/*.local
 !data/spain-provinces.geojson
 !data/news/
 !data/news/**
+!nlp_service/nlp/geotagger/data/*.tsv
+!nlp_service/nlp/geotagger/data/*.json
 data/
 cache/
 logs/
