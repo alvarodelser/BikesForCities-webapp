@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 import httpx
 
 from api.models import SummarizeRequest, SummarizeResponse
-from api.main import mark_warm
+from api.warmth import mark_warm
 from nlp.summarizer import service as summarizer_service
 
 log = logging.getLogger(__name__)

@@ -5,18 +5,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Response
 
+from api.warmth import get_missing
+
 logging.basicConfig(
     level=os.environ.get("NLP_LOG_LEVEL", "INFO"),
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 log = logging.getLogger("nlp_service")
-
-# Tracks which capabilities have been hit at least once (for /readyz).
-_warm_capabilities: set[str] = set()
-
-
-def mark_warm(capability: str) -> None:
-    _warm_capabilities.add(capability)
 
 
 @asynccontextmanager
@@ -40,10 +35,10 @@ def healthz() -> dict:
 @app.get("/readyz")
 def readyz(response: Response) -> dict:
     expected = {"summarize", "geotag", "classify", "dedup"}
-    missing = expected - _warm_capabilities
+    missing = get_missing(expected)
     if missing:
         response.status_code = 503
-        return {"status": "warming", "missing": sorted(missing)}
+        return {"status": "warming", "missing": missing}
     return {"status": "ready"}
 
 
