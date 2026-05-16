@@ -18,6 +18,7 @@ The service is called per-article during scraping. The scraper owns Postgres I/O
 - A sibling `ollama` container hosting the LLM (default `gemma4:e2b`, swappable via `OLLAMA_MODEL` env var)
 - Four POST endpoints — `/summarize`, `/geotag`, `/classify`, `/dedup-check` — plus housekeeping (`/dedup/bootstrap`, `/healthz`, `/readyz`)
 - A scraper-side client at `backend/processing/news_enrich.py` that consumes the service and persists enriched rows
+- LLM-rewritten headlines (publisher suffixes stripped, length-constrained) produced jointly with summaries via a single Ollama call with forced JSON output
 - A schema migration that replaces flat `source/link` columns on `news` with a `sources JSONB` array, enabling duplicate-merge instead of duplicate-drop
 - Four evaluation notebooks under `notebooks/nlp_eval/` measuring per-capability quality
 
@@ -147,17 +148,26 @@ Four endpoints, all POST, all JSON. Each is independently usable — no order is
 {
   "article_id": "ef0b02f16268",
   "text": "Las obras de mejora medioambiental...",
+  "raw_headline": "Las obras... - rtpa.es",
   "max_sentences": 3
 }
 
 // Response
 {
   "article_id": "ef0b02f16268",
+  "headline": "Las obras en Irunlarrea reducen los accidentes a cero",
   "summary": "Las obras en Irunlarrea han reducido los accidentes a cero desde julio..."
 }
 ```
 
-Internal flow: TextRank/LexRank over sentences → top `max_sentences` → concatenate → send to Ollama with the prompt at `nlp/summarizer/prompts/rewrite.es.txt` → return the rewrite as `summary`. If `text` has fewer than `max_sentences` sentences, skip extractive and pass full text to the LLM. If Ollama is unreachable, return 503 with `detail: "ollama_unavailable"`.
+This endpoint produces both fields in a single Ollama call. `raw_headline` is the scraper's untouched headline (often containing publisher suffixes like " - rtpa.es"); `headline` in the response is the clean rewrite. The scraper writes the rewritten `headline` into `news.headline` on insert.
+
+Internal flow:
+
+1. **Extractive gate.** If `text` is ≥ 500 tokens, run TextRank/LexRank to select top `max_sentences`. If shorter, skip extractive and pass full text — extractive doesn't help on short articles and can drop important context.
+2. **LLM call.** Send the (possibly extracted) text plus `raw_headline` to Ollama using **forced JSON output** via the `format` parameter, with a schema demanding `{headline: string, summary: string}`. No regex on prose, no parse failures.
+3. **Length validation.** Headline must be 8-15 words; summary must be 2-4 sentences. If out of bounds, regenerate once with a tightened prompt. After one retry, accept whatever comes back and log a warning.
+4. **Return** both fields. If Ollama is unreachable after 3 retries, return 503 with `detail: "ollama_unavailable"`.
 
 ### `POST /geotag`
 
@@ -270,10 +280,12 @@ The router in `api/routers/<capability>.py` does request validation → `service
 ### `nlp/summarizer/`
 
 - **Stack:** `sumy` (TextRank/LexRank), `httpx` (Ollama client). No transformers dependency.
-- **Files:** `service.py`, `extractive.py`, `ollama_client.py`, `prompts/rewrite.es.txt`
-- **Prompt template:** loaded once, formatted with `{max_sentences}` and `{extract}`
-- **Ollama client:** 3 retries with exponential backoff, 30s timeout per attempt
-- **Failure mode:** on Ollama 5xx after retries, return 503 — no fallback to extractive-only
+- **Files:** `service.py`, `extractive.py`, `ollama_client.py`, `validator.py`, `prompts/rewrite.es.txt`
+- **Prompt template:** loaded once, formatted with `{max_sentences}`, `{raw_headline}`, and `{extract}`. Asks the LLM for a clean Spanish headline (8-15 words) plus a 2-4 sentence summary; warns the model that publisher suffixes in `raw_headline` should be stripped.
+- **Extractive gate:** in `service.py`, count tokens (approximate via whitespace split). If `< 500`, skip `extractive.py` entirely and pass the full body. If `>= 500`, run TextRank for top `max_sentences`.
+- **Ollama client:** uses `format` parameter with a JSON schema demanding `{headline: string, summary: string}`. 3 retries with exponential backoff on transport errors, 30s timeout per attempt.
+- **Validator:** `validator.py` checks the parsed JSON — headline word count in `[8, 15]`, summary sentence count in `[2, 4]`. Out-of-bounds → regenerate once with a tightened prompt suffix. After the retry, accept and log.
+- **Failure mode:** on Ollama 5xx after retries, return 503. On JSON-format failure after retries (model defied the schema), return 503 with `detail: "ollama_json_format_failed"` — no fallback to extractive-only.
 
 ### `nlp/geotagger/`
 
@@ -351,23 +363,25 @@ End-to-end path for one freshly scraped article:
                 │                             │
                 ▼                             ▼
         UPDATE news SET             /summarize  /geotag  /classify
-          sources = sources                (concurrent fan-out)
-            || $new_source,                │
-          publication_dt =                 ▼
-            LEAST(publication_dt,    INSERT INTO news
-                  $new_date)           (id, headline, summary,
-        WHERE id = $dup_of                publication_dt, topics,
-                │                          raw_txt, city, sources)
-                ▼                             │
-       status="merged",                       ▼
-       merged_into=$dup_of            status="inserted" or "partial"
+          sources = sources           (concurrent fan-out;
+            || $new_source,            /summarize returns BOTH
+          publication_dt =             rewritten headline + summary)
+            LEAST(publication_dt,                │
+                  $new_date)                     ▼
+        WHERE id = $dup_of               INSERT INTO news
+        -- headline NOT updated:           (id, headline=<rewritten>,
+        -- first-insert wins                summary, publication_dt,
+                │                           topics, raw_txt, city, sources)
+                ▼                                 │
+       status="merged",                           ▼
+       merged_into=$dup_of               status="inserted" or "partial"
 ```
 
 ### Ordering rules
 
 1. **`/dedup-check` first, always, synchronous.** If duplicate, do not call other endpoints — no point burning cycles on a row we're not inserting.
-2. **For non-duplicates,** fan out `/summarize` + `/geotag` + `/classify` concurrently via `httpx.AsyncClient`.
-3. **On duplicate,** scraper UPDATEs the existing row to merge the new `(name, link, date)` source and set `publication_dt = LEAST(...)`.
+2. **For non-duplicates,** fan out `/summarize` + `/geotag` + `/classify` concurrently via `httpx.AsyncClient`. `/summarize` returns both the rewritten `headline` and the `summary` from a single LLM call.
+3. **On duplicate,** scraper UPDATEs the existing row to merge the new `(name, link, date)` source and set `publication_dt = LEAST(...)`. **The headline is NOT updated** — first-insert wins, per the "keep the original" rule.
 
 ### `backend/processing/news_enrich.py`
 
@@ -377,7 +391,7 @@ Public surface:
 @dataclass
 class RawArticle:
     article_id: str       # sha1(normalized_headline)[:12]
-    headline: str
+    headline: str         # raw scraper headline — sent to /summarize as raw_headline
     body: str
     source_name: str
     source_link: str
@@ -403,9 +417,10 @@ def enrich_and_persist(
 Behavior:
 
 - `/dedup-check` is called first, synchronously. Failure here is fatal (`status="failed"`).
-- Duplicate → UPDATE existing row, return `status="merged"`.
-- Non-duplicate → concurrent calls to `/summarize`, `/geotag`, `/classify`. Per-endpoint timeouts: 45s for summarize (LLM-bound), 10s for the others.
-- A 5xx on any of the three is non-fatal: that column becomes NULL in the INSERT, the failure is logged, status becomes `"partial"`.
+- Duplicate → UPDATE existing row (merge source, set `publication_dt = LEAST(...)`, headline left untouched), return `status="merged"`.
+- Non-duplicate → concurrent calls to `/summarize` (with `raw_headline=article.headline`), `/geotag`, `/classify`. Per-endpoint timeouts: 45s for summarize (LLM-bound, also produces the rewritten headline), 10s for the others.
+- A 5xx on any of the three is non-fatal: that column becomes NULL in the INSERT, the failure is logged, status becomes `"partial"`. If `/summarize` fails, `headline` falls back to the scraper's raw headline (we still need *some* headline for the row).
+- The INSERT writes the rewritten headline to `news.headline`, summary to `news.summary`, etc.
 - The INSERT is wrapped in a single transaction.
 - The optional `on_response` callback receives `(endpoint_name, raw_json_response)` per call — used by profiling notebooks to capture rich payloads (`all_places`, `scores`) without changing the function signature.
 
@@ -430,7 +445,7 @@ There is no pytest suite. The four evaluation notebooks under `notebooks/nlp_eva
 
 | Notebook | Measures | Output |
 |---|---|---|
-| `eval_summarizer.ipynb` | ROUGE-L vs ~30 hand-written reference summaries | per-source/per-city score table |
+| `eval_summarizer.ipynb` | ROUGE-L vs ~30 hand-written reference summaries for body; separately, headline quality (word-count compliance + word-overlap-with-body floor as a hallucination proxy) | per-source/per-city score table for both fields |
 | `eval_geotagger.ipynb` | Precision/recall on `city` over ~50 hand-labeled articles | per-city breakdown + confusion table |
 | `eval_classifier.ipynb` | Per-label F1 over ~40 hand-labeled articles | confusion matrix |
 | `eval_dedup.ipynb` | Precision/recall at each stage; threshold sensitivity sweep | scorecard + recommended thresholds |
@@ -456,7 +471,9 @@ Environment variables read at startup (or first-use, for lazy components):
 ## Success criteria
 
 - Scraper can POST a fresh article and either get back `merged_into=<existing_id>` or a new row inserted in `news`
-- `news.sources` is a JSONB array; duplicates merged via `enrich_and_persist` correctly append the new source and set `publication_dt = LEAST(...)`
+- `news.sources` is a JSONB array; duplicates merged via `enrich_and_persist` correctly append the new source and set `publication_dt = LEAST(...)` while leaving `headline` untouched
+- `/summarize` returns a structurally valid `{headline, summary}` JSON object on ≥ 99% of calls (forced-JSON output via Ollama `format` parameter)
+- Rewritten headlines strip publisher suffixes (" - rtpa.es", " | Diario de Navarra", etc.) on ≥ 95% of cases in the eval set
 - Cold-start of `nlp-service` with an existing `/data/dedup/` volume rebuilds indexes in under 2 seconds for a corpus of ≤ 1k articles
 - `/dedup/bootstrap` rebuild from 421 existing articles (`movilidad_news_new.json`) completes in under 5 minutes on a CPU-only server
 - All four evaluation notebooks run end-to-end and export scorecard CSVs
