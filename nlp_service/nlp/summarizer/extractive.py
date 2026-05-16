@@ -7,19 +7,18 @@ from sumy.utils import get_stop_words
 
 _LANGUAGE = "spanish"
 _summarizer = None
-_tokenizer = None
 
 
 def _ensure_loaded() -> None:
-    global _summarizer, _tokenizer
+    global _summarizer
     if _summarizer is None:
         _summarizer = TextRankSummarizer(Stemmer(_LANGUAGE))
         _summarizer.stop_words = get_stop_words(_LANGUAGE)
-        _tokenizer = Tokenizer(_LANGUAGE)
 
 
 def extract_top_sentences(text: str, n: int) -> str:
     _ensure_loaded()
-    parser = PlaintextParser.from_string(text, _tokenizer)
+    tokenizer = Tokenizer(_LANGUAGE)  # per-call; Tokenizer holds mutable state
+    parser = PlaintextParser.from_string(text, tokenizer)
     sentences = _summarizer(parser.document, n)
     return " ".join(str(s) for s in sentences)

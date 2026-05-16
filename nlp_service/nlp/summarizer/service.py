@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "rewrite.es.txt"
 _PROMPT_TEMPLATE: str | None = None
-_EXTRACTIVE_TOKEN_THRESHOLD = 500
+_EXTRACTIVE_WORD_THRESHOLD = 500
 _RETRY_SUFFIX = "\nRECUERDA: titular 8-15 palabras, resumen 2-4 frases."
 
 
@@ -29,7 +29,7 @@ def run(text: str, raw_headline: str, max_sentences: int = 3) -> dict:
     load()
     assert _PROMPT_TEMPLATE is not None
 
-    if _count_tokens(text) >= _EXTRACTIVE_TOKEN_THRESHOLD:
+    if _count_tokens(text) >= _EXTRACTIVE_WORD_THRESHOLD:
         extract = extractive.extract_top_sentences(text, max_sentences)
     else:
         extract = text

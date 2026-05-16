@@ -48,7 +48,7 @@ def generate(prompt: str, max_retries: int = 3, timeout: float = 30.0) -> dict[s
     for attempt in range(max_retries):
         try:
             return _call_once(prompt, timeout)
-        except (httpx.HTTPError, json.JSONDecodeError) as exc:
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError) as exc:
             last_error = exc
             log.warning("ollama call failed (attempt %d/%d): %s", attempt + 1, max_retries, exc)
             if attempt < max_retries - 1:
