@@ -37,7 +37,7 @@ class PlaceMention(BaseModel):
 class GeotagResponse(BaseModel):
     article_id: str
     city: str | None = None
-    city_confidence: float = Field(ge=0.0, le=1.0)
+    city_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
     all_places: list[PlaceMention]
 
 

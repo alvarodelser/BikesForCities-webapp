@@ -30,9 +30,9 @@ def load() -> None:
     for c in _cities:
         if c.get("wikidata_id"):
             _by_wikidata[c["wikidata_id"]] = c
-        _by_name[c["name"].lower()] = c
+        _by_name[gazetteer._normalize(c["name"])] = c
         if c.get("alt_name"):
-            _by_name[c["alt_name"].lower()] = c
+            _by_name[gazetteer._normalize(c["alt_name"])] = c
     if _cities:
         _max_population = max(c.get("population") or 1 for c in _cities)
 
@@ -40,7 +40,7 @@ def load() -> None:
 def _match_city(geo_entry: gazetteer.GeoEntry) -> dict | None:
     # GeoNames doesn't carry wikidata_id directly in the basic dump, so
     # match by name. Future: use the alternate-names dump for tighter linkage.
-    return _by_name.get(geo_entry.name.lower())
+    return _by_name.get(gazetteer._normalize(geo_entry.name))
 
 
 def score_candidates(spans_with_geo: list[tuple[str, list[gazetteer.GeoEntry]]],

@@ -15,7 +15,7 @@ def _place_payload(span_text: str, entries: list[gazetteer.GeoEntry]) -> dict[st
     if not entries:
         return {"text": span_text, "type": "other", "lat": None, "lon": None,
                 "geonames_id": None, "city_id": None}
-    e = entries[0]
+    e = max(entries, key=lambda x: x.population)
     place_type = "city" if e.feature_class == "P" else ("region" if e.feature_class == "A" else "other")
     return {
         "text": span_text,

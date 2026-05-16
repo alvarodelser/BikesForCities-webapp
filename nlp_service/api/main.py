@@ -17,6 +17,12 @@ log = logging.getLogger("nlp_service")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     log.info("nlp-service starting up")
+    # Eagerly load spaCy + geotagger data so the first request doesn't race
+    # on _nlp initialisation under concurrent threads.
+    from nlp.geotagger import ner as _ner
+    from nlp.geotagger import service as _geo_svc
+    _ner._ensure_loaded()
+    _geo_svc.load()
     yield
     log.info("nlp-service shutting down")
     # Capability shutdown hooks (e.g. dedup flush) are registered as

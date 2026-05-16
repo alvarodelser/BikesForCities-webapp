@@ -45,7 +45,7 @@ def load() -> None:
                 )
             except (ValueError, KeyError):
                 continue
-            for key in (_normalize(row["name"]), _normalize(row["asciiname"])):
+            for key in {_normalize(row["name"]), _normalize(row["asciiname"])}:
                 _entries.setdefault(key, []).append(e)
 
 
