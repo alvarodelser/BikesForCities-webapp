@@ -38,9 +38,12 @@ def get_accidents_geojson(
     conn,
     city_id: int,
     cyclists_only: bool = True,
+    year: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Slim GeoJSON for the map (no per-victim participants)."""
     cyclist_clause = "AND 'bike_vmu' = ANY(a.vehicles_involved)" if cyclists_only else ""
+    year_clause = "AND EXTRACT(YEAR FROM a.timestamp)::INT = %s" if year is not None else ""
+    params = [city_id] + ([year] if year is not None else [])
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT
@@ -65,9 +68,10 @@ def get_accidents_geojson(
             WHERE a.city_id = %s
               AND a.geom IS NOT NULL
               {cyclist_clause}
+              {year_clause}
             GROUP BY a.id
             ORDER BY a.timestamp DESC
-        """, (city_id,))
+        """, params)
         rows = cur.fetchall()
 
     features = []
@@ -101,10 +105,12 @@ def get_accidents_geojson(
     return {"type": "FeatureCollection", "features": features}
 
 
-def get_accidents_summary(conn, city_id: int) -> Dict[str, Any]:
+def get_accidents_summary(conn, city_id: int, year: Optional[int] = None) -> Dict[str, Any]:
     """Aggregate counts for the stats panel — cheap, no features."""
+    year_clause = "AND EXTRACT(YEAR FROM timestamp)::INT = %s" if year is not None else ""
+    params_counts = [city_id] + ([year] if year is not None else [])
     with conn.cursor() as cur:
-        cur.execute("""
+        cur.execute(f"""
             SELECT
                 COUNT(*) AS total,
                 COUNT(*) FILTER (WHERE 'bike_vmu' = ANY(vehicles_involved))   AS cyclist,
@@ -112,13 +118,23 @@ def get_accidents_summary(conn, city_id: int) -> Dict[str, Any]:
                 MAX(EXTRACT(YEAR FROM timestamp))::INT AS latest_year
             FROM accidents
             WHERE city_id = %s AND geom IS NOT NULL
-        """, (city_id,))
+            {year_clause}
+        """, params_counts)
         total, cyclist, pedestrian, latest_year = cur.fetchone()
+
+        cur.execute("""
+            SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM timestamp)::INT ORDER BY 1 DESC)
+            FROM accidents
+            WHERE city_id = %s AND geom IS NOT NULL AND timestamp IS NOT NULL
+        """, (city_id,))
+        (available_years,) = cur.fetchone()
+
     return {
         "total": total or 0,
         "cyclist": cyclist or 0,
         "pedestrian": pedestrian or 0,
         "latest_year": latest_year,
+        "available_years": available_years or [],
     }
 
 

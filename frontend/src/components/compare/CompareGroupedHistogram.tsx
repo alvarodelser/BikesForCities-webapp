@@ -28,8 +28,42 @@ function niceTicks(max: number): number[] {
     const magnitude = Math.pow(10, Math.floor(Math.log10(raw)));
     const step = Math.ceil(raw / magnitude) * magnitude;
     const ticks: number[] = [];
-    for (let v = 0; v <= max + step * 0.01; v += step) ticks.push(Math.round(v * 100) / 100);
+    for (let v = 0; v <= max + step * 0.01; v += step) {
+        ticks.push(Math.round(v * 100) / 100);
+    }
+    if (ticks[ticks.length - 1] < max) {
+        ticks.push(Math.round((ticks[ticks.length - 1] + step) * 100) / 100);
+    }
     return ticks;
+}
+
+// Per-city cache backed by sessionStorage so it survives tab switches and page reloads.
+const cityDataCache = new Map<number, number[]>();
+
+function readCityCache(cityId: number): number[] | null {
+    if (cityDataCache.has(cityId)) return cityDataCache.get(cityId)!;
+    try {
+        const raw = sessionStorage.getItem(`edge_cov_${cityId}`);
+        if (raw) {
+            const data = JSON.parse(raw) as number[];
+            cityDataCache.set(cityId, data);
+            return data;
+        }
+    } catch { /* ignore private-browsing or quota errors */ }
+    return null;
+}
+
+function writeCityCache(cityId: number, data: number[]): void {
+    cityDataCache.set(cityId, data);
+    try { sessionStorage.setItem(`edge_cov_${cityId}`, JSON.stringify(data)); } catch { /* ignore */ }
+}
+
+function allCached(cities: CityData[]): boolean {
+    return cities.every(c => c.id != null && readCityCache(c.id) != null);
+}
+
+function getFromCache(cities: CityData[]): number[][] {
+    return cities.map(c => readCityCache(c.id!)!);
 }
 
 interface CompareGroupedHistogramProps {
@@ -38,32 +72,62 @@ interface CompareGroupedHistogramProps {
 }
 
 export default function CompareGroupedHistogram({ cities, colors }: CompareGroupedHistogramProps) {
-    const [datasets, setDatasets] = useState<(number[] | null)[]>([]);
-    const [mounted, setMounted] = useState(false);
-
+    // Order-sensitive key: re-run effect when city order changes so datasets re-map to correct cities.
     const cityKey = cities.map(c => c.id).join(',');
 
-    useEffect(() => {
-        setDatasets(cities.map(() => null));
-        setMounted(false);
-        const t = setTimeout(() => setMounted(true), 80);
+    const initialCached = allCached(cities);
+    const [datasets, setDatasets] = useState<number[][]>(() => initialCached ? getFromCache(cities) : []);
+    const [loading, setLoading] = useState(!initialCached);
+    const [mounted, setMounted] = useState(initialCached);
 
-        cities.forEach((city, i) => {
-            if (!city.id) {
-                setDatasets(prev => { const n = [...prev]; n[i] = BINS.map(() => 0); return n; });
-                return;
-            }
-            fetchEdgeBuildingCoverage(city.id)
-                .then(edges => setDatasets(prev => { const n = [...prev]; n[i] = computeBins(edges); return n; }))
-                .catch(() => setDatasets(prev => { const n = [...prev]; n[i] = BINS.map(() => 0); return n; }));
+    useEffect(() => {
+        if (allCached(cities)) {
+            setDatasets(getFromCache(cities));
+            setLoading(false);
+            setMounted(true);
+            return;
+        }
+
+        let active = true;
+        setLoading(true);
+        // Only collapse bars on initial load — if bars are already visible keep them up.
+        const hadData = datasets.length > 0;
+        if (!hadData) {
+            setMounted(false);
+        }
+        const t = hadData ? null : setTimeout(() => {
+            if (active) setMounted(true);
+        }, 80);
+
+        const promises = cities.map(city => {
+            if (!city.id) return Promise.resolve(BINS.map(() => 0));
+            const hit = readCityCache(city.id);
+            if (hit) return Promise.resolve(hit);
+            return fetchEdgeBuildingCoverage(city.id)
+                .then(edges => {
+                    const result = computeBins(edges);
+                    writeCityCache(city.id!, result);
+                    return result;
+                })
+                .catch(() => BINS.map(() => 0));
         });
 
-        return () => clearTimeout(t);
+        Promise.all(promises).then(results => {
+            if (active) {
+                setDatasets(results);
+                setLoading(false);
+                if (hadData) setMounted(true);
+            }
+        });
+
+        return () => {
+            active = false;
+            if (t) clearTimeout(t);
+        };
     }, [cityKey]);
 
-    const loading = datasets.length < cities.length || datasets.some(d => d === null);
-
-    if (loading) {
+    // Only block with skeleton when there is genuinely no data yet.
+    if (loading && datasets.length === 0) {
         return <div className="rounded-2xl border border-black/[0.06] bg-white/40 animate-pulse" style={{ height: 220 }} />;
     }
 
@@ -96,51 +160,62 @@ export default function CompareGroupedHistogram({ cities, colors }: CompareGroup
 
             <div className="flex gap-2">
                 {/* Y axis */}
-                <div className="flex flex-col-reverse justify-between items-end shrink-0" style={{ height: BAR_HEIGHT }}>
+                <div className="flex flex-col-reverse justify-between items-end shrink-0" style={{ height: BAR_HEIGHT, paddingBottom: 0 }}>
                     {yTicks.map(t => (
-                        <span key={t} className="text-[9px] text-gray-400 tabular-nums">{t} km</span>
+                        <span key={t} className="text-[9px] text-gray-400 tabular-nums leading-none">{t} km</span>
                     ))}
                 </div>
 
                 {/* Groups + grid */}
-                <div className="flex-1 flex gap-4 relative">
-                    {/* Grid lines */}
-                    {yTicks.map(t => (
-                        <div
-                            key={t}
-                            className="absolute left-0 right-0 border-t border-black/[0.06] pointer-events-none"
-                            style={{ bottom: (t / yMax) * BAR_HEIGHT }}
-                        />
-                    ))}
+                <div className="flex-1 flex flex-col">
+                    {/* Chart area of fixed height */}
+                    <div className="relative w-full" style={{ height: BAR_HEIGHT }}>
+                        {/* Grid lines */}
+                        {yTicks.map(t => (
+                            <div
+                                key={t}
+                                className="absolute left-0 right-0 border-t border-black/[0.06] pointer-events-none"
+                                style={{ bottom: (t / yMax) * BAR_HEIGHT }}
+                            />
+                        ))}
 
-                    {BINS.map((bin, binIdx) => (
-                        <div key={binIdx} className="flex-1 flex flex-col">
-                            {/* Bars side-by-side */}
-                            <div className="flex items-end gap-0" style={{ height: BAR_HEIGHT }}>
-                                {datasets.map((data, cityIdx) => {
-                                    const value = data?.[binIdx] ?? 0;
-                                    const barH = mounted
-                                        ? Math.max((value / yMax) * BAR_HEIGHT, value > 0 ? 2 : 0)
-                                        : 0;
-                                    return (
-                                        <div
-                                            key={cityIdx}
-                                            className="flex-1 rounded-t-sm"
-                                            title={`${cities[cityIdx]?.name}: ${value} km`}
-                                            style={{
-                                                height: barH,
-                                                backgroundColor: colors[cityIdx],
-                                                opacity: 0.85,
-                                                transition: `height 0.65s cubic-bezier(0.34,1.56,0.64,1) ${binIdx * 70 + cityIdx * 35}ms`,
-                                            }}
-                                        />
-                                    );
-                                })}
-                            </div>
-                            <span className="text-[10px] text-center text-gray-500 mt-1.5 font-medium leading-tight">{bin.shortLabel}</span>
-                            <span className="text-[9px] text-center text-gray-300 leading-tight">{bin.subLabel}</span>
+                        {/* Bars container */}
+                        <div className="absolute inset-0 flex gap-4">
+                            {BINS.map((bin, binIdx) => (
+                                <div key={binIdx} className="flex-1 flex items-end gap-0 h-full">
+                                    {datasets.map((data, cityIdx) => {
+                                        const value = data?.[binIdx] ?? 0;
+                                        const barH = mounted
+                                            ? Math.max((value / yMax) * BAR_HEIGHT, value > 0 ? 2 : 0)
+                                            : 0;
+                                        return (
+                                            <div
+                                                key={cityIdx}
+                                                className="flex-1 rounded-t-sm"
+                                                title={`${cities[cityIdx]?.name}: ${value} km`}
+                                                style={{
+                                                    height: barH,
+                                                    backgroundColor: colors[cityIdx],
+                                                    opacity: 0.85,
+                                                    transition: `height 0.65s cubic-bezier(0.34,1.56,0.64,1) ${binIdx * 70 + cityIdx * 35}ms`,
+                                                }}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            ))}
                         </div>
-                    ))}
+                    </div>
+
+                    {/* Labels below chart area */}
+                    <div className="flex gap-4 mt-1.5">
+                        {BINS.map((bin, binIdx) => (
+                            <div key={binIdx} className="flex-1 flex flex-col items-center">
+                                <span className="text-[10px] text-center text-gray-500 font-medium leading-tight">{bin.shortLabel}</span>
+                                <span className="text-[9px] text-center text-gray-300 leading-tight">{bin.subLabel}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         </div>

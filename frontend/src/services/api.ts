@@ -352,9 +352,12 @@ export interface AccidentsGeoJSON {
 export const fetchAccidents = async (
   cityId: number,
   cyclistsOnly: boolean = true,
+  year?: number,
 ): Promise<AccidentsGeoJSON> => {
+  const params = new URLSearchParams({ cyclists_only: String(cyclistsOnly) });
+  if (year != null) params.set('year', String(year));
   const response = await apiFetch(
-    `${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=${cyclistsOnly}`,
+    `${API_BASE_URL}/cities/${cityId}/accidents?${params}`,
   );
   if (!response.ok) throw new Error('Error al cargar los datos de accidentes');
   const result = await response.json();
@@ -366,10 +369,14 @@ export interface AccidentsSummary {
   cyclist: number;
   pedestrian: number;
   latest_year: number | null;
+  available_years: number[];
 }
 
-export const fetchAccidentsSummary = async (cityId: number): Promise<AccidentsSummary> => {
-  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents/summary`);
+export const fetchAccidentsSummary = async (cityId: number, year?: number): Promise<AccidentsSummary> => {
+  const params = new URLSearchParams();
+  if (year != null) params.set('year', String(year));
+  const qs = params.toString();
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents/summary${qs ? '?' + qs : ''}`);
   if (!response.ok) throw new Error('Error al cargar el resumen de accidentes');
   const result = await response.json();
   return result.data;

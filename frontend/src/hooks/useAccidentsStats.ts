@@ -19,6 +19,7 @@ export interface AccidentsStatsResult {
   cyclistAccidents: number;
   pedestrianAccidents: number;
   latestYear: number | null;
+  availableYears: number[];
   cyclistVehicleMatrix: MatrixRow[];
   pedestrianVehicleMatrix: MatrixRow[];
   epacWeatherBars: { label: string; value: number }[];
@@ -141,11 +142,12 @@ function computeMatrices(features: AccidentFeature[]): {
   return { cyclistMatrix, pedestrianMatrix };
 }
 
-export function useAccidentsStats(cityId: number | null): AccidentsStatsResult {
+export function useAccidentsStats(cityId: number | null, year?: number): AccidentsStatsResult {
   const [totalAccidents, setTotalAccidents] = useState(0);
   const [cyclistAccidents, setCyclistAccidents] = useState(0);
   const [pedestrianAccidents, setPedestrianAccidents] = useState(0);
   const [latestYear, setLatestYear] = useState<number | null>(null);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [cyclistVehicleMatrix, setCyclistVehicleMatrix] = useState<MatrixRow[]>([]);
   const [pedestrianVehicleMatrix, setPedestrianVehicleMatrix] = useState<MatrixRow[]>([]);
   const [epacWeatherBars, setEpacWeatherBars] = useState<{ label: string; value: number }[]>([]);
@@ -159,12 +161,9 @@ export function useAccidentsStats(cityId: number | null): AccidentsStatsResult {
     setLoading(true);
     setError(null);
 
-    // Totals come from the cheap summary endpoint; matrices are computed from
-    // the cyclist subset (smaller payload, and the cyclist matrix is bike-only
-    // by definition). Pedestrian matrix here covers bike-vs-pedestrian only.
     Promise.all([
-      fetchAccidentsSummary(cityId),
-      fetchAccidents(cityId, true),
+      fetchAccidentsSummary(cityId, year),
+      fetchAccidents(cityId, true, year),
     ])
       .then(([summary, geojson]) => {
         if (cancelled) return;
@@ -179,6 +178,7 @@ export function useAccidentsStats(cityId: number | null): AccidentsStatsResult {
         setCyclistAccidents(summary.cyclist);
         setPedestrianAccidents(summary.pedestrian);
         setLatestYear(summary.latest_year);
+        setAvailableYears(summary.available_years ?? []);
         setCyclistVehicleMatrix(cyclistMatrix);
         setPedestrianVehicleMatrix(pedestrianMatrix);
         setEpacWeatherBars([
@@ -196,13 +196,14 @@ export function useAccidentsStats(cityId: number | null): AccidentsStatsResult {
     return () => {
       cancelled = true;
     };
-  }, [cityId]);
+  }, [cityId, year]);
 
   return {
     totalAccidents,
     cyclistAccidents,
     pedestrianAccidents,
     latestYear,
+    availableYears,
     cyclistVehicleMatrix,
     pedestrianVehicleMatrix,
     epacWeatherBars,

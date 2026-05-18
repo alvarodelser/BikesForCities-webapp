@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { GlassCard } from '../components/ui/GlassCard';
 import CityLeaderboard from '../components/compare/CityLeaderboard';
 import MobileTabs from '../components/compare/MobileTabs';
 import CityComparisonTab from '../components/compare/CityComparisonTab';
-import { BarChart2, Network, MapPin, Car } from 'lucide-react';
+import { Network, MapPin, Car } from 'lucide-react';
+import CompareOverviewChart from '../components/compare/CompareOverviewChart';
+import CompareTripsChart from '../components/compare/CompareTripsChart';
 import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import type { CompareMode } from '../components/compare/StaticCityMap';
@@ -118,7 +119,7 @@ const ComparePage: React.FC = () => {
 
         {/* ── Tab 1: Leaderboard ─────────────────────────────────────────── */}
         <MobileTabs.Tab id="leaderboard" label="Clasificación">
-          <section className="py-8 md:py-16 px-4 md:px-6 relative z-10" style={{ backgroundColor: 'transparent' }}>
+          <section id="leaderboard-section" className="py-8 md:py-16 px-4 md:px-6 relative z-10" style={{ backgroundColor: 'transparent' }}>
             <div className="max-w-[var(--container-max)] 3xl:max-w-none mx-auto">
               <CityLeaderboard
                 selectedCityPaths={selectedPaths}
@@ -144,15 +145,9 @@ const ComparePage: React.FC = () => {
               <h2 className="text-2xl font-bold text-white mb-8" style={{ fontFamily: 'var(--heading)' }}>
                 Visión general
               </h2>
-              <div className="grid md:grid-cols-2 gap-6">
-                <GlassCard surface="inset" depth="md" size="lg" className="flex flex-col items-center justify-center gap-3 min-h-[220px]">
-                  <BarChart2 size={36} className="text-white/20" />
-                  <p className="text-white/30 text-sm font-medium">Gráfico próximamente</p>
-                </GlassCard>
-                <GlassCard surface="inset" depth="md" size="lg" className="flex flex-col items-center justify-center gap-3 min-h-[220px]">
-                  <BarChart2 size={36} className="text-white/20" />
-                  <p className="text-white/30 text-sm font-medium">Gráfico próximamente</p>
-                </GlassCard>
+              <div className="flex flex-col gap-6">
+                <CompareOverviewChart selectedCities={selectedCities} />
+                <CompareTripsChart selectedCities={selectedCities} />
               </div>
             </div>
           </section>

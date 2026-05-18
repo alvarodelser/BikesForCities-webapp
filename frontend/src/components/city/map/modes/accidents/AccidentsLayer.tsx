@@ -89,9 +89,10 @@ function toSelectionParticipants(raw: AccidentParticipant[]): SelectionParticipa
 
 interface AccidentsLayerProps {
     submode: string;
+    year?: number;
 }
 
-export default function AccidentsLayer({ submode }: AccidentsLayerProps) {
+export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
     const { map, city, setLayerState } = useMap();
     const activeIdRef = useRef<string | null>(null);
     const globalClickHandlerRef = useRef<((e: maplibregl.MapMouseEvent) => void) | null>(null);
@@ -140,7 +141,9 @@ export default function AccidentsLayer({ submode }: AccidentsLayerProps) {
         if (!map || !city?.id) return;
 
         const cityId = city.id;
-        const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?city_id=${cityId}&cyclists_only=${cyclistsOnly}`;
+        const tileParams = new URLSearchParams({ city_id: String(cityId), cyclists_only: String(cyclistsOnly) });
+        if (year != null) tileParams.set('year', String(year));
+        const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?${tileParams}`;
 
         setLayerState?.('loading');
 
@@ -250,7 +253,7 @@ export default function AccidentsLayer({ submode }: AccidentsLayerProps) {
             map.off('sourcedata', onSourceData);
             map.off('error', onError);
         };
-    }, [map, city?.id, cyclistsOnly, clearSelection, setLayerState]);
+    }, [map, city?.id, cyclistsOnly, year, clearSelection, setLayerState]);
 
     return null;
 }

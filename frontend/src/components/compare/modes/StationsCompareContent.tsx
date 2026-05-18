@@ -1,3 +1,4 @@
+import { formatPopulation } from '../../../utils/formatters';
 import type { CityData } from '../../../constants/cities';
 import StaticCityMap from '../StaticCityMap';
 import CompareStationsChart from '../CompareStationsChart';
@@ -37,6 +38,11 @@ export default function StationsCompareContent({ selectedCities }: StationsCompa
                         );
                     }
 
+                    const metrics = [
+                        { label: 'Estaciones', value: city.stations_count != null ? formatPopulation(city.stations_count) : '—' },
+                        { label: 'Bicicletas', value: city.bicycles_count != null ? formatPopulation(city.bicycles_count) : '—' },
+                    ];
+
                     return (
                         <div key={idx}>
                             <div
@@ -45,6 +51,25 @@ export default function StationsCompareContent({ selectedCities }: StationsCompa
                             >
                                 <div className="absolute inset-0">
                                     <StaticCityMap city={city} mode="stations" />
+                                </div>
+
+                                {/* Metrics — top right, no city name */}
+                                <div
+                                    className="absolute top-3 right-3 z-10 rounded-xl px-3 py-2.5 backdrop-blur-md"
+                                    style={{
+                                        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+                                        border: '1px solid rgba(255, 255, 255, 0.18)',
+                                        borderRight: `3px solid ${cityColor}`,
+                                    }}
+                                >
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                                        {metrics.map((m, mi) => (
+                                            <div key={mi}>
+                                                <span className="text-[#003849]/60 text-[9px] uppercase tracking-wider block leading-none mb-0.5">{m.label}</span>
+                                                <span className="text-[#003849] text-sm font-bold leading-none">{m.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-1.5 mt-2 px-1">

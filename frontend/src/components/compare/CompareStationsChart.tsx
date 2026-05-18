@@ -9,29 +9,37 @@ interface CompareStationsChartProps {
 }
 
 export default function CompareStationsChart({ cities, colors }: CompareStationsChartProps) {
-    const [datasets, setDatasets] = useState<({ month: string; trips: number }[] | null)[]>([]);
+    const [datasets, setDatasets] = useState<{ month: string; trips: number }[][]>([]);
+    const [loading, setLoading] = useState(true);
 
     const cityKey = cities.map(c => c.id).join(',');
 
     useEffect(() => {
-        setDatasets(cities.map(() => null));
-        cities.forEach((city, i) => {
-            if (!city.id) {
-                setDatasets(prev => { const n = [...prev]; n[i] = []; return n; });
-                return;
-            }
-            fetchStationMonthly(city.id)
+        let active = true;
+        setLoading(true);
+
+        const promises = cities.map(city => {
+            if (!city.id) return Promise.resolve([] as { month: string; trips: number }[]);
+            return fetchStationMonthly(city.id)
                 .then(rows => {
-                    const data = rows
+                    return rows
                         .filter(r => r.month != null && (r.estimated_trips ?? 0) > 0)
                         .map(r => ({ month: r.month!, trips: r.estimated_trips ?? 0 }));
-                    setDatasets(prev => { const n = [...prev]; n[i] = data; return n; });
                 })
-                .catch(() => setDatasets(prev => { const n = [...prev]; n[i] = []; return n; }));
+                .catch(() => [] as { month: string; trips: number }[]);
         });
-    }, [cityKey]);
 
-    const loading = datasets.length < cities.length || datasets.some(d => d === null);
+        Promise.all(promises).then(results => {
+            if (active) {
+                setDatasets(results);
+                setLoading(false);
+            }
+        });
+
+        return () => {
+            active = false;
+        };
+    }, [cityKey]);
 
     if (loading) {
         return <div className="rounded-2xl border border-black/[0.06] bg-white/40 animate-pulse" style={{ height: 220 }} />;

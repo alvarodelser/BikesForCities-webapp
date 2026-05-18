@@ -16,7 +16,7 @@ import { MAP_MODES } from '../../../../constants/mapModes';
 
 export interface ModeConfig {
     /** Pure-imperative MapLibre component — returns null */
-    layer: React.ComponentType<{ submode: string }>;
+    layer: React.ComponentType<{ submode: string; year?: number }>;
     /** Legend UI component */
     legend: React.ComponentType;
     /** Stats UI component */

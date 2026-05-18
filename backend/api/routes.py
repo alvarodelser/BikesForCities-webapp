@@ -888,6 +888,7 @@ def get_edge_routes(
 def get_city_accidents(
     city_id: int,
     cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
+    year: Optional[int] = Query(None, description="Filter to a specific year"),
     conn=Depends(get_db_connection),
 ):
     """Slim GeoJSON FeatureCollection for the map (no per-victim participants).
@@ -899,7 +900,7 @@ def get_city_accidents(
         with conn.cursor() as _cur:
             _cur.execute("SET LOCAL statement_timeout = '30s'")
         validate_network_exists(conn, city_id)
-        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only)
+        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only, year=year)
         return {
             "data": geojson,
             "count": len(geojson["features"]),
@@ -913,11 +914,15 @@ def get_city_accidents(
 
 
 @router.get("/cities/{city_id}/accidents/summary")
-def get_city_accidents_summary(city_id: int, conn=Depends(get_db_connection)):
-    """Aggregate counts (total / cyclist / pedestrian / latest_year)."""
+def get_city_accidents_summary(
+    city_id: int,
+    year: Optional[int] = Query(None, description="Filter counts to a specific year"),
+    conn=Depends(get_db_connection),
+):
+    """Aggregate counts (total / cyclist / pedestrian / latest_year / available_years)."""
     try:
         validate_network_exists(conn, city_id)
-        return {"data": get_accidents_summary(conn, city_id)}
+        return {"data": get_accidents_summary(conn, city_id, year=year)}
     except HTTPException:
         raise
     except Exception as e:

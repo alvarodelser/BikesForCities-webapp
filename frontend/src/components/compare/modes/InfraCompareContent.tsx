@@ -73,16 +73,16 @@ export default function InfraCompareContent({ selectedCities }: InfraCompareCont
                                 <div
                                     className="absolute top-3 right-3 z-10 rounded-xl px-3 py-2.5 backdrop-blur-md"
                                     style={{
-                                        backgroundColor: 'rgba(255,255,255,0.10)',
-                                        border: '1px solid rgba(255,255,255,0.18)',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.10)',
+                                        border: '1px solid rgba(255, 255, 255, 0.18)',
                                         borderRight: `3px solid ${cityColor}`,
                                     }}
                                 >
                                     <div className="grid grid-cols-3 gap-x-3 gap-y-1.5">
                                         {metrics.map((m, mi) => (
                                             <div key={mi}>
-                                                <span className="text-white/40 text-[9px] uppercase tracking-wider block leading-none mb-0.5">{m.label}</span>
-                                                <span className="text-white text-sm font-bold leading-none">{m.value}</span>
+                                                <span className="text-[#003849]/60 text-[9px] uppercase tracking-wider block leading-none mb-0.5">{m.label}</span>
+                                                <span className="text-[#003849] text-sm font-bold leading-none">{m.value}</span>
                                             </div>
                                         ))}
                                     </div>
