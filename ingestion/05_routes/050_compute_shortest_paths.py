@@ -18,7 +18,6 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 from dotenv import load_dotenv
-from concurrent.futures import ProcessPoolExecutor
 import networkx as nx
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -41,21 +40,6 @@ from backend.processing.city_ops import build_graph
 from backend.processing.route_strategy import shortest_path
 
 PROCESS_NAME = "050_compute_shortest_paths"
-
-worker_graph = None
-
-
-def init_worker():
-    pass  # graph inherited via fork — no pickling needed
-
-
-def compute_path_worker(args):
-    origin_node, dest_node = args
-    try:
-        return shortest_path(worker_graph, origin_node, dest_node)
-    except Exception:
-        return None
-
 
 def process_city(conn, city_id: int, city_name: str,
                  batch_size: int = 500, num_workers: int | None = None,
@@ -91,27 +75,21 @@ def process_city(conn, city_id: int, city_name: str,
         total_unique_paths = 0
 
         print("   🌐 Building graph...")
-        global worker_graph
-        worker_graph = build_graph(conn, city_id)
+        graph = build_graph(conn, city_id)
         edge_id_map = get_edge_id_map(conn, city_id)
-        print(f"   🗺️  {len(edge_id_map):,} edges loaded. Spawning workers...")
+        print(f"   🗺️  {len(edge_id_map):,} edges loaded.")
 
-        with ProcessPoolExecutor(max_workers=num_workers,
-                                 initializer=init_worker) as executor:
+        with tqdm(total=pending, desc=f"   {city_name}", unit="trips") as pbar:
             while True:
                 groups = get_unrouted_trip_groups(conn, city_id, limit=batch_size)
                 if not groups:
                     break
 
-                tasks = [(g[0], g[1]) for g in groups]
-                results = list(tqdm(
-                    executor.map(compute_path_worker, tasks, chunksize=50),
-                    total=len(tasks),
-                    desc=f"   Computing ({total_trips_processed:,} done)",
-                    unit="OD",
-                ))
-
-                for (origin_node, dest_node, count, trip_ids), path in zip(groups, results):
+                for origin_node, dest_node, count, trip_ids in groups:
+                    try:
+                        path = shortest_path(graph, origin_node, dest_node)
+                    except Exception:
+                        path = None
                     if not path:
                         continue
 
@@ -129,6 +107,7 @@ def process_city(conn, city_id: int, city_name: str,
                     put_path_nodes(conn, path_id, [int(n) for n in path])
                     bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
                     total_trips_processed += len(trip_ids)
+                    pbar.update(len(trip_ids))
 
                 conn.commit()
 
