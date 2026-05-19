@@ -25,6 +25,15 @@ _HEADERS = {
     "Accept": "application/sparql-results+json",
     "User-Agent": "BikesForCities/1.0",
 }
+# QLever does not pre-define Wikidata prefixes — must declare them in every query.
+_PREFIXES = """
+PREFIX wd:  <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX p:   <http://www.wikidata.org/prop/>
+PREFIX ps:  <http://www.wikidata.org/prop/statement/>
+PREFIX pq:  <http://www.wikidata.org/prop/qualifier/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+"""
 
 
 def run_sparql(query: str) -> pd.DataFrame:
@@ -60,7 +69,7 @@ def _qid(uri: str) -> str:
 def fetch_basics(wikidata_ids: list) -> dict:
     """Return {qid: {population, website}} for all requested cities in one query."""
     values = " ".join(f"wd:{qid}" for qid in wikidata_ids)
-    query = f"""
+    query = _PREFIXES + f"""
     SELECT ?city ?population ?website WHERE {{
       VALUES ?city {{ {values} }}
       OPTIONAL {{ ?city wdt:P1082 ?population. }}
@@ -91,7 +100,7 @@ def fetch_mayors(wikidata_ids: list) -> dict:
     """Return {qid: DataFrame} of deduplicated mayor history for all cities in one query."""
     values = " ".join(f"wd:{qid}" for qid in wikidata_ids)
     # QLever does not support SERVICE wikibase:label — use rdfs:label with FILTER instead.
-    query = f"""
+    query = _PREFIXES + f"""
     SELECT ?city ?mayorLabel ?start ?end ?partyLabel ?partyStart ?partyEnd WHERE {{
       VALUES ?city {{ {values} }}
       ?city wdt:P1313 ?position .
