@@ -266,14 +266,14 @@ export const fetchTrafficResolve = async (
 export const fetchODFlows = async (
   cityId: number,
   generationType: string,
-  minTrips: number = 1,
+  period?: string,
   resolution: number = 8,
 ): Promise<GeoJSON.FeatureCollection> => {
   const params = new URLSearchParams({
     generation_type: generationType,
-    min_trips: String(minTrips),
     resolution: String(resolution),
   });
+  if (period) params.set('period', period);
   const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/trips/od-flows?${params}`);
   if (!response.ok) throw new Error('Error al cargar flujos O-D');
   return response.json();

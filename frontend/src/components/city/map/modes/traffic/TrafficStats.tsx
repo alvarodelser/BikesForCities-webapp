@@ -140,7 +140,8 @@ type Combo = { generation_type: string; algorithm: string };
 
 const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
   // Shared state via URL params — TrafficLayer reads/writes the same values
-  const { generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
+  const { generation, routing, period, submode, setGeneration, setRouting, setPeriod } = useMapState();
+  const isODMode = submode === 'od';
 
   const combos = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
 
@@ -234,14 +235,16 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
           activeValue={generation || undefined}
           onSelect={handleGenerationSelect}
         />
-        <FilterCard
-          icon={Route}
-          title="Enrutamiento"
-          description="Algoritmo de asignación de rutas"
-          options={ALGORITHM_OPTIONS.map(o => ({ ...o, disabled: !availableAlgorithms.has(o.value) }))}
-          activeValue={routing || undefined}
-          onSelect={v => setRouting(v)}
-        />
+        <div style={{ opacity: isODMode ? 0.4 : 1, pointerEvents: isODMode ? 'none' : undefined }}>
+          <FilterCard
+            icon={Route}
+            title="Enrutamiento"
+            description={isODMode ? 'No aplica en Origen-Destino' : 'Algoritmo de asignación de rutas'}
+            options={ALGORITHM_OPTIONS.map(o => ({ ...o, disabled: !availableAlgorithms.has(o.value) || isODMode }))}
+            activeValue={routing || undefined}
+            onSelect={v => setRouting(v)}
+          />
+        </div>
       </div>
 
       {/* ── Row 1: Viajes + Tráfico en carril ───────────────────────────── */}

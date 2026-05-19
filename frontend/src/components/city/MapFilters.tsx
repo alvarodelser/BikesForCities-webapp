@@ -35,17 +35,16 @@ const VIZ_SUBMODES: Partial<Record<string, { items: VizSubmode[]; requiresEdge?:
   },
   [MAP_MODES.TRAFFIC]: {
     items: [
-      { id: 'traces',  label: 'Trayecto' },
-      { id: 'heatmap', label: 'Calor' },
+      { id: 'rutas', label: 'Rutas' },
+      { id: 'od',    label: 'Origen-Destino' },
     ],
-    requiresEdge: true,
   },
 };
 
 // Default viz submode per mode
 const DEFAULT_SUBMODE: Partial<Record<string, string>> = {
   [MAP_MODES.STATIONS]: 'trips',
-  [MAP_MODES.TRAFFIC]:  'traces',
+  [MAP_MODES.TRAFFIC]:  'rutas',
 };
 
 const MODE_META = [
@@ -183,7 +182,7 @@ function ExpandingPill({
   cityId, onModeClick, onSubmodeClick, onPeriodChange,
 }: PillProps) {
   const viz = VIZ_SUBMODES[modeId];
-  const showSubmodes = active && viz && (!viz.requiresEdge || edgeSelected);
+  const showSubmodes = active && !!viz;
   const showAccidentsTimeline = active && modeId === MAP_MODES.ACCIDENTS;
 
   return (
@@ -215,17 +214,6 @@ function ExpandingPill({
           {name}
         </span>
       </div>
-
-      {/* Hint: traffic with no edge yet */}
-      {active && modeId === MAP_MODES.TRAFFIC && viz?.requiresEdge && !edgeSelected && (
-        <div
-          className="relative z-10 border-t px-3 pb-2 text-[10px] italic text-center leading-tight"
-          style={{ borderColor: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)' }}
-          onClick={e => e.stopPropagation()}
-        >
-          Selecciona un tramo
-        </div>
-      )}
 
       {/* Bottom half: viz submode row */}
       {showSubmodes && (

@@ -200,7 +200,14 @@ def get_paginated_trips(
         return cur.fetchall(), total
 
 
-def get_od_hex_flows(conn, city_id: int, generation_type: str, resolution: int = 8, min_trips: int = 1) -> dict:
+def get_od_hex_flows(
+    conn,
+    city_id: int,
+    generation_type: str,
+    period: str | None = None,
+    resolution: int = 8,
+    min_trips: int | None = None,
+) -> dict:
     """Return a GeoJSON FeatureCollection of O-D flows aggregated by H3 hex at the given resolution.
 
     Each feature is a LineString from origin hex center to destination hex center,
@@ -209,6 +216,8 @@ def get_od_hex_flows(conn, city_id: int, generation_type: str, resolution: int =
     """
     import h3
     from collections import defaultdict
+
+    period_date = (period + '-01') if period else None
 
     # Aggregate at node-pair level in SQL to avoid shipping every row to Python
     with conn.cursor() as cur:
@@ -219,8 +228,9 @@ def get_od_hex_flows(conn, city_id: int, generation_type: str, resolution: int =
             JOIN nodes n2 ON n2.id = t.dest_node   AND n2.city_id = t.city_id
             WHERE t.city_id = %s AND t.generation_type = %s
               AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
+              AND (%s IS NULL OR DATE_TRUNC('month', t.datetime_unlock) = %s::date)
             GROUP BY n1.lat, n1.lon, n2.lat, n2.lon
-        """, (city_id, generation_type))
+        """, (city_id, generation_type, period_date, period_date))
         node_pairs = cur.fetchall()
 
     hex_counts: dict = defaultdict(int)
@@ -241,6 +251,11 @@ def get_od_hex_flows(conn, city_id: int, generation_type: str, resolution: int =
 
     if not hex_counts:
         return {"type": "FeatureCollection", "features": []}
+
+    if min_trips is None:
+        total = sum(hex_counts.values())
+        num_origins = len({oh for oh, _ in hex_counts})
+        min_trips = max(1, total // (num_origins * 5))
 
     max_count = max(hex_counts.values())
     features = []

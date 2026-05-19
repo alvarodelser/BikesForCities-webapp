@@ -340,13 +340,13 @@ def get_network_trips(
 def get_od_flows(
     city_id: int,
     generation_type: str = Query(..., description="Trip generation type"),
-    min_trips: int = Query(1, ge=1, description="Minimum trips per hex pair to include"),
+    period: Optional[str] = Query(None, description="Month filter YYYY-MM"),
     resolution: int = Query(8, ge=6, le=10, description="H3 resolution (8 ≈ 0.5 km edge)"),
     conn=Depends(get_db_connection),
 ):
     """O-D flows aggregated by H3 hex as a GeoJSON FeatureCollection."""
     try:
-        geojson = get_od_hex_flows(conn, city_id, generation_type, resolution=resolution, min_trips=min_trips)
+        geojson = get_od_hex_flows(conn, city_id, generation_type, period=period, resolution=resolution)
         return geojson
     except Exception as e:
         logger.error(f"Error computing OD hex flows for city {city_id}: {e}")

@@ -11,8 +11,8 @@ const SUBMODE_LABELS: Record<string, string> = {
     trips:    'Viajes',
     downtime: 'Tiempo',
     reach:    'Alcance',
-    traces:   'Trayecto',
-    heatmap:  'Calor',
+    rutas:    'Rutas',
+    od:       'Origen-Destino',
 };
 
 interface CityLegendProps {
@@ -72,8 +72,7 @@ export default function CityLegend({ colorScheme, bottomOffset = 0, defaultOpen 
     const LegendContent = config.legend;
     const submodes = config.submodes;
     const activeSubmode = submode || config.defaultSubmode;
-    // Traffic submode (Trayecto/Calor) lives in the SelectionPanel, not the legend header
-    const hasSubmodes = submodes.length > 0 && mode !== 'traffic';
+    const hasSubmodes = submodes.length > 0;
     const hasSelection = !!selection;
 
     const accent = colorScheme?.primary ?? '#027A76';

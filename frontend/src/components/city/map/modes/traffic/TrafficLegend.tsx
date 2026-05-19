@@ -1,18 +1,64 @@
 import { useEffect, useState } from 'react';
 import { useThresholds } from '../../ThresholdsContext';
-import TrafficModeSelectors from './TrafficModeSelectors';
+import { useMapState } from '../../../../../hooks/useMapState';
 
 export default function TrafficLegend() {
     const { thresholds } = useThresholds();
+    const { submode } = useMapState();
 
-    // When an edge is selected, the selection panel shows the blue colormap — hide the green one
     const [hasSelection, setHasSelection] = useState(false);
+    const [selectedHex, setSelectedHex] = useState<string | null>(null);
+
     useEffect(() => {
         const handler = (e: Event) => setHasSelection(!!(e as CustomEvent).detail);
         window.addEventListener('map-selection', handler);
         return () => window.removeEventListener('map-selection', handler);
     }, []);
 
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const hex = (e as CustomEvent<{ hex: string | null }>).detail?.hex ?? null;
+            setSelectedHex(hex);
+        };
+        window.addEventListener('trips-hex-selected', handler);
+        return () => window.removeEventListener('trips-hex-selected', handler);
+    }, []);
+
+    if (submode === 'od') {
+        return (
+            <div className="flex flex-col gap-2 w-full">
+                {!selectedHex ? (
+                    <>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[14px] leading-none text-black/30">⬡</span>
+                            <span className="text-[10px] font-semibold text-black/55">Región</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-[2px] rounded-full" style={{ backgroundColor: '#7c3aed', opacity: 0.65 }} />
+                            <span className="text-[10px] font-semibold text-black/55">Flujo de viajes</span>
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div className="flex items-center gap-2">
+                            <span className="text-[14px] leading-none" style={{ color: 'rgba(255,255,255,0.7)' }}>⬡</span>
+                            <span className="text-[10px] font-semibold text-black/55">Región seleccionada</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-[2px] rounded-full" style={{ backgroundColor: '#3b82f6', opacity: 0.85 }} />
+                            <span className="text-[10px] font-semibold text-black/55">Flujos de entrada</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-[2px] rounded-full" style={{ backgroundColor: '#f59e0b', opacity: 0.85 }} />
+                            <span className="text-[10px] font-semibold text-black/55">Flujos de salida</span>
+                        </div>
+                    </>
+                )}
+            </div>
+        );
+    }
+
+    // Rutas submode
     return (
         <div className="flex flex-col gap-2 w-full">
             {!hasSelection && thresholds == null && (
@@ -57,7 +103,6 @@ export default function TrafficLegend() {
                     <div className="text-[8px] text-black/25 italic">&lt; P5 no representado</div>
                 </>
             )}
-            <TrafficModeSelectors />
         </div>
     );
 }

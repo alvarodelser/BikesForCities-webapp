@@ -4,7 +4,7 @@ import InfrastructureLayer from './infrastructure/InfrastructureLayer';
 import InfrastructureLegend from './infrastructure/InfrastructureLegend';
 import StationsLayer from './stations/StationsLayer';
 import StationsLegend from './stations/StationsLegend';
-import TrafficLayer from './traffic/TrafficLayer';
+import TrafficModeLayer from './traffic/TrafficModeLayer';
 import TrafficLegend from './traffic/TrafficLegend';
 import AccidentsStats from './accidents/AccidentsStats';
 import InfraStats from './infrastructure/InfraStats';
@@ -50,10 +50,10 @@ export const MODES: Record<string, ModeConfig> = {
         defaultSubmode: 'trips',
     },
     [MAP_MODES.TRAFFIC]: {
-        layer:          TrafficLayer,
+        layer:          TrafficModeLayer,
         legend:         TrafficLegend,
         stats:          TrafficStats,
-        submodes:       ['traces', 'heatmap'],
-        defaultSubmode: 'traces',
+        submodes:       ['rutas', 'od'],
+        defaultSubmode: 'rutas',
     },
 };
