@@ -44,10 +44,13 @@ def count_unrouted_trips(conn, city_id: int) -> int:
             """
             SELECT COUNT(*)
             FROM trips t
-            LEFT JOIN routes r  ON r.trip_id = t.id
-            LEFT JOIN paths  p  ON p.id = r.path_id AND p.algorithm = 'shortest'
-            WHERE t.city_id = %s AND p.id IS NULL
+            WHERE t.city_id = %s
               AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM routes r
+                JOIN paths p ON p.id = r.path_id AND p.algorithm = 'shortest'
+                WHERE r.trip_id = t.id
+              )
             """,
             (city_id,),
         )
@@ -60,21 +63,48 @@ def get_unrouted_trip_groups(conn, city_id: int, limit: int = 1000) -> List[Tupl
     Returns: (origin_node, dest_node, count, trip_ids[])
     """
     with conn.cursor() as cur:
+        # Step 1: get top OD pairs without ARRAY_AGG (fast)
         cur.execute(
             """
-            SELECT t.origin_node, t.dest_node, COUNT(*), ARRAY_AGG(t.id)
+            SELECT t.origin_node, t.dest_node, COUNT(*) AS cnt
             FROM trips t
-            LEFT JOIN routes r ON r.trip_id = t.id
-            LEFT JOIN paths  p ON p.id = r.path_id AND p.algorithm = 'shortest'
-            WHERE t.city_id = %s AND p.id IS NULL
+            WHERE t.city_id = %s
               AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
+              AND NOT EXISTS (
+                SELECT 1 FROM routes r
+                JOIN paths p ON p.id = r.path_id AND p.algorithm = 'shortest'
+                WHERE r.trip_id = t.id
+              )
             GROUP BY t.origin_node, t.dest_node
-            ORDER BY COUNT(*) DESC
+            ORDER BY cnt DESC
             LIMIT %s
             """,
             (city_id, limit),
         )
-        return cur.fetchall()
+        od_pairs = cur.fetchall()
+        if not od_pairs:
+            return []
+
+        # Step 2: fetch trip IDs for those OD pairs
+        result = []
+        for origin_node, dest_node, cnt in od_pairs:
+            cur.execute(
+                """
+                SELECT ARRAY_AGG(t.id)
+                FROM trips t
+                WHERE t.city_id = %s
+                  AND t.origin_node = %s AND t.dest_node = %s
+                  AND NOT EXISTS (
+                    SELECT 1 FROM routes r
+                    JOIN paths p ON p.id = r.path_id AND p.algorithm = 'shortest'
+                    WHERE r.trip_id = t.id
+                  )
+                """,
+                (city_id, origin_node, dest_node),
+            )
+            trip_ids = cur.fetchone()[0] or []
+            result.append((origin_node, dest_node, cnt, trip_ids))
+        return result
 
 
 def count_unsaferouted_trips(conn, city_id: int) -> int:
