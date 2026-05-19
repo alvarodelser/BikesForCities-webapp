@@ -213,7 +213,18 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
 
     const stickyRef = useRef<{ id: string | null; coords: [number, number]; props: any } | null>(null);
     const hourlyCache = useRef<Map<string, Record<string, HourlyAvailability[]>>>(new Map());
+    const stationMaxBikesRef = useRef<Map<string, number>>(new Map());
     const reachAbortRef = useRef<AbortController | null>(null);
+
+    const updateMedianFromActualData = useCallback(() => {
+        const maxes = Array.from(stationMaxBikesRef.current.values()).sort((a, b) => a - b);
+        if (maxes.length === 0) return;
+        const mid = Math.floor(maxes.length / 2);
+        const median = maxes.length % 2 === 0
+            ? (maxes[mid - 1] + maxes[mid]) / 2
+            : maxes[mid];
+        setMedianMaxBikes(median);
+    }, []);
 
     const cleanupReachLayers = useCallback(() => {
         if (!map) return;
@@ -261,26 +272,10 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 if (!data || data.length === 0) {
                     setLayerState?.('empty');
                     setStations([]);
-                    setMedianMaxBikes(undefined);
                     return;
                 }
                 setLayerState?.('idle');
                 setStations(data);
-
-                // Estimate max hourly bikes for each station based on monthly trips
-                const estimatedMaxes = data.map((s: any) => {
-                    const monthlyTrips = s.estimated_monthly_trips || 0;
-                    // Estimate: peak hourly bikes ~= sqrt(monthly_trips) as a rough proxy
-                    return Math.max(5, Math.sqrt(monthlyTrips));
-                }).sort((a: number, b: number) => a - b);
-
-                if (estimatedMaxes.length > 0) {
-                    const mid = Math.floor(estimatedMaxes.length / 2);
-                    const median = estimatedMaxes.length % 2 === 0
-                        ? (estimatedMaxes[mid - 1] + estimatedMaxes[mid]) / 2
-                        : estimatedMaxes[mid];
-                    setMedianMaxBikes(median);
-                }
 
                 const features = data.map(s => {
                     let normalizedName = (s.name || 'Sin nombre')
@@ -561,6 +556,11 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                             .then(data => {
                                 hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
+                                if (data.length > 0) {
+                                    const stationMax = Math.max(...data.map(d => d.avg_bikes), 5);
+                                    stationMaxBikesRef.current.set(props.id, stationMax);
+                                    updateMedianFromActualData();
+                                }
                                 const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
                                 dispatchSelection({ ...selectionDetail, chart, loading: false });
                             })
@@ -646,6 +646,12 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         // Update cache
                         hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
 
+                        if (data.length > 0) {
+                            const stationMax = Math.max(...data.map(d => d.avg_bikes), 5);
+                            stationMaxBikesRef.current.set(props.id, stationMax);
+                            updateMedianFromActualData();
+                        }
+
                         // Only update if this is still the selected station
                         if (stickyRef.current?.id === props.id) {
                             const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
@@ -666,7 +672,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         } else {
             dispatchSelection(selectionDetail);
         }
-    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection, medianMaxBikes]);
+    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection, medianMaxBikes, updateMedianFromActualData]);
 
     useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel, city]);
 
