@@ -213,18 +213,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
 
     const stickyRef = useRef<{ id: string | null; coords: [number, number]; props: any } | null>(null);
     const hourlyCache = useRef<Map<string, Record<string, HourlyAvailability[]>>>(new Map());
-    const stationMaxBikesRef = useRef<Map<string, number>>(new Map());
     const reachAbortRef = useRef<AbortController | null>(null);
-
-    const updateMedianFromActualData = useCallback(() => {
-        const maxes = Array.from(stationMaxBikesRef.current.values()).sort((a, b) => a - b);
-        if (maxes.length === 0) return;
-        const mid = Math.floor(maxes.length / 2);
-        const median = maxes.length % 2 === 0
-            ? (maxes[mid - 1] + maxes[mid]) / 2
-            : maxes[mid];
-        setMedianMaxBikes(median);
-    }, []);
 
     const cleanupReachLayers = useCallback(() => {
         if (!map) return;
@@ -272,10 +261,35 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 if (!data || data.length === 0) {
                     setLayerState?.('empty');
                     setStations([]);
+                    setMedianMaxBikes(undefined);
                     return;
                 }
-                setLayerState?.('idle');
                 setStations(data);
+
+                // Pre-compute median max bikes for the whole city
+                Promise.all(data.map(s => fetchStationHourlyAvailability(city!.id, s.station_id, 'all')))
+                    .then(allHourlyData => {
+                        const maxes = allHourlyData
+                            .map(hourly => Math.max(...hourly.map(h => h.avg_bikes), 5))
+                            .sort((a, b) => a - b);
+                        if (maxes.length > 0) {
+                            const mid = Math.floor(maxes.length / 2);
+                            const median = maxes.length % 2 === 0
+                                ? (maxes[mid - 1] + maxes[mid]) / 2
+                                : maxes[mid];
+                            setMedianMaxBikes(median);
+                        }
+                        // Cache the hourly data
+                        allHourlyData.forEach((hourly, idx) => {
+                            const stationId = data[idx].station_id;
+                            hourlyCache.current.set(stationId, { all: hourly });
+                        });
+                        setLayerState?.('idle');
+                    })
+                    .catch(err => {
+                        console.error('Failed to compute median max bikes:', err);
+                        setLayerState?.('idle');
+                    });
 
                 const features = data.map(s => {
                     let normalizedName = (s.name || 'Sin nombre')
@@ -556,11 +570,6 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                             .then(data => {
                                 hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
-                                if (data.length > 0) {
-                                    const stationMax = Math.max(...data.map(d => d.avg_bikes), 5);
-                                    stationMaxBikesRef.current.set(props.id, stationMax);
-                                    updateMedianFromActualData();
-                                }
                                 const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
                                 dispatchSelection({ ...selectionDetail, chart, loading: false });
                             })
@@ -646,12 +655,6 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         // Update cache
                         hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
 
-                        if (data.length > 0) {
-                            const stationMax = Math.max(...data.map(d => d.avg_bikes), 5);
-                            stationMaxBikesRef.current.set(props.id, stationMax);
-                            updateMedianFromActualData();
-                        }
-
                         // Only update if this is still the selected station
                         if (stickyRef.current?.id === props.id) {
                             const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
@@ -672,7 +675,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         } else {
             dispatchSelection(selectionDetail);
         }
-    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection, medianMaxBikes, updateMedianFromActualData]);
+    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection, medianMaxBikes]);
 
     useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel, city]);
 
