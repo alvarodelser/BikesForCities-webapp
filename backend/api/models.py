@@ -153,6 +153,8 @@ class StationResponse(BaseModel):
     citybikes_network_id: str
     estimated_monthly_trips: Optional[float] = None
     downtime_minutes: Optional[float] = None
+    estimated_inbound: Optional[float] = None
+    estimated_outbound: Optional[float] = None
     reach_coverage: Optional[float] = None
     building_count: Optional[int] = None
     extra: Optional[Dict[str, Any]] = None

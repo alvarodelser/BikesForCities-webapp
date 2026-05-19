@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
-import { fetchStations, fetchStationHourlyAvailability, fetchStationReach } from '../../../../../services/api';
+import { fetchStations, fetchStationHourlyAvailability, fetchStationMedianMaxHourlyBikes, fetchStationReach } from '../../../../../services/api';
 import type { HourlyAvailability } from '../../../../../services/api';
 import type { SelectionDetail } from '../../../../../types/selection';
 
@@ -264,32 +264,13 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     setMedianMaxBikes(undefined);
                     return;
                 }
+                setLayerState?.('idle');
                 setStations(data);
 
-                // Pre-compute median max bikes for the whole city
-                Promise.all(data.map(s => fetchStationHourlyAvailability(city!.id, s.station_id, 'all')))
-                    .then(allHourlyData => {
-                        const maxes = allHourlyData
-                            .map(hourly => Math.max(...hourly.map(h => h.avg_bikes), 5))
-                            .sort((a, b) => a - b);
-                        if (maxes.length > 0) {
-                            const mid = Math.floor(maxes.length / 2);
-                            const median = maxes.length % 2 === 0
-                                ? (maxes[mid - 1] + maxes[mid]) / 2
-                                : maxes[mid];
-                            setMedianMaxBikes(median);
-                        }
-                        // Cache the hourly data
-                        allHourlyData.forEach((hourly, idx) => {
-                            const stationId = data[idx].station_id;
-                            hourlyCache.current.set(stationId, { all: hourly });
-                        });
-                        setLayerState?.('idle');
-                    })
-                    .catch(err => {
-                        console.error('Failed to compute median max bikes:', err);
-                        setLayerState?.('idle');
-                    });
+                // Fetch city-wide median in the background — doesn't block map load
+                fetchStationMedianMaxHourlyBikes(city!.id)
+                    .then(median => { if (median !== null) setMedianMaxBikes(median); })
+                    .catch(() => { /* non-critical, plots just auto-scale */ });
 
                 const features = data.map(s => {
                     let normalizedName = (s.name || 'Sin nombre')
@@ -305,6 +286,8 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                             usage: s.estimated_monthly_trips || 0,
                             downtime: s.downtime_minutes || 0,
                             reach_coverage: s.reach_coverage || 0,
+                            inbound: s.estimated_inbound || 0,
+                            outbound: s.estimated_outbound || 0,
                         },
                     };
                 });
@@ -551,6 +534,8 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                         { label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` },
                     ] : [
                         { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
+                        ...(props.inbound > 0 ? [{ label: 'Demanda entrante', value: `${Math.round(props.inbound)} v/mes` }] : []),
+                        ...(props.outbound > 0 ? [{ label: 'Demanda saliente', value: `${Math.round(props.outbound)} v/mes` }] : []),
                     ],
                     periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
                     activePeriod: activePeriod,
@@ -630,7 +615,11 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
             rows: metric === 'downtime'
                 ? [{ label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` }]
-                : [{ label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` }],
+                : [
+                    { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
+                    ...(props.inbound > 0 ? [{ label: 'Demanda entrante', value: `${Math.round(props.inbound)} v/mes` }] : []),
+                    ...(props.outbound > 0 ? [{ label: 'Demanda saliente', value: `${Math.round(props.outbound)} v/mes` }] : []),
+                ],
             periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
             activePeriod: activePeriod,
             onPeriodChange: (period: string) => setActivePeriod(period),

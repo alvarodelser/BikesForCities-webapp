@@ -45,20 +45,21 @@ def get_stations(conn, city_id: int) -> List[Tuple]:
 def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0) -> Tuple[list, int]:
     """Retrieve paginated stations for API."""
     with conn.cursor() as cur:
-        # Count
         cur.execute("SELECT COUNT(*) FROM stations WHERE city_id = %s AND merged_into_id IS NULL", (city_id,))
         total = cur.fetchone()[0]
-        
+
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         query = """
             SELECT
                 s.id, s.station_id, s.name, s.lat, s.lon, s.citybikes_network_id,
                 s.extra, s.reach_coverage, s.building_count,
-                sm.estimated_trips  AS estimated_monthly_trips,
-                sm.downtime_minutes
+                sm.estimated_trips       AS estimated_monthly_trips,
+                sm.downtime_minutes,
+                sm.estimated_inbound,
+                sm.estimated_outbound
             FROM stations s
             LEFT JOIN LATERAL (
-                SELECT estimated_trips, downtime_minutes
+                SELECT estimated_trips, downtime_minutes, estimated_inbound, estimated_outbound
                 FROM station_monthly
                 WHERE city_id = s.city_id
                   AND citybikes_network_id = s.citybikes_network_id
@@ -72,6 +73,37 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
         """
         cur.execute(query, (city_id, limit, offset))
         return cur.fetchall(), total
+
+
+def get_city_median_max_hourly_bikes(conn, city_id: int) -> Optional[float]:
+    """Compute the median (across stations) of each station's peak hourly bike availability.
+
+    Uses the last 3 months of readings. Returns None if no data.
+    """
+    with conn.cursor() as cur:
+        cur.execute("""
+            WITH station_hourly AS (
+                SELECT
+                    s.station_id,
+                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY r.available_bikes) AS median_bikes
+                FROM station_readings r
+                JOIN stations s ON s.citybikes_network_id = r.citybikes_network_id
+                                AND s.station_id = r.station_id
+                WHERE s.city_id = %s
+                  AND s.merged_into_id IS NULL
+                  AND r.observed_at >= NOW() - INTERVAL '3 months'
+                GROUP BY s.station_id, EXTRACT(hour FROM r.observed_at AT TIME ZONE 'UTC')
+            ),
+            station_max AS (
+                SELECT station_id, MAX(median_bikes) AS max_hourly_bikes
+                FROM station_hourly
+                GROUP BY station_id
+            )
+            SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY max_hourly_bikes)
+            FROM station_max
+        """, (city_id,))
+        row = cur.fetchone()
+        return float(row[0]) if row and row[0] is not None else None
 
 
 def has_station_readings_for_month(conn, network_id: str, start: dt.datetime, end: dt.datetime) -> bool:

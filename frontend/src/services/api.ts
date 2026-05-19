@@ -61,6 +61,8 @@ export interface StationData {
   citybikes_network_id: string;
   estimated_monthly_trips: number | null;
   downtime_minutes: number | null;
+  estimated_inbound: number | null;
+  estimated_outbound: number | null;
   reach_coverage?: number;
   building_count?: number;
   extra?: any;
@@ -119,6 +121,15 @@ export const fetchSystemStatus = async (): Promise<SystemStatus> => {
   if (!response.ok) throw new Error('Error al cargar el estado del sistema');
   const result = await response.json();
   return result.data;
+};
+
+export const fetchStationMedianMaxHourlyBikes = async (cityId: number): Promise<number | null> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/stations/median-max-hourly-bikes`
+  );
+  if (!response.ok) return null;
+  const result = await response.json();
+  return result.data?.median_max_hourly_bikes ?? null;
 };
 
 export const fetchStationHourlyAvailability = async (

@@ -37,7 +37,7 @@ from backend.database.db_io import (
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
-    get_station_hourly_availability, get_station_reachability,
+    get_station_hourly_availability, get_city_median_max_hourly_bikes, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
     get_accidents_geojson, get_accidents_summary, get_accident_detail,
     get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson,
@@ -513,6 +513,17 @@ def get_city_stations(city_id: int, conn=Depends(get_db_connection)):
     except Exception as e:
         logger.error(f"Error getting stations for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener las estaciones")
+
+
+@router.get("/cities/{city_id}/stations/median-max-hourly-bikes")
+def get_city_median_max_hourly_bikes_api(city_id: int, conn=Depends(get_db_connection)):
+    """Median across stations of each station's peak hourly bike availability (last 3 months)."""
+    try:
+        value = get_city_median_max_hourly_bikes(conn, city_id)
+        return {"data": {"median_max_hourly_bikes": value}}
+    except Exception as e:
+        logger.error(f"Error computing median max hourly bikes for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al calcular la disponibilidad horaria")
 
 
 @router.get("/cities/{city_id}/stations/{station_id}/hourly-availability")
