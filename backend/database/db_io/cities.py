@@ -25,8 +25,29 @@ def get_or_create_city(
     center_lon: Optional[float] = None,
     radius: Optional[float] = None,
     wikidata_id: Optional[str] = None,
+    force: bool = False,
 ) -> int:
     with conn.cursor() as cur:
+        if force:
+            cur.execute(
+                """
+                UPDATE cities SET
+                    name          = %s,
+                    alt_name      = %s,
+                    description   = COALESCE(%s, description),
+                    center_lat    = COALESCE(%s, center_lat),
+                    center_lon    = COALESCE(%s, center_lon),
+                    radius        = COALESCE(%s, radius),
+                    wikidata_id   = %s
+                WHERE slug = %s
+                RETURNING id
+                """,
+                (name, alt_name, description, center_lat, center_lon, radius, wikidata_id, slug),
+            )
+            row = cur.fetchone()
+            if row:
+                return row[0]
+
         if wikidata_id:
             cur.execute(
                 """

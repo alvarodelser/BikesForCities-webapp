@@ -121,12 +121,12 @@ export default function CompareTripsChart({ selectedCities = [] }: Props) {
                 const pts = data
                     .filter(pt => {
                         if (!pt.month) return false;
-                        const val = pt.actual_trips ?? pt.estimated_trips;
+                        const val = pt.estimated_trips;
                         return val != null && val >= 0;
                     })
                     .map(pt => ({
                         month: pt.month!,
-                        trips: pt.actual_trips ?? pt.estimated_trips!,
+                        trips: pt.estimated_trips!,
                     }))
                     .sort((a, b) => a.month.localeCompare(b.month));
                 if (pts.length > 0) {

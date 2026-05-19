@@ -138,12 +138,14 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
     }, [map, clearSelection]);
 
     useEffect(() => {
+        console.log('[AccidentsLayer] effect fired', { map: !!map, cityId: city?.id, cyclistsOnly });
         if (!map || !city?.id) return;
 
         const cityId = city.id;
         const tileParams = new URLSearchParams({ city_id: String(cityId), cyclists_only: String(cyclistsOnly) });
         if (year != null) tileParams.set('year', String(year));
         const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?${tileParams}`;
+        console.log('[AccidentsLayer] tileUrl', tileUrl, 'sourceExists', !!map.getSource(SOURCE_ID));
 
         setLayerState?.('loading');
 
@@ -170,6 +172,7 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
             (map.getSource(SOURCE_ID) as maplibregl.VectorTileSource).setTiles([tileUrl]);
         }
 
+        console.log('[AccidentsLayer] after addSource, layerExists:', !!map.getLayer(LAYER_ID));
         if (!map.getLayer(LAYER_ID)) {
             map.addLayer({
                 id: LAYER_ID,
@@ -200,6 +203,7 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
                 },
             });
 
+            console.log('[AccidentsLayer] layer added, sourceLoaded:', (map.getSource(SOURCE_ID) as any)?._loaded);
             map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
             map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
 
