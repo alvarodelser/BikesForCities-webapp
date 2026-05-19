@@ -50,6 +50,7 @@ from .graph import (
     get_cycling_components_geojson,
     get_building_coverage_components_geojson,
     get_edge_building_coverage,
+    analyze_graph_tables,
 )
 
 from .trips import (
@@ -166,7 +167,7 @@ __all__ = [
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
     "get_gcc_coverage", "get_cycling_components_geojson", "get_building_coverage_components_geojson",
-    "get_edge_building_coverage",
+    "get_edge_building_coverage", "analyze_graph_tables",
     # trips
     "put_trips", "count_trips", "count_unrouted_trips", "get_unrouted_trip_groups",
     "city_has_real_trips", "get_paginated_trips", "get_trip_stats",

@@ -56,12 +56,13 @@ const getViridisColor = (distance: number, maxDistance: number) => {
 
 // ---- DOM-based popup builders ----
 
-function buildLinePlotDOM(data: HourlyAvailability[]) {
+function buildLinePlotDOM(data: HourlyAvailability[], medianMaxBikes?: number) {
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const w = 230, h = 105, padL = 35, padB = 35, padT = 18, padR = 12;
     const chartW = w - padL - padR;
     const chartH = h - padT - padB;
-    const maxBikes = Math.max(...data.map(d => d.avg_bikes), 5);
+    const stationMax = Math.max(...data.map(d => d.avg_bikes), 5);
+    const maxBikes = Math.max(medianMaxBikes ?? 0, stationMax);
 
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('width', String(w));
@@ -206,6 +207,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
     const [stations, setStations] = useState<any[]>([]);
     const [activePeriod, setActivePeriod] = useState<string>('all');
     const [stickyId, setStickyId] = useState<string | null>(null);
+    const [medianMaxBikes, setMedianMaxBikes] = useState<number | undefined>(undefined);
     const isReach = submode === 'reach';
     const metric = submode === 'downtime' ? 'downtime' : 'trips';
 
@@ -259,10 +261,26 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 if (!data || data.length === 0) {
                     setLayerState?.('empty');
                     setStations([]);
+                    setMedianMaxBikes(undefined);
                     return;
                 }
                 setLayerState?.('idle');
                 setStations(data);
+
+                // Estimate max hourly bikes for each station based on monthly trips
+                const estimatedMaxes = data.map((s: any) => {
+                    const monthlyTrips = s.estimated_monthly_trips || 0;
+                    // Estimate: peak hourly bikes ~= sqrt(monthly_trips) as a rough proxy
+                    return Math.max(5, Math.sqrt(monthlyTrips));
+                }).sort((a: number, b: number) => a - b);
+
+                if (estimatedMaxes.length > 0) {
+                    const mid = Math.floor(estimatedMaxes.length / 2);
+                    const median = estimatedMaxes.length % 2 === 0
+                        ? (estimatedMaxes[mid - 1] + estimatedMaxes[mid]) / 2
+                        : estimatedMaxes[mid];
+                    setMedianMaxBikes(median);
+                }
 
                 const features = data.map(s => {
                     let normalizedName = (s.name || 'Sin nombre')
@@ -536,14 +554,14 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     const cached = stationCache[activePeriod];
 
                     if (cached) {
-                        const chart = buildLinePlotDOM(cached) as unknown as HTMLElement;
+                        const chart = buildLinePlotDOM(cached, medianMaxBikes) as unknown as HTMLElement;
                         dispatchSelection({ ...selectionDetail, chart });
                     } else {
                         dispatchSelection({ ...selectionDetail, loading: true });
                         fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                             .then(data => {
                                 hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
-                                const chart = data.length > 0 ? (buildLinePlotDOM(data) as unknown as HTMLElement) : null;
+                                const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
                                 dispatchSelection({ ...selectionDetail, chart, loading: false });
                             })
                             .catch(err => {
@@ -616,7 +634,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
 
             if (cached) {
                 // Use cached data
-                const chart = buildLinePlotDOM(cached) as unknown as HTMLElement;
+                const chart = buildLinePlotDOM(cached, medianMaxBikes) as unknown as HTMLElement;
                 dispatchSelection({ ...selectionDetail, chart });
             } else {
                 // Show loading state
@@ -630,7 +648,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
 
                         // Only update if this is still the selected station
                         if (stickyRef.current?.id === props.id) {
-                            const chart = data.length > 0 ? (buildLinePlotDOM(data) as unknown as HTMLElement) : null;
+                            const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
                             dispatchSelection({
                                 ...selectionDetail,
                                 chart,
@@ -648,7 +666,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
         } else {
             dispatchSelection(selectionDetail);
         }
-    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection]);
+    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection, medianMaxBikes]);
 
     useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel, city]);
 

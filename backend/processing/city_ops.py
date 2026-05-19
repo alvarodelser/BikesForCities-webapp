@@ -2,6 +2,7 @@ from typing import List, Tuple, Any, Union
 import networkx as nx
 from shapely import wkt
 from shapely.geometry import Point, LineString
+from shapely.validation import make_valid
 from backend.database.db_io import get_edges, get_nodes
 
 # Extract node info from graph
@@ -92,6 +93,8 @@ def extract_edges(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[Any, ...]]
                 (graph.nodes[u]["x"], graph.nodes[u]["y"]),
                 (graph.nodes[v]["x"], graph.nodes[v]["y"])
             ])
+        if not geom.is_valid:
+            geom = make_valid(geom)
 
         # Normalize metadata types
         highway = str(data.get("highway")) if data.get("highway") else None

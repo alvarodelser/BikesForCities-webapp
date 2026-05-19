@@ -58,12 +58,17 @@ def load_graph(
         dist=dist,
         network_type="bike",
     )
-    # Get largest strongly connected component
-        # strongly=True → good for directed routing, i.e. obeying one-way bike streets
-        # strongly=False → e.g. you're ignoring bike rules
+    # Keep only the largest strongly connected component
     G_largest = ox.truncate.largest_component(G_full, strongly=True)
 
-    return G_largest
+    # Consolidate nearby intersection nodes (e.g. roundabouts, wide crossings)
+    # into single representative nodes. Must project to metric CRS first so the
+    # tolerance (metres) is meaningful, then project back to EPSG:4326.
+    G_projected = ox.project_graph(G_largest)
+    G_consolidated = ox.consolidate_intersections(
+        G_projected, tolerance=10, rebuild_graph=True, dead_ends=False
+    )
+    return ox.project_graph(G_consolidated, to_crs="EPSG:4326")
 
 
 TRIP_CSV_PATTERN = re.compile(r"trips_(\d{2})_(\d{2})[^/]*\.csv")

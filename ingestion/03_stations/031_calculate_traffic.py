@@ -293,22 +293,30 @@ def main():
             else:
                 print(f"▶️  {name}: {len(months)} month(s) to process")
 
+            skipped_count = 0
             for m in months:
                 metric_month = month_start(m)
                 month_str = metric_month.strftime("%Y-%m-%d")
 
                 month_status = get_ingestion_status(conn, pname, city_id=city_id, time_period=month_str)
                 if month_status and month_status.get("status") == "SUCCESS" and not args.force:
-                    print(f"   ⏭️  Skipping {metric_month:%Y-%m}: est. traffic already computed.")
+                    skipped_count += 1
                     continue
+
+                if skipped_count > 0:
+                    print(f"   ⏭️  Skipped {skipped_count} months (already computed)")
+                    skipped_count = 0
 
                 upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=month_str)
                 est_trips, total_stations, downtime = calculate_monthly_metrics(conn, city_id, metric_month)
 
                 print(
-                    f"   ✔ {metric_month:%Y-%m} | est trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f} min/day"
+                    f"   ✔ {metric_month:%Y-%m} | trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f}m"
                 )
                 upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=month_str)
+
+            if skipped_count > 0:
+                print(f"   ⏭️  Skipped {skipped_count} months (already computed)")
 
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:
