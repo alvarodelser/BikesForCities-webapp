@@ -27,6 +27,8 @@ export interface SelectionDetail {
     title: string;
     subtitle?: string;
     rows?: Array<{ label: string; value: string; accent?: string }>;
+    /** Two stats shown side-by-side, each as { label, value, color? } */
+    pairRows?: Array<[{ label: string; value: string; color?: string }, { label: string; value: string; color?: string }]>;
     badge?: { text: string; color: string; textColor?: string };
     loading?: boolean;
     chart?: HTMLElement | null;

@@ -61,6 +61,7 @@ from .trips import (
     city_has_real_trips,
     get_paginated_trips,
     get_trip_stats,
+    get_od_hex_flows,
 )
 
 from .paths import (

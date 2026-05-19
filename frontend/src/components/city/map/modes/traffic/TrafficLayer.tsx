@@ -3,7 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
-import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
+import { fetchTrafficResolve, fetchEdgeRoutes, fetchODFlows } from '../../../../../services/api';
 import { TILE_SERVER_URL } from '../../../../../config/api';
 import type * as GeoJSON from 'geojson';
 import type { SelectionDetail } from '../../../../../types/selection';
@@ -14,6 +14,10 @@ const TRACES_SOURCE = 'traces-source';
 const TRACES_LAYER = 'traces-layer';
 const OD_SOURCE = 'od-source';
 const OD_LAYER = 'od-layer';
+const OD_FLOW_SOURCE = 'od-flow-source';
+const OD_FLOW_LAYER = 'od-flow-layer';
+const OD_SPIDER_SOURCE = 'od-spider-source';
+const OD_SPIDER_LAYER = 'od-spider-layer';
 
 export interface TrafficLayerProps {
     submode: string;
@@ -57,6 +61,8 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
 
     const stickyRef = useRef<{ edgeId: number; lngLat: maplibregl.LngLat } | null>(null);
     const submodeRef = useRef<string>(submode);
+    const odFlowsRef = useRef<GeoJSON.FeatureCollection | null>(null);  // cached features for spider filtering
+    const odActiveRef = useRef<boolean>(false);
     const lastSelectionRef = useRef<SelectionDetail | null>(null);
     // Stores the latest percentile stats so doDeselect can restore the opacity expression
     const thresholdsRef = useRef<{ q5: number; q50: number; q95: number; min: number; max: number } | null>(null);
@@ -78,6 +84,80 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             if (map.getLayer(OD_LAYER)) map.removeLayer(OD_LAYER);
             if (map.getSource(OD_SOURCE)) map.removeSource(OD_SOURCE);
         } catch { /* map may have been removed */ }
+    }, [map]);
+
+    const clearODFlows = useCallback(() => {
+        if (!map) return;
+        try {
+            if (map.getLayer(OD_SPIDER_LAYER)) map.removeLayer(OD_SPIDER_LAYER);
+            if (map.getSource(OD_SPIDER_SOURCE)) map.removeSource(OD_SPIDER_SOURCE);
+            if (map.getLayer(OD_FLOW_LAYER)) map.removeLayer(OD_FLOW_LAYER);
+            if (map.getSource(OD_FLOW_SOURCE)) map.removeSource(OD_FLOW_SOURCE);
+        } catch { /* map may have been removed */ }
+        odFlowsRef.current = null;
+        odActiveRef.current = false;
+    }, [map]);
+
+    const renderODFlows = useCallback((geojson: GeoJSON.FeatureCollection) => {
+        if (!map) return;
+        odFlowsRef.current = geojson;
+        // Remove spider when re-rendering full flows
+        try {
+            if (map.getLayer(OD_SPIDER_LAYER)) map.removeLayer(OD_SPIDER_LAYER);
+            if (map.getSource(OD_SPIDER_SOURCE)) map.removeSource(OD_SPIDER_SOURCE);
+        } catch { /* ok */ }
+
+        const existing = map.getSource(OD_FLOW_SOURCE) as maplibregl.GeoJSONSource | undefined;
+        if (existing) {
+            existing.setData(geojson);
+        } else {
+            map.addSource(OD_FLOW_SOURCE, { type: 'geojson', data: geojson });
+            map.addLayer({
+                id: OD_FLOW_LAYER,
+                type: 'line',
+                source: OD_FLOW_SOURCE,
+                paint: {
+                    'line-color': '#7c3aed',
+                    'line-opacity': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.25, 1, 0.7],
+                    'line-width': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.8, 1, 5],
+                },
+                layout: { 'line-cap': 'round' },
+            });
+        }
+    }, [map]);
+
+    const renderSpider = useCallback((origHex: string) => {
+        if (!map || !odFlowsRef.current) return;
+        const spokes = odFlowsRef.current.features.filter(
+            f => f.properties?.orig_hex === origHex
+        );
+        if (!spokes.length) return;
+
+        const spider: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: spokes };
+        const maxCount = Math.max(...spokes.map(f => f.properties?.count ?? 1));
+        // Re-normalise weight relative to this origin's flows
+        spider.features = spider.features.map(f => ({
+            ...f,
+            properties: { ...f.properties, local_weight: (f.properties?.count ?? 1) / maxCount },
+        }));
+
+        try {
+            if (map.getLayer(OD_SPIDER_LAYER)) map.removeLayer(OD_SPIDER_LAYER);
+            if (map.getSource(OD_SPIDER_SOURCE)) map.removeSource(OD_SPIDER_SOURCE);
+        } catch { /* ok */ }
+
+        map.addSource(OD_SPIDER_SOURCE, { type: 'geojson', data: spider });
+        map.addLayer({
+            id: OD_SPIDER_LAYER,
+            type: 'line',
+            source: OD_SPIDER_SOURCE,
+            paint: {
+                'line-color': '#f59e0b',
+                'line-opacity': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 0.5, 1, 0.95],
+                'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 7],
+            },
+            layout: { 'line-cap': 'round' },
+        });
     }, [map]);
 
     const renderOverlay = useCallback((geojson: GeoJSON.FeatureCollection, mode: string) => {
@@ -264,6 +344,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             try {
                 if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'none');
                 clearOverlay();
+                clearODFlows();
                 if (stickyRef.current) {
                     map.setFeatureState(
                         { source: SOURCE_ID, sourceLayer: 'edges', id: stickyRef.current.edgeId },
@@ -282,6 +363,25 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             thresholdsRef.current = null;
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // --- OD toggle listener ---
+    useEffect(() => {
+        if (!map || !city?.id) return;
+        const handler = (e: Event) => {
+            const { active, minTrips } = (e as CustomEvent).detail as { active: boolean; minTrips: number };
+            odActiveRef.current = active;
+            if (!active) {
+                clearODFlows();
+                return;
+            }
+            if (!generation) return;
+            fetchODFlows(city.id!, generation, minTrips)
+                .then(geojson => { if (odActiveRef.current) renderODFlows(geojson); })
+                .catch(err => console.error('OD flows fetch failed:', err));
+        };
+        window.addEventListener('traffic-od-toggle', handler);
+        return () => window.removeEventListener('traffic-od-toggle', handler);
+    }, [map, city?.id, generation, clearODFlows, renderODFlows]);
 
     // Tracks whether we've written resolved generation/routing back to the URL already
     const urlParamsSetRef = useRef(false);
@@ -455,9 +555,29 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
         };
 
         const onMapClick = (e: maplibregl.MapMouseEvent) => {
-            if (!stickyRef.current) return;
             const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-            if (!hits?.length) doDeselect();
+            if (stickyRef.current && !hits?.length) doDeselect();
+
+            // Spider mode: click anywhere when OD flows are shown
+            if (odActiveRef.current && odFlowsRef.current && !hits?.length) {
+                const { lng, lat } = e.lngLat;
+                // Find nearest origin hex center to click point
+                const origins = new Map<string, [number, number]>();
+                for (const f of odFlowsRef.current.features) {
+                    const oh = f.properties?.orig_hex;
+                    if (oh && !origins.has(oh)) {
+                        const [olon, olat] = (f.geometry as GeoJSON.LineString).coordinates[0];
+                        origins.set(oh, [olon, olat]);
+                    }
+                }
+                let bestHex = '';
+                let bestDist = Infinity;
+                origins.forEach(([olon, olat], hex) => {
+                    const d = (olon - lng) ** 2 + (olat - lat) ** 2;
+                    if (d < bestDist) { bestDist = d; bestHex = hex; }
+                });
+                if (bestHex) renderSpider(bestHex);
+            }
         };
 
 
@@ -477,7 +597,7 @@ export default function TrafficLayer({ submode }: TrafficLayerProps) {
             map.off('click', onMapClick);
             window.removeEventListener('map-selection-close', onPanelClose);
         };
-    }, [map, loadRoutes, clearOverlay, doDeselect]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [map, loadRoutes, clearOverlay, doDeselect, renderSpider]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // --- Submode / filter change: re-fetch overlay if an edge is selected ---
     useEffect(() => {

@@ -32,7 +32,7 @@ from .dependencies import (
 )
 from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
-    count_trips, count_features, get_nodes, get_edges, get_features,
+    count_trips, count_features, get_nodes, get_edges, get_features, get_od_hex_flows,
     get_stations, get_edge_traffic, get_traffic_stats, get_traffic_modes, get_max_traffic_edge,
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
@@ -334,6 +334,23 @@ def get_network_trips(
     except Exception as e:
         logger.error(f"Error getting trips for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener los trayectos")
+
+
+@router.get("/cities/{city_id}/trips/od-flows")
+def get_od_flows(
+    city_id: int,
+    generation_type: str = Query(..., description="Trip generation type"),
+    min_trips: int = Query(1, ge=1, description="Minimum trips per hex pair to include"),
+    resolution: int = Query(8, ge=6, le=10, description="H3 resolution (8 ≈ 0.5 km edge)"),
+    conn=Depends(get_db_connection),
+):
+    """O-D flows aggregated by H3 hex as a GeoJSON FeatureCollection."""
+    try:
+        geojson = get_od_hex_flows(conn, city_id, generation_type, resolution=resolution, min_trips=min_trips)
+        return geojson
+    except Exception as e:
+        logger.error(f"Error computing OD hex flows for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al calcular flujos O-D")
 
 
 # Feature endpoints

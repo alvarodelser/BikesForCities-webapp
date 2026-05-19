@@ -212,29 +212,24 @@ function buildDemandPlotDOM(data: HourlyDemand[]) {
     maxTick.textContent = maxVal.toFixed(1);
     svg.appendChild(maxTick);
 
-    // Legend
-    const COLORS = { dep: '#F97316', arr: '#06B6D4' };
+    // Legend — short lines matching polyline style
+    const COLORS = { dep: '#f97316', arr: '#3b82f6' };
     const legendY = padT - 6;
     [{ color: COLORS.dep, label: 'Salidas' }, { color: COLORS.arr, label: 'Entradas' }].forEach(({ color, label }, i) => {
         const lx = padL + i * 72;
-        const dot = document.createElementNS(SVG_NS, 'circle');
-        dot.setAttribute('cx', String(lx)); dot.setAttribute('cy', String(legendY));
-        dot.setAttribute('r', '4'); dot.setAttribute('fill', color);
-        svg.appendChild(dot);
+        const legendLine = document.createElementNS(SVG_NS, 'line');
+        legendLine.setAttribute('x1', String(lx - 5)); legendLine.setAttribute('y1', String(legendY));
+        legendLine.setAttribute('x2', String(lx + 5)); legendLine.setAttribute('y2', String(legendY));
+        legendLine.setAttribute('stroke', color);
+        legendLine.setAttribute('stroke-width', '2');
+        legendLine.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(legendLine);
         const txt = document.createElementNS(SVG_NS, 'text');
-        txt.setAttribute('x', String(lx + 7)); txt.setAttribute('y', String(legendY + 4));
+        txt.setAttribute('x', String(lx + 9)); txt.setAttribute('y', String(legendY + 4));
         txt.style.cssText = 'font-size:8px;fill:#A1A1AA;font-weight:700;font-family:sans-serif;';
         txt.textContent = label;
         svg.appendChild(txt);
     });
-
-    // Tooltip
-    const tooltipText = document.createElementNS(SVG_NS, 'text');
-    tooltipText.setAttribute('x', String(w - 10));
-    tooltipText.setAttribute('y', String(padT - 6));
-    tooltipText.setAttribute('text-anchor', 'end');
-    tooltipText.style.cssText = 'font-size:9px;fill:#71717A;font-weight:800;visibility:hidden;';
-    svg.appendChild(tooltipText);
 
     // Hour labels (0, 8, 12, 20)
     const wrapIcon = (c: string) => `<g fill="none" stroke="#A1A1AA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${c}</g>`;
@@ -265,25 +260,6 @@ function buildDemandPlotDOM(data: HourlyDemand[]) {
         poly.setAttribute('stroke-width', '2');
         poly.setAttribute('stroke-linejoin', 'round');
         svg.appendChild(poly);
-        sorted.forEach(d => {
-            const cx = getX(d.hour_of_day).toFixed(1);
-            const cy = getY(d[key]).toFixed(1);
-            const circle = document.createElementNS(SVG_NS, 'circle');
-            circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
-            circle.setAttribute('r', '3'); circle.setAttribute('fill', color);
-            circle.setAttribute('stroke', '#1e293b'); circle.setAttribute('stroke-width', '1');
-            circle.style.cssText = 'transition: r 0.1s ease; cursor: crosshair;';
-            circle.addEventListener('mouseenter', () => {
-                circle.setAttribute('r', '4.5');
-                const hour = String(d.hour_of_day).padStart(2, '0');
-                const dep = d.lambda_departure.toFixed(2);
-                const arr = d.mu_arrival.toFixed(2);
-                tooltipText.textContent = `${hour}:00 · sal ${dep} · ent ${arr}`;
-                tooltipText.style.visibility = 'visible';
-            });
-            circle.addEventListener('mouseleave', () => { circle.setAttribute('r', '3'); tooltipText.style.visibility = 'hidden'; });
-            svg.appendChild(circle);
-        });
     };
 
     drawSeries('mu_arrival', COLORS.arr);
@@ -655,11 +631,13 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
                     rows: metric === 'downtime' ? [
                         { label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` },
-                    ] : [
-                        { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
-                        ...(props.inbound > 0 ? [{ label: 'Demanda entrante', value: `${Math.round(props.inbound)} v/mes` }] : []),
-                        ...(props.outbound > 0 ? [{ label: 'Demanda saliente', value: `${Math.round(props.outbound)} v/mes` }] : []),
-                    ],
+                    ] : [],
+                    pairRows: metric === 'trips' && (props.inbound > 0 || props.outbound > 0) ? [
+                        [
+                            { label: 'Entradas', value: `${Math.round(props.inbound)} v/mes`, color: '#3b82f6' },
+                            { label: 'Salidas', value: `${Math.round(props.outbound)} v/mes`, color: '#f97316' },
+                        ]
+                    ] : undefined,
                     periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
                     activePeriod: activePeriod,
                     onPeriodChange: (period: string) => setActivePeriod(period),
@@ -751,11 +729,13 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
             rows: metric === 'downtime'
                 ? [{ label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` }]
-                : [
-                    { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
-                    ...(props.inbound > 0 ? [{ label: 'Demanda entrante', value: `${Math.round(props.inbound)} v/mes` }] : []),
-                    ...(props.outbound > 0 ? [{ label: 'Demanda saliente', value: `${Math.round(props.outbound)} v/mes` }] : []),
-                ],
+                : [],
+            pairRows: metric === 'trips' && (props.inbound > 0 || props.outbound > 0) ? [
+                [
+                    { label: 'Entradas', value: `${Math.round(props.inbound)} v/mes`, color: '#3b82f6' },
+                    { label: 'Salidas', value: `${Math.round(props.outbound)} v/mes`, color: '#f97316' },
+                ]
+            ] : undefined,
             periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
             activePeriod: activePeriod,
             onPeriodChange: (period: string) => setActivePeriod(period),

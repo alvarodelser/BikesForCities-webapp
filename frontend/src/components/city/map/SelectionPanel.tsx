@@ -189,6 +189,24 @@ export default function SelectionPanel({
                                 ))}
                             </div>
                         )}
+                        {selection.pairRows && selection.pairRows.length > 0 && (
+                            <div className="flex flex-col gap-1.5 mt-0.5">
+                                {selection.pairRows.map((pair, i) => (
+                                    <div key={i} className="flex gap-3">
+                                        {pair.map((item, j) => (
+                                            <div key={j} className="flex-1 flex flex-col gap-0.5">
+                                                <span className="text-[9px] font-semibold text-black/35 uppercase tracking-wide">
+                                                    {item.label}
+                                                </span>
+                                                <span className="text-[11px] font-bold" style={{ color: item.color ?? 'rgba(0,0,0,0.7)' }}>
+                                                    {item.value}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                         {selection.periodOptions && selection.periodOptions.length > 0 && (
                             <div className="flex gap-1 mt-2">
                                 {selection.periodOptions.map(opt => (

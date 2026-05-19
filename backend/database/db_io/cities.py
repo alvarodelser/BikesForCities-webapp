@@ -162,6 +162,7 @@ def get_all_cities(conn) -> List[Tuple]:
                 cm.station_coverage
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
+            WHERE c.ingestion_enabled IS NOT FALSE
             LEFT JOIN LATERAL (
                 SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
                 FROM city_metrics

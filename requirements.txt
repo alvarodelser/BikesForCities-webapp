@@ -20,3 +20,4 @@ SPARQLWrapper
 requests
 leuvenmapmatching
 rtree
+h3

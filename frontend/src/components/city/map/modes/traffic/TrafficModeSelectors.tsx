@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { useMap } from '../../MapContext';
 
@@ -26,6 +27,20 @@ interface TrafficModeSelectorsProps {
 export default function TrafficModeSelectors({ accent = '#027A76' }: TrafficModeSelectorsProps) {
     const { generation, routing, setGeneration, setRouting } = useMapState();
     const { city } = useMap();
+    const [odActive, setOdActive] = useState(false);
+    const [minTrips, setMinTrips] = useState(3);
+
+    const toggleOD = (next: boolean) => {
+        setOdActive(next);
+        window.dispatchEvent(new CustomEvent('traffic-od-toggle', { detail: { active: next, minTrips } }));
+    };
+
+    const handleMinTripsChange = (val: number) => {
+        setMinTrips(val);
+        if (odActive) {
+            window.dispatchEvent(new CustomEvent('traffic-od-toggle', { detail: { active: true, minTrips: val } }));
+        }
+    };
 
     const modes = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
 
@@ -101,6 +116,39 @@ export default function TrafficModeSelectors({ accent = '#027A76' }: TrafficMode
                         />
                     ))}
                 </div>
+            </div>
+
+            <div className="flex flex-col gap-1 pt-1 border-t border-black/5">
+                <div className="flex items-center justify-between">
+                    <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Flujo O-D</span>
+                    <button
+                        onClick={() => toggleOD(!odActive)}
+                        className="relative inline-flex h-3.5 w-6 items-center rounded-full transition-colors duration-150 focus:outline-none"
+                        style={{ backgroundColor: odActive ? '#7c3aed' : 'rgba(0,0,0,0.15)' }}
+                        aria-pressed={odActive}
+                    >
+                        <span
+                            className="inline-block h-2.5 w-2.5 rounded-full bg-white shadow transition-transform duration-150"
+                            style={{ transform: odActive ? 'translateX(14px)' : 'translateX(1px)' }}
+                        />
+                    </button>
+                </div>
+                {odActive && (
+                    <div className="flex items-center gap-2">
+                        <span className="text-[8px] text-black/40 whitespace-nowrap">Mín. viajes</span>
+                        <input
+                            type="range" min={1} max={20} step={1} value={minTrips}
+                            onChange={e => handleMinTripsChange(Number(e.target.value))}
+                            className="flex-1 h-1 accent-violet-600"
+                        />
+                        <span className="text-[8px] font-bold text-black/50 w-4 text-right">{minTrips}</span>
+                    </div>
+                )}
+                {odActive && (
+                    <p className="text-[7px] text-black/25 italic leading-tight">
+                        Clic en el mapa para ver flujos desde ese hex · amarillo
+                    </p>
+                )}
             </div>
         </div>
     );

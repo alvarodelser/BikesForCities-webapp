@@ -130,6 +130,70 @@ def get_paginated_trips(
         return cur.fetchall(), total
 
 
+def get_od_hex_flows(conn, city_id: int, generation_type: str, resolution: int = 8, min_trips: int = 1) -> dict:
+    """Return a GeoJSON FeatureCollection of O-D flows aggregated by H3 hex at the given resolution.
+
+    Each feature is a LineString from origin hex center to destination hex center,
+    with a 'count' property (number of trips) and 'weight' (normalised 0-1).
+    Same-hex trips are excluded.
+    """
+    import h3
+    from collections import defaultdict
+
+    # Aggregate at node-pair level in SQL to avoid shipping every row to Python
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT n1.lat, n1.lon, n2.lat, n2.lon, COUNT(*) AS cnt
+            FROM trips t
+            JOIN nodes n1 ON n1.id = t.origin_node AND n1.city_id = t.city_id
+            JOIN nodes n2 ON n2.id = t.dest_node   AND n2.city_id = t.city_id
+            WHERE t.city_id = %s AND t.generation_type = %s
+              AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
+            GROUP BY n1.lat, n1.lon, n2.lat, n2.lon
+        """, (city_id, generation_type))
+        node_pairs = cur.fetchall()
+
+    hex_counts: dict = defaultdict(int)
+    hex_centers: dict = {}
+
+    for orig_lat, orig_lon, dest_lat, dest_lon, cnt in node_pairs:
+        if None in (orig_lat, orig_lon, dest_lat, dest_lon):
+            continue
+        oh = h3.latlng_to_cell(float(orig_lat), float(orig_lon), resolution)
+        dh = h3.latlng_to_cell(float(dest_lat), float(dest_lon), resolution)
+        if oh == dh:
+            continue
+        hex_counts[(oh, dh)] += int(cnt)
+        for hx in (oh, dh):
+            if hx not in hex_centers:
+                lat, lon = h3.cell_to_latlng(hx)
+                hex_centers[hx] = (lat, lon)
+
+    if not hex_counts:
+        return {"type": "FeatureCollection", "features": []}
+
+    max_count = max(hex_counts.values())
+    features = []
+    for (oh, dh), count in hex_counts.items():
+        if count < min_trips:
+            continue
+        olat, olon = hex_centers[oh]
+        dlat, dlon = hex_centers[dh]
+        features.append({
+            "type": "Feature",
+            "geometry": {"type": "LineString", "coordinates": [[olon, olat], [dlon, dlat]]},
+            "properties": {
+                "count": count,
+                "weight": count / max_count,
+                "orig_hex": oh,
+                "dest_hex": dh,
+            },
+        })
+
+    features.sort(key=lambda f: f["properties"]["count"])  # draw heavy flows on top
+    return {"type": "FeatureCollection", "features": features}
+
+
 def get_trip_stats(conn, city_id: int) -> Optional[dict]:
     """Get statistical aggregations for city trips."""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
