@@ -35,6 +35,8 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
     df = pd.DataFrame(rows, columns=cols)
 
     df['observed_at'] = pd.to_datetime(df['observed_at'], utc=True)
+    if 'interval_sec' in df.columns:
+        df['interval_sec'] = df['interval_sec'].apply(lambda x: float(x) if x is not None else None)
     
     # --- Downtime calculation ---
     # We sort by station and time to compute intervals

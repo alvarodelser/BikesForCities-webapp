@@ -22,7 +22,7 @@ def get_skellam_readings_diffs(conn, city_id: int, start: dt.datetime, end: dt.d
                 EXTRACT(EPOCH FROM (observed_at - LAG(observed_at) OVER (
                     PARTITION BY station_id
                     ORDER BY observed_at
-                ))) AS interval_sec
+                )))::float AS interval_sec
             FROM station_readings
             WHERE city_id = %s
               AND observed_at >= %s
