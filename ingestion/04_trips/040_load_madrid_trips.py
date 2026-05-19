@@ -670,55 +670,53 @@ def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done,
 
 
 def _build_master_station_map():
-    """Build master_station_map.json from 2017-2019 data if it doesn't exist."""
+    """Build master_station_map.json from 2018 station directory ZIPs if it doesn't exist."""
     if MASTER_MAP_PATH.exists():
         existing = load_master_map()
         if existing:
             print("✅ Using existing master_station_map.json")
             return
 
-    print("🔨 Building master_station_map.json from 2017-2019 data...")
+    print("🔨 Building master_station_map.json from station directories...")
     station_map = {}
 
-    for year in [2017, 2018, 2019]:
-        zip_path = DATA_DIR / "raw" / f"bicimad_{year}.zip"
-        if not zip_path.exists():
-            continue
-
-        print(f"   Extracting station coords from {year}...")
+    # Extract from 2018 station ZIPs (which have station ID → coordinates)
+    zip_path = DATA_DIR / "raw" / "bicimad_2018.zip"
+    if zip_path.exists():
+        print(f"   Extracting from 2018 station ZIPs...")
         try:
             with zipfile.ZipFile(zip_path) as zf:
                 for member in zf.namelist():
-                    if "__MACOSX" in member or "station" in member.lower(): continue
-                    if not member.lower().endswith(".json"): continue
+                    if "station" not in member.lower() or "__MACOSX" in member: continue
+                    if not member.lower().endswith(".zip"): continue
 
                     try:
-                        content = zf.read(member).decode("utf-8", errors="replace")
-                        data = json.loads(content)
-                        records = data.get("data", data.get("trips", data)) if isinstance(data, dict) else data
+                        with zf.open(member) as nf:
+                            with zipfile.ZipFile(io.BytesIO(nf.read())) as station_zip:
+                                for station_file in station_zip.namelist():
+                                    if not station_file.lower().endswith(".json"): continue
+                                    content = station_zip.read(station_file).decode("utf-8", errors="replace")
+                                    data = json.loads(content)
+                                    records = data.get("data", data.get("stations", data)) if isinstance(data, dict) else data
 
-                        for rec in (records if isinstance(records, list) else []):
-                            if not isinstance(rec, dict): continue
-                            for sid_key, geo_key in [("idunplug_station", "geolocation_unlock"), ("idplug_station", "geolocation_lock")]:
-                                sid_raw = rec.get(sid_key)
-                                geo_raw = rec.get(geo_key)
-                                if sid_raw and geo_raw and isinstance(geo_raw, str):
-                                    try:
-                                        sid = str(int(float(sid_raw)))
-                                        coords = json.loads(geo_raw.replace("'", '"'))["coordinates"]
-                                        station_map[sid] = [float(coords[0]), float(coords[1])]
-                                    except:
-                                        pass
-                    except:
+                                    for rec in (records if isinstance(records, list) else []):
+                                        if not isinstance(rec, dict): continue
+                                        sid = str(rec.get("id", rec.get("id_station", "")))
+                                        geom = rec.get("geometry", {})
+                                        if isinstance(geom, dict) and "coordinates" in geom:
+                                            coords = geom["coordinates"]
+                                            if sid and coords and len(coords) >= 2:
+                                                station_map[sid] = [float(coords[0]), float(coords[1])]
+                    except Exception:
                         pass
         except Exception as e:
-            print(f"   ⚠️  Error processing {year}: {e}")
+            print(f"   ⚠️  Error processing 2018 ZIPs: {e}")
 
     if station_map:
         save_master_map(station_map)
         print(f"   ✅ Saved {len(station_map)} stations to master_station_map.json")
     else:
-        print("   ⚠️  No station data found in 2017-2019")
+        print("   ⚠️  No station data found")
 
 
 def main():
