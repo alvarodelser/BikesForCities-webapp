@@ -696,20 +696,20 @@ def _build_master_station_map():
                                 for station_file in station_zip.namelist():
                                     if not station_file.lower().endswith(".json"): continue
                                     content = station_zip.read(station_file).decode("latin-1")
-                                    data = json.loads(content)
-                                    stations = data.get("stations", [])
-
-                                    for station in (stations if isinstance(stations, list) else []):
-                                        if not isinstance(station, dict): continue
-                                        sid = str(station.get("id", ""))
-                                        lat = station.get("latitude")
-                                        lon = station.get("longitude")
-
-                                        if sid and lat and lon:
-                                            try:
-                                                station_map[sid] = [float(lon), float(lat)]
-                                            except:
-                                                pass
+                                    for line in content.strip().split("\n"):
+                                        line = line.strip()
+                                        if not line: continue
+                                        try:
+                                            data = json.loads(line)
+                                            for station in data.get("stations", []):
+                                                if not isinstance(station, dict): continue
+                                                sid = str(station.get("id", ""))
+                                                lat = station.get("latitude")
+                                                lon = station.get("longitude")
+                                                if sid and lat and lon:
+                                                    station_map[sid] = [float(lon), float(lat)]
+                                        except Exception:
+                                            pass
                     except Exception:
                         pass
         except Exception as e:
