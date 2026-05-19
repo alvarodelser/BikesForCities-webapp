@@ -669,6 +669,58 @@ def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done,
     return processed
 
 
+def _build_master_station_map():
+    """Build master_station_map.json from 2017-2019 data if it doesn't exist."""
+    if MASTER_MAP_PATH.exists():
+        existing = load_master_map()
+        if existing:
+            print("✅ Using existing master_station_map.json")
+            return
+
+    print("🔨 Building master_station_map.json from 2017-2019 data...")
+    station_map = {}
+
+    for year in [2017, 2018, 2019]:
+        zip_path = DATA_DIR / "raw" / f"bicimad_{year}.zip"
+        if not zip_path.exists():
+            continue
+
+        print(f"   Extracting station coords from {year}...")
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                for member in zf.namelist():
+                    if "__MACOSX" in member or "station" in member.lower(): continue
+                    if not member.lower().endswith(".json"): continue
+
+                    try:
+                        content = zf.read(member).decode("utf-8", errors="replace")
+                        data = json.loads(content)
+                        records = data.get("data", data.get("trips", data)) if isinstance(data, dict) else data
+
+                        for rec in (records if isinstance(records, list) else []):
+                            if not isinstance(rec, dict): continue
+                            for sid_key, geo_key in [("idunplug_station", "geolocation_unlock"), ("idplug_station", "geolocation_lock")]:
+                                sid_raw = rec.get(sid_key)
+                                geo_raw = rec.get(geo_key)
+                                if sid_raw and geo_raw and isinstance(geo_raw, str):
+                                    try:
+                                        sid = str(int(float(sid_raw)))
+                                        coords = json.loads(geo_raw.replace("'", '"'))["coordinates"]
+                                        station_map[sid] = [float(coords[0]), float(coords[1])]
+                                    except:
+                                        pass
+                    except:
+                        pass
+        except Exception as e:
+            print(f"   ⚠️  Error processing {year}: {e}")
+
+    if station_map:
+        save_master_map(station_map)
+        print(f"   ✅ Saved {len(station_map)} stations to master_station_map.json")
+    else:
+        print("   ⚠️  No station data found in 2017-2019")
+
+
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Unified Madrid trip downloader and loader")
@@ -679,6 +731,9 @@ def main():
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    _build_master_station_map()
+
     conn = connect_db()
     city_id = get_city_id_by_name(conn, "Madrid")
     if city_id is None:
@@ -689,11 +744,11 @@ def main():
         status_obj = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id)
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
-        
+
         if args.force:
             done_files.clear()
             details["done_files"] = []
-        
+
         years = args.years or sorted(HISTORICAL_URLS.keys(), reverse=True)
         for year in years:
             ensure_data_present(year, force=args.force)
