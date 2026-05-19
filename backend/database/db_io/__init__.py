@@ -138,6 +138,8 @@ from .metrics import (
     get_citybikes_network_id,
     update_station_metrics,
     upsert_station_monthly,
+    upsert_station_monthly_demand,
+    get_station_hourly_demand,
     get_station_monthly_flow,
     upsert_station_actual_trips,
     upsert_city_actual_trips,
@@ -202,7 +204,8 @@ __all__ = [
     "compute_mode_scores",
     # metrics
     "get_skellam_readings_diffs", "get_station_merge_map", "get_citybikes_network_id",
-    "update_station_metrics", "upsert_station_monthly", "get_station_monthly_flow",
+    "update_station_metrics", "upsert_station_monthly", "upsert_station_monthly_demand",
+    "get_station_monthly_flow",
     "upsert_station_actual_trips", "upsert_city_actual_trips", "get_city_actual_vs_estimated",
     "upsert_estimated_trips_interval",
     "get_city_months_with_station_data", "calculate_osm_metrics",

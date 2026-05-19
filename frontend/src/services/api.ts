@@ -82,6 +82,12 @@ export interface HourlyAvailability {
   avg_bikes: number;
 }
 
+export interface HourlyDemand {
+  hour_of_day: number;
+  lambda_departure: number;
+  mu_arrival: number;
+}
+
 export interface SystemStatusCity {
   id: number;
   name: string;
@@ -145,6 +151,18 @@ export const fetchStationHourlyAvailability = async (
   }
   const result = await response.json();
   return result.data;
+};
+
+export const fetchStationDemandProfile = async (
+  cityId: number,
+  stationId: string
+): Promise<HourlyDemand[]> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/demand-profile`
+  );
+  if (!response.ok) return [];
+  const result = await response.json();
+  return result.data ?? [];
 };
 
 export interface TrafficCount {

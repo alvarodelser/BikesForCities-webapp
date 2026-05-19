@@ -151,31 +151,31 @@ def process_city(conn, city_id: int, city_name: str,
                     if len(groups) < batch_size:
                         break
 
-        savings = (
-            (1 - total_unique_paths / total_trips_processed) * 100
-            if total_trips_processed > 0 else 0
-        )
-        print(f"   🔄 Updating edge traffic...")
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT DISTINCT t.generation_type, p.algorithm
-                FROM routes r
-                JOIN trips t ON t.id = r.trip_id
-                JOIN paths p ON p.id = r.path_id
-                WHERE t.city_id = %s
-                """,
-                (city_id,),
-            )
-            combinations = cur.fetchall()
-        for gen_type, algo in combinations:
-            upsert_edge_traffic_for_city(conn, city_id, city_name, gen_type, algo)
-        conn.commit()
+        if total_trips_processed == 0:
+            print(f"   ✅ Nothing to do.")
+        else:
+            savings = (1 - total_unique_paths / total_trips_processed) * 100
+            print(f"   🔄 Updating edge traffic...")
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT t.generation_type, p.algorithm
+                    FROM routes r
+                    JOIN trips t ON t.id = r.trip_id
+                    JOIN paths p ON p.id = r.path_id
+                    WHERE t.city_id = %s
+                    """,
+                    (city_id,),
+                )
+                combinations = cur.fetchall()
+            for gen_type, algo in combinations:
+                upsert_edge_traffic_for_city(conn, city_id, city_name, gen_type, algo)
+            conn.commit()
+            print(f"   ✅ Done – {total_trips_processed:,} trips, "
+                  f"{total_unique_paths:,} unique paths, {savings:.1f}% computation saved.")
 
-        print(f"   ✅ Done – {total_trips_processed:,} trips, "
-              f"{total_unique_paths:,} unique paths, {savings:.1f}% computation saved.")
-
-        refresh_city_modes(conn, city_id)
+        if total_trips_processed > 0:
+            refresh_city_modes(conn, city_id)
         upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id)
 
     except Exception as e:

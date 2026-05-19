@@ -18,13 +18,17 @@ def get_skellam_readings_diffs(conn, city_id: int, start: dt.datetime, end: dt.d
                 available_bikes - LAG(available_bikes) OVER (
                     PARTITION BY station_id
                     ORDER BY observed_at
-                ) AS delta_bikes
+                ) AS delta_bikes,
+                EXTRACT(EPOCH FROM (observed_at - LAG(observed_at) OVER (
+                    PARTITION BY station_id
+                    ORDER BY observed_at
+                ))) AS interval_sec
             FROM station_readings
             WHERE city_id = %s
               AND observed_at >= %s
               AND observed_at < %s
         )
-        SELECT station_id, observed_at, delta_bikes, available_bikes
+        SELECT station_id, observed_at, delta_bikes, available_bikes, interval_sec
         FROM diffs
     """
     with conn.cursor() as cur:
@@ -96,6 +100,41 @@ def get_station_monthly_flow(
             WHERE sm.city_id = %s AND sm.metric_month = %s
         """, (city_id, metric_month))
         return cur.fetchall()
+
+
+def get_station_hourly_demand(conn, city_id: int, station_id: str) -> list:
+    """Return hourly demand profile (lambda_departure, mu_arrival) for the latest available month."""
+    with conn.cursor() as cur:
+        cur.execute("""
+            SELECT hour_of_day, lambda_departure, mu_arrival
+            FROM station_monthly_demand
+            WHERE city_id = %s AND station_id = %s
+              AND metric_month = (
+                  SELECT MAX(metric_month) FROM station_monthly_demand
+                  WHERE city_id = %s AND station_id = %s
+              )
+            ORDER BY hour_of_day
+        """, (city_id, station_id, city_id, station_id))
+        return cur.fetchall()
+
+
+def upsert_station_monthly_demand(conn, rows: List[Tuple]) -> None:
+    """Upsert per-station per-hour demand profiles (lambda_departure, mu_arrival).
+
+    Row: (city_id, network_id, station_id, metric_month, hour_of_day, lambda_departure, mu_arrival)
+    """
+    if not rows:
+        return
+    with conn.cursor() as cur:
+        execute_values(cur, """
+            INSERT INTO station_monthly_demand (
+                city_id, citybikes_network_id, station_id, metric_month,
+                hour_of_day, lambda_departure, mu_arrival
+            ) VALUES %s
+            ON CONFLICT (city_id, citybikes_network_id, station_id, metric_month, hour_of_day) DO UPDATE SET
+                lambda_departure = EXCLUDED.lambda_departure,
+                mu_arrival       = EXCLUDED.mu_arrival
+        """, rows)
 
 
 def upsert_station_actual_trips(

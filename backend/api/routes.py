@@ -37,7 +37,7 @@ from backend.database.db_io import (
     get_city_details, get_city_bounds,
     get_paginated_nodes, get_paginated_edges, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
-    get_station_hourly_availability, get_city_median_max_hourly_bikes, get_station_reachability,
+    get_station_hourly_availability, get_city_median_max_hourly_bikes, get_station_hourly_demand, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
     get_accidents_geojson, get_accidents_summary, get_accident_detail,
     get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson,
@@ -524,6 +524,23 @@ def get_city_median_max_hourly_bikes_api(city_id: int, conn=Depends(get_db_conne
     except Exception as e:
         logger.error(f"Error computing median max hourly bikes for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al calcular la disponibilidad horaria")
+
+
+@router.get("/cities/{city_id}/stations/{station_id}/demand-profile")
+def get_station_demand_profile_api(city_id: int, station_id: str, conn=Depends(get_db_connection)):
+    """Hourly departure (lambda) and arrival (mu) demand profile for the latest available month."""
+    try:
+        rows = get_station_hourly_demand(conn, city_id, station_id)
+        return {
+            "data": [
+                {"hour_of_day": int(r[0]), "lambda_departure": float(r[1]) if r[1] is not None else 0.0,
+                 "mu_arrival": float(r[2]) if r[2] is not None else 0.0}
+                for r in rows
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error getting demand profile for station {station_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener el perfil de demanda")
 
 
 @router.get("/cities/{city_id}/stations/{station_id}/hourly-availability")

@@ -173,12 +173,17 @@ def generate_for_city(conn, city_id: int, city_name: str,
     node_cache: dict[str, int | None] = {}
     all_trip_rows = []
 
+    skipped_count = 0
     for month in months:
         month_str = month.strftime("%Y-%m-%d")
         month_status = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id, time_period=month_str)
         if month_status and month_status.get("status") == "SUCCESS" and not force:
-            print(f"     ⏭️  Skipping {month}: already ingested.")
+            skipped_count += 1
             continue
+
+        if skipped_count > 0:
+            print(f"     ⏭️  Skipped {skipped_count} months (already ingested)")
+            skipped_count = 0
 
         if force and month_status and month_status.get("status") == "SUCCESS":
             print(f"     ⚠️  Force mode: Deleting existing synthetic trips for {month}...")
@@ -300,6 +305,9 @@ def generate_for_city(conn, city_id: int, city_name: str,
             all_trip_rows.clear()
         else:
             print(f"  ⚠️  No flows to create trips for {month}.")
+
+    if skipped_count > 0:
+        print(f"     ⏭️  Skipped {skipped_count} months (already ingested)")
 
 
 def main() -> None:
