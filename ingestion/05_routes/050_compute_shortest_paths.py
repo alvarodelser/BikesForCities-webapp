@@ -64,13 +64,18 @@ def process_city(conn, city_id: int, city_name: str,
     if num_workers is None:
         num_workers = min(os.cpu_count() or 4, 16)
 
-    print(f"\n🚀 Computing shortest paths for {city_name} (city_id={city_id}) "
-          f"with {num_workers} workers...")
+    pending = count_unrouted_trips(conn, city_id)
+    if pending == 0 and not force:
+        print(f"   ⏭️  {city_name}: nothing to route.")
+        upsert_ingestion_status(conn, PROCESS_NAME, "SUCCESS", city_id=city_id)
+        return
+
+    print(f"\n🚀 {city_name}: {pending:,} unrouted trips, {num_workers} workers...")
 
     upsert_ingestion_status(conn, PROCESS_NAME, "RUNNING", city_id=city_id)
     try:
         if force:
-            print(f"   ⚠️  Force mode: clearing all routes rows for {city_name}...")
+            print(f"   ⚠️  Force: clearing existing routes...")
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -81,97 +86,75 @@ def process_city(conn, city_id: int, city_name: str,
                     (city_id,),
                 )
             conn.commit()
-
-        pending = count_unrouted_trips(conn, city_id)
-        print(f"   📥 {pending:,} unrouted trips.")
+            pending = count_unrouted_trips(conn, city_id)
 
         total_trips_processed = 0
         total_unique_paths = 0
 
-        if pending == 0:
-            print("   ✨ Nothing to compute.")
-        else:
-            print("   🌐 Building graph...")
-            graph = build_graph(conn, city_id)
+        print("   🌐 Building graph...")
+        graph = build_graph(conn, city_id)
+        edge_id_map = get_edge_id_map(conn, city_id)
+        print(f"   🗺️  {len(edge_id_map):,} edges loaded. Spawning workers...")
 
-            print("   🗺️  Loading edge map...")
-            edge_id_map = get_edge_id_map(conn, city_id)
-            print(f"   📊 {len(edge_id_map):,} edges loaded.")
+        with ProcessPoolExecutor(max_workers=num_workers,
+                                 initializer=init_worker,
+                                 initargs=(graph,)) as executor:
+            while True:
+                groups = get_unrouted_trip_groups(conn, city_id, limit=batch_size)
+                if not groups:
+                    break
 
-            print("   ⏳ Spawning worker pool...")
-            with ProcessPoolExecutor(max_workers=num_workers,
-                                     initializer=init_worker,
-                                     initargs=(graph,)) as executor:
-                print("   ✅ Pool ready.")
-                while True:
-                    groups = get_unrouted_trip_groups(conn, city_id, limit=batch_size)
-                    if not groups:
-                        break
+                tasks = [(g[0], g[1]) for g in groups]
+                results = list(tqdm(
+                    executor.map(compute_path_worker, tasks, chunksize=50),
+                    total=len(tasks),
+                    desc=f"   Computing ({total_trips_processed:,} done)",
+                    unit="OD",
+                ))
 
-                    # Parallel path computation (one call per unique O-D)
-                    tasks = [(g[0], g[1]) for g in groups]
-                    results = list(executor.map(compute_path_worker, tasks))
+                for (origin_node, dest_node, count, trip_ids), path in zip(groups, results):
+                    if not path:
+                        continue
 
-                    pbar = tqdm(
-                        zip(groups, results),
-                        total=len(groups),
-                        desc=f"   Linking (total: {total_trips_processed:,})",
-                        unit="OD-pairs",
+                    total_unique_paths += 1
+                    path_id = get_or_create_shortest_path(
+                        conn, city_id, int(origin_node), int(dest_node)
                     )
-                    for (origin_node, dest_node, count, trip_ids), path in pbar:
-                        if not path:
-                            continue
+                    edge_seq = [
+                        (edge_id_map[(u, v)], i)
+                        for i, (u, v) in enumerate(zip(path[:-1], path[1:]))
+                        if (u, v) in edge_id_map
+                    ]
+                    if edge_seq:
+                        put_path_edges(conn, path_id, edge_seq)
+                    put_path_nodes(conn, path_id, [int(n) for n in path])
+                    bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
+                    total_trips_processed += len(trip_ids)
 
-                        total_unique_paths += 1
+                conn.commit()
 
-                        # Upsert the path (creates or retrieves the deduped shortest-path row)
-                        path_id = get_or_create_shortest_path(
-                            conn, city_id, int(origin_node), int(dest_node)
-                        )
+                if len(groups) < batch_size:
+                    break
 
-                        # Store edge sequence (only meaningful for new paths)
-                        edge_seq = [
-                            (edge_id_map[(u, v)], i)
-                            for i, (u, v) in enumerate(zip(path[:-1], path[1:]))
-                            if (u, v) in edge_id_map
-                        ]
-                        if edge_seq:
-                            put_path_edges(conn, path_id, edge_seq)
-
-                        # Store node sequence
-                        put_path_nodes(conn, path_id, [int(n) for n in path])
-
-                        # Link all trips sharing this O-D to the path
-                        bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
-                        total_trips_processed += len(trip_ids)
-
-                    conn.commit()
-
-                    if len(groups) < batch_size:
-                        break
-
-        if total_trips_processed == 0:
-            print(f"   ✅ Nothing to do.")
-        else:
-            savings = (1 - total_unique_paths / total_trips_processed) * 100
-            print(f"   🔄 Updating edge traffic...")
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT DISTINCT t.generation_type, p.algorithm
-                    FROM routes r
-                    JOIN trips t ON t.id = r.trip_id
-                    JOIN paths p ON p.id = r.path_id
-                    WHERE t.city_id = %s
-                    """,
-                    (city_id,),
-                )
-                combinations = cur.fetchall()
-            for gen_type, algo in combinations:
-                upsert_edge_traffic_for_city(conn, city_id, city_name, gen_type, algo)
-            conn.commit()
-            print(f"   ✅ Done – {total_trips_processed:,} trips, "
-                  f"{total_unique_paths:,} unique paths, {savings:.1f}% computation saved.")
+        savings = (1 - total_unique_paths / total_trips_processed) * 100 if total_trips_processed > 0 else 0
+        print(f"   🔄 Updating edge traffic...")
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT t.generation_type, p.algorithm
+                FROM routes r
+                JOIN trips t ON t.id = r.trip_id
+                JOIN paths p ON p.id = r.path_id
+                WHERE t.city_id = %s
+                """,
+                (city_id,),
+            )
+            combinations = cur.fetchall()
+        for gen_type, algo in combinations:
+            upsert_edge_traffic_for_city(conn, city_id, city_name, gen_type, algo)
+        conn.commit()
+        print(f"   ✅ Done – {total_trips_processed:,} trips, "
+              f"{total_unique_paths:,} unique paths, {savings:.1f}% saved.")
 
         if total_trips_processed > 0:
             refresh_city_modes(conn, city_id)
