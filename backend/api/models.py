@@ -157,6 +157,7 @@ class StationResponse(BaseModel):
     estimated_outbound: Optional[float] = None
     reach_coverage: Optional[float] = None
     building_count: Optional[int] = None
+    capacity: Optional[int] = None
     extra: Optional[Dict[str, Any]] = None
 
     class Config:

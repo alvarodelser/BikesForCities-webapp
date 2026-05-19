@@ -52,7 +52,7 @@ def get_paginated_stations(conn, city_id: int, limit: int = 100, offset: int = 0
         query = """
             SELECT
                 s.id, s.station_id, s.name, s.lat, s.lon, s.citybikes_network_id,
-                s.extra, s.reach_coverage, s.building_count,
+                s.extra, s.reach_coverage, s.building_count, s.capacity,
                 sm.estimated_trips       AS estimated_monthly_trips,
                 sm.downtime_minutes,
                 sm.estimated_inbound,
@@ -140,7 +140,11 @@ def get_nearby_unmerged_station(conn, city_id: int, sid: str, lon: float, lat: f
 
 
 def upsert_stations(conn, rows: List[Tuple]) -> int:
-    """Bulk upsert stations."""
+    """Bulk upsert stations.
+
+    Row tuple: (city_id, network_id, station_id, name, lat, lon, lon, lat,
+                extra_json, first_seen, last_seen, merged_into_id, capacity)
+    """
     if not rows:
         return 0
     with conn.cursor() as cur:
@@ -148,7 +152,8 @@ def upsert_stations(conn, rows: List[Tuple]) -> int:
             cur,
             """
             INSERT INTO stations (
-                city_id, citybikes_network_id, station_id, name, lat, lon, geom, extra, first_seen, last_seen, merged_into_id
+                city_id, citybikes_network_id, station_id, name, lat, lon, geom,
+                extra, first_seen, last_seen, merged_into_id, capacity
             )
             VALUES %s
             ON CONFLICT (citybikes_network_id, station_id)
@@ -164,10 +169,11 @@ def upsert_stations(conn, rows: List[Tuple]) -> int:
                     COALESCE(stations.last_seen, EXCLUDED.last_seen),
                     COALESCE(EXCLUDED.last_seen, stations.last_seen)
                 ),
-                merged_into_id = COALESCE(stations.merged_into_id, EXCLUDED.merged_into_id)
+                merged_into_id = COALESCE(stations.merged_into_id, EXCLUDED.merged_into_id),
+                capacity = COALESCE(EXCLUDED.capacity, stations.capacity)
             """,
             rows,
-            template="(%s,%s,%s,%s,%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),4326),%s,%s,%s,%s)",
+            template="(%s,%s,%s,%s,%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),4326),%s,%s,%s,%s,%s)",
         )
         city_ids = {row[0] for row in rows}
     from .cities import refresh_city_modes

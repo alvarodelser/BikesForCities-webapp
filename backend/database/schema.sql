@@ -284,6 +284,7 @@ CREATE TABLE IF NOT EXISTS stations (
     merged_into_id INTEGER REFERENCES stations(id) ON DELETE SET NULL,
     reach_coverage DOUBLE PRECISION,
     building_count INTEGER,                      -- absolute count of bike_path_buildings within 150m (computed at ingestion)
+    capacity INTEGER,                            -- total dock capacity from extra.slots (static, set at ingestion)
     UNIQUE (citybikes_network_id, station_id)
 );
 CREATE INDEX IF NOT EXISTS idx_stations_merged_into ON stations(merged_into_id);
