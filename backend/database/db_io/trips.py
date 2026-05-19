@@ -77,6 +77,46 @@ def get_unrouted_trip_groups(conn, city_id: int, limit: int = 1000) -> List[Tupl
         return cur.fetchall()
 
 
+def count_unsaferouted_trips(conn, city_id: int) -> int:
+    """Trips that have no routes row pointing to a safest-path path."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(*)
+            FROM trips t
+            LEFT JOIN routes r  ON r.trip_id = t.id
+            LEFT JOIN paths  p  ON p.id = r.path_id AND p.algorithm = 'safest'
+            WHERE t.city_id = %s AND p.id IS NULL
+              AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
+            """,
+            (city_id,),
+        )
+        return cur.fetchone()[0]
+
+
+def get_unsaferouted_trip_groups(conn, city_id: int, limit: int = 1000) -> list:
+    """Return unique (origin_node, dest_node) groups for trips not yet safest-path routed.
+
+    Returns: (origin_node, dest_node, count, trip_ids[])
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT t.origin_node, t.dest_node, COUNT(*), ARRAY_AGG(t.id)
+            FROM trips t
+            LEFT JOIN routes r ON r.trip_id = t.id
+            LEFT JOIN paths  p ON p.id = r.path_id AND p.algorithm = 'safest'
+            WHERE t.city_id = %s AND p.id IS NULL
+              AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
+            GROUP BY t.origin_node, t.dest_node
+            ORDER BY COUNT(*) DESC
+            LIMIT %s
+            """,
+            (city_id, limit),
+        )
+        return cur.fetchall()
+
+
 def city_has_real_trips(conn, city_id: int) -> bool:
     """Return True if the city already has real (non-synthetic) trips."""
     with conn.cursor() as cur:

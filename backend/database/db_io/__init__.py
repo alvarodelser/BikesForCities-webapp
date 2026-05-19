@@ -58,6 +58,8 @@ from .trips import (
     count_trips,
     count_unrouted_trips,
     get_unrouted_trip_groups,
+    count_unsaferouted_trips,
+    get_unsaferouted_trip_groups,
     city_has_real_trips,
     get_paginated_trips,
     get_trip_stats,
@@ -66,6 +68,7 @@ from .trips import (
 
 from .paths import (
     get_or_create_shortest_path,
+    get_or_create_safest_path,
     put_map_matched_path,
     put_path_edges,
     put_path_nodes,
@@ -174,9 +177,10 @@ __all__ = [
     "get_edge_building_coverage", "analyze_graph_tables",
     # trips
     "put_trips", "count_trips", "count_unrouted_trips", "get_unrouted_trip_groups",
+    "count_unsaferouted_trips", "get_unsaferouted_trip_groups",
     "city_has_real_trips", "get_paginated_trips", "get_trip_stats",
     # paths
-    "get_or_create_shortest_path", "put_map_matched_path",
+    "get_or_create_shortest_path", "get_or_create_safest_path", "put_map_matched_path",
     "put_path_edges", "put_path_nodes",
     "link_trip_to_path", "bulk_link_trips_to_path",
     # routes (join table helpers + backward-compat alias)
