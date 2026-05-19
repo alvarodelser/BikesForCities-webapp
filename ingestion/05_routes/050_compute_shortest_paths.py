@@ -45,9 +45,8 @@ PROCESS_NAME = "050_compute_shortest_paths"
 worker_graph = None
 
 
-def init_worker(graph):
-    global worker_graph
-    worker_graph = graph
+def init_worker():
+    pass  # graph inherited via fork — no pickling needed
 
 
 def compute_path_worker(args):
@@ -92,13 +91,13 @@ def process_city(conn, city_id: int, city_name: str,
         total_unique_paths = 0
 
         print("   🌐 Building graph...")
-        graph = build_graph(conn, city_id)
+        global worker_graph
+        worker_graph = build_graph(conn, city_id)
         edge_id_map = get_edge_id_map(conn, city_id)
         print(f"   🗺️  {len(edge_id_map):,} edges loaded. Spawning workers...")
 
         with ProcessPoolExecutor(max_workers=num_workers,
-                                 initializer=init_worker,
-                                 initargs=(graph,)) as executor:
+                                 initializer=init_worker) as executor:
             while True:
                 groups = get_unrouted_trip_groups(conn, city_id, limit=batch_size)
                 if not groups:
