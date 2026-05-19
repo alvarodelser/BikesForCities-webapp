@@ -29,7 +29,6 @@ from backend.database.db_io import (
     get_edge_id_map,
     upsert_edge_traffic_for_city,
     upsert_ingestion_status,
-    check_prerequisites,
     count_unrouted_trips,
     get_unrouted_trip_groups,
     get_or_create_shortest_path,
@@ -212,14 +211,11 @@ def main():
         target = cities
 
     for city_id, name, *_ in target:
-        # Skip only if NEITHER trip source has completed successfully
-        candidates = ["041_generate_station_trips", "040_load_madrid_trips"]
-        has_trips = any(
-            not check_prerequisites(conn, [p], city_id=city_id)
-            for p in candidates
-        )
-        if not has_trips:
-            print(f"⚠️  Skipping '{name}': no trip ingestion completed yet.")
+        with conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM trips WHERE city_id = %s", (city_id,))
+            trip_count = cur.fetchone()[0]
+        if trip_count == 0:
+            print(f"⚠️  Skipping '{name}': no trips in DB.")
             continue
         process_city(conn, city_id, name,
                      batch_size=args.batch, num_workers=args.workers, force=args.force)
