@@ -170,7 +170,7 @@ def upsert_stations(conn, rows: List[Tuple]) -> int:
                     COALESCE(EXCLUDED.last_seen, stations.last_seen)
                 ),
                 merged_into_id = COALESCE(stations.merged_into_id, EXCLUDED.merged_into_id),
-                capacity = COALESCE(EXCLUDED.capacity, stations.capacity)
+                capacity = GREATEST(EXCLUDED.capacity, stations.capacity)
             """,
             rows,
             template="(%s,%s,%s,%s,%s,%s,ST_SetSRID(ST_MakePoint(%s,%s),4326),%s,%s,%s,%s,%s)",

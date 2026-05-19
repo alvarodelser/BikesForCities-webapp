@@ -117,7 +117,7 @@ def _db_month_has_data(conn, network_id: str, year: int, month: int) -> bool:
     return has_station_readings_for_month(conn, network_id, start, end)
 
 
-def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[Dict[str, Any]]) -> int:
+def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[Dict[str, Any]], station_capacities: Optional[Dict[str, int]] = None) -> int:
     rows = []
     for st in stations:
         sid = str(st.get("id"))
@@ -131,6 +131,7 @@ def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[D
         ts = st.get("timestamp")
         seen = _parse_iso(ts) if isinstance(ts, str) else None
         extra = st.get("extra")
+        capacity = station_capacities.get(sid) if station_capacities else None
         rows.append(
             (
                 city_id,
@@ -145,7 +146,7 @@ def _db_upsert_stations(conn, *, city_id: int, network_id: str, stations: List[D
                 seen,
                 seen,
                 merged_into,
-                st.get("capacity"),
+                capacity,
             )
         )
 
@@ -223,9 +224,8 @@ def _ingest_parquet_month(
     bike_cols_present = [c for c in possible_bike_cols if c in schema_cols]
     
     possible_slot_cols = ["empty_slots", "free", "available_slots", "slots", "num_docks_available", "ebike_slots"]
-    possible_capacity_cols = ["capacity", "num_docks_total", "total_slots"]
     slot_cols_present = [c for c in possible_slot_cols if c in schema_cols]
-    
+
     extra_col = pick(["extra"])
     name_col = pick(["name", "station_name", "title"])
     lat_col = pick(["latitude", "lat"])
@@ -240,23 +240,21 @@ def _ingest_parquet_month(
     batch: List[Tuple[str, dt.datetime, Optional[int], Optional[int], Optional[dict]]] = []
     batch_size = 5000
 
-    capacity_col = pick(possible_capacity_cols)
-    cols_to_read = list(set([c for c in [station_col, time_col, extra_col, name_col, lat_col, lon_col, capacity_col] if c] + bike_cols_present + slot_cols_present))
+    # Track max(bikes + free_slots) per station across all readings — unified capacity source
+    station_observed_cap: Dict[str, int] = {}
+
+    cols_to_read = list(set([c for c in [station_col, time_col, extra_col, name_col, lat_col, lon_col] if c] + bike_cols_present + slot_cols_present))
     for rg in range(pf.num_row_groups or 1):
         table = pf.read_row_group(rg, columns=cols_to_read)
         sids = table[station_col].to_pylist()
         times = table[time_col].to_pylist()
-        
+
         # Sum all bike/slot columns present
         def get_sum(cols):
             if not cols: return [None] * len(sids)
-            
-            # Using a DataFrame for easier row-wise summation with null handling
+
             import pandas as pd
             sub_df = pd.DataFrame({c: table[c].to_pylist() for c in cols})
-            
-            # Sum rows, but if all original values were None, return None for that row
-            # min_count=1 ensures that if all are NA, the result is NA (not 0)
             summed = sub_df.sum(axis=1, min_count=1)
             return [int(x) if pd.notnull(x) else None for x in summed]
 
@@ -266,10 +264,9 @@ def _ingest_parquet_month(
         names = table[name_col].to_pylist() if name_col and name_col in table.column_names else [None] * len(sids)
         lats = table[lat_col].to_pylist() if lat_col and lat_col in table.column_names else [None] * len(sids)
         lons = table[lon_col].to_pylist() if lon_col and lon_col in table.column_names else [None] * len(sids)
-        capacities = table[capacity_col].to_pylist() if capacity_col and capacity_col in table.column_names else [None] * len(sids)
 
         batch_stations = {}
-        for sid, t, b, s, ex, n, lat, lon, cap in zip(sids, times, bikes, slots, extras, names, lats, lons, capacities):
+        for sid, t, b, s, ex, n, lat, lon in zip(sids, times, bikes, slots, extras, names, lats, lons):
             if sid is None or t is None:
                 continue
 
@@ -282,21 +279,19 @@ def _ingest_parquet_month(
 
             if observed_at.tzinfo is None:
                 observed_at = observed_at.replace(tzinfo=dt.timezone.utc)
-                
+
             if isinstance(ex, str):
                 try:
                     ex = json.loads(ex)
                 except json.JSONDecodeError:
                     ex = None
 
-            # Resolve capacity: explicit column first, then extra.slots/capacity/num_docks_total
-            resolved_cap = int(cap) if cap is not None else None
-            if resolved_cap is None and isinstance(ex, dict):
-                for key in ("slots", "capacity", "num_docks_total"):
-                    v = ex.get(key)
-                    if isinstance(v, (int, float)) and v > 0:
-                        resolved_cap = int(v)
-                        break
+            # Capacity = max observed (bikes + free_slots) per station across all readings
+            if b is not None and s is not None:
+                observed = b + s
+                sid_str = str(sid)
+                if observed > station_observed_cap.get(sid_str, 0):
+                    station_observed_cap[sid_str] = observed
 
             batch.append(
                 (
@@ -316,20 +311,19 @@ def _ingest_parquet_month(
                     "name": n,
                     "timestamp": observed_at.isoformat(),
                     "extra": ex if isinstance(ex, dict) else None,
-                    "capacity": resolved_cap,
                 }
-                
+
             if len(batch) >= batch_size:
                 total_inserted += _db_insert_readings(conn, city_id=city_id, network_id=network_id, batch=batch)
                 batch = []
                 if batch_stations:
-                    _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=list(batch_stations.values()))
+                    _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=list(batch_stations.values()), station_capacities=station_observed_cap)
                     batch_stations = {}
 
         if batch:
             total_inserted += _db_insert_readings(conn, city_id=city_id, network_id=network_id, batch=batch)
         if batch_stations:
-            _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=list(batch_stations.values()))
+            _db_upsert_stations(conn, city_id=city_id, network_id=network_id, stations=list(batch_stations.values()), station_capacities=station_observed_cap)
 
     return total_inserted
 
