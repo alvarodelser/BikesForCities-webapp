@@ -150,16 +150,17 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
         lam_profile = np.full(24, y_dep.mean())
         mu_profile = np.full(24, y_arr.mean())
 
+        X_fit = X.values
         try:
-            reg_dep.fit(X, y_dep)
-            lam_preds.loc[group_indices] = reg_dep.predict(X)
+            reg_dep.fit(X_fit, y_dep)
+            lam_preds.loc[group_indices] = reg_dep.predict(X_fit)
             lam_profile = reg_dep.predict(X_profile).reshape(24, 7).mean(axis=1)
         except Exception:
             lam_preds.loc[group_indices] = y_dep.mean()
 
         try:
-            reg_arr.fit(X, y_arr)
-            mu_preds.loc[group_indices] = reg_arr.predict(X)
+            reg_arr.fit(X_fit, y_arr)
+            mu_preds.loc[group_indices] = reg_arr.predict(X_fit)
             mu_profile = reg_arr.predict(X_profile).reshape(24, 7).mean(axis=1)
         except Exception:
             mu_preds.loc[group_indices] = y_arr.mean()
