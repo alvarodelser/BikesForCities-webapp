@@ -6,6 +6,8 @@ import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
 import type * as GeoJSON from 'geojson';
 
+type Combo = { generation_type: string; algorithm: string };
+
 const OD_HEX_SOURCE = 'od-hex-source';
 const OD_HEX_FILL_LAYER = 'od-hex-fill-layer';
 const OD_HEX_LINE_LAYER = 'od-hex-line-layer';
@@ -59,7 +61,14 @@ function arcFeature(f: GeoJSON.Feature): GeoJSON.Feature {
 
 export default function TrafficTripsLayer() {
     const { map, city } = useMap();
-    const { generation, period } = useMapState();
+    const { generation, period, setGeneration } = useMapState();
+
+    // Resolve generation from city data if not in URL (e.g. direct navigation to ?submode=od)
+    useEffect(() => {
+        if (generation) return;
+        const combos = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
+        if (combos.length > 0) setGeneration(combos[0].generation_type);
+    }, [city?.id, generation]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const odFlowsRef = useRef<GeoJSON.Feature[]>([]);
     const selectedHexRef = useRef<string | null>(null);
@@ -126,6 +135,7 @@ export default function TrafficTripsLayer() {
 
     const buildLayers = useCallback((geojson: GeoJSON.FeatureCollection) => {
         if (!map) return;
+        console.log('[TrafficTripsLayer] buildLayers called with', geojson.features.length, 'features');
 
         // Store all arched features for spider filtering
         odFlowsRef.current = geojson.features.map(arcFeature);
@@ -198,12 +208,17 @@ export default function TrafficTripsLayer() {
     }, [map]);
 
     const loadData = useCallback(async () => {
-        if (!map || !city?.id || !generation) return;
+        if (!map || !city?.id || !generation) {
+            console.log('[TrafficTripsLayer] loadData skipped — map:', !!map, 'cityId:', city?.id, 'generation:', generation);
+            return;
+        }
+        console.log('[TrafficTripsLayer] fetching OD flows — cityId:', city.id, 'generation:', generation, 'period:', period);
         try {
             const geojson = await fetchODFlows(city.id, generation, period || undefined);
+            console.log('[TrafficTripsLayer] received', geojson.features.length, 'features');
             buildLayers(geojson);
         } catch (err) {
-            console.error('Failed to load OD flows:', err);
+            console.error('[TrafficTripsLayer] Failed to load OD flows:', err);
         }
     }, [map, city?.id, generation, period, buildLayers]);
 

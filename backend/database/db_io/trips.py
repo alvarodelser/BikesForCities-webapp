@@ -195,17 +195,27 @@ def get_od_hex_flows(
 
     period_date = (period + '-01') if period else None
 
-    # Aggregate at node-pair level in SQL to avoid shipping every row to Python
+    # Aggregate trips by (origin_node, dest_node) first — far cheaper than
+    # joining all rows to nodes before grouping on a large table.
+    # Cap at 200k most-common pairs so the response stays manageable.
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT n1.lat, n1.lon, n2.lat, n2.lon, COUNT(*) AS cnt
-            FROM trips t
-            JOIN nodes n1 ON n1.id = t.origin_node AND n1.city_id = t.city_id
-            JOIN nodes n2 ON n2.id = t.dest_node   AND n2.city_id = t.city_id
-            WHERE t.city_id = %s AND t.generation_type = %s
-              AND t.origin_node IS NOT NULL AND t.dest_node IS NOT NULL
-              AND (%s IS NULL OR DATE_TRUNC('month', t.datetime_unlock) = %s::date)
-            GROUP BY n1.lat, n1.lon, n2.lat, n2.lon
+            WITH od_counts AS (
+                SELECT origin_node, dest_node, COUNT(*) AS cnt
+                FROM trips
+                WHERE city_id = %s AND generation_type = %s
+                  AND origin_node IS NOT NULL AND dest_node IS NOT NULL
+                  AND (%s IS NULL OR DATE_TRUNC('month', datetime_unlock) = %s::date)
+                GROUP BY origin_node, dest_node
+                ORDER BY cnt DESC
+                LIMIT 200000
+            )
+            SELECT n1.lat, n1.lon, n2.lat, n2.lon, od.cnt
+            FROM od_counts od
+            JOIN nodes n1 ON n1.id = od.origin_node
+            JOIN nodes n2 ON n2.id = od.dest_node
+            WHERE n1.lat IS NOT NULL AND n1.lon IS NOT NULL
+              AND n2.lat IS NOT NULL AND n2.lon IS NOT NULL
         """, (city_id, generation_type, period_date, period_date))
         node_pairs = cur.fetchall()
 

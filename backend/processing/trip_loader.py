@@ -68,6 +68,9 @@ def load_graph(
     G_consolidated = ox.consolidate_intersections(
         G_projected, tolerance=10, rebuild_graph=True, dead_ends=False
     )
+    # consolidate_intersections can introduce disconnected components in a directed
+    # graph; re-apply largest SCC so all stored nodes are mutually reachable.
+    G_consolidated = ox.truncate.largest_component(G_consolidated, strongly=True)
     return ox.project_graph(G_consolidated, to_crs="EPSG:4326")
 
 

@@ -7,6 +7,9 @@
 -- idx_trips_city_od supports the GROUP BY (city_id, origin_node, dest_node)
 -- used in routing batch queries.
 
-CREATE INDEX IF NOT EXISTS idx_routes_trip_id ON routes(trip_id);
-CREATE INDEX IF NOT EXISTS idx_routes_path_id ON routes(path_id);
-CREATE INDEX IF NOT EXISTS idx_trips_city_od  ON trips(city_id, origin_node, dest_node);
+CREATE INDEX IF NOT EXISTS idx_routes_trip_id   ON routes(trip_id);
+CREATE INDEX IF NOT EXISTS idx_routes_path_id   ON routes(path_id);
+CREATE INDEX IF NOT EXISTS idx_trips_city_od    ON trips(city_id, origin_node, dest_node);
+-- Supports the OD-flows aggregation query (city_id + generation_type filter with NOT NULL nodes)
+CREATE INDEX IF NOT EXISTS idx_trips_city_gen   ON trips(city_id, generation_type)
+    WHERE origin_node IS NOT NULL AND dest_node IS NOT NULL;

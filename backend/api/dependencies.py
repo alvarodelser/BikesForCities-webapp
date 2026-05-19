@@ -24,6 +24,8 @@ def get_db_connection() -> Generator[psycopg2.extensions.connection, None, None]
     try:
         conn = connect_db()
         yield conn
+    except HTTPException:
+        raise  # preserve the route's own error response
     except Exception as e:
         logger.error(f"Database connection error: {e}")
         raise HTTPException(
