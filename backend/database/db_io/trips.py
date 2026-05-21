@@ -240,8 +240,8 @@ def get_od_hex_flows(
 
     if min_trips is None:
         total = sum(hex_counts.values())
-        num_origins = len({oh for oh, _ in hex_counts})
-        min_trips = max(1, total // (num_origins * 5))
+        num_pairs = len(hex_counts)
+        min_trips = max(1, total // (num_pairs * 5))
 
     max_count = max(hex_counts.values())
     features = []
