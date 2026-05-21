@@ -101,8 +101,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         mapRef.current = mapInstance;
 
         mapInstance.on('load', () => {
-            console.log('[CityCanvas] load fired, mounted=', mounted);
-            if (!mounted) { console.log('[CityCanvas] ignoring load — already unmounted'); return; }
+            if (!mounted) return;
 
             // Hard-lock rotation / pitch
             mapInstance.dragRotate.disable();
@@ -197,7 +196,6 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' },
             });
 
-            console.log('[CityCanvas] calling onMapInstance + setMapReady(true)');
             setLoading(false);
             setMapReady(true);
             onMapInstance(mapInstance);

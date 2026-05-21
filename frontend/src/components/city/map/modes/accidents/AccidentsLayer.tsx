@@ -111,9 +111,7 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
     }, [map]);
 
     useEffect(() => {
-        console.log('[AccidentsLayer] effect, map=', !!map, 'city=', city?.id);
         if (!map || !city?.id) return;
-        console.log('[AccidentsLayer] proceeding, styleLoaded=', map.isStyleLoaded(), 'layers=', map.getStyle()?.layers?.length);
 
         const cityId = city.id;
 
@@ -141,13 +139,6 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
         map.on('sourcedata', onSourceData);
         map.on('error', onError);
 
-        // Temporary diagnostic: catch silent validation errors from MapLibre
-        const errorHandler = (e: maplibregl.ErrorEvent) => {
-            console.error('[AccidentsLayer] map error event:', (e as any)?.error?.message ?? e);
-        };
-        map.on('error', errorHandler);
-
-        try {
         map.addSource(SOURCE_ID, {
             type: 'vector',
             tiles: [tileUrl],
@@ -155,19 +146,18 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
             maxzoom: 22,
             promoteId: { [SOURCE_LAYER]: 'accident_id' },
         });
-        } catch(e) { console.error('[AccidentsLayer] addSource error:', e); }
-        console.log('[AccidentsLayer] after addSource, hasSource=', !!map.getSource(SOURCE_ID));
-        console.log('[AccidentsLayer] style._loaded=', (map as any).style?._loaded, 'style.loaded()=', (map as any).style?.loaded?.());
-        try { map.addLayer({
+        map.addLayer({
             id: LAYER_ID,
             type: 'circle',
             source: SOURCE_ID,
             'source-layer': SOURCE_LAYER,
             paint: {
+                // zoom must be the top-level input to interpolate/step in ML5+;
+                // it cannot appear nested inside a case expression.
                 'circle-radius': [
-                    'case',
-                    ['boolean', ['feature-state', 'selected'], false], 10,
-                    ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
+                    'interpolate', ['linear'], ['zoom'],
+                    10, ['case', ['boolean', ['feature-state', 'selected'], false], 10, 4],
+                    16, ['case', ['boolean', ['feature-state', 'selected'], false], 10, 8],
                 ],
                 'circle-color': [
                     'match', ['get', 'severity'],
@@ -185,8 +175,7 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
                 ],
                 'circle-stroke-color': '#ffffff',
             },
-        }); } catch(e) { console.error('[AccidentsLayer] addLayer error:', e); }
-        console.log('[AccidentsLayer] after addLayer, hasLayer=', !!map.getLayer(LAYER_ID));
+        });
 
         map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
         map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
@@ -237,13 +226,11 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
         map.on('click', globalClickHandler);
 
         return () => {
-            console.log('[AccidentsLayer] CLEANUP: hasLayer=', !!map.getLayer(LAYER_ID), 'hasSource=', !!map.getSource(SOURCE_ID));
             window.removeEventListener('map-selection', onSelectionEvent);
             clearSelection();
             window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
             map.off('sourcedata', onSourceData);
             map.off('error', onError);
-            map.off('error', errorHandler);
             if (globalClickHandlerRef.current) {
                 map.off('click', globalClickHandlerRef.current);
                 globalClickHandlerRef.current = null;
