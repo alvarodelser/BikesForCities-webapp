@@ -18,6 +18,7 @@ import os
 from pathlib import Path
 from tqdm import tqdm
 from dotenv import load_dotenv
+from concurrent.futures import ProcessPoolExecutor
 import networkx as nx
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
@@ -41,11 +42,27 @@ from backend.processing.route_strategy import shortest_path
 
 PROCESS_NAME = "050_compute_shortest_paths"
 
+worker_graph = None
+
+
+def init_worker(graph):
+    global worker_graph
+    worker_graph = graph
+
+
+def compute_path_worker(args):
+    origin_node, dest_node = args
+    try:
+        return shortest_path(worker_graph, origin_node, dest_node)
+    except Exception:
+        return None
+
+
 def process_city(conn, city_id: int, city_name: str,
                  batch_size: int = 500, num_workers: int | None = None,
                  force: bool = False):
     if num_workers is None:
-        num_workers = min(os.cpu_count() or 4, 16)
+        num_workers = min(os.cpu_count() or 4, 8)
 
     pending = count_unrouted_trips(conn, city_id)
     if pending == 0 and not force:
@@ -79,40 +96,44 @@ def process_city(conn, city_id: int, city_name: str,
         edge_id_map = get_edge_id_map(conn, city_id)
         print(f"   🗺️  {len(edge_id_map):,} edges loaded.")
 
-        with tqdm(total=pending, desc=f"   {city_name}", unit="trips") as pbar:
-            while True:
-                groups = get_unrouted_trip_groups(conn, city_id, limit=batch_size)
-                if not groups:
-                    break
+        print("   ⏳ Spawning worker pool...")
+        with ProcessPoolExecutor(max_workers=num_workers,
+                                 initializer=init_worker,
+                                 initargs=(graph,)) as executor:
+            print("   ✅ Pool ready.")
+            with tqdm(total=pending, desc=f"   {city_name}", unit="trips") as pbar:
+                while True:
+                    groups = get_unrouted_trip_groups(conn, city_id, limit=batch_size)
+                    if not groups:
+                        break
 
-                for origin_node, dest_node, count, trip_ids in groups:
-                    try:
-                        path = shortest_path(graph, origin_node, dest_node)
-                    except Exception:
-                        path = None
-                    if not path:
-                        continue
+                    tasks = [(g[0], g[1]) for g in groups]
+                    results = list(executor.map(compute_path_worker, tasks))
 
-                    total_unique_paths += 1
-                    path_id = get_or_create_shortest_path(
-                        conn, city_id, int(origin_node), int(dest_node)
-                    )
-                    edge_seq = [
-                        (edge_id_map[(u, v)], i)
-                        for i, (u, v) in enumerate(zip(path[:-1], path[1:]))
-                        if (u, v) in edge_id_map
-                    ]
-                    if edge_seq:
-                        put_path_edges(conn, path_id, edge_seq)
-                    put_path_nodes(conn, path_id, [int(n) for n in path])
-                    bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
-                    total_trips_processed += len(trip_ids)
-                    pbar.update(len(trip_ids))
+                    for (origin_node, dest_node, count, trip_ids), path in zip(groups, results):
+                        if not path:
+                            continue
 
-                conn.commit()
+                        total_unique_paths += 1
+                        path_id = get_or_create_shortest_path(
+                            conn, city_id, int(origin_node), int(dest_node)
+                        )
+                        edge_seq = [
+                            (edge_id_map[(u, v)], i)
+                            for i, (u, v) in enumerate(zip(path[:-1], path[1:]))
+                            if (u, v) in edge_id_map
+                        ]
+                        if edge_seq:
+                            put_path_edges(conn, path_id, edge_seq)
+                        put_path_nodes(conn, path_id, [int(n) for n in path])
+                        bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
+                        total_trips_processed += len(trip_ids)
+                        pbar.update(len(trip_ids))
 
-                if len(groups) < batch_size:
-                    break
+                    conn.commit()
+
+                    if len(groups) < batch_size:
+                        break
 
         savings = (1 - total_unique_paths / total_trips_processed) * 100 if total_trips_processed > 0 else 0
         print(f"   🔄 Updating edge traffic...")
