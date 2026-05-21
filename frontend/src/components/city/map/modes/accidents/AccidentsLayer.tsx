@@ -111,7 +111,11 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
     }, [map]);
 
     useEffect(() => {
-        if (!map) return;
+        console.log('[AccidentsLayer] effect, map=', !!map, 'city=', city?.id);
+        if (!map || !city?.id) return;
+        console.log('[AccidentsLayer] proceeding, styleLoaded=', map.isStyleLoaded(), 'layers=', map.getStyle()?.layers?.length);
+
+        const cityId = city.id;
 
         ['stations-layer', 'bike-paths-layer', 'traffic-layer'].forEach(id => {
             if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none');
@@ -122,10 +126,124 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
         };
         window.addEventListener('map-selection', onSelectionEvent);
 
+        const tileParams = new URLSearchParams({ city_id: String(cityId), cyclists_only: String(cyclistsOnly) });
+        if (year != null) tileParams.set('year', String(year));
+        const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?${tileParams}`;
+
+        setLayerState?.('loading');
+
+        const onSourceData = (e: maplibregl.MapSourceDataEvent) => {
+            if (e.sourceId === SOURCE_ID && e.isSourceLoaded) setLayerState?.('idle');
+        };
+        const onError = (e: maplibregl.ErrorEvent) => {
+            if ((e as any)?.sourceId === SOURCE_ID) setLayerState?.('error');
+        };
+        map.on('sourcedata', onSourceData);
+        map.on('error', onError);
+
+        // Temporary diagnostic: catch silent validation errors from MapLibre
+        const errorHandler = (e: maplibregl.ErrorEvent) => {
+            console.error('[AccidentsLayer] map error event:', (e as any)?.error?.message ?? e);
+        };
+        map.on('error', errorHandler);
+
+        try {
+        map.addSource(SOURCE_ID, {
+            type: 'vector',
+            tiles: [tileUrl],
+            minzoom: 0,
+            maxzoom: 22,
+            promoteId: { [SOURCE_LAYER]: 'accident_id' },
+        });
+        } catch(e) { console.error('[AccidentsLayer] addSource error:', e); }
+        console.log('[AccidentsLayer] after addSource, hasSource=', !!map.getSource(SOURCE_ID));
+        console.log('[AccidentsLayer] style._loaded=', (map as any).style?._loaded, 'style.loaded()=', (map as any).style?.loaded?.());
+        try { map.addLayer({
+            id: LAYER_ID,
+            type: 'circle',
+            source: SOURCE_ID,
+            'source-layer': SOURCE_LAYER,
+            paint: {
+                'circle-radius': [
+                    'case',
+                    ['boolean', ['feature-state', 'selected'], false], 10,
+                    ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
+                ],
+                'circle-color': [
+                    'match', ['get', 'severity'],
+                    'fatal',     SEVERITY_COLORS.fatal,
+                    'serious',   SEVERITY_COLORS.serious,
+                    'minor',     SEVERITY_COLORS.minor,
+                    'uninjured', SEVERITY_COLORS.uninjured,
+                    '#9ca3af',
+                ],
+                'circle-opacity': [
+                    'case', ['boolean', ['feature-state', 'selected'], false], 1, 0.75,
+                ],
+                'circle-stroke-width': [
+                    'case', ['boolean', ['feature-state', 'selected'], false], 3, 1.5,
+                ],
+                'circle-stroke-color': '#ffffff',
+            },
+        }); } catch(e) { console.error('[AccidentsLayer] addLayer error:', e); }
+        console.log('[AccidentsLayer] after addLayer, hasLayer=', !!map.getLayer(LAYER_ID));
+
+        map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
+
+        map.on('click', LAYER_ID, (e) => {
+            const feature = e.features?.[0];
+            if (!feature || feature.id == null) return;
+
+            const accidentId = String(feature.id);
+            if (activeIdRef.current === accidentId) return;
+
+            clearSelection();
+            activeIdRef.current = accidentId;
+            map.setFeatureState(
+                { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: accidentId },
+                { selected: true },
+            );
+
+            const baseDetail = buildBaseDetail(feature.properties as Record<string, unknown>);
+            window.dispatchEvent(new CustomEvent('map-selection', { detail: baseDetail }));
+
+            const reqId = ++detailReqIdRef.current;
+            fetchAccidentDetail(cityId, accidentId)
+                .then(detail => {
+                    if (reqId !== detailReqIdRef.current) return;
+                    if (activeIdRef.current !== accidentId) return;
+                    const enriched = enrichDetail(baseDetail, detail);
+                    window.dispatchEvent(new CustomEvent('map-selection', { detail: enriched }));
+                })
+                .catch(err => {
+                    if (reqId !== detailReqIdRef.current) return;
+                    console.error('Failed to load accident detail:', err);
+                    window.dispatchEvent(new CustomEvent('map-selection', {
+                        detail: { ...baseDetail, loading: false },
+                    }));
+                });
+        });
+
+        const globalClickHandler = (e: maplibregl.MapMouseEvent) => {
+            if (!activeIdRef.current) return;
+            const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
+            if (!hits?.length) {
+                clearSelection();
+                window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
+            }
+        };
+        globalClickHandlerRef.current = globalClickHandler;
+        map.on('click', globalClickHandler);
+
         return () => {
+            console.log('[AccidentsLayer] CLEANUP: hasLayer=', !!map.getLayer(LAYER_ID), 'hasSource=', !!map.getSource(SOURCE_ID));
             window.removeEventListener('map-selection', onSelectionEvent);
             clearSelection();
             window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
+            map.off('sourcedata', onSourceData);
+            map.off('error', onError);
+            map.off('error', errorHandler);
             if (globalClickHandlerRef.current) {
                 map.off('click', globalClickHandlerRef.current);
                 globalClickHandlerRef.current = null;
@@ -134,128 +252,6 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
                 if (map.getLayer(LAYER_ID))   map.removeLayer(LAYER_ID);
                 if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
             } catch { /* map may have been removed */ }
-        };
-    }, [map, clearSelection]);
-
-    useEffect(() => {
-        console.log('[AccidentsLayer] effect fired', { map: !!map, cityId: city?.id, cyclistsOnly });
-        if (!map || !city?.id) return;
-
-        const cityId = city.id;
-        const tileParams = new URLSearchParams({ city_id: String(cityId), cyclists_only: String(cyclistsOnly) });
-        if (year != null) tileParams.set('year', String(year));
-        const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?${tileParams}`;
-        console.log('[AccidentsLayer] tileUrl', tileUrl, 'sourceExists', !!map.getSource(SOURCE_ID));
-
-        setLayerState?.('loading');
-
-        const onSourceData = (e: maplibregl.MapSourceDataEvent) => {
-            if (e.sourceId === SOURCE_ID && e.isSourceLoaded) {
-                setLayerState?.('idle');
-            }
-        };
-        const onError = (e: maplibregl.ErrorEvent) => {
-            if ((e as any)?.sourceId === SOURCE_ID) setLayerState?.('error');
-        };
-        map.on('sourcedata', onSourceData);
-        map.on('error', onError);
-
-        if (!map.getSource(SOURCE_ID)) {
-            map.addSource(SOURCE_ID, {
-                type: 'vector',
-                tiles: [tileUrl],
-                minzoom: 0,
-                maxzoom: 22,
-                promoteId: { [SOURCE_LAYER]: 'accident_id' },
-            });
-        } else {
-            (map.getSource(SOURCE_ID) as maplibregl.VectorTileSource).setTiles([tileUrl]);
-        }
-
-        console.log('[AccidentsLayer] after addSource, layerExists:', !!map.getLayer(LAYER_ID));
-        if (!map.getLayer(LAYER_ID)) {
-            map.addLayer({
-                id: LAYER_ID,
-                type: 'circle',
-                source: SOURCE_ID,
-                'source-layer': SOURCE_LAYER,
-                paint: {
-                    'circle-radius': [
-                        'case',
-                        ['boolean', ['feature-state', 'selected'], false], 10,
-                        ['interpolate', ['linear'], ['zoom'], 10, 4, 16, 8],
-                    ],
-                    'circle-color': [
-                        'match', ['get', 'severity'],
-                        'fatal',     SEVERITY_COLORS.fatal,
-                        'serious',   SEVERITY_COLORS.serious,
-                        'minor',     SEVERITY_COLORS.minor,
-                        'uninjured', SEVERITY_COLORS.uninjured,
-                        '#9ca3af',
-                    ],
-                    'circle-opacity': [
-                        'case', ['boolean', ['feature-state', 'selected'], false], 1, 0.75,
-                    ],
-                    'circle-stroke-width': [
-                        'case', ['boolean', ['feature-state', 'selected'], false], 3, 1.5,
-                    ],
-                    'circle-stroke-color': '#ffffff',
-                },
-            });
-
-            console.log('[AccidentsLayer] layer added, sourceLoaded:', (map.getSource(SOURCE_ID) as any)?._loaded);
-            map.on('mouseenter', LAYER_ID, () => { map.getCanvas().style.cursor = 'pointer'; });
-            map.on('mouseleave', LAYER_ID, () => { map.getCanvas().style.cursor = ''; });
-
-            map.on('click', LAYER_ID, (e) => {
-                const feature = e.features?.[0];
-                if (!feature || feature.id == null) return;
-
-                const accidentId = String(feature.id);
-                if (activeIdRef.current === accidentId) return;
-
-                clearSelection();
-                activeIdRef.current = accidentId;
-                map.setFeatureState(
-                    { source: SOURCE_ID, sourceLayer: SOURCE_LAYER, id: accidentId },
-                    { selected: true },
-                );
-
-                const baseDetail = buildBaseDetail(feature.properties as Record<string, unknown>);
-                window.dispatchEvent(new CustomEvent('map-selection', { detail: baseDetail }));
-
-                const reqId = ++detailReqIdRef.current;
-                fetchAccidentDetail(cityId, accidentId)
-                    .then(detail => {
-                        if (reqId !== detailReqIdRef.current) return;
-                        if (activeIdRef.current !== accidentId) return;
-                        const enriched = enrichDetail(baseDetail, detail);
-                        window.dispatchEvent(new CustomEvent('map-selection', { detail: enriched }));
-                    })
-                    .catch(err => {
-                        if (reqId !== detailReqIdRef.current) return;
-                        console.error('Failed to load accident detail:', err);
-                        window.dispatchEvent(new CustomEvent('map-selection', {
-                            detail: { ...baseDetail, loading: false },
-                        }));
-                    });
-            });
-
-            const globalClickHandler = (e: maplibregl.MapMouseEvent) => {
-                if (!activeIdRef.current) return;
-                const hits = map.queryRenderedFeatures(e.point, { layers: [LAYER_ID] });
-                if (!hits?.length) {
-                    clearSelection();
-                    window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
-                }
-            };
-            globalClickHandlerRef.current = globalClickHandler;
-            map.on('click', globalClickHandler);
-        }
-
-        return () => {
-            map.off('sourcedata', onSourceData);
-            map.off('error', onError);
         };
     }, [map, city?.id, cyclistsOnly, year, clearSelection, setLayerState]);
 

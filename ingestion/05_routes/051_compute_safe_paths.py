@@ -67,7 +67,7 @@ def process_city(conn, city_id: int, city_name: str,
                  batch_size: int = 500, num_workers: int | None = None,
                  force: bool = False):
     if num_workers is None:
-        num_workers = min(os.cpu_count() or 4, 16)
+        num_workers = min(os.cpu_count() or 4, 8)
 
     print(f"\n🚀 Computing safe paths for {city_name} (city_id={city_id}) "
           f"with {num_workers} workers...")
@@ -111,46 +111,39 @@ def process_city(conn, city_id: int, city_name: str,
                                      initializer=init_worker,
                                      initargs=(graph,)) as executor:
                 print("   ✅ Pool ready.")
-                while True:
-                    groups = get_unsaferouted_trip_groups(conn, city_id, limit=batch_size)
-                    if not groups:
-                        break
+                with tqdm(total=pending, desc=f"   {city_name}", unit="trips") as pbar:
+                    while True:
+                        groups = get_unsaferouted_trip_groups(conn, city_id, limit=batch_size)
+                        if not groups:
+                            break
 
-                    tasks = [(g[0], g[1]) for g in groups]
-                    results = list(executor.map(compute_path_worker, tasks))
+                        tasks = [(g[0], g[1]) for g in groups]
+                        results = list(executor.map(compute_path_worker, tasks))
 
-                    pbar = tqdm(
-                        zip(groups, results),
-                        total=len(groups),
-                        desc=f"   Linking (total: {total_trips_processed:,})",
-                        unit="OD-pairs",
-                    )
-                    for (origin_node, dest_node, count, trip_ids), path in pbar:
-                        if not path:
-                            continue
+                        for (origin_node, dest_node, count, trip_ids), path in zip(groups, results):
+                            if not path:
+                                continue
 
-                        total_unique_paths += 1
+                            total_unique_paths += 1
+                            path_id = get_or_create_safest_path(
+                                conn, city_id, int(origin_node), int(dest_node)
+                            )
+                            edge_seq = [
+                                (edge_id_map[(u, v)], i)
+                                for i, (u, v) in enumerate(zip(path[:-1], path[1:]))
+                                if (u, v) in edge_id_map
+                            ]
+                            if edge_seq:
+                                put_path_edges(conn, path_id, edge_seq)
+                            put_path_nodes(conn, path_id, [int(n) for n in path])
+                            bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
+                            total_trips_processed += len(trip_ids)
+                            pbar.update(len(trip_ids))
 
-                        path_id = get_or_create_safest_path(
-                            conn, city_id, int(origin_node), int(dest_node)
-                        )
+                        conn.commit()
 
-                        edge_seq = [
-                            (edge_id_map[(u, v)], i)
-                            for i, (u, v) in enumerate(zip(path[:-1], path[1:]))
-                            if (u, v) in edge_id_map
-                        ]
-                        if edge_seq:
-                            put_path_edges(conn, path_id, edge_seq)
-
-                        put_path_nodes(conn, path_id, [int(n) for n in path])
-                        bulk_link_trips_to_path(conn, city_id, trip_ids, path_id)
-                        total_trips_processed += len(trip_ids)
-
-                    conn.commit()
-
-                    if len(groups) < batch_size:
-                        break
+                        if len(groups) < batch_size:
+                            break
 
         if total_trips_processed == 0:
             print("   ✅ Nothing to do.")

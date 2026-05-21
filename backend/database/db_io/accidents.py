@@ -123,7 +123,7 @@ def get_accidents_summary(conn, city_id: int, year: Optional[int] = None) -> Dic
         total, cyclist, pedestrian, latest_year = cur.fetchone()
 
         cur.execute("""
-            SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM timestamp)::INT ORDER BY 1 DESC)
+            SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM timestamp)::INT ORDER BY EXTRACT(YEAR FROM timestamp)::INT DESC)
             FROM accidents
             WHERE city_id = %s AND geom IS NOT NULL AND timestamp IS NOT NULL
         """, (city_id,))

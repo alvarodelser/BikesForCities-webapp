@@ -52,6 +52,8 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
     useEffect(() => {
         if (!mapContainer.current || !hasValidCoords) return;
 
+        let mounted = true;
+
         const mapInstance = new maplibregl.Map({
             container: mapContainer.current,
             style: {
@@ -99,6 +101,9 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         mapRef.current = mapInstance;
 
         mapInstance.on('load', () => {
+            console.log('[CityCanvas] load fired, mounted=', mounted);
+            if (!mounted) { console.log('[CityCanvas] ignoring load — already unmounted'); return; }
+
             // Hard-lock rotation / pitch
             mapInstance.dragRotate.disable();
             mapInstance.touchZoomRotate.disableRotation();
@@ -192,21 +197,25 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' },
             });
 
+            console.log('[CityCanvas] calling onMapInstance + setMapReady(true)');
             setLoading(false);
             setMapReady(true);
             onMapInstance(mapInstance);
         });
 
         return () => {
+            mounted = false;
             onMapInstance(null);
             mapRef.current = null;
             setMapReady(false);
             setLoading(true);
-            // Defer removal so React can finish running all child cleanup effects
-            // before map.style is destroyed. Synchronous removal causes layer
-            // components to crash when their cleanup calls map.getLayer().
-            const mapToRemove = mapInstance;
-            setTimeout(() => mapToRemove.remove(), 0);
+            // Synchronous removal is safe because:
+            // - React cleanups run child→parent, so AccidentsLayer (child) already
+            //   removed its layer/source before this runs on real unmount.
+            // - On StrictMode's simulated cleanup, mapReady was never true (load
+            //   was blocked by the mounted guard), so <ActiveLayer> was never
+            //   mounted and there are no child effects accessing this map's style.
+            mapInstance.remove();
         };
     }, [city.geoCoords.latitude, city.geoCoords.longitude, city.id]);
 
