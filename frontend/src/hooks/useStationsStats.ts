@@ -49,6 +49,13 @@ export function useStationsStats(cityId: number | null, initialBikes: number | n
           setTripsBikeDay(null);
         }
 
+        if (initialBikes == null) {
+          const totalCapacity = stations.reduce<number>((acc, s) => {
+            return acc + (s.capacity ?? s.extra?.slots ?? 0);
+          }, 0);
+          if (totalCapacity > 0) setTotalBikes(totalCapacity);
+        }
+
         setAvgBuildingCount(buildingCoverage?.avgCount ?? null);
         setCityCoverage(buildingCoverage?.cityCoverage ?? null);
 

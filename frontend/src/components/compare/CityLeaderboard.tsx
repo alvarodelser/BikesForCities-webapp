@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import type { CityData } from '../../constants/cities';
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
-import { formatPopulation, formatDistance, formatPercentage } from '../../utils/formatters';
+import { formatPopulation, formatDistance, formatPercentage, formatServiceName } from '../../utils/formatters';
 import { fetchCities } from '../../services/api';
 import LoadingContainer from '../ui/LoadingContainer';
 import ErrorContainer from '../ui/ErrorContainer';
@@ -182,17 +182,26 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
           {rank}
         </div>
         <div className="flex flex-col items-center text-center mt-6">
-          <span className="text-sm md:text-lg font-bold text-white leading-tight">{city.name}</span>
           {activeMode === MAP_MODES.STATIONS && city.service_name ? (
-            <span className="text-[10px] md:text-xs font-medium text-white/60 mb-2">
-              {city.service_name}
-            </span>
-          ) : city.altName ? (
-            <span className="text-[10px] md:text-xs font-medium text-white/60 italic mb-2">
-              {city.altName}
-            </span>
+            <>
+              <span className="text-sm md:text-lg font-bold text-white leading-tight">
+                {formatServiceName(city.service_name, city.name)}
+              </span>
+              <span className="text-[10px] md:text-xs font-medium text-white/60 mb-2">
+                {city.name}
+              </span>
+            </>
           ) : (
-            <div className="mb-2" />
+            <>
+              <span className="text-sm md:text-lg font-bold text-white leading-tight">{city.name}</span>
+              {city.altName ? (
+                <span className="text-[10px] md:text-xs font-medium text-white/60 italic mb-2">
+                  {city.altName}
+                </span>
+              ) : (
+                <div className="mb-2" />
+              )}
+            </>
           )}
           <span className="text-2xl md:text-4xl font-black text-white tracking-tight mb-4" style={{ color: activeColor }}>
             {primaryMetric.format(city[primaryMetric.key as keyof CityData], city)}
@@ -296,16 +305,25 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
                       />
                     )}
                     <div className="flex flex-col min-w-0">
-                      <span className={`truncate text-xs md:text-sm ${isTop3 ? 'text-white' : 'text-white/80'}`}>{city.name}</span>
                       {activeMode === MAP_MODES.STATIONS && city.service_name ? (
-                        <span className="text-[9px] md:text-[10px] text-white/40 font-normal truncate">
-                          {city.service_name}
-                        </span>
-                      ) : city.altName ? (
-                        <span className="text-[9px] md:text-[10px] text-white/40 italic font-normal truncate">
-                          {city.altName}
-                        </span>
-                      ) : null}
+                        <>
+                          <span className={`truncate text-xs md:text-sm ${isTop3 ? 'text-white' : 'text-white/80'}`}>
+                            {formatServiceName(city.service_name, city.name)}
+                          </span>
+                          <span className="text-[9px] md:text-[10px] text-white/40 font-normal truncate">
+                            {city.name}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className={`truncate text-xs md:text-sm ${isTop3 ? 'text-white' : 'text-white/80'}`}>{city.name}</span>
+                          {city.altName && (
+                            <span className="text-[9px] md:text-[10px] text-white/40 italic font-normal truncate">
+                              {city.altName}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </div>
                   </td>
                   {metrics.map(m => (

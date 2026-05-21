@@ -1,4 +1,4 @@
-import { formatPopulation } from '../../../utils/formatters';
+import { formatPopulation, formatServiceName } from '../../../utils/formatters';
 import type { CityData } from '../../../constants/cities';
 import StaticCityMap from '../StaticCityMap';
 import CompareStationsChart from '../CompareStationsChart';
@@ -74,12 +74,18 @@ export default function StationsCompareContent({ selectedCities }: StationsCompa
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 mt-2 px-1">
+                            <div className="flex items-center gap-2 mt-2 px-1">
                                 <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cityColor }} />
-                                <span className="text-white/70 text-sm font-semibold">{city.name}</span>
-                                {city.service_name && (
-                                    <span className="text-white/40 text-xs font-normal">· {city.service_name}</span>
-                                )}
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-white/70 text-sm font-semibold leading-tight">
+                                        {city.service_name
+                                            ? formatServiceName(city.service_name, city.name)
+                                            : city.name}
+                                    </span>
+                                    {city.service_name && (
+                                        <span className="text-white/40 text-xs font-normal leading-tight">{city.name}</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     );

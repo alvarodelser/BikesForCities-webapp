@@ -172,7 +172,6 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
     pedestrianVehicleMatrix,
     epacWeatherBars,
     collisionMatrix,
-    hasAllAccidentData,
     loading,
   } = useAccidentsStats(city.id ?? null, selectedYear);
 
@@ -270,13 +269,13 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           rows={pedestrianVehicleMatrix}
           segmentLabels={SEVERITY_LABELS}
           title="Severidad peatonal"
-          subtitle={hasAllAccidentData ? 'Por tipo de vehículo implicado' : 'Selecciona un año para ver los datos'}
+          subtitle="Por tipo de vehículo implicado"
           rowIcons={PEDESTRIAN_ROW_ICONS}
         />
       </div>
 
-      {/* ── History/Weather ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1">
+      {/* ── Weather + Collision matrix side by side ────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <BarHistogram
           data={epacWeatherBars.map(d => ({
             ...d,
@@ -286,24 +285,12 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           title="Bicicleta y EPAC: seco vs lluvia"
           subtitle="Accidentes ciclistas según condiciones meteorológicas"
         />
-      </div>
-
-      {/* ── Collision matrix ───────────────────────────────────────────────── */}
-      {hasAllAccidentData && collisionMatrix.length > 0 ? (
         <CollisionHeatmap
           data={collisionMatrix}
           title="Matriz de colisiones"
-          subtitle="Accidentes por par de vehículos · color = gravedad media"
+          subtitle="▽ fila · △ columna · gravedad media del vehículo"
         />
-      ) : (
-        <div
-          className="rounded-2xl border bg-white/50 backdrop-blur-sm p-5 text-center"
-          style={{ borderColor: 'rgba(0,0,0,0.08)' }}
-        >
-          <p className="text-sm font-bold text-gray-400">Matriz de colisiones</p>
-          <p className="text-[11px] text-gray-400 mt-1">Selecciona un año para ver la matriz entre tipos de vehículo</p>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

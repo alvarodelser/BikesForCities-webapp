@@ -2,6 +2,7 @@ import React from 'react';
 import { Bike, TrendingUp, Users, Activity, MapPin, Clock } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import { useStationsStats } from '../../../../../hooks/useStationsStats';
+import { formatServiceName } from '../../../../../utils/formatters';
 import MetricPill from '../../../pills/MetricPill';
 import StationMonthlyChart from '../../../plots/StationMonthlyChart';
 import StationHistograms from '../../../plots/StationHistograms';
@@ -56,10 +57,12 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
     <div className="w-full flex flex-col gap-4">
       {/* Header */}
       <div>
-        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Bicicleta Pública</h2>
+        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>
+          {city.service_name ? formatServiceName(city.service_name, city.name) : 'Bicicleta Pública'}
+        </h2>
         <div className="flex items-center gap-2 mt-1">
           <div className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: ACCENT }} />
-          <p className={`text-base ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-white/80'}`}>{city.service_name ?? city.name}</p>
+          <p className={`text-base ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/70' : 'text-white/80'}`}>{city.name}</p>
         </div>
       </div>
 

@@ -39,7 +39,7 @@ from backend.database.db_io import (
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_city_median_max_hourly_bikes, get_station_hourly_demand, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
-    get_accidents_geojson, get_accidents_summary, get_accident_detail,
+    get_accidents_geojson, get_accidents_summary, get_accident_detail, get_vehicle_pair_severity,
     get_gcc_coverage, get_cycling_components_geojson, get_building_coverage_components_geojson,
     get_edge_building_coverage, get_infra_budget, get_building_coverage_fraction,
     get_traffic_infra_coverage, get_route_histogram,
@@ -973,6 +973,28 @@ def get_city_accidents_summary(
     except Exception as e:
         logger.error(f"Error getting accidents summary for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener el resumen de accidentes")
+
+
+@router.get("/cities/{city_id}/accidents/pair-stats")
+def get_city_accidents_pair_stats(
+    city_id: int,
+    year: Optional[int] = Query(None, description="Filter to a specific year"),
+    conn=Depends(get_db_connection),
+):
+    """Per-vehicle-type severity for each vehicle-pair combination.
+
+    Returns severity counts for cat_a participants in accidents involving both
+    cat_a and cat_b vehicle types. Also includes (bike_vmu, solo) for solo cyclist
+    accidents. No year required — aggregate over all available data by default.
+    """
+    try:
+        validate_network_exists(conn, city_id)
+        return {"data": get_vehicle_pair_severity(conn, city_id, year=year)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting pair stats for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener estadísticas de pares de vehículos")
 
 
 @router.get("/cities/{city_id}/accidents/{accident_id}")

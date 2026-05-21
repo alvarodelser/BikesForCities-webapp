@@ -186,6 +186,123 @@ def get_accident_detail(conn, city_id: int, accident_id: str) -> Optional[Dict[s
     }
 
 
+def get_vehicle_pair_severity(
+    conn,
+    city_id: int,
+    year: Optional[int] = None,
+) -> list:
+    """Per-vehicle-type severity for each vehicle-pair combination.
+
+    Returns one dict per (cat_a, cat_b) with severity counts for cat_a participants
+    in accidents involving both cat_a and cat_b. Also includes (bike_vmu, solo) for
+    single-vehicle cyclist accidents. No year gating — always returns aggregate data.
+    """
+    year_clause = "AND EXTRACT(YEAR FROM a.timestamp)::INT = %s" if year is not None else ""
+    params = [city_id] + ([year] if year is not None else [])
+
+    with conn.cursor() as cur:
+        cur.execute(f"""
+            WITH participant_cats AS (
+                SELECT ap.accident_db_id,
+                    CASE
+                        WHEN ap.person_type ILIKE '%peato%' OR ap.person_type ILIKE '%peatón%'
+                             THEN 'pedestrian'
+                        WHEN ap.vehicle_type ILIKE '%bicicleta%' OR ap.vehicle_type ILIKE '%epac%'
+                             OR ap.vehicle_type ILIKE '%vmu%' OR ap.vehicle_type ILIKE '%patinete%'
+                             THEN 'bike_vmu'
+                        WHEN ap.vehicle_type ILIKE '%motocicleta%' OR ap.vehicle_type ILIKE '%ciclomotor%'
+                             OR ap.vehicle_type ILIKE '%cuadriciclo%'
+                             THEN 'moto'
+                        WHEN ap.vehicle_type ILIKE '%autob%' THEN 'bus'
+                        WHEN ap.vehicle_type ILIKE '%camión%' OR ap.vehicle_type ILIKE '%camion%'
+                             OR ap.vehicle_type ILIKE '%maquinaria%' OR ap.vehicle_type ILIKE '%tracto%'
+                             OR ap.vehicle_type ILIKE '%remolque%'
+                             THEN 'truck'
+                        WHEN ap.vehicle_type ILIKE '%turismo%' OR ap.vehicle_type ILIKE '%furgoneta%'
+                             OR ap.vehicle_type ILIKE '%todo terreno%'
+                             THEN 'car'
+                        ELSE NULL
+                    END AS category,
+                    CASE ap.injury_code
+                        WHEN 4  THEN 3
+                        WHEN 3  THEN 2
+                        WHEN 1  THEN 1
+                        WHEN 2  THEN 1
+                        WHEN 5  THEN 1
+                        WHEN 6  THEN 1
+                        WHEN 7  THEN 1
+                        WHEN 14 THEN 0
+                        ELSE CASE
+                            WHEN ap.injury_status ILIKE '%fallecido%' THEN 3
+                            WHEN ap.injury_status ILIKE '%hospitaliz%'
+                                 OR ap.injury_status ILIKE '%grave%' THEN 2
+                            WHEN ap.injury_status ILIKE '%leve%' THEN 1
+                            ELSE 0
+                        END
+                    END AS sev_rank
+                FROM accident_participants ap
+                JOIN accidents a ON a.id = ap.accident_db_id
+                WHERE a.city_id = %s
+                  AND a.geom IS NOT NULL
+                  {year_clause}
+            ),
+            acc_cat_sev AS (
+                SELECT accident_db_id, category, MAX(sev_rank) AS sev
+                FROM participant_cats
+                WHERE category IS NOT NULL
+                GROUP BY accident_db_id, category
+            ),
+            paired AS (
+                SELECT a.accident_db_id,
+                       a.category AS cat_a,
+                       b.category AS cat_b,
+                       a.sev      AS sev_a
+                FROM acc_cat_sev a
+                JOIN acc_cat_sev b
+                    ON b.accident_db_id = a.accident_db_id
+                   AND b.category != a.category
+            )
+            SELECT
+                cat_a,
+                cat_b,
+                COUNT(DISTINCT accident_db_id)::INT              AS accident_count,
+                SUM(CASE WHEN sev_a = 3 THEN 1 ELSE 0 END)::INT  AS fatal,
+                SUM(CASE WHEN sev_a = 2 THEN 1 ELSE 0 END)::INT  AS serious,
+                SUM(CASE WHEN sev_a = 1 THEN 1 ELSE 0 END)::INT  AS minor,
+                SUM(CASE WHEN sev_a = 0 THEN 1 ELSE 0 END)::INT  AS uninjured
+            FROM paired
+            GROUP BY cat_a, cat_b
+            UNION ALL
+            SELECT
+                'bike_vmu'                                         AS cat_a,
+                'solo'                                             AS cat_b,
+                COUNT(DISTINCT acs.accident_db_id)::INT            AS accident_count,
+                SUM(CASE WHEN acs.sev = 3 THEN 1 ELSE 0 END)::INT  AS fatal,
+                SUM(CASE WHEN acs.sev = 2 THEN 1 ELSE 0 END)::INT  AS serious,
+                SUM(CASE WHEN acs.sev = 1 THEN 1 ELSE 0 END)::INT  AS minor,
+                SUM(CASE WHEN acs.sev = 0 THEN 1 ELSE 0 END)::INT  AS uninjured
+            FROM acc_cat_sev acs
+            WHERE acs.category = 'bike_vmu'
+              AND acs.accident_db_id NOT IN (
+                  SELECT accident_db_id FROM acc_cat_sev WHERE category != 'bike_vmu'
+              )
+        """, params)
+        rows = cur.fetchall()
+
+    return [
+        {
+            "cat_a": row[0],
+            "cat_b": row[1],
+            "accident_count": row[2],
+            "fatal": row[3],
+            "serious": row[4],
+            "minor": row[5],
+            "uninjured": row[6],
+        }
+        for row in rows
+    ]
+
+
 def _classify_severity(
     killed: Optional[int],
     injured: Optional[int],

@@ -63,6 +63,7 @@ export interface StationData {
   downtime_minutes: number | null;
   estimated_inbound: number | null;
   estimated_outbound: number | null;
+  capacity?: number | null;
   reach_coverage?: number;
   building_count?: number;
   extra?: any;
@@ -448,6 +449,31 @@ export const fetchAccidentDetail = async (
     `${API_BASE_URL}/cities/${cityId}/accidents/${encodeURIComponent(accidentId)}`,
   );
   if (!response.ok) throw new Error('Error al cargar el detalle del accidente');
+  const result = await response.json();
+  return result.data;
+};
+
+export interface VehiclePairStat {
+  cat_a: string;
+  cat_b: string;
+  accident_count: number;
+  fatal: number;
+  serious: number;
+  minor: number;
+  uninjured: number;
+}
+
+export const fetchVehiclePairStats = async (
+  cityId: number,
+  year?: number,
+): Promise<VehiclePairStat[]> => {
+  const params = new URLSearchParams();
+  if (year != null) params.set('year', String(year));
+  const qs = params.toString();
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/accidents/pair-stats${qs ? '?' + qs : ''}`,
+  );
+  if (!response.ok) throw new Error('Error al cargar las estadísticas de pares de vehículos');
   const result = await response.json();
   return result.data;
 };
