@@ -32,6 +32,8 @@ interface StackedBarMatrixProps {
   rowIcons?: ReactNode[];
 }
 
+const ICON_MARGIN = 44;
+
 export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
   rows,
   segmentLabels,
@@ -53,20 +55,49 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
     const el = containerRef.current;
     if (!el) return;
     const ro = new ResizeObserver((entries) => {
-      if (entries[0]) {
-        setWidth(entries[0].contentRect.width);
-      }
+      if (entries[0]) setWidth(entries[0].contentRect.width);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  const showTooltip = (event: MouseEvent | React.MouseEvent, rowLabel: string) => {
+    const tooltip = tooltipRef.current;
+    if (!tooltip) return;
+    const row = rows.find(r => r.label === rowLabel);
+    if (!row) return;
+    tooltip.style.display = 'block';
+    tooltip.style.left = `${event.pageX + 10}px`;
+    tooltip.style.top = `${event.pageY - 10}px`;
+    tooltip.innerHTML = `
+      <div class="font-bold border-b mb-1 pb-1 text-[12px]">${rowLabel}</div>
+      <div class="space-y-1">
+        ${row.segments.map((s, i) => `
+          <div class="flex items-center gap-2 text-[11px]">
+            <div class="w-2 h-2 rounded-sm flex-shrink-0" style="background: ${s.color}"></div>
+            <span>${segmentLabels[i] ?? s.label}:</span>
+            <span class="ml-auto font-bold">${s.value}</span>
+            <span class="text-[9px] opacity-60">(${row.total > 0 ? ((s.value / row.total) * 100).toFixed(1) : 0}%)</span>
+          </div>
+        `).join('')}
+        <div class="border-t mt-1 pt-1 font-bold text-[11px] flex justify-between">
+          <span>Total:</span>
+          <span>${row.total}</span>
+        </div>
+      </div>
+    `;
+  };
+
+  const hideTooltip = () => {
+    if (tooltipRef.current) tooltipRef.current.style.display = 'none';
+  };
 
   useEffect(() => {
     if (!svgRef.current || !rows.length || width === 0) return;
 
     const barHeight = 28;
     const barGap = 10;
-    const margin = { top: 10, right: 60, bottom: 20, left: hasIcons ? 120 : 100 };
+    const margin = { top: 10, right: 60, bottom: 20, left: hasIcons ? ICON_MARGIN : 100 };
     const height = rows.length * (barHeight + barGap) + margin.top + margin.bottom;
 
     const svg = d3.select(svgRef.current);
@@ -88,7 +119,6 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       height: y.bandwidth(),
     })));
 
-    // Prepare stacked data
     const keys = segmentLabels.map((_, i) => `seg_${i}`);
     const stackData = rows.map(r => {
       const d: any = { label: r.label, total: r.total };
@@ -100,11 +130,8 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       return d;
     });
 
-    const series = d3.stack()
-      .keys(keys)
-      (stackData);
+    const series = d3.stack().keys(keys)(stackData);
 
-    // X Axis
     svg.append('g')
       .attr('transform', `translate(0,${height - margin.bottom})`)
       .call(d3.axisBottom(x).ticks(5).tickFormat(d => `${d}%`))
@@ -113,7 +140,6 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .attr('font-size', '11px')
       .attr('fill', '#9ca3af');
 
-    // Y Axis — skip text labels when HTML icon labels are used
     if (!hasIcons) {
       svg.append('g')
         .attr('transform', `translate(${margin.left},0)`)
@@ -124,7 +150,6 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
         .attr('fill', '#374151');
     }
 
-    // Bars
     const layer = svg.selectAll('.layer')
       .data(series)
       .enter()
@@ -147,40 +172,11 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       .on('click', (_event, d: any) => {
         if (onRowClick) onRowClick(String(d.data.label));
       })
-      .on('mousemove', (event: any, d: any) => {
-        if (tooltipRef.current) {
-          const key = (d3.select((event.currentTarget as any).parentNode).datum() as any).key;
-          const segIdx = parseInt(key.replace('seg_', ''), 10);
-          const tooltip = d3.select(tooltipRef.current);
-          tooltip.style('display', 'block')
-            .style('left', `${event.pageX + 10}px`)
-            .style('top', `${event.pageY - 10}px`)
-            .html(`
-              <div class="font-bold border-b mb-1 pb-1">${d.data.label}</div>
-              <div class="space-y-1">
-                ${segmentLabels.map((lbl, i) => `
-                  <div class="flex items-center gap-2 text-[11px] ${i === segIdx ? 'font-bold' : 'text-gray-500'}">
-                    <div class="w-2 h-2 rounded-sm" style="background: ${d.data[`seg_${i}_color`]}"></div>
-                    <span>${lbl}:</span>
-                    <span class="ml-auto">${d.data[`seg_${i}_raw`]}</span>
-                    <span class="text-[9px] opacity-60">(${d.data[`seg_${i}`].toFixed(1)}%)</span>
-                  </div>
-                `).join('')}
-                <div class="border-t mt-1 pt-1 font-bold text-[11px] flex justify-between">
-                  <span>Total:</span>
-                  <span>${d.data.total}</span>
-                </div>
-              </div>
-            `);
-        }
+      .on('mousemove', (event: MouseEvent, d: any) => {
+        showTooltip(event, String(d.data.label));
       })
-      .on('mouseleave', () => {
-        if (tooltipRef.current) {
-          d3.select(tooltipRef.current).style('display', 'none');
-        }
-      });
+      .on('mouseleave', () => hideTooltip());
 
-    // Total Labels
     svg.selectAll('.total-label')
       .data(stackData)
       .enter()
@@ -226,22 +222,27 @@ export const StackedBarMatrix: React.FC<StackedBarMatrixProps> = ({
       <div ref={containerRef} className="w-full relative">
         <svg ref={svgRef}></svg>
         {hasIcons && rowIcons && rowPositions.length > 0 && (
-          <div className="absolute left-0 top-0 pointer-events-none" style={{ width: 120 }}>
+          <div
+            className="absolute left-0 top-0"
+            style={{ width: ICON_MARGIN, pointerEvents: 'auto' }}
+          >
             {rowPositions.map((pos, i) => (
               <div
                 key={pos.label}
-                className="absolute flex items-center justify-end gap-1.5 pr-2"
+                className="absolute flex items-center justify-center cursor-default"
                 style={{ top: pos.top, height: pos.height, left: 0, right: 0 }}
+                onMouseMove={(e) => showTooltip(e, pos.label)}
+                onMouseLeave={hideTooltip}
               >
                 {rowIcons[i]}
-                <span className="text-[11px] font-medium text-gray-700 whitespace-nowrap">{pos.label}</span>
               </div>
             ))}
           </div>
         )}
         <div
           ref={tooltipRef}
-          className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-black/10 rounded-lg p-2 shadow-lg text-[12px] min-w-[160px] pointer-events-none"
+          className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-black/10 rounded-lg p-2 shadow-lg pointer-events-none"
+          style={{ minWidth: 160 }}
         ></div>
       </div>
 

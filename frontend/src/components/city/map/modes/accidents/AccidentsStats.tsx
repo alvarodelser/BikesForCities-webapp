@@ -5,7 +5,8 @@ import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
 import StackedBarMatrix from '../../../plots/StackedBarMatrix';
 import BarHistogram from '../../../plots/BarHistogram';
-import { Car, Bus, Truck, Gauge, PersonStanding, Bike } from 'lucide-react';
+import CollisionHeatmap from '../../../plots/CollisionHeatmap';
+import { Car, Bus, Truck, Motorcycle, PersonSimpleWalk, Bicycle, Sun, CloudRain } from '@phosphor-icons/react';
 
 
 export interface AccidentsStatsProps {
@@ -16,20 +17,21 @@ export interface AccidentsStatsProps {
 const SEVERITY_LABELS = ['Ileso', 'Leve', 'Grave', 'Fatal'];
 const ACCENT = '#ef4444';
 
+// Caída sola uses Bicycle since it covers solo falls and bike-vs-bike incidents
 const CYCLIST_ROW_ICONS = [
   <Car size={13} color="#6b7280" />,
   <Bus size={13} color="#f59e0b" />,
   <Truck size={13} color="#78716c" />,
-  <Gauge size={13} color="#8b5cf6" />,
-  <PersonStanding size={13} color="#ef4444" />,
+  <Motorcycle size={13} color="#8b5cf6" />,
+  <Bicycle size={13} color="#ef4444" />,
 ];
 
 const PEDESTRIAN_ROW_ICONS = [
   <Car size={13} color="#6b7280" />,
   <Bus size={13} color="#f59e0b" />,
   <Truck size={13} color="#78716c" />,
-  <Gauge size={13} color="#8b5cf6" />,
-  <Bike size={13} color="#22c55e" />,
+  <Motorcycle size={13} color="#8b5cf6" />,
+  <Bicycle size={13} color="#22c55e" />,
 ];
 
 // ── Year timeline component ───────────────────────────────────────────────────
@@ -169,6 +171,8 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
     cyclistVehicleMatrix,
     pedestrianVehicleMatrix,
     epacWeatherBars,
+    collisionMatrix,
+    hasAllAccidentData,
     loading,
   } = useAccidentsStats(city.id ?? null, selectedYear);
 
@@ -266,7 +270,7 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           rows={pedestrianVehicleMatrix}
           segmentLabels={SEVERITY_LABELS}
           title="Severidad peatonal"
-          subtitle="Por tipo de vehículo implicado"
+          subtitle={hasAllAccidentData ? 'Por tipo de vehículo implicado' : 'Selecciona un año para ver los datos'}
           rowIcons={PEDESTRIAN_ROW_ICONS}
         />
       </div>
@@ -274,12 +278,32 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
       {/* ── History/Weather ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1">
         <BarHistogram
-          data={epacWeatherBars}
+          data={epacWeatherBars.map(d => ({
+            ...d,
+            icon: d.label.includes('lluvia') ? CloudRain : Sun,
+          }))}
           accent={ACCENT}
-          title="Bicicleta: seco vs lluvia"
+          title="Bicicleta y EPAC: seco vs lluvia"
           subtitle="Accidentes ciclistas según condiciones meteorológicas"
         />
       </div>
+
+      {/* ── Collision matrix ───────────────────────────────────────────────── */}
+      {hasAllAccidentData && collisionMatrix.length > 0 ? (
+        <CollisionHeatmap
+          data={collisionMatrix}
+          title="Matriz de colisiones"
+          subtitle="Accidentes por par de vehículos · color = gravedad media"
+        />
+      ) : (
+        <div
+          className="rounded-2xl border bg-white/50 backdrop-blur-sm p-5 text-center"
+          style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+        >
+          <p className="text-sm font-bold text-gray-400">Matriz de colisiones</p>
+          <p className="text-[11px] text-gray-400 mt-1">Selecciona un año para ver la matriz entre tipos de vehículo</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -5,6 +5,7 @@ interface BarDatum {
   label: string;
   shortLabel?: string;
   subLabel?: string;
+  icon?: React.ElementType;
   value: number;
   description?: string;
 }
@@ -178,16 +179,23 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
             {data.map((d, i) => {
               const isHovered = hovered === i;
               const isRef = referenceLineX === i;
+              const BarIcon = d.icon;
+              const labelColor = isHovered
+                ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-gray-800')
+                : isRef
+                  ? 'text-red-500'
+                  : (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500');
               return (
                 <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                  {BarIcon && (
+                    <BarIcon
+                      size={14}
+                      weight={isHovered ? 'bold' : 'regular'}
+                      className={`transition-colors ${labelColor}`}
+                    />
+                  )}
                   <span
-                    className={`text-[10px] text-center leading-tight transition-colors font-medium ${
-                      isHovered 
-                        ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-gray-800') 
-                        : isRef 
-                          ? 'text-red-500' 
-                          : (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500')
-                    }`}
+                    className={`text-[10px] text-center leading-tight transition-colors font-medium ${labelColor}`}
                     style={{ wordBreak: 'break-word' }}
                   >
                     {d.shortLabel ?? d.label}
@@ -195,8 +203,8 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
                   {d.subLabel && (
                     <span
                       className={`text-[9px] text-center leading-tight transition-colors ${
-                        isHovered 
-                          ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500') 
+                        isHovered
+                          ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500')
                           : (variant === 'darkTint' ? 'text-[var(--blue-dark)]/40' : 'text-gray-300')
                       }`}
                       style={{ wordBreak: 'break-word' }}

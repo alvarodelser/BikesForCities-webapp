@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Maximize2, Minus, Square, Wine, Pill } from 'lucide-react';
+import { X, Maximize2, Minus, Square } from 'lucide-react';
+import { Wine, Pill } from '@phosphor-icons/react';
 import type { SelectionDetail } from '../../../types/selection';
 
 export type { SelectionDetail };
@@ -61,6 +62,7 @@ export default function SelectionPanel({
         edge: 'Tramo',
         reach: 'Alcance',
         accident: 'Accidente',
+        od_hex: 'Zona OD',
     };
 
     const glassStyle: React.CSSProperties = {
@@ -177,16 +179,20 @@ export default function SelectionPanel({
                         )}
                         {selection.rows && selection.rows.length > 0 && (
                             <div className="flex flex-col gap-1 mt-0.5">
-                                {selection.rows.map(row => (
+                                {selection.rows.map(row => {
+                                    const RowIcon = row.icon;
+                                    return (
                                     <div key={row.label} className="flex items-baseline justify-between gap-3">
                                         <span className="text-[9px] font-semibold text-black/35 uppercase tracking-wide">
                                             {row.label}
                                         </span>
-                                        <span className="text-[11px] font-bold" style={{ color: row.accent ?? 'rgba(0,0,0,0.7)' }}>
+                                        <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: row.accent ?? 'rgba(0,0,0,0.7)' }}>
+                                            {RowIcon && <RowIcon size={11} weight="bold" />}
                                             {row.value}
                                         </span>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                         {selection.pairRows && selection.pairRows.length > 0 && (

@@ -5,7 +5,7 @@ import { fetchAccidentDetail } from '../../../../../services/api';
 import type { AccidentDetail, AccidentParticipant } from '../../../../../services/api';
 import { TILE_SERVER_URL } from '../../../../../config/api';
 import type { SelectionDetail, SelectionParticipant } from '../../../../../types/selection';
-import { resolveVehicleIcon } from './vehicleIcons';
+import { resolveVehicleIcon, resolveAccidentTypeIcon } from './vehicleIcons';
 
 const SOURCE_ID = 'accidents-source';
 const LAYER_ID = 'accidents-layer';
@@ -58,7 +58,10 @@ function formatTime(ts: string | null): string | null {
 function enrichDetail(base: SelectionDetail, detail: AccidentDetail): SelectionDetail {
     const rows: NonNullable<SelectionDetail['rows']> = [];
     if (detail.timestamp) rows.push({ label: 'FECHA', value: formatTime(detail.timestamp) ?? '—' });
-    if (detail.accident_type) rows.push({ label: 'TIPO', value: detail.accident_type });
+    if (detail.accident_type) {
+        const typeEntry = resolveAccidentTypeIcon(detail.accident_type);
+        rows.push({ label: 'TIPO', value: detail.accident_type, icon: typeEntry.icon, accent: typeEntry.color });
+    }
     if (detail.district) rows.push({ label: 'DISTRITO', value: detail.district });
 
     const title = detail.street

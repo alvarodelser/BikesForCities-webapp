@@ -11,11 +11,13 @@ interface TrafficCompareContentProps {
 }
 
 export default function TrafficCompareContent({ selectedCities }: TrafficCompareContentProps) {
+    const trafficCities = selectedCities.filter(c => Boolean(c.available_modes?.traffic));
+
     return (
         <div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 {[0, 1].map(idx => {
-                    const city = selectedCities[idx];
+                    const city = trafficCities[idx];
                     const cityColor = SLOT_COLORS[idx];
 
                     if (!city) {
@@ -82,10 +84,10 @@ export default function TrafficCompareContent({ selectedCities }: TrafficCompare
                 })}
             </div>
 
-            {selectedCities.length > 0 && (
+            {trafficCities.length > 0 && (
                 <CompareTrafficChart
-                    cities={selectedCities}
-                    colors={CHART_COLORS.slice(0, selectedCities.length)}
+                    cities={trafficCities}
+                    colors={CHART_COLORS.slice(0, trafficCities.length)}
                 />
             )}
         </div>

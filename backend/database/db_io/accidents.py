@@ -62,7 +62,8 @@ def get_accidents_geojson(
                 a.vehicles_involved,
                 {_RANK_TO_CODE_CASE} AS max_injury_code,
                 (ARRAY_AGG(ap.injury_status ORDER BY {_INJURY_RANK_CASE} ASC NULLS LAST)
-                 FILTER (WHERE ap.injury_status IS NOT NULL))[1] AS worst_injury_status
+                 FILTER (WHERE ap.injury_status IS NOT NULL))[1] AS worst_injury_status,
+                BOOL_OR(ap.vehicle_type ILIKE '%epac%' OR ap.vehicle_type ILIKE '%pedaleo asistido%') AS has_epac
             FROM accidents a
             LEFT JOIN accident_participants ap ON ap.accident_db_id = a.id
             WHERE a.city_id = %s
@@ -79,7 +80,7 @@ def get_accidents_geojson(
          accident_type, weather, lon, lat,
          total_involved, injured, killed,
          vehicles_involved,
-         max_injury_code, worst_injury) in rows:
+         max_injury_code, worst_injury, has_epac) in rows:
         severity = _classify_severity(killed, injured, max_injury_code, worst_injury)
         features.append({
             "type": "Feature",
@@ -99,6 +100,7 @@ def get_accidents_geojson(
                 "severity": severity,
                 "max_injury_code": max_injury_code,
                 "worst_injury_status": worst_injury,
+                "has_epac": bool(has_epac),
             },
         })
 

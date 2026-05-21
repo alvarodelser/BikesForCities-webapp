@@ -149,26 +149,39 @@ def get_all_cities(conn) -> List[Tuple]:
                  ORDER BY year DESC,
                           CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC
                  LIMIT 1) AS budget,
-                cm.coverage,
-                cm.total_kilometers AS cycling_network,
+                cm_infra.coverage,
+                cm_infra.total_kilometers AS cycling_network,
                 c.bounds_min_lat, c.bounds_max_lat, c.bounds_min_lon, c.bounds_max_lon,
                 m.infrastructure, m.traffic, m.traffic_combinations, m.accidents, m.stations,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
-                cm.total_stations,
-                cm.estimated_monthly_trips AS monthly_trips,
-                cm.bicycles_count,
-                cm.station_coverage
+                cm_stations.total_stations,
+                cm_stations.estimated_monthly_trips AS monthly_trips,
+                COALESCE(cm_stations.bicycles_count, (
+                    SELECT SUM(COALESCE(s.capacity, (s.extra->>'slots')::int))::int
+                    FROM stations s
+                    WHERE s.city_id = c.id AND s.merged_into_id IS NULL
+                      AND (s.capacity IS NOT NULL OR s.extra->>'slots' IS NOT NULL)
+                )) AS bicycles_count,
+                cm_infra.station_coverage
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
-                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
+                SELECT coverage, total_kilometers, station_coverage
                 FROM city_metrics
                 WHERE city_id = c.id
                 ORDER BY metric_month DESC
                 LIMIT 1
-            ) cm ON true
+            ) cm_infra ON true
+            LEFT JOIN LATERAL (
+                SELECT total_stations, estimated_monthly_trips, bicycles_count
+                FROM city_metrics
+                WHERE city_id = c.id
+                  AND estimated_monthly_trips IS NOT NULL
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) cm_stations ON true
             ORDER BY c.name
             """
         )
@@ -213,26 +226,39 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                  ORDER BY year DESC,
                           CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC
                  LIMIT 1) AS budget,
-                cm.coverage,
-                cm.total_kilometers AS cycling_network,
+                cm_infra.coverage,
+                cm_infra.total_kilometers AS cycling_network,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
-                cm.total_stations AS stations_count,
-                cm.estimated_monthly_trips AS monthly_trips,
-                cm.bicycles_count,
-                cm.station_coverage,
+                cm_stations.total_stations AS stations_count,
+                cm_stations.estimated_monthly_trips AS monthly_trips,
+                COALESCE(cm_stations.bicycles_count, (
+                    SELECT SUM(COALESCE(s.capacity, (s.extra->>'slots')::int))::int
+                    FROM stations s
+                    WHERE s.city_id = c.id AND s.merged_into_id IS NULL
+                      AND (s.capacity IS NOT NULL OR s.extra->>'slots' IS NOT NULL)
+                )) AS bicycles_count,
+                cm_infra.station_coverage,
                 m.infrastructure, m.traffic, m.traffic_combinations,
                 m.accidents, m.stations
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
-                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
+                SELECT coverage, total_kilometers, station_coverage
                 FROM city_metrics
                 WHERE city_id = c.id
                 ORDER BY metric_month DESC
                 LIMIT 1
-            ) cm ON true
+            ) cm_infra ON true
+            LEFT JOIN LATERAL (
+                SELECT total_stations, estimated_monthly_trips, bicycles_count
+                FROM city_metrics
+                WHERE city_id = c.id
+                  AND estimated_monthly_trips IS NOT NULL
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) cm_stations ON true
             WHERE c.id = %s
             """,
             (city_id,)

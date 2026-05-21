@@ -386,6 +386,7 @@ export interface AccidentFeature {
     severity: 'fatal' | 'serious' | 'minor' | 'uninjured';
     max_injury_code: number | null;
     worst_injury_status: string | null;
+    has_epac: boolean;
   };
 }
 

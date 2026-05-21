@@ -14,6 +14,16 @@ export interface MatrixRow {
   segments: MatrixSegment[];
 }
 
+export interface CollisionCell {
+  count: number;
+  segments: MatrixSegment[];
+}
+
+export interface CollisionMatrixRow {
+  rowKey: string;
+  cells: Array<{ colKey: string; cell: CollisionCell }>;
+}
+
 export interface AccidentsStatsResult {
   totalAccidents: number;
   cyclistAccidents: number;
@@ -23,6 +33,8 @@ export interface AccidentsStatsResult {
   cyclistVehicleMatrix: MatrixRow[];
   pedestrianVehicleMatrix: MatrixRow[];
   epacWeatherBars: { label: string; value: number }[];
+  collisionMatrix: CollisionMatrixRow[];
+  hasAllAccidentData: boolean;
   loading: boolean;
   error: string | null;
 }
@@ -87,59 +99,92 @@ function getPedestrianRow(vehicles: string[]): PedestrianRow | null {
   return 'Coche/Furg';
 }
 
+// All vehicle types present in vehicles_involved
+export const COLLISION_VEHICLE_KEYS = ['bike_vmu', 'pedestrian', 'moto', 'car', 'bus', 'truck'] as const;
+export type CollisionVehicleKey = typeof COLLISION_VEHICLE_KEYS[number];
+
+function buildEmptySegments(): MatrixSegment[] {
+  return [
+    { value: 0, color: SEV_COLORS.ileso, label: 'Ileso' },
+    { value: 0, color: SEV_COLORS.leve,  label: 'Leve' },
+    { value: 0, color: SEV_COLORS.grave, label: 'Grave' },
+    { value: 0, color: SEV_COLORS.fatal, label: 'Fatal' },
+  ];
+}
+
 function buildEmptyMatrix(rowLabels: readonly string[]): MatrixRow[] {
   return rowLabels.map(label => ({
     label,
     total: 0,
-    segments: [
-      { value: 0, color: SEV_COLORS.ileso, label: 'Ileso' },
-      { value: 0, color: SEV_COLORS.leve,  label: 'Leve' },
-      { value: 0, color: SEV_COLORS.grave, label: 'Grave' },
-      { value: 0, color: SEV_COLORS.fatal, label: 'Fatal' },
-    ],
+    segments: buildEmptySegments(),
   }));
 }
 
-function computeMatrices(features: AccidentFeature[]): {
-  cyclistMatrix: MatrixRow[];
-  pedestrianMatrix: MatrixRow[];
-} {
-  const cyclistMatrix = buildEmptyMatrix(CYCLIST_VEHICLE_ROWS);
-  const pedestrianMatrix = buildEmptyMatrix(PEDESTRIAN_VEHICLE_ROWS);
+function buildCyclistMatrix(features: AccidentFeature[]): MatrixRow[] {
+  const matrix = buildEmptyMatrix(CYCLIST_VEHICLE_ROWS);
+  const indexMap = Object.fromEntries(CYCLIST_VEHICLE_ROWS.map((l, i) => [l, i]));
+  for (const feature of features) {
+    const props = feature.properties;
+    const vehicles = Array.isArray(props.vehicles_involved) ? props.vehicles_involved : [];
+    if (!vehicles.includes('bike_vmu')) continue;
+    const ri = indexMap[getCyclistRow(vehicles)];
+    if (ri === undefined) continue;
+    const sevIdx = getSeverityIndex(props);
+    matrix[ri].total += 1;
+    matrix[ri].segments[sevIdx].value += 1;
+  }
+  return matrix;
+}
 
-  const cyclistIndexMap = Object.fromEntries(
-    CYCLIST_VEHICLE_ROWS.map((l, i) => [l, i] as [string, number]),
-  );
-  const pedestrianIndexMap = Object.fromEntries(
-    PEDESTRIAN_VEHICLE_ROWS.map((l, i) => [l, i] as [string, number]),
-  );
+function buildPedestrianMatrix(features: AccidentFeature[]): MatrixRow[] {
+  const matrix = buildEmptyMatrix(PEDESTRIAN_VEHICLE_ROWS);
+  const indexMap = Object.fromEntries(PEDESTRIAN_VEHICLE_ROWS.map((l, i) => [l, i]));
+  for (const feature of features) {
+    const props = feature.properties;
+    const vehicles = Array.isArray(props.vehicles_involved) ? props.vehicles_involved : [];
+    if (!vehicles.includes('pedestrian')) continue;
+    const rowLabel = getPedestrianRow(vehicles);
+    if (rowLabel === null) continue;
+    const ri = indexMap[rowLabel];
+    if (ri === undefined) continue;
+    const sevIdx = getSeverityIndex(props);
+    matrix[ri].total += 1;
+    matrix[ri].segments[sevIdx].value += 1;
+  }
+  return matrix;
+}
+
+function buildCollisionMatrix(features: AccidentFeature[]): CollisionMatrixRow[] {
+  const keys = [...COLLISION_VEHICLE_KEYS];
+
+  const counts: Record<string, Record<string, CollisionCell>> = {};
+  for (const a of keys) {
+    counts[a] = {};
+    for (const b of keys) {
+      counts[a][b] = { count: 0, segments: buildEmptySegments() };
+    }
+  }
 
   for (const feature of features) {
     const props = feature.properties;
     const vehicles = Array.isArray(props.vehicles_involved) ? props.vehicles_involved : [];
+    const present = keys.filter(k => vehicles.includes(k));
+    if (present.length < 2) continue;
+
     const sevIdx = getSeverityIndex(props);
-
-    if (vehicles.includes('bike_vmu')) {
-      const ri = cyclistIndexMap[getCyclistRow(vehicles)];
-      if (ri !== undefined) {
-        cyclistMatrix[ri].total += 1;
-        cyclistMatrix[ri].segments[sevIdx].value += 1;
-      }
-    }
-
-    if (vehicles.includes('pedestrian')) {
-      const rowLabel = getPedestrianRow(vehicles);
-      if (rowLabel !== null) {
-        const ri = pedestrianIndexMap[rowLabel];
-        if (ri !== undefined) {
-          pedestrianMatrix[ri].total += 1;
-          pedestrianMatrix[ri].segments[sevIdx].value += 1;
-        }
+    for (const a of present) {
+      for (const b of present) {
+        if (a === b) continue;
+        counts[a][b].count++;
+        counts[a][b].segments[sevIdx].value++;
       }
     }
   }
 
-  return { cyclistMatrix, pedestrianMatrix };
+  return keys.map(rowKey => ({
+    rowKey,
+    cells: keys.map(colKey => ({ colKey, cell: counts[rowKey][colKey] })),
+  }));
 }
 
 export function useAccidentsStats(cityId: number | null, year?: number): AccidentsStatsResult {
@@ -151,6 +196,8 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
   const [cyclistVehicleMatrix, setCyclistVehicleMatrix] = useState<MatrixRow[]>([]);
   const [pedestrianVehicleMatrix, setPedestrianVehicleMatrix] = useState<MatrixRow[]>([]);
   const [epacWeatherBars, setEpacWeatherBars] = useState<{ label: string; value: number }[]>([]);
+  const [collisionMatrix, setCollisionMatrix] = useState<CollisionMatrixRow[]>([]);
+  const [hasAllAccidentData, setHasAllAccidentData] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -161,18 +208,38 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
     setLoading(true);
     setError(null);
 
+    const fetchAll = year != null
+      ? fetchAccidents(cityId, false, year)
+      : Promise.resolve(null);
+
     Promise.all([
       fetchAccidentsSummary(cityId, year),
       fetchAccidents(cityId, true, year),
+      fetchAll,
     ])
-      .then(([summary, geojson]) => {
+      .then(([summary, cyclistGeojson, allGeojson]) => {
         if (cancelled) return;
 
-        const features = geojson.features;
-        const { cyclistMatrix, pedestrianMatrix } = computeMatrices(features);
+        const cyclistFeatures = cyclistGeojson.features;
+        const allFeatures = allGeojson?.features ?? null;
 
-        const dryCyclist = features.filter(f => !isLluvia(f.properties.weather)).length;
-        const wetCyclist = features.filter(f =>  isLluvia(f.properties.weather)).length;
+        // Cyclist matrix (always from cyclist-only data)
+        const cyclistMatrix = buildCyclistMatrix(cyclistFeatures);
+
+        // Pedestrian + collision matrices (only when year selected → allFeatures available)
+        const pedestrianMatrix = allFeatures
+          ? buildPedestrianMatrix(allFeatures)
+          : buildEmptyMatrix(PEDESTRIAN_VEHICLE_ROWS);
+
+        const collisionMx = allFeatures
+          ? buildCollisionMatrix(allFeatures)
+          : [];
+
+        // Weather bars with EPAC split (from cyclist-only data which has has_epac)
+        const bikeDry  = cyclistFeatures.filter(f => !f.properties.has_epac && !isLluvia(f.properties.weather)).length;
+        const bikeWet  = cyclistFeatures.filter(f => !f.properties.has_epac &&  isLluvia(f.properties.weather)).length;
+        const epacDry  = cyclistFeatures.filter(f =>  f.properties.has_epac && !isLluvia(f.properties.weather)).length;
+        const epacWet  = cyclistFeatures.filter(f =>  f.properties.has_epac &&  isLluvia(f.properties.weather)).length;
 
         setTotalAccidents(summary.total);
         setCyclistAccidents(summary.cyclist);
@@ -182,9 +249,13 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
         setCyclistVehicleMatrix(cyclistMatrix);
         setPedestrianVehicleMatrix(pedestrianMatrix);
         setEpacWeatherBars([
-          { label: 'Bici·seco',   value: dryCyclist },
-          { label: 'Bici·lluvia', value: wetCyclist },
+          { label: 'Bici · seco',  value: bikeDry },
+          { label: 'Bici · lluvia', value: bikeWet },
+          { label: 'EPAC · seco',  value: epacDry },
+          { label: 'EPAC · lluvia', value: epacWet },
         ]);
+        setCollisionMatrix(collisionMx);
+        setHasAllAccidentData(allFeatures !== null);
         setLoading(false);
       })
       .catch(err => {
@@ -207,6 +278,8 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
     cyclistVehicleMatrix,
     pedestrianVehicleMatrix,
     epacWeatherBars,
+    collisionMatrix,
+    hasAllAccidentData,
     loading,
     error,
   };

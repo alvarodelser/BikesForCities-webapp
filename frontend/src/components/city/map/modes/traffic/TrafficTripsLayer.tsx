@@ -1,9 +1,10 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
-import { cellToBoundary } from 'h3-js';
+import { cellToBoundary, gridDistance } from 'h3-js';
 import { useMap } from '../../MapContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
+import type { SelectionDetail } from '../../../../../types/selection';
 import type * as GeoJSON from 'geojson';
 
 type Combo = { generation_type: string; algorithm: string };
@@ -18,25 +19,71 @@ const OD_SPIDER_OUT_LAYER = 'od-spider-out-layer';
 const OD_SPIDER_IN_SOURCE = 'od-spider-in-source';
 const OD_SPIDER_IN_LAYER = 'od-spider-in-layer';
 
-function bezierArc(orig: [number, number], dest: [number, number], numPoints = 20, curvature = 0.35): [number, number][] {
-    const [x0, y0] = orig;
-    const [x1, y1] = dest;
-    const dx = x1 - x0;
-    const dy = y1 - y0;
-    const mx = (x0 + x1) / 2;
-    const my = (y0 + y1) / 2;
-    const cx = mx - dy * curvature;
-    const cy = my + dx * curvature;
+function bezierArc(orig: [number, number], dest: [number, number], curvature: number, numPoints = 24): [number, number][] {
+    const [x0, y0] = orig, [x1, y1] = dest;
+    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    const cx = mx - (y1 - y0) * curvature;
+    const cy = my + (x1 - x0) * curvature;
     const pts: [number, number][] = [];
     for (let i = 0; i <= numPoints; i++) {
-        const t = i / numPoints;
-        const u = 1 - t;
-        pts.push([
-            u * u * x0 + 2 * u * t * cx + t * t * x1,
-            u * u * y0 + 2 * u * t * cy + t * t * y1,
-        ]);
+        const t = i / numPoints, u = 1 - t;
+        pts.push([u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1]);
     }
     return pts;
+}
+
+function raySegmentIntersect(
+    cx: number, cy: number,
+    dx: number, dy: number,
+    p1x: number, p1y: number,
+    p2x: number, p2y: number,
+): [number, number] | null {
+    const ex = p2x - p1x, ey = p2y - p1y;
+    const denom = dx * ey - dy * ex;
+    if (Math.abs(denom) < 1e-12) return null;
+    const t = ((p1x - cx) * ey - (p1y - cy) * ex) / denom;
+    const s = ((p1x - cx) * dy - (p1y - cy) * dx) / denom;
+    if (t > -1e-9 && s >= -1e-9 && s <= 1 + 1e-9) {
+        return [cx + t * dx, cy + t * dy];
+    }
+    return null;
+}
+
+// Returns the point where the ray from (fromLng,fromLat) toward (toLng,toLat) exits hexId.
+function hexEdgePoint(hexId: string, fromLng: number, fromLat: number, toLng: number, toLat: number): [number, number] {
+    const boundary = cellToBoundary(hexId); // [lat, lng][]
+    const ring = boundary.map(([lat, lng]) => [lng, lat] as [number, number]);
+    ring.push(ring[0]);
+    const dx = toLng - fromLng, dy = toLat - fromLat;
+    for (let i = 0; i < ring.length - 1; i++) {
+        const pt = raySegmentIntersect(fromLng, fromLat, dx, dy, ring[i][0], ring[i][1], ring[i + 1][0], ring[i + 1][1]);
+        if (pt) return pt;
+    }
+    return [fromLng, fromLat];
+}
+
+function edgePointFeature(f: GeoJSON.Feature): GeoJSON.Feature {
+    const coords = (f.geometry as GeoJSON.LineString).coordinates as [number, number][];
+    if (coords.length < 2) return f;
+    const [o, d] = coords;
+    const oh = f.properties?.orig_hex as string | undefined;
+    const dh = f.properties?.dest_hex as string | undefined;
+    if (!oh || !dh) return f;
+
+    const start = hexEdgePoint(oh, o[0], o[1], d[0], d[1]);
+    const end   = hexEdgePoint(dh, d[0], d[1], o[0], o[1]);
+
+    let newCoords: [number, number][];
+    try {
+        const dist = gridDistance(oh, dh);
+        // Adjacent hexes: straight. Longer hops: gentle curve scaling with distance.
+        const curvature = dist > 1 ? Math.min(0.25, (dist - 1) * 0.04) : 0;
+        newCoords = curvature > 0 ? bezierArc(start, end, curvature) : [start, end];
+    } catch {
+        newCoords = [start, end];
+    }
+
+    return { ...f, geometry: { type: 'LineString', coordinates: newCoords } };
 }
 
 function hexToPolygonFeature(hexId: string, featureId: number): GeoJSON.Feature<GeoJSON.Polygon> {
@@ -51,16 +98,8 @@ function hexToPolygonFeature(hexId: string, featureId: number): GeoJSON.Feature<
     };
 }
 
-function arcFeature(f: GeoJSON.Feature): GeoJSON.Feature {
-    const geom = f.geometry as GeoJSON.LineString;
-    if (!geom?.coordinates || geom.coordinates.length < 2) return f;
-    const coords = geom.coordinates as [number, number][];
-    const arced = bezierArc(coords[0], coords[coords.length - 1]);
-    return { ...f, geometry: { type: 'LineString', coordinates: arced } };
-}
-
 export default function TrafficTripsLayer() {
-    const { map, city } = useMap();
+    const { map, city, setLayerState } = useMap();
     const { generation, period, setGeneration } = useMapState();
 
     // Resolve generation from city data if not in URL (e.g. direct navigation to ?submode=od)
@@ -83,14 +122,23 @@ export default function TrafficTripsLayer() {
             if (map.getLayer(OD_SPIDER_IN_LAYER)) map.removeLayer(OD_SPIDER_IN_LAYER);
             if (map.getSource(OD_SPIDER_IN_SOURCE)) map.removeSource(OD_SPIDER_IN_SOURCE);
         } catch { /* ok */ }
+        // Restore global flow overview when deselecting
+        try {
+            if (map.getLayer(OD_FLOW_LAYER)) map.setLayoutProperty(OD_FLOW_LAYER, 'visibility', 'visible');
+        } catch { /* ok */ }
     }, [map]);
 
     const renderSpider = useCallback((origHex: string) => {
         if (!map) return;
         const outbound = odFlowsRef.current.filter(f => f.properties?.orig_hex === origHex);
-        const inbound = odFlowsRef.current.filter(f => f.properties?.dest_hex === origHex);
+        const inbound  = odFlowsRef.current.filter(f => f.properties?.dest_hex === origHex);
 
         clearSpider();
+
+        // Hide the global overview while a hex is selected
+        try {
+            if (map.getLayer(OD_FLOW_LAYER)) map.setLayoutProperty(OD_FLOW_LAYER, 'visibility', 'none');
+        } catch { /* ok */ }
 
         const normalize = (features: GeoJSON.Feature[]): GeoJSON.Feature[] => {
             const max = Math.max(...features.map(f => f.properties?.count ?? 1), 1);
@@ -109,8 +157,8 @@ export default function TrafficTripsLayer() {
                 source: OD_SPIDER_OUT_SOURCE,
                 paint: {
                     'line-color': '#f59e0b',
-                    'line-opacity': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 0.4, 1, 0.95],
-                    'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 7],
+                    'line-opacity': 0.85,
+                    'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 10],
                 },
                 layout: { 'line-cap': 'round' },
             });
@@ -125,27 +173,43 @@ export default function TrafficTripsLayer() {
                 source: OD_SPIDER_IN_SOURCE,
                 paint: {
                     'line-color': '#3b82f6',
-                    'line-opacity': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 0.4, 1, 0.95],
-                    'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 7],
+                    'line-opacity': 0.85,
+                    'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 10],
                 },
                 layout: { 'line-cap': 'round' },
             });
         }
+
+        // Dispatch selection panel with hex stats
+        const outTrips = outbound.reduce((s, f) => s + (f.properties?.count ?? 0), 0);
+        const inTrips  = inbound.reduce((s, f) => s + (f.properties?.count ?? 0), 0);
+        const detail: SelectionDetail = {
+            type: 'od_hex',
+            title: `Zona ${origHex.slice(-6)}`,
+            rows: [
+                { label: 'DESTINOS', value: String(outbound.length) },
+                { label: 'ORÍGENES', value: String(inbound.length) },
+            ],
+            pairRows: [[
+                { label: 'SALIDAS', value: outTrips.toLocaleString('es-ES'), color: '#f59e0b' },
+                { label: 'LLEGADAS', value: inTrips.toLocaleString('es-ES'), color: '#3b82f6' },
+            ]],
+        };
+        window.dispatchEvent(new CustomEvent('map-selection', { detail }));
     }, [map, clearSpider]);
 
     const buildLayers = useCallback((geojson: GeoJSON.FeatureCollection) => {
         if (!map) return;
         console.log('[TrafficTripsLayer] buildLayers called with', geojson.features.length, 'features');
 
-        // Store all arched features for spider filtering
-        odFlowsRef.current = geojson.features.map(arcFeature);
+        odFlowsRef.current = geojson.features.map(edgePointFeature);
 
-        // Top 150 by count for the global flow layer
-        const top150 = [...odFlowsRef.current]
+        // Top 60 by count for the global overview (straight lines)
+        const top30 = [...odFlowsRef.current]
             .sort((a, b) => (b.properties?.count ?? 0) - (a.properties?.count ?? 0))
-            .slice(0, 150);
+            .slice(0, 60);
 
-        const flowGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: top150 };
+        const flowGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: top30 };
 
         // Hex polygons from unique origin hexes
         const origHexes = new Set<string>(
@@ -200,8 +264,8 @@ export default function TrafficTripsLayer() {
             source: OD_FLOW_SOURCE,
             paint: {
                 'line-color': '#7c3aed',
-                'line-opacity': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.2, 1, 0.65],
-                'line-width': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.8, 1, 5],
+                'line-opacity': 0.6,
+                'line-width': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.5, 1, 8],
             },
             layout: { 'line-cap': 'round' },
         });
@@ -213,12 +277,15 @@ export default function TrafficTripsLayer() {
             return;
         }
         console.log('[TrafficTripsLayer] fetching OD flows — cityId:', city.id, 'generation:', generation, 'period:', period);
+        setLayerState?.('loading');
         try {
             const geojson = await fetchODFlows(city.id, generation, period || undefined);
             console.log('[TrafficTripsLayer] received', geojson.features.length, 'features');
             buildLayers(geojson);
+            setLayerState?.(geojson.features.length === 0 ? 'empty' : 'idle');
         } catch (err) {
             console.error('[TrafficTripsLayer] Failed to load OD flows:', err);
+            setLayerState?.('error');
         }
     }, [map, city?.id, generation, period, buildLayers]);
 
@@ -244,6 +311,7 @@ export default function TrafficTripsLayer() {
             selectedHexRef.current = null;
             prevHoverIdRef.current = null;
             window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+            window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -256,8 +324,24 @@ export default function TrafficTripsLayer() {
             selectedHexRef.current = null;
         }
         window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+        window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         loadData();
     }, [generation, period]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Handle SelectionPanel X-button close — restore overview and clear spider
+    useEffect(() => {
+        if (!map) return;
+        const onSelectionClose = (e: Event) => {
+            if ((e as CustomEvent).detail !== null) return;
+            if (!selectedHexRef.current) return;
+            clearSpider();
+            try { map.removeFeatureState({ source: OD_HEX_SOURCE }); } catch { /* ok */ }
+            selectedHexRef.current = null;
+            window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+        };
+        window.addEventListener('map-selection', onSelectionClose);
+        return () => window.removeEventListener('map-selection', onSelectionClose);
+    }, [map, clearSpider]);
 
     // Hex and spider interactions
     useEffect(() => {
@@ -307,6 +391,7 @@ export default function TrafficTripsLayer() {
                 try { map.removeFeatureState({ source: OD_HEX_SOURCE }); } catch { /* ok */ }
                 selectedHexRef.current = null;
                 window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+                window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
             }
         };
 

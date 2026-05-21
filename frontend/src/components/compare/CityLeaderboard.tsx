@@ -42,7 +42,6 @@ const MODE_METRICS: Record<string, MetricConfig[]> = {
   [MAP_MODES.STATIONS]: [
     { key: 'bicycles_count', label: 'Bicicletas', format: v => v ? formatPopulation(v) : '-' },
     { key: 'stations_count', label: 'Estaciones', format: v => v ? formatPopulation(v) : '-' },
-    { key: 'monthly_trips', label: 'Viajes/mes', format: v => v ? formatPopulation(v) : '-' },
     { key: 'station_coverage', label: 'Cobertura', format: v => v ? `${formatPercentage(v)}%` : '-' },
   ],
   [MAP_MODES.TRAFFIC]: [
@@ -137,7 +136,14 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
     return base;
   }, [activeMode, width]);
 
-  const sortedCities = useMemo(() => sortCities(cities, sortKey, sortDir), [cities, sortKey, sortDir]);
+  const filteredCities = useMemo(() => {
+    if (activeMode === MAP_MODES.STATIONS) return cities.filter(c => Boolean(c.available_modes?.stations));
+    if (activeMode === MAP_MODES.TRAFFIC) return cities.filter(c => Boolean(c.available_modes?.traffic));
+    if (activeMode === MAP_MODES.INFRASTRUCTURE) return cities.filter(c => Boolean(c.available_modes?.infrastructure));
+    return cities;
+  }, [cities, activeMode]);
+
+  const sortedCities = useMemo(() => sortCities(filteredCities, sortKey, sortDir), [filteredCities, sortKey, sortDir]);
 
   if (loading) return <div className="flex justify-center py-16"><LoadingContainer /></div>;
   if (error) return <ErrorContainer title="Error de carga" message={error} />;
@@ -177,12 +183,17 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
         </div>
         <div className="flex flex-col items-center text-center mt-6">
           <span className="text-sm md:text-lg font-bold text-white leading-tight">{city.name}</span>
-          {city.altName && (
+          {activeMode === MAP_MODES.STATIONS && city.service_name ? (
+            <span className="text-[10px] md:text-xs font-medium text-white/60 mb-2">
+              {city.service_name}
+            </span>
+          ) : city.altName ? (
             <span className="text-[10px] md:text-xs font-medium text-white/60 italic mb-2">
               {city.altName}
             </span>
+          ) : (
+            <div className="mb-2" />
           )}
-          {!city.altName && <div className="mb-2" />}
           <span className="text-2xl md:text-4xl font-black text-white tracking-tight mb-4" style={{ color: activeColor }}>
             {primaryMetric.format(city[primaryMetric.key as keyof CityData], city)}
           </span>
@@ -279,18 +290,22 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
                   </td>
                   <td className={`py-3 px-2 md:py-4 md:px-6 font-medium flex items-center gap-1.5 md:gap-3 ${isTop3 ? 'text-white' : 'text-white/80'}`}>
                     {isSelected && (
-                      <span 
+                      <span
                         className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full shrink-0"
                         style={{ backgroundColor: selectionIndex === 0 ? 'rgb(225,172,85)' : 'rgb(175,71,73)' }}
                       />
                     )}
                     <div className="flex flex-col min-w-0">
                       <span className={`truncate text-xs md:text-sm ${isTop3 ? 'text-white' : 'text-white/80'}`}>{city.name}</span>
-                      {city.altName && (
+                      {activeMode === MAP_MODES.STATIONS && city.service_name ? (
+                        <span className="text-[9px] md:text-[10px] text-white/40 font-normal truncate">
+                          {city.service_name}
+                        </span>
+                      ) : city.altName ? (
                         <span className="text-[9px] md:text-[10px] text-white/40 italic font-normal truncate">
                           {city.altName}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </td>
                   {metrics.map(m => (

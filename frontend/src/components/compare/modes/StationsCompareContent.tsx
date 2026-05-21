@@ -11,11 +11,13 @@ interface StationsCompareContentProps {
 }
 
 export default function StationsCompareContent({ selectedCities }: StationsCompareContentProps) {
+    const stationsCities = selectedCities.filter(c => Boolean(c.available_modes?.stations));
+
     return (
         <div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 {[0, 1].map(idx => {
-                    const city = selectedCities[idx];
+                    const city = stationsCities[idx];
                     const cityColor = SLOT_COLORS[idx];
 
                     if (!city) {
@@ -75,16 +77,19 @@ export default function StationsCompareContent({ selectedCities }: StationsCompa
                             <div className="flex items-center gap-1.5 mt-2 px-1">
                                 <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cityColor }} />
                                 <span className="text-white/70 text-sm font-semibold">{city.name}</span>
+                                {city.service_name && (
+                                    <span className="text-white/40 text-xs font-normal">· {city.service_name}</span>
+                                )}
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {selectedCities.length > 0 && (
+            {stationsCities.length > 0 && (
                 <CompareStationsChart
-                    cities={selectedCities}
-                    colors={CHART_COLORS.slice(0, selectedCities.length)}
+                    cities={stationsCities}
+                    colors={CHART_COLORS.slice(0, stationsCities.length)}
                 />
             )}
         </div>
