@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
-import { cellToBoundary, gridDistance } from 'h3-js';
+import { cellToBoundary, gridDistance, cellToParent, cellToLatLng } from 'h3-js';
 import { useMap } from '../../MapContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
@@ -198,27 +198,85 @@ export default function TrafficTripsLayer() {
         window.dispatchEvent(new CustomEvent('map-selection', { detail }));
     }, [map, clearSpider]);
 
+    // Coarse resolution used for bundling the global overview.
+    // Fine data (res 9) is aggregated up to res 8 (~0.5 km hex edge) so nearby
+    // OD pairs collapse into one corridor arc while fine structure is preserved.
+    const BUNDLE_RES = 8;
+
     const buildLayers = useCallback((geojson: GeoJSON.FeatureCollection) => {
         if (!map) return;
         console.log('[TrafficTripsLayer] buildLayers called with', geojson.features.length, 'features');
 
         odFlowsRef.current = geojson.features.map(edgePointFeature);
 
-        // Top 60 by count for the global overview (straight lines)
-        const top30 = [...odFlowsRef.current]
+        // --- H3 hierarchical bundling ---
+        // Sample top 1000 pairs by trip count, then group by coarse (res 8) parent pair.
+        // All OD pairs sharing the same corridor collapse into one thick arc.
+        const top1000 = [...odFlowsRef.current]
             .sort((a, b) => (b.properties?.count ?? 0) - (a.properties?.count ?? 0))
-            .slice(0, 60);
+            .slice(0, 250);
 
-        const flowGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: top30 };
+        type Bundle = { count: number; coarseO: string; coarseD: string; orig: [number, number]; dest: [number, number] };
+        const bundleMap = new Map<string, Bundle>();
+        for (const f of top1000) {
+            const oh = f.properties?.orig_hex as string | undefined;
+            const dh = f.properties?.dest_hex as string | undefined;
+            if (!oh || !dh) continue;
+            const coarseO = cellToParent(oh, BUNDLE_RES);
+            const coarseD = cellToParent(dh, BUNDLE_RES);
+            if (coarseO === coarseD) continue;
+            const key = `${coarseO}|${coarseD}`;
+            const cnt = (f.properties?.count ?? 0) as number;
+            const existing = bundleMap.get(key);
+            if (existing) {
+                existing.count += cnt;
+            } else {
+                const [oLat, oLon] = cellToLatLng(coarseO);
+                const [dLat, dLon] = cellToLatLng(coarseD);
+                bundleMap.set(key, { count: cnt, coarseO, coarseD, orig: [oLon, oLat], dest: [dLon, dLat] });
+            }
+        }
 
-        // Hex polygons from unique origin hexes
-        const origHexes = new Set<string>(
-            geojson.features.map(f => f.properties?.orig_hex as string).filter(Boolean)
-        );
+        const bundles = [...bundleMap.values()].sort((a, b) => b.count - a.count);
+        const maxBundleCount = bundles.length > 0 ? bundles[0].count : 1;
+
+        const bundleFeatures: GeoJSON.Feature[] = bundles.map(({ count, coarseO, coarseD, orig, dest }) => {
+            const logW = Math.log1p(count) / Math.log1p(maxBundleCount);
+            let coords: [number, number][];
+            try {
+                const dist = gridDistance(coarseO, coarseD);
+                const curvature = dist > 1 ? Math.min(0.3, (dist - 1) * 0.05) : 0;
+                coords = curvature > 0 ? bezierArc(orig, dest, curvature) : [orig, dest];
+            } catch {
+                coords = [orig, dest];
+            }
+            return {
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: coords },
+                properties: { count, log_weight: logW },
+            };
+        });
+
+        const flowGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: bundleFeatures };
+
+        // Hex polygons from all fine-res hexes (orig + dest), coloured by total flow volume
+        const hexFlow = new Map<string, number>();
+        for (const f of geojson.features) {
+            const oh = f.properties?.orig_hex as string | undefined;
+            const dh = f.properties?.dest_hex as string | undefined;
+            const cnt = (f.properties?.count ?? 0) as number;
+            if (oh) hexFlow.set(oh, (hexFlow.get(oh) ?? 0) + cnt);
+            if (dh) hexFlow.set(dh, (hexFlow.get(dh) ?? 0) + cnt);
+        }
+        const maxHexFlow = Math.max(...hexFlow.values(), 1);
         const hexFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = [];
         let idx = 0;
-        for (const hexId of origHexes) {
-            hexFeatures.push(hexToPolygonFeature(hexId, idx++));
+        for (const [hexId, total] of hexFlow) {
+            const base = hexToPolygonFeature(hexId, idx++);
+            hexFeatures.push({
+                ...base,
+                properties: { ...base.properties, flow_norm: total / maxHexFlow },
+            });
         }
         const hexGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: hexFeatures };
 
@@ -238,8 +296,13 @@ export default function TrafficTripsLayer() {
             type: 'fill',
             source: OD_HEX_SOURCE,
             paint: {
-                'fill-color': 'white',
-                'fill-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 0.18, 0.06],
+                'fill-color': [
+                    'interpolate', ['linear'], ['get', 'flow_norm'],
+                    0, 'rgba(124,58,237,0.04)',
+                    0.5, 'rgba(124,58,237,0.12)',
+                    1, 'rgba(124,58,237,0.28)',
+                ],
+                'fill-opacity': 1,
             },
         });
         map.addLayer({
@@ -251,9 +314,9 @@ export default function TrafficTripsLayer() {
                     'case',
                     ['boolean', ['feature-state', 'hover'], false],
                     'rgba(255,255,255,0.70)',
-                    'rgba(255,255,255,0.35)',
+                    'rgba(255,255,255,0.20)',
                 ],
-                'line-width': 1,
+                'line-width': 0.5,
             },
         });
 
@@ -263,9 +326,16 @@ export default function TrafficTripsLayer() {
             type: 'line',
             source: OD_FLOW_SOURCE,
             paint: {
-                'line-color': '#7c3aed',
-                'line-opacity': 0.6,
-                'line-width': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.5, 1, 8],
+                // Color encodes trip volume: lavender (few) → purple (mid) → amber (many)
+                'line-color': [
+                    'interpolate', ['linear'], ['get', 'log_weight'],
+                    0,   '#ddd6fe',
+                    0.4, '#7c3aed',
+                    0.75,'#db2777',
+                    1,   '#f59e0b',
+                ],
+                'line-opacity': ['interpolate', ['linear'], ['get', 'log_weight'], 0, 0.25, 1, 0.9],
+                'line-width': ['interpolate', ['linear'], ['get', 'log_weight'], 0, 0.6, 1, 4],
             },
             layout: { 'line-cap': 'round' },
         });
@@ -279,7 +349,7 @@ export default function TrafficTripsLayer() {
         console.log('[TrafficTripsLayer] fetching OD flows — cityId:', city.id, 'generation:', generation, 'period:', period);
         setLayerState?.('loading');
         try {
-            const geojson = await fetchODFlows(city.id, generation, period || undefined);
+            const geojson = await fetchODFlows(city.id, generation, period || undefined, 9);
             console.log('[TrafficTripsLayer] received', geojson.features.length, 'features');
             buildLayers(geojson);
             setLayerState?.(geojson.features.length === 0 ? 'empty' : 'idle');

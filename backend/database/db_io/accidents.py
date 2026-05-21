@@ -63,7 +63,7 @@ def get_accidents_geojson(
                 {_RANK_TO_CODE_CASE} AS max_injury_code,
                 (ARRAY_AGG(ap.injury_status ORDER BY {_INJURY_RANK_CASE} ASC NULLS LAST)
                  FILTER (WHERE ap.injury_status IS NOT NULL))[1] AS worst_injury_status,
-                BOOL_OR(ap.vehicle_type ILIKE '%epac%' OR ap.vehicle_type ILIKE '%pedaleo asistido%') AS has_epac
+                BOOL_OR(ap.vehicle_type ILIKE '%%epac%%' OR ap.vehicle_type ILIKE '%%pedaleo asistido%%') AS has_epac
             FROM accidents a
             LEFT JOIN accident_participants ap ON ap.accident_db_id = a.id
             WHERE a.city_id = %s
@@ -205,21 +205,21 @@ def get_vehicle_pair_severity(
             WITH participant_cats AS (
                 SELECT ap.accident_db_id,
                     CASE
-                        WHEN ap.person_type ILIKE '%peato%' OR ap.person_type ILIKE '%peatón%'
+                        WHEN ap.person_type ILIKE '%%peato%%' OR ap.person_type ILIKE '%%peatón%%'
                              THEN 'pedestrian'
-                        WHEN ap.vehicle_type ILIKE '%bicicleta%' OR ap.vehicle_type ILIKE '%epac%'
-                             OR ap.vehicle_type ILIKE '%vmu%' OR ap.vehicle_type ILIKE '%patinete%'
+                        WHEN ap.vehicle_type ILIKE '%%bicicleta%%' OR ap.vehicle_type ILIKE '%%epac%%'
+                             OR ap.vehicle_type ILIKE '%%vmu%%' OR ap.vehicle_type ILIKE '%%patinete%%'
                              THEN 'bike_vmu'
-                        WHEN ap.vehicle_type ILIKE '%motocicleta%' OR ap.vehicle_type ILIKE '%ciclomotor%'
-                             OR ap.vehicle_type ILIKE '%cuadriciclo%'
+                        WHEN ap.vehicle_type ILIKE '%%motocicleta%%' OR ap.vehicle_type ILIKE '%%ciclomotor%%'
+                             OR ap.vehicle_type ILIKE '%%cuadriciclo%%'
                              THEN 'moto'
-                        WHEN ap.vehicle_type ILIKE '%autob%' THEN 'bus'
-                        WHEN ap.vehicle_type ILIKE '%camión%' OR ap.vehicle_type ILIKE '%camion%'
-                             OR ap.vehicle_type ILIKE '%maquinaria%' OR ap.vehicle_type ILIKE '%tracto%'
-                             OR ap.vehicle_type ILIKE '%remolque%'
+                        WHEN ap.vehicle_type ILIKE '%%autob%%' THEN 'bus'
+                        WHEN ap.vehicle_type ILIKE '%%camión%%' OR ap.vehicle_type ILIKE '%%camion%%'
+                             OR ap.vehicle_type ILIKE '%%maquinaria%%' OR ap.vehicle_type ILIKE '%%tracto%%'
+                             OR ap.vehicle_type ILIKE '%%remolque%%'
                              THEN 'truck'
-                        WHEN ap.vehicle_type ILIKE '%turismo%' OR ap.vehicle_type ILIKE '%furgoneta%'
-                             OR ap.vehicle_type ILIKE '%todo terreno%'
+                        WHEN ap.vehicle_type ILIKE '%%turismo%%' OR ap.vehicle_type ILIKE '%%furgoneta%%'
+                             OR ap.vehicle_type ILIKE '%%todo terreno%%'
                              THEN 'car'
                         ELSE NULL
                     END AS category,
@@ -233,10 +233,10 @@ def get_vehicle_pair_severity(
                         WHEN 7  THEN 1
                         WHEN 14 THEN 0
                         ELSE CASE
-                            WHEN ap.injury_status ILIKE '%fallecido%' THEN 3
-                            WHEN ap.injury_status ILIKE '%hospitaliz%'
-                                 OR ap.injury_status ILIKE '%grave%' THEN 2
-                            WHEN ap.injury_status ILIKE '%leve%' THEN 1
+                            WHEN ap.injury_status ILIKE '%%fallecido%%' THEN 3
+                            WHEN ap.injury_status ILIKE '%%hospitaliz%%'
+                                 OR ap.injury_status ILIKE '%%grave%%' THEN 2
+                            WHEN ap.injury_status ILIKE '%%leve%%' THEN 1
                             ELSE 0
                         END
                     END AS sev_rank
