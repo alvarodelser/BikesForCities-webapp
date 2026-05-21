@@ -242,7 +242,7 @@ If a metric is below target, follow the **Tuning** section inside the relevant n
 | Variable | Default | Effect |
 |----------|---------|--------|
 | `OLLAMA_HOST` | `http://ollama:11434` | Ollama sidecar URL |
-| `OLLAMA_MODEL` | `gemma4:e2b` | LLM model for summarisation rewrite |
+| `OLLAMA_MODEL` | `gemma4:31b` | LLM model for summarisation rewrite |
 | `OLLAMA_TIMEOUT` | `30` | Seconds before Ollama call times out |
 | `TOPICS_YAML_PATH` | `/app/config/topics.yaml` | Path to classifier taxonomy |
 | `DEDUP_LSH_THRESHOLD` | `0.9` | MinHash Jaccard threshold |

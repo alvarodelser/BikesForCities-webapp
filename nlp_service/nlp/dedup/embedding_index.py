@@ -54,7 +54,8 @@ class EmbeddingIndex:
         return faiss.serialize_index(self._index)
 
     def deserialize(self, data: bytes) -> None:
-        self._index = faiss.deserialize_index(data)
+        arr = np.frombuffer(data, dtype=np.uint8)
+        self._index = faiss.deserialize_index(arr)
 
     def __len__(self) -> int:
         return self._index.ntotal

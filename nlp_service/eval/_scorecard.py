@@ -3,11 +3,21 @@
 import json
 from pathlib import Path
 from typing import Any
+import os
+from dotenv import load_dotenv
+
+current_path = Path(__file__).resolve() if "__file__" in locals() else Path.cwd()
+env_path = next((p / ".env" for p in [current_path] + list(current_path.parents) if (p / ".env").exists()), None)
+if env_path:
+    load_dotenv(dotenv_path=env_path)
 
 
+NLP_API_KEY = os.environ.get("NLP_API_KEY", "")
+HEADERS = {"X-API-Key": NLP_API_KEY}
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
-NLP_BASE_URL = "http://localhost:8001"
-
+NLP_BASE_URL="https://wiig.dia.fi.upm.es/b4c_nlp"
+NLP_API_KEY = os.environ.get("NLP_API_KEY", "")
+HEADERS = {"X-API-Key": NLP_API_KEY}
 
 def load_fixture(name: str) -> list[dict]:
     return json.loads((FIXTURES_DIR / name).read_text())

@@ -5,10 +5,10 @@ services:
     build: .
     container_name: nlp-service
     ports:
-      - "8001:8000"
+      - "${NLP_PORT:-4200}:8000"
     environment:
-      OLLAMA_HOST: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e2b}
+      OLLAMA_HOST: ${OLLAMA_HOST}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:31b}
       DEDUP_LSH_THRESHOLD: "0.9"
       DEDUP_EMBED_THRESHOLD: "0.85"
       DEDUP_PERSIST_EVERY_N: "10"
@@ -16,24 +16,12 @@ services:
       NLP_LOG_LEVEL: INFO
     volumes:
       - nlp_dedup_data:/data/dedup
-    depends_on:
-      - ollama
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - b4c-net
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_models:/root/.ollama
-    networks:
-      - b4c-net
-
 volumes:
   nlp_dedup_data:
-  ollama_models:
 
 networks:
   b4c-net:
