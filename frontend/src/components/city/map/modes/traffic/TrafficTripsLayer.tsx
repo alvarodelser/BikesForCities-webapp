@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
-import { cellToBoundary, gridDistance, cellToParent, cellToLatLng } from 'h3-js';
+import { cellToBoundary, gridDistance } from 'h3-js';
 import { useMap } from '../../MapContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
@@ -18,6 +18,100 @@ const OD_SPIDER_OUT_SOURCE = 'od-spider-out-source';
 const OD_SPIDER_OUT_LAYER = 'od-spider-out-layer';
 const OD_SPIDER_IN_SOURCE = 'od-spider-in-source';
 const OD_SPIDER_IN_LAYER = 'od-spider-in-layer';
+
+// ---- Force-Directed Edge Bundling (FDEB) ----
+
+function fdebCompatibility(
+    p0: [number, number], p1: [number, number],
+    q0: [number, number], q1: [number, number],
+): number {
+    const px = p1[0]-p0[0], py = p1[1]-p0[1];
+    const qx = q1[0]-q0[0], qy = q1[1]-q0[1];
+    const lp = Math.sqrt(px*px+py*py), lq = Math.sqrt(qx*qx+qy*qy);
+    if (lp < 1e-9 || lq < 1e-9) return 0;
+    const Ca = Math.abs((px*qx+py*qy)/(lp*lq));
+    const lavg = (lp+lq)/2;
+    const Cs = 2/(lavg/Math.min(lp,lq)+Math.max(lp,lq)/lavg);
+    const mpx=(p0[0]+p1[0])/2, mpy=(p0[1]+p1[1])/2;
+    const mqx=(q0[0]+q1[0])/2, mqy=(q0[1]+q1[1])/2;
+    const d = Math.sqrt((mpx-mqx)**2+(mpy-mqy)**2);
+    const Cp = lavg/(lavg+d);
+    return Ca*Cs*Cp;
+}
+
+function runFDEB(
+    pairs: Array<{ orig: [number,number]; dest: [number,number]; count: number }>,
+    { K=0.1, S0=0.004, I0=60, P0=6, cycles=4, compatThreshold=0.5 } = {},
+): Array<{ coords: [number,number][]; count: number }> {
+    const n = pairs.length;
+    if (n === 0) return [];
+
+    // Pre-compute compatibility matrix (only pairs above threshold)
+    const compat: Float32Array[] = Array.from({length: n}, () => new Float32Array(n));
+    for (let i = 0; i < n; i++) {
+        for (let j = i+1; j < n; j++) {
+            const c = fdebCompatibility(pairs[i].orig, pairs[i].dest, pairs[j].orig, pairs[j].dest);
+            compat[i][j] = compat[j][i] = c;
+        }
+    }
+
+    // Initialize subdivision points
+    let P = P0;
+    const pts: Array<Array<[number,number]>> = pairs.map(({orig, dest}) => {
+        const arr: [number,number][] = [];
+        for (let k = 0; k <= P; k++) {
+            const t = k/P;
+            arr.push([orig[0]+t*(dest[0]-orig[0]), orig[1]+t*(dest[1]-orig[1])]);
+        }
+        return arr;
+    });
+
+    let S = S0;
+    let I = I0;
+    for (let c = 0; c < cycles; c++) {
+        for (let iter = 0; iter < I; iter++) {
+            for (let e = 0; e < n; e++) {
+                const ep = pts[e];
+                for (let q = 1; q < ep.length-1; q++) {
+                    const curr = ep[q];
+                    const prev = ep[q-1], next = ep[q+1];
+                    // Spring force toward midpoint of neighbours
+                    let fx = K*((prev[0]+next[0])/2-curr[0]);
+                    let fy = K*((prev[1]+next[1])/2-curr[1]);
+                    // Attraction from compatible edges
+                    const row = compat[e];
+                    for (let f = 0; f < n; f++) {
+                        const w = row[f];
+                        if (w < compatThreshold) continue;
+                        const cp = pts[f][q];
+                        fx += w*(cp[0]-curr[0]);
+                        fy += w*(cp[1]-curr[1]);
+                    }
+                    ep[q] = [curr[0]+S*fx, curr[1]+S*fy];
+                }
+            }
+        }
+        // Double subdivisions between cycles
+        if (c < cycles-1) {
+            P *= 2;
+            for (let e = 0; e < n; e++) {
+                const old = pts[e];
+                const next: [number,number][] = [old[0]];
+                for (let k = 1; k < old.length; k++) {
+                    next.push([(old[k-1][0]+old[k][0])/2, (old[k-1][1]+old[k][1])/2]);
+                    next.push(old[k]);
+                }
+                pts[e] = next;
+            }
+        }
+        S /= 2;
+        I = Math.max(1, Math.floor(I*2/3));
+    }
+
+    return pairs.map(({count}, e) => ({ coords: pts[e], count }));
+}
+
+// ---- end FDEB ----
 
 function bezierArc(orig: [number, number], dest: [number, number], curvature: number, numPoints = 24): [number, number][] {
     const [x0, y0] = orig, [x1, y1] = dest;
@@ -199,63 +293,36 @@ export default function TrafficTripsLayer() {
     }, [map, clearSpider]);
 
     // Coarse resolution used for bundling the global overview.
-    // Fine data (res 9) is aggregated up to res 8 (~0.5 km hex edge) so nearby
-    // OD pairs collapse into one corridor arc while fine structure is preserved.
-    const BUNDLE_RES = 8;
-
     const buildLayers = useCallback((geojson: GeoJSON.FeatureCollection) => {
         if (!map) return;
         console.log('[TrafficTripsLayer] buildLayers called with', geojson.features.length, 'features');
 
         odFlowsRef.current = geojson.features.map(edgePointFeature);
 
-        // --- H3 hierarchical bundling ---
-        // Sample top 1000 pairs by trip count, then group by coarse (res 8) parent pair.
-        // All OD pairs sharing the same corridor collapse into one thick arc.
-        const top1000 = [...odFlowsRef.current]
+        // --- FDEB (Force-Directed Edge Bundling) ---
+        // Sample top 250 OD pairs, run FDEB to pull compatible flows into corridors.
+        const top250 = [...odFlowsRef.current]
             .sort((a, b) => (b.properties?.count ?? 0) - (a.properties?.count ?? 0))
-            .slice(0, 250);
+            .slice(0, 250)
+            .map(f => {
+                const coords = (f.geometry as GeoJSON.LineString).coordinates as [number,number][];
+                return { orig: coords[0], dest: coords[coords.length-1], count: (f.properties?.count ?? 0) as number };
+            });
 
-        type Bundle = { count: number; coarseO: string; coarseD: string; orig: [number, number]; dest: [number, number] };
-        const bundleMap = new Map<string, Bundle>();
-        for (const f of top1000) {
-            const oh = f.properties?.orig_hex as string | undefined;
-            const dh = f.properties?.dest_hex as string | undefined;
-            if (!oh || !dh) continue;
-            const coarseO = cellToParent(oh, BUNDLE_RES);
-            const coarseD = cellToParent(dh, BUNDLE_RES);
-            if (coarseO === coarseD) continue;
-            const key = `${coarseO}|${coarseD}`;
-            const cnt = (f.properties?.count ?? 0) as number;
-            const existing = bundleMap.get(key);
-            if (existing) {
-                existing.count += cnt;
-            } else {
-                const [oLat, oLon] = cellToLatLng(coarseO);
-                const [dLat, dLon] = cellToLatLng(coarseD);
-                bundleMap.set(key, { count: cnt, coarseO, coarseD, orig: [oLon, oLat], dest: [dLon, dLat] });
-            }
-        }
+        console.log('[TrafficTripsLayer] running FDEB on', top250.length, 'pairs');
+        const t0 = performance.now();
+        const bundled = runFDEB(top250);
+        console.log('[TrafficTripsLayer] FDEB done in', (performance.now()-t0).toFixed(0), 'ms');
 
-        const bundles = [...bundleMap.values()].sort((a, b) => b.count - a.count);
-        const maxBundleCount = bundles.length > 0 ? bundles[0].count : 1;
-
-        const bundleFeatures: GeoJSON.Feature[] = bundles.map(({ count, coarseO, coarseD, orig, dest }) => {
-            const logW = Math.log1p(count) / Math.log1p(maxBundleCount);
-            let coords: [number, number][];
-            try {
-                const dist = gridDistance(coarseO, coarseD);
-                const curvature = dist > 1 ? Math.min(0.3, (dist - 1) * 0.05) : 0;
-                coords = curvature > 0 ? bezierArc(orig, dest, curvature) : [orig, dest];
-            } catch {
-                coords = [orig, dest];
-            }
-            return {
-                type: 'Feature',
-                geometry: { type: 'LineString', coordinates: coords },
-                properties: { count, log_weight: logW },
-            };
-        });
+        const maxCount = top250.length > 0 ? top250[0].count : 1;
+        const bundleFeatures: GeoJSON.Feature[] = bundled.map(({ coords, count }) => ({
+            type: 'Feature',
+            geometry: { type: 'LineString', coordinates: coords },
+            properties: {
+                count,
+                log_weight: Math.log1p(count) / Math.log1p(maxCount),
+            },
+        }));
 
         const flowGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: bundleFeatures };
 

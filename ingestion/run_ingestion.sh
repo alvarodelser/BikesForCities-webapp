@@ -65,6 +65,7 @@ python3 ingestion/04_trips/042_generate_pop_trips.py
 echo -e "\n${GREEN}--- Phase 5: Routes ---${NC}"
 # 050 – Compute shortest paths for all unrouted trips
 python3 ingestion/05_routes/050_compute_shortest_paths.py
+python3 ingestion/05_routes/051_compute_safe_paths.py
 
 # 6. Accidents
 if [ -f "ingestion/06_accidents/060_load_madrid_accidents.py" ]; then
