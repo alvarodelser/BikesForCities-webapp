@@ -367,7 +367,7 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 setStations(data);
 
                 // Fetch city-wide median in the background — doesn't block map load
-                fetchStationMedianMaxHourlyBikes(city!.id)
+                fetchStationMedianMaxHourlyBikes(city!.id as number)
                     .then(median => { if (median !== null) setMedianMaxBikes(median); })
                     .catch(() => { /* non-critical, plots just auto-scale */ });
 

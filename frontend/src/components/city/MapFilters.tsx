@@ -178,7 +178,7 @@ interface PillProps {
 
 function ExpandingPill({
   modeId, name, color, icon: Icon,
-  active, disabled, submode, period, edgeSelected,
+  active, disabled, submode, period,
   cityId, onModeClick, onSubmodeClick, onPeriodChange,
 }: PillProps) {
   const viz = VIZ_SUBMODES[modeId];

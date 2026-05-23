@@ -181,7 +181,7 @@ export default function CompareGroupedHistogram({ cities, colors }: CompareGroup
 
                         {/* Bars container */}
                         <div className="absolute inset-0 flex gap-4">
-                            {BINS.map((bin, binIdx) => (
+                            {BINS.map((_bin, binIdx) => (
                                 <div key={binIdx} className="flex-1 flex items-end gap-0 h-full">
                                     {datasets.map((data, cityIdx) => {
                                         const value = data?.[binIdx] ?? 0;

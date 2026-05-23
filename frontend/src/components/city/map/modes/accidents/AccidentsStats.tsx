@@ -6,7 +6,7 @@ import MetricPill from '../../../pills/MetricPill';
 import StackedBarMatrix from '../../../plots/StackedBarMatrix';
 import BarHistogram from '../../../plots/BarHistogram';
 import CollisionHeatmap from '../../../plots/CollisionHeatmap';
-import { Car, Bus, Truck, Motorcycle, PersonSimpleWalk, Bicycle, Sun, CloudRain } from '@phosphor-icons/react';
+import { Car, Bus, Truck, Motorcycle, Bicycle, Sun, CloudRain } from '@phosphor-icons/react';
 
 
 export interface AccidentsStatsProps {
