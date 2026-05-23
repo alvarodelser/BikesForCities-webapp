@@ -153,8 +153,11 @@ class StationResponse(BaseModel):
     citybikes_network_id: str
     estimated_monthly_trips: Optional[float] = None
     downtime_minutes: Optional[float] = None
+    estimated_inbound: Optional[float] = None
+    estimated_outbound: Optional[float] = None
     reach_coverage: Optional[float] = None
     building_count: Optional[int] = None
+    capacity: Optional[int] = None
     extra: Optional[Dict[str, Any]] = None
 
     class Config:
@@ -328,6 +331,22 @@ class TrafficResponse(BaseResponse):
     stats: Optional[TrafficStats] = None
     available_periods: Optional[List[str]] = None  # YYYY-MM strings desc-sorted
     max_edge_name: Optional[str] = None
+
+class TrafficResolveResponse(BaseResponse):
+    """Lean response for /traffic/resolve: resolved params + stats only, no per-edge data.
+
+    The frontend uses this to build a parameterised Martin tile URL so that
+    trip_count is baked into vector tiles rather than fetched via a separate
+    JSON endpoint and applied via thousands of setFeatureState() calls.
+    """
+    generation_type: Optional[str] = None
+    algorithm: Optional[str] = None
+    month: Optional[date] = None
+    stats: Optional[TrafficStats] = None
+    available_periods: Optional[List[str]] = None
+    max_edge_name: Optional[str] = None
+    edge_count: Optional[int] = None
+
 
 class EdgeRoutesResponse(BaseResponse):
     """Response model for routes passing through a specific edge."""

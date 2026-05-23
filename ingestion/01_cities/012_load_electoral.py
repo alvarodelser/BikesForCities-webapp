@@ -45,20 +45,26 @@ def normalize(s: str) -> str:
 
 def parse_elections(data_dir, cities):
     """
-    cities is a list of tuples: (city_id, name)
+    cities is a list of tuples: (city_id, name, alt_name)
     """
     muni_file = os.path.join(data_dir, "05042305.DAT")
     party_file = os.path.join(data_dir, "03042305.DAT")
     results_file = os.path.join(data_dir, "06042305.DAT")
-    
+
     # Check if files exist
     for f in [muni_file, party_file, results_file]:
         if not os.path.exists(f):
             raise FileNotFoundError(f"Missing required extraction file: {f}")
-            
+
     print("🔍 Parsing municipalities (05042305.DAT)...")
     code_to_city_id = {}
-    city_names_db = {normalize(name): cid for cid, name in cities}
+    # Index both the primary name and the alt name (Spanish official name) so that
+    # cities stored under local-language names (bilbo, xixon) still match the DAT file.
+    city_names_db = {}
+    for cid, name, alt_name in cities:
+        city_names_db[normalize(name)] = cid
+        if alt_name:
+            city_names_db[normalize(alt_name)] = cid
 
     with open(muni_file, 'r', encoding='iso-8859-1') as f:
         for line in f:
@@ -167,24 +173,24 @@ def main():
         print("❌ No cities found in database.")
         return
         
-    all_cities = [(r[0], r[1]) for r in db_cities_raw]
+    all_cities = [(r[0], r[1], r[2]) for r in db_cities_raw]  # (id, name, alt_name)
     cities_to_process = []
-    
+
     if args.force:
         cities_to_process = all_cities
     else:
-        for cid, name in all_cities:
+        for cid, name, alt_name in all_cities:
             status_obj = get_ingestion_status(conn, "012_load_electoral", city_id=cid, time_period=str(ELECTION_YEAR))
             if not (status_obj and status_obj.get("status") == "SUCCESS"):
-                cities_to_process.append((cid, name))
-                
+                cities_to_process.append((cid, name, alt_name))
+
     checked = []
-    for cid, name in cities_to_process:
+    for cid, name, alt_name in cities_to_process:
         missing = check_prerequisites(conn, ["010_load_cities"], city_id=cid)
         if missing:
             print(f"⚠️  Skipping '{name}': prerequisites not met: {missing}")
         else:
-            checked.append((cid, name))
+            checked.append((cid, name, alt_name))
     cities_to_process = checked
 
     if not cities_to_process:
@@ -207,7 +213,7 @@ def main():
         print(f"✔ Prepared {len(df_results)} electoral rows.")
         
         # Upsert to DB grouping by City
-        city_name_map = {cid: name for cid, name in cities_to_process}
+        city_name_map = {cid: name for cid, name, alt_name in cities_to_process}
         for city_id, group in df_results.groupby('city_id'):
             city_name = city_name_map[int(city_id)]
             upsert_ingestion_status(conn, "012_load_electoral", "RUNNING", city_id=city_id, time_period=str(ELECTION_YEAR))
@@ -225,7 +231,7 @@ def main():
         print("\n🏁 Spanish Municipal Electoral Ingestion complete.")
     except Exception as e:
         print(f"❌ Error during electoral ingestion: {e}")
-        for city_id, name in cities_to_process:
+        for city_id, name, alt_name in cities_to_process:
             upsert_ingestion_status(conn, "012_load_electoral", "FAILED", city_id=city_id, time_period=str(ELECTION_YEAR))
     finally:
         conn.commit()

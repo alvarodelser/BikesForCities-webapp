@@ -7,7 +7,7 @@ interface MapSheetContentProps {
 }
 
 export const MapSheetContent: React.FC<MapSheetContentProps> = ({ city }) => {
-  return <ModeStatsRouter city={city} />;
+  return <ModeStatsRouter city={city} variant="darkTint" />;
 };
 
 export default MapSheetContent;

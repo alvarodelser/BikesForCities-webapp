@@ -49,8 +49,15 @@ def put_edges(conn, edges: List[Tuple]):
                 for e in edges
             ],
         )
-    from .cities import refresh_city_modes
-    refresh_city_modes(conn, edges[0][0])
+
+
+def analyze_graph_tables(conn):
+    """Run ANALYZE on graph/feature tables so the query planner has fresh statistics."""
+    with conn.cursor() as cur:
+        cur.execute("ANALYZE edges")
+        cur.execute("ANALYZE nodes")
+        cur.execute("ANALYZE features")
+    print("   • ANALYZE complete.")
 
 
 def get_nodes(conn, city_id: int) -> List[Tuple]:

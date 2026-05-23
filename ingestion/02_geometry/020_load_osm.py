@@ -29,7 +29,7 @@ from backend.database.db_io import (
     get_nodes, get_edges, put_nodes, put_edges,
     put_features, count_features,
     get_ingestion_status, upsert_ingestion_status, check_prerequisites,
-    refresh_city_modes,
+    refresh_city_modes, analyze_graph_tables,
 )
 
 import osmnx as ox
@@ -385,12 +385,17 @@ def main():
             refresh_city_modes(conn, city_id)
             print(f"✅ Finished {city_name}")
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
+            conn.commit()
 
         except Exception as e:
+            conn.rollback()
             upsert_ingestion_status(conn, pname, "FAILED", city_id=city_id)
+            conn.commit()
             print(f"❌ Error processing {city_name}: {e}")
             import traceback; traceback.print_exc()
 
+    print(f"\n▶️  Running ANALYZE on graph tables…")
+    analyze_graph_tables(conn)
     conn.commit()
     conn.close()
 

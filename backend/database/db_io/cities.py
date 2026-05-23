@@ -25,8 +25,29 @@ def get_or_create_city(
     center_lon: Optional[float] = None,
     radius: Optional[float] = None,
     wikidata_id: Optional[str] = None,
+    force: bool = False,
 ) -> int:
     with conn.cursor() as cur:
+        if force:
+            cur.execute(
+                """
+                UPDATE cities SET
+                    name          = %s,
+                    alt_name      = %s,
+                    description   = COALESCE(%s, description),
+                    center_lat    = COALESCE(%s, center_lat),
+                    center_lon    = COALESCE(%s, center_lon),
+                    radius        = COALESCE(%s, radius),
+                    wikidata_id   = %s
+                WHERE slug = %s
+                RETURNING id
+                """,
+                (name, alt_name, description, center_lat, center_lon, radius, wikidata_id, slug),
+            )
+            row = cur.fetchone()
+            if row:
+                return row[0]
+
         if wikidata_id:
             cur.execute(
                 """
@@ -128,26 +149,39 @@ def get_all_cities(conn) -> List[Tuple]:
                  ORDER BY year DESC,
                           CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC
                  LIMIT 1) AS budget,
-                cm.coverage,
-                cm.total_kilometers AS cycling_network,
+                cm_infra.coverage,
+                cm_infra.total_kilometers AS cycling_network,
                 c.bounds_min_lat, c.bounds_max_lat, c.bounds_min_lon, c.bounds_max_lon,
                 m.infrastructure, m.traffic, m.traffic_combinations, m.accidents, m.stations,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
-                cm.total_stations,
-                cm.estimated_monthly_trips AS monthly_trips,
-                cm.bicycles_count,
-                cm.station_coverage
+                cm_stations.total_stations,
+                cm_stations.estimated_monthly_trips AS monthly_trips,
+                COALESCE(cm_stations.bicycles_count, (
+                    SELECT SUM(COALESCE(s.capacity, (s.extra->>'slots')::int))::int
+                    FROM stations s
+                    WHERE s.city_id = c.id AND s.merged_into_id IS NULL
+                      AND (s.capacity IS NOT NULL OR s.extra->>'slots' IS NOT NULL)
+                )) AS bicycles_count,
+                cm_infra.station_coverage
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
-                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
+                SELECT coverage, total_kilometers, station_coverage
                 FROM city_metrics
                 WHERE city_id = c.id
                 ORDER BY metric_month DESC
                 LIMIT 1
-            ) cm ON true
+            ) cm_infra ON true
+            LEFT JOIN LATERAL (
+                SELECT total_stations, estimated_monthly_trips, bicycles_count
+                FROM city_metrics
+                WHERE city_id = c.id
+                  AND estimated_monthly_trips IS NOT NULL
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) cm_stations ON true
             ORDER BY c.name
             """
         )
@@ -192,26 +226,39 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                  ORDER BY year DESC,
                           CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END ASC
                  LIMIT 1) AS budget,
-                cm.coverage,
-                cm.total_kilometers AS cycling_network,
+                cm_infra.coverage,
+                cm_infra.total_kilometers AS cycling_network,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
-                cm.total_stations AS stations_count,
-                cm.estimated_monthly_trips AS monthly_trips,
-                cm.bicycles_count,
-                cm.station_coverage,
+                cm_stations.total_stations AS stations_count,
+                cm_stations.estimated_monthly_trips AS monthly_trips,
+                COALESCE(cm_stations.bicycles_count, (
+                    SELECT SUM(COALESCE(s.capacity, (s.extra->>'slots')::int))::int
+                    FROM stations s
+                    WHERE s.city_id = c.id AND s.merged_into_id IS NULL
+                      AND (s.capacity IS NOT NULL OR s.extra->>'slots' IS NOT NULL)
+                )) AS bicycles_count,
+                cm_infra.station_coverage,
                 m.infrastructure, m.traffic, m.traffic_combinations,
                 m.accidents, m.stations
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
-                SELECT coverage, total_kilometers, total_stations, estimated_monthly_trips, bicycles_count, station_coverage
+                SELECT coverage, total_kilometers, station_coverage
                 FROM city_metrics
                 WHERE city_id = c.id
                 ORDER BY metric_month DESC
                 LIMIT 1
-            ) cm ON true
+            ) cm_infra ON true
+            LEFT JOIN LATERAL (
+                SELECT total_stations, estimated_monthly_trips, bicycles_count
+                FROM city_metrics
+                WHERE city_id = c.id
+                  AND estimated_monthly_trips IS NOT NULL
+                ORDER BY metric_month DESC
+                LIMIT 1
+            ) cm_stations ON true
             WHERE c.id = %s
             """,
             (city_id,)
@@ -474,6 +521,21 @@ def refresh_city_modes(conn, city_id: int) -> dict:
     writes the full city_modes row. Call after ingesting any data.
     Returns the updated modes dict.
     """
+    import time
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return _refresh_city_modes_impl(conn, city_id)
+        except psycopg2.errors.DeadlockDetected:
+            if attempt < max_retries - 1:
+                backoff = 0.1 * (2 ** attempt)
+                time.sleep(backoff)
+                conn.rollback()
+            else:
+                raise
+
+def _refresh_city_modes_impl(conn, city_id: int) -> dict:
+    """Implementation of refresh_city_modes with deadlock handling."""
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """

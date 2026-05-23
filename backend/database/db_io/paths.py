@@ -26,6 +26,26 @@ def get_or_create_shortest_path(conn, city_id: int, origin_node: int, dest_node:
         return cur.fetchone()[0]
 
 
+def get_or_create_safest_path(conn, city_id: int, origin_node: int, dest_node: int) -> int:
+    """Upsert a safest-path record and return its id.
+
+    Uses the partial unique index (city_id, origin_node, dest_node WHERE algorithm='safest')
+    from migration 014 to deduplicate, same pattern as get_or_create_shortest_path.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO paths (city_id, origin_node, dest_node, algorithm)
+            VALUES (%s, %s, %s, 'safest')
+            ON CONFLICT (city_id, origin_node, dest_node) WHERE algorithm = 'safest'
+            DO UPDATE SET city_id = EXCLUDED.city_id
+            RETURNING id
+            """,
+            (city_id, origin_node, dest_node),
+        )
+        return cur.fetchone()[0]
+
+
 def put_map_matched_path(conn, city_id: int, origin_node: int, dest_node: int) -> int:
     """Insert a new map-matched path (no deduplication) and return its id.
 

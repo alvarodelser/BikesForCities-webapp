@@ -2,6 +2,7 @@ from typing import List, Tuple, Any, Union
 import networkx as nx
 from shapely import wkt
 from shapely.geometry import Point, LineString
+from shapely.validation import make_valid
 from backend.database.db_io import get_edges, get_nodes
 
 # Extract node info from graph
@@ -92,6 +93,8 @@ def extract_edges(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[Any, ...]]
                 (graph.nodes[u]["x"], graph.nodes[u]["y"]),
                 (graph.nodes[v]["x"], graph.nodes[v]["y"])
             ])
+        if not geom.is_valid:
+            geom = make_valid(geom)
 
         # Normalize metadata types
         highway = str(data.get("highway")) if data.get("highway") else None
@@ -123,6 +126,47 @@ def extract_edges(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[Any, ...]]
         )
         edges.append(edge)
     return edges
+
+
+def build_safe_graph(conn, city_id: int) -> nx.MultiDiGraph:
+    """Reconstruct a NetworkX graph weighted by route_cost for safe-path computation.
+
+    route_cost(length, peligrosidad_score(...)) is computed in SQL (migration 010)
+    and stored as the `route_cost` edge attribute. nx.shortest_path with
+    weight='route_cost' then finds the safest rather than shortest route.
+    """
+    graph = nx.MultiDiGraph()
+    graph.graph["crs"] = "EPSG:4326"
+
+    for node_id, lat, lon, geom_wkt, street_count in get_nodes(conn, city_id):
+        graph.add_node(node_id, x=lon, y=lat, street_count=street_count)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT osmid, u, v, k, ST_AsText(geom),
+                   highway, name, length, oneway,
+                   route_cost(
+                       length,
+                       peligrosidad_score(highway, bike_infra, maxspeed, lanes, tunnel, bridge)
+                   ) AS route_cost
+            FROM edges
+            WHERE city_id = %s
+            """,
+            (city_id,),
+        )
+        for osmid, u, v, k, geom_wkt, highway, name, length, oneway, rc in cur.fetchall():
+            graph.add_edge(u, v, key=k, **{
+                "osmid": osmid,
+                "geometry": wkt.loads(geom_wkt),
+                "highway": highway,
+                "name": name,
+                "length": float(length) if length else 0.0,
+                "oneway": oneway,
+                "route_cost": float(rc) if rc else float(length or 1.0),
+            })
+
+    return graph
 
 
 def build_graph(conn, city_id: int) -> nx.MultiDiGraph:

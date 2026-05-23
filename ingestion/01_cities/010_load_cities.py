@@ -4,6 +4,7 @@ Reads spain_data.json, skips cities without modes, and loads them into the DB.
 """
 import json
 import sys
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -17,6 +18,11 @@ load_dotenv()
 SPAIN_DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "spain_data.json"
 
 def main():
+    parser = argparse.ArgumentParser(description="Load city metadata from spain_data.json")
+    parser.add_argument("--force", action="store_true", help="Force overwriting existing city metadata (including Wikidata ID)")
+    parser.add_argument("--city", type=str, help="Only load a specific city by slug or name key")
+    args = parser.parse_args()
+
     if not SPAIN_DATA_PATH.exists():
         print(f"❌ Error: Could not find {SPAIN_DATA_PATH}")
         return
@@ -30,6 +36,10 @@ def main():
     skipped_count = 0
     
     for city_key, city_info in data.items():
+        # Optional city filtering
+        if args.city and args.city.lower() not in [city_key.lower(), city_info["slug"].lower()]:
+            continue
+            
         modes_list = city_info.get("modes", [])
         
         # Insert or update city
@@ -41,7 +51,8 @@ def main():
             center_lat=city_info.get("latitude"),
             center_lon=city_info.get("longitude"),
             radius=20000,
-            wikidata_id=city_info.get("wikidata_id")
+            wikidata_id=city_info.get("wikidata_id"),
+            force=args.force
         )
         
         # Recompute all modes from current DB state (idempotent refresh)

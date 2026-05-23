@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Maximize2, Minus } from 'lucide-react';
+import { X, Maximize2, Minus, Square } from 'lucide-react';
+import { Wine, Pill } from '@phosphor-icons/react';
 import type { SelectionDetail } from '../../../types/selection';
 
 export type { SelectionDetail };
@@ -61,6 +62,7 @@ export default function SelectionPanel({
         edge: 'Tramo',
         reach: 'Alcance',
         accident: 'Accidente',
+        od_hex: 'Zona OD',
     };
 
     const glassStyle: React.CSSProperties = {
@@ -91,23 +93,20 @@ export default function SelectionPanel({
     return (
         <div ref={rootRef} className="mb-2 transition-all duration-300 ease-in-out" style={{ width: PANEL_WIDTH }}>
             <div className="rounded-2xl overflow-hidden" style={glassStyle}>
-                {/* Submode buttons (traffic mode) - at the very top */}
+                {/* Submode pill toggles */}
                 {selection.submodeOptions && selection.submodeOptions.length > 0 && (
-                    <div
-                        className="relative z-10 flex border-b"
-                        style={{ borderColor: 'rgba(0,0,0,0.08)' }}
-                    >
-                        {selection.submodeOptions.map((s, i) => {
+                    <div className="flex gap-1 px-3 pt-2.5">
+                        {selection.submodeOptions.map(s => {
                             const isActive = selection.activeSubmode === s.id;
                             return (
                                 <button
                                     key={s.id}
                                     onClick={() => selection.onSubmodeChange?.(s.id)}
-                                    className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
+                                    className="px-2.5 py-1 rounded-full text-[9px] font-bold transition-all cursor-pointer border"
                                     style={{
-                                        backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
-                                        color: isActive ? accent : 'rgba(0,0,0,0.45)',
-                                        borderLeft: i > 0 ? '1px solid rgba(0,0,0,0.08)' : undefined,
+                                        backgroundColor: isActive ? accent : 'transparent',
+                                        color: isActive ? 'white' : 'rgba(0,0,0,0.45)',
+                                        borderColor: isActive ? accent : 'rgba(0,0,0,0.1)',
                                     }}
                                 >
                                     {s.label}
@@ -180,14 +179,36 @@ export default function SelectionPanel({
                         )}
                         {selection.rows && selection.rows.length > 0 && (
                             <div className="flex flex-col gap-1 mt-0.5">
-                                {selection.rows.map(row => (
+                                {selection.rows.map(row => {
+                                    const RowIcon = row.icon;
+                                    return (
                                     <div key={row.label} className="flex items-baseline justify-between gap-3">
                                         <span className="text-[9px] font-semibold text-black/35 uppercase tracking-wide">
                                             {row.label}
                                         </span>
-                                        <span className="text-[11px] font-bold" style={{ color: row.accent ?? 'rgba(0,0,0,0.7)' }}>
+                                        <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: row.accent ?? 'rgba(0,0,0,0.7)' }}>
+                                            {RowIcon && <RowIcon size={11} weight="bold" />}
                                             {row.value}
                                         </span>
+                                    </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {selection.pairRows && selection.pairRows.length > 0 && (
+                            <div className="flex flex-col gap-1.5 mt-0.5">
+                                {selection.pairRows.map((pair, i) => (
+                                    <div key={i} className="flex gap-3">
+                                        {pair.map((item, j) => (
+                                            <div key={j} className="flex-1 flex flex-col gap-0.5">
+                                                <span className="text-[9px] font-semibold text-black/35 uppercase tracking-wide">
+                                                    {item.label}
+                                                </span>
+                                                <span className="text-[11px] font-bold" style={{ color: item.color ?? 'rgba(0,0,0,0.7)' }}>
+                                                    {item.value}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
                                 ))}
                             </div>
@@ -211,19 +232,42 @@ export default function SelectionPanel({
                         )}
                         {selection.participants && selection.participants.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-1">
-                                {selection.participants.map((p, i) => (
-                                    <span
-                                        key={i}
-                                        title={p.label}
-                                        className="inline-flex items-center justify-center w-7 h-7 text-base rounded-full border-2"
-                                        style={{
-                                            borderColor: p.severityColor,
-                                            backgroundColor: `${p.severityColor}22`,
-                                        }}
-                                    >
-                                        {p.emoji}
-                                    </span>
-                                ))}
+                                {selection.participants.map((p, i) => {
+                                    const Icon = p.icon;
+                                    const titleParts = [p.label];
+                                    if (p.alcoholPositive) titleParts.push('alcohol +');
+                                    if (p.drugsPositive)   titleParts.push('drogas +');
+                                    return (
+                                        <span
+                                            key={`${p.label}-${i}`}
+                                            title={titleParts.join(' · ')}
+                                            className="relative inline-flex items-center justify-center w-7 h-7 rounded-full border-2"
+                                            style={{
+                                                borderColor: p.severityColor,
+                                                backgroundColor: `${p.severityColor}22`,
+                                                color: p.severityColor,
+                                            }}
+                                        >
+                                            <Icon className="w-3.5 h-3.5" />
+                                            {p.alcoholPositive && (
+                                                <span
+                                                    title="Alcohol positivo"
+                                                    className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center bg-red-600 text-white shadow-sm border border-white"
+                                                >
+                                                    <Wine className="w-2 h-2" />
+                                                </span>
+                                            )}
+                                            {p.drugsPositive && (
+                                                <span
+                                                    title="Drogas positivo"
+                                                    className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center bg-purple-700 text-white shadow-sm border border-white"
+                                                >
+                                                    <Pill className="w-2 h-2" />
+                                                </span>
+                                            )}
+                                        </span>
+                                    );
+                                })}
                             </div>
                         )}
                         {selection.chart && (
@@ -234,6 +278,56 @@ export default function SelectionPanel({
                                 }
                             }} />
                         )}
+                        {selection.routeProgress && (() => {
+                            const { loaded, total, onStop } = selection.routeProgress;
+                            const pct = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
+                            return (
+                                <div className="mt-1.5 flex flex-col gap-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-black/8">
+                                            <div
+                                                className="h-full rounded-full transition-all duration-300"
+                                                style={{ width: `${pct}%`, backgroundColor: accent }}
+                                            />
+                                        </div>
+                                        {onStop && (
+                                            <button
+                                                onClick={onStop}
+                                                title="Detener carga"
+                                                className="flex items-center justify-center w-5 h-5 rounded-full border border-black/10 bg-black/5 hover:bg-red-50 hover:border-red-200 hover:text-red-500 text-black/35 transition-all shrink-0"
+                                            >
+                                                <Square className="w-2.5 h-2.5 fill-current" />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                        {selection.colormap && (() => {
+                            const { q5, q50, q95, value } = selection.colormap;
+                            const range = Math.max(q95 - q5, 1);
+                            const clampedVal = value != null ? Math.max(q5, Math.min(q95, value)) : null;
+                            const pct = clampedVal != null ? ((clampedVal - q5) / range) * 100 : null;
+                            return (
+                                <div className="mt-2 flex flex-col gap-1">
+                                    <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Intensidad</span>
+                                    <div className="relative h-2.5 rounded-full overflow-visible"
+                                        style={{ background: 'linear-gradient(to right, #dbeafe, #3b82f6, #1e3a8a)' }}>
+                                        {pct != null && (
+                                            <div
+                                                className="absolute top-1/2 w-3 h-3 rounded-full border-2 border-white shadow-md"
+                                                style={{ left: `${pct}%`, transform: 'translate(-50%, -50%)', backgroundColor: '#2563eb' }}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className="flex justify-between text-[8px] text-black/30 font-semibold">
+                                        <span>{Math.round(q5)}</span>
+                                        <span>{Math.round(q50)}</span>
+                                        <span>{Math.round(q95)}+</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                         {extraContent}
                     </div>
                 )}

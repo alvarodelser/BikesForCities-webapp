@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { CityData } from '../../constants/cities';
 import { useViewport } from '../../hooks/useViewport';
 import { useMapState } from '../../hooks/useMapState';
+import { fetchAccidentsSummary } from '../../services/api';
 import {
   Car,
   MapPin,
@@ -34,17 +35,16 @@ const VIZ_SUBMODES: Partial<Record<string, { items: VizSubmode[]; requiresEdge?:
   },
   [MAP_MODES.TRAFFIC]: {
     items: [
-      { id: 'traces',  label: 'Trayecto' },
-      { id: 'heatmap', label: 'Calor' },
+      { id: 'rutas', label: 'Rutas' },
+      { id: 'od',    label: 'Origen-Destino' },
     ],
-    requiresEdge: true,
   },
 };
 
 // Default viz submode per mode
 const DEFAULT_SUBMODE: Partial<Record<string, string>> = {
   [MAP_MODES.STATIONS]: 'trips',
-  [MAP_MODES.TRAFFIC]:  'traces',
+  [MAP_MODES.TRAFFIC]:  'rutas',
 };
 
 const MODE_META = [
@@ -56,6 +56,108 @@ const MODE_META = [
   { id: MAP_MODES.ACCIDENTS,      name: 'Accidentes',      color: 'var(--red)', icon: TriangleAlert },
 ] as const;
 
+const ACCIDENT_ACCENT = '#ef4444';
+
+// ── Compact year timeline for accidents pill ──────────────────────────────────
+
+interface CompactYearTimelineProps {
+  cityId: number;
+  selectedYear: string;
+  onYearSelect: (year: string) => void;
+}
+
+function CompactYearTimeline({ cityId, selectedYear, onYearSelect }: CompactYearTimelineProps) {
+  const [years, setYears] = useState<number[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchAccidentsSummary(cityId)
+      .then(s => { if (!cancelled) setYears((s.available_years ?? []).slice().sort((a, b) => a - b)); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [cityId]);
+
+  if (years.length === 0) return null;
+
+  const selectedNum = selectedYear ? parseInt(selectedYear, 10) : null;
+
+  return (
+    <div
+      className="relative z-10 border-t px-3 pb-3 pt-2.5"
+      style={{ borderColor: 'rgba(0,0,0,0.08)' }}
+      onClick={e => e.stopPropagation()}
+    >
+      <span
+        className="block text-[8px] font-black uppercase tracking-widest mb-2"
+        style={{ color: 'rgba(0,0,0,0.3)' }}
+      >
+        Año
+      </span>
+
+      {/* Timeline track */}
+      <div className="relative flex items-start justify-between">
+        {/* Connecting line */}
+        <div
+          className="absolute top-[9px] left-2.5 right-2.5 h-[1.5px]"
+          style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
+        />
+
+        {years.map((yr) => {
+          const isActive = selectedNum === yr;
+          return (
+            <button
+              key={yr}
+              onClick={() => onYearSelect(isActive ? '' : String(yr))}
+              className="relative flex flex-col items-center gap-1 group"
+              style={{ minWidth: 0 }}
+            >
+              {/* Dot */}
+              <div
+                className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all duration-200 relative z-10"
+                style={{
+                  backgroundColor: isActive ? ACCIDENT_ACCENT : 'white',
+                  borderColor: isActive ? ACCIDENT_ACCENT : 'rgba(0,0,0,0.15)',
+                  boxShadow: isActive
+                    ? `0 0 0 2px ${ACCIDENT_ACCENT}30, 0 2px 6px ${ACCIDENT_ACCENT}50`
+                    : '0 1px 2px rgba(0,0,0,0.1)',
+                  transform: isActive ? 'scale(1.15)' : 'scale(1)',
+                }}
+              >
+                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+              </div>
+              {/* Year label */}
+              <span
+                className="text-[8px] font-bold transition-all duration-200 whitespace-nowrap"
+                style={{
+                  color: isActive ? ACCIDENT_ACCENT : 'rgba(0,0,0,0.35)',
+                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
+                }}
+              >
+                {yr}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* "All years" pill */}
+      {selectedNum != null && (
+        <button
+          className="mt-2 w-full py-1 rounded-lg text-[9px] font-bold transition-all"
+          style={{
+            color: ACCIDENT_ACCENT,
+            backgroundColor: `${ACCIDENT_ACCENT}10`,
+            border: `1px solid ${ACCIDENT_ACCENT}25`,
+          }}
+          onClick={() => onYearSelect('')}
+        >
+          Ver todos los años
+        </button>
+      )}
+    </div>
+  );
+}
+
 // ── Desktop partitioned pill ──────────────────────────────────────────────────
 
 interface PillProps {
@@ -66,18 +168,22 @@ interface PillProps {
   active: boolean;
   disabled: boolean;
   submode: string;
+  period: string;
   edgeSelected: boolean;
+  cityId: number;
   onModeClick: () => void;
   onSubmodeClick: (id: string) => void;
+  onPeriodChange: (v: string) => void;
 }
 
 function ExpandingPill({
   modeId, name, color, icon: Icon,
-  active, disabled, submode, edgeSelected,
-  onModeClick, onSubmodeClick,
+  active, disabled, submode, period,
+  cityId, onModeClick, onSubmodeClick, onPeriodChange,
 }: PillProps) {
   const viz = VIZ_SUBMODES[modeId];
-  const showSubmodes = active && viz && (!viz.requiresEdge || edgeSelected);
+  const showSubmodes = active && !!viz;
+  const showAccidentsTimeline = active && modeId === MAP_MODES.ACCIDENTS;
 
   return (
     <div
@@ -109,17 +215,6 @@ function ExpandingPill({
         </span>
       </div>
 
-      {/* Hint: traffic with no edge yet */}
-      {active && modeId === MAP_MODES.TRAFFIC && viz?.requiresEdge && !edgeSelected && (
-        <div
-          className="relative z-10 border-t px-3 pb-2 text-[10px] italic text-center leading-tight"
-          style={{ borderColor: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)' }}
-          onClick={e => e.stopPropagation()}
-        >
-          Selecciona un tramo
-        </div>
-      )}
-
       {/* Bottom half: viz submode row */}
       {showSubmodes && (
         <div
@@ -146,6 +241,15 @@ function ExpandingPill({
           })}
         </div>
       )}
+
+      {/* Accidents: year timeline */}
+      {showAccidentsTimeline && (
+        <CompactYearTimeline
+          cityId={cityId}
+          selectedYear={period}
+          onYearSelect={onPeriodChange}
+        />
+      )}
     </div>
   );
 }
@@ -154,7 +258,7 @@ function ExpandingPill({
 
 const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange, isModeAvailable, selectedEdgeId = null }) => {
   const { isMobile } = useViewport();
-  const { submode, setMode, setSubmode } = useMapState();
+  const { submode, period, setMode, setSubmode, setPeriod } = useMapState();
 
   const handleModeClick = (id: MapMode) => {
     const defaultSub = DEFAULT_SUBMODE[id] ?? '';
@@ -219,9 +323,12 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
               active={selectedMode === m.id}
               disabled={!isModeAvailable(m.id)}
               submode={selectedMode === m.id ? submode : ''}
+              period={selectedMode === m.id ? period : ''}
               edgeSelected={selectedEdgeId !== null}
+              cityId={city.id ?? 0}
               onModeClick={() => handleModeClick(m.id)}
               onSubmodeClick={handleSubmodeClick}
+              onPeriodChange={setPeriod}
             />
           ))}
       </div>

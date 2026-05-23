@@ -16,8 +16,8 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities,
     get_skellam_readings_diffs, get_station_merge_map, get_citybikes_network_id,
-    upsert_station_monthly, upsert_estimated_trips_interval, get_city_months_with_station_data,
-    get_total_active_stations, upsert_city_metrics,
+    upsert_station_monthly, upsert_station_monthly_demand, upsert_estimated_trips_interval,
+    get_city_months_with_station_data, get_total_active_stations, upsert_city_metrics,
 )
 from backend.database.db_io.cities import upsert_ingestion_status, get_ingestion_status, check_prerequisites, get_city_center
 from backend.database.db_io.metrics import get_city_bicycles_count
@@ -35,6 +35,8 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
     df = pd.DataFrame(rows, columns=cols)
 
     df['observed_at'] = pd.to_datetime(df['observed_at'], utc=True)
+    if 'interval_sec' in df.columns:
+        df['interval_sec'] = df['interval_sec'].apply(lambda x: float(x) if x is not None else None)
     
     # --- Downtime calculation ---
     # We sort by station and time to compute intervals
@@ -74,7 +76,22 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
 
     # For Skellam, we still need delta_bikes not null
     skellam_df = df[df['delta_bikes'].notnull()].copy()
-    
+
+    # Filter out truck rebalancing events — only applied to Skellam.
+    # Downtime is unaffected: a truck moving bikes legitimately ends a downtime period.
+    if 'interval_sec' in skellam_df.columns:
+        # Drop long-gap intervals from Skellam (same 1-hour cap as downtime)
+        skellam_df = skellam_df[
+            (skellam_df['interval_sec'] > 0) & (skellam_df['interval_sec'] <= 3600)
+        ]
+        if not skellam_df.empty:
+            rate = skellam_df['delta_bikes'].abs() / (skellam_df['interval_sec'] / 60.0)
+            # Per-city threshold: p99 of the bikes/min rate distribution.
+            # Trucks visit each station ~1×/day = ~0.35% of readings, so p99 (top 1%)
+            # catches all truck events with room to spare for multi-visit days.
+            truck_threshold = float(np.quantile(rate, 0.99)) if len(rate) >= 100 else np.inf
+            skellam_df = skellam_df[rate <= truck_threshold]
+
     if skellam_df.empty:
         # If no deltas, we can't do Skellam, but we might have downtime
         avg_downtime = station_downtime['downtime_minutes'].mean() if not station_downtime.empty else 0.0
@@ -99,33 +116,57 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
     
     lam_preds = pd.Series(0.0, index=df.index)
     mu_preds = pd.Series(0.0, index=df.index)
-    
+
+    # Hourly profile grid: 24 hours × 7 days, averaged across days to give per-hour demand
+    _hours = np.arange(24)
+    _days = np.arange(7)
+    _hd = np.array([(h, d) for h in _hours for d in _days])
+    _h2pi = 2 * np.pi * _hd[:, 0] / 24.0
+    _d2pi = 2 * np.pi * _hd[:, 1] / 7.0
+    X_profile = np.column_stack([np.sin(_h2pi), np.cos(_h2pi), np.sin(_d2pi), np.cos(_d2pi)])
+
+    demand_profile_rows: list = []
+
     station_groups = df.groupby('station_id')
     for station_id, group_indices in station_groups.groups.items():
         sub_df = df.loc[group_indices]
         if len(sub_df) < 10:
-            lam_preds.loc[group_indices] = sub_df['dep_target'].mean()
-            mu_preds.loc[group_indices] = sub_df['arr_target'].mean()
+            mean_dep = sub_df['dep_target'].mean()
+            mean_arr = sub_df['arr_target'].mean()
+            lam_preds.loc[group_indices] = mean_dep
+            mu_preds.loc[group_indices] = mean_arr
+            # Flat profile for low-data stations
+            for h in _hours:
+                demand_profile_rows.append((station_id, int(h), float(mean_dep), float(mean_arr)))
             continue
-            
+
         X = sub_df[features]
         y_dep = sub_df['dep_target']
         y_arr = sub_df['arr_target']
-        
+
         reg_dep = PoissonRegressor(alpha=1e-4, max_iter=300)
         reg_arr = PoissonRegressor(alpha=1e-4, max_iter=300)
-        
+
+        lam_profile = np.full(24, y_dep.mean())
+        mu_profile = np.full(24, y_arr.mean())
+
+        X_fit = X.values
         try:
-            reg_dep.fit(X, y_dep)
-            lam_preds.loc[group_indices] = reg_dep.predict(X)
+            reg_dep.fit(X_fit, y_dep)
+            lam_preds.loc[group_indices] = reg_dep.predict(X_fit)
+            lam_profile = reg_dep.predict(X_profile).reshape(24, 7).mean(axis=1)
         except Exception:
             lam_preds.loc[group_indices] = y_dep.mean()
-            
+
         try:
-            reg_arr.fit(X, y_arr)
-            mu_preds.loc[group_indices] = reg_arr.predict(X)
+            reg_arr.fit(X_fit, y_arr)
+            mu_preds.loc[group_indices] = reg_arr.predict(X_fit)
+            mu_profile = reg_arr.predict(X_profile).reshape(24, 7).mean(axis=1)
         except Exception:
             mu_preds.loc[group_indices] = y_arr.mean()
+
+        for h, lam_h, mu_h in zip(_hours, lam_profile, mu_profile):
+            demand_profile_rows.append((station_id, int(h), float(lam_h), float(mu_h)))
             
     df['lam'] = lam_preds
     df['mu'] = mu_preds
@@ -205,6 +246,21 @@ def calculate_skellam_trips(conn, city_id: int, metric_month: dt.datetime, perio
             for _, row in station_agg.iterrows()
         ]
         upsert_station_monthly(conn, station_rows)
+
+    # Store per-station hourly demand profiles aggregated by rep_station_id (consistent with station_monthly)
+    if demand_profile_rows and network_id:
+        from collections import defaultdict
+        rep_demand: dict = defaultdict(lambda: defaultdict(lambda: [0.0, 0.0]))
+        for (sid, hour, lam, mu) in demand_profile_rows:
+            rep = station_map.get(sid, sid)
+            rep_demand[rep][hour][0] += lam
+            rep_demand[rep][hour][1] += mu
+        demand_db_rows = [
+            (city_id, network_id, rep_sid, month_date, hour, vals[0], vals[1])
+            for rep_sid, hour_map in rep_demand.items()
+            for hour, vals in hour_map.items()
+        ]
+        upsert_station_monthly_demand(conn, demand_db_rows)
         
     # System-level trips per observed_at interval (divide by 2)
     agg_df = df.groupby('observed_at')['expected_station_trips'].sum() / 2.0
@@ -293,22 +349,30 @@ def main():
             else:
                 print(f"▶️  {name}: {len(months)} month(s) to process")
 
+            skipped_count = 0
             for m in months:
                 metric_month = month_start(m)
                 month_str = metric_month.strftime("%Y-%m-%d")
 
                 month_status = get_ingestion_status(conn, pname, city_id=city_id, time_period=month_str)
                 if month_status and month_status.get("status") == "SUCCESS" and not args.force:
-                    print(f"   ⏭️  Skipping {metric_month:%Y-%m}: est. traffic already computed.")
+                    skipped_count += 1
                     continue
+
+                if skipped_count > 0:
+                    print(f"   ⏭️  Skipped {skipped_count} months (already computed)")
+                    skipped_count = 0
 
                 upsert_ingestion_status(conn, pname, "RUNNING", city_id=city_id, time_period=month_str)
                 est_trips, total_stations, downtime = calculate_monthly_metrics(conn, city_id, metric_month)
 
                 print(
-                    f"   ✔ {metric_month:%Y-%m} | est trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f} min/day"
+                    f"   ✔ {metric_month:%Y-%m} | trips: {est_trips:.0f} | stations: {total_stations} | downtime: {downtime:.1f}m"
                 )
                 upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id, time_period=month_str)
+
+            if skipped_count > 0:
+                print(f"   ⏭️  Skipped {skipped_count} months (already computed)")
 
             upsert_ingestion_status(conn, pname, "SUCCESS", city_id=city_id)
         except Exception as e:

@@ -4,7 +4,7 @@ import InfrastructureLayer from './infrastructure/InfrastructureLayer';
 import InfrastructureLegend from './infrastructure/InfrastructureLegend';
 import StationsLayer from './stations/StationsLayer';
 import StationsLegend from './stations/StationsLegend';
-import TrafficLayer from './traffic/TrafficLayer';
+import TrafficModeLayer from './traffic/TrafficModeLayer';
 import TrafficLegend from './traffic/TrafficLegend';
 import AccidentsStats from './accidents/AccidentsStats';
 import InfraStats from './infrastructure/InfraStats';
@@ -16,7 +16,7 @@ import { MAP_MODES } from '../../../../constants/mapModes';
 
 export interface ModeConfig {
     /** Pure-imperative MapLibre component — returns null */
-    layer: React.ComponentType<{ submode: string }>;
+    layer: React.ComponentType<{ submode: string; year?: number }>;
     /** Legend UI component */
     legend: React.ComponentType;
     /** Stats UI component */
@@ -32,8 +32,8 @@ export const MODES: Record<string, ModeConfig> = {
         layer:          AccidentsLayer,
         legend:         AccidentsLegend,
         stats:          AccidentsStats,
-        submodes:       [],
-        defaultSubmode: '',
+        submodes:       ['bike', 'all'],
+        defaultSubmode: 'bike',
     },
     [MAP_MODES.INFRASTRUCTURE]: {
         layer:          InfrastructureLayer,
@@ -50,10 +50,10 @@ export const MODES: Record<string, ModeConfig> = {
         defaultSubmode: 'trips',
     },
     [MAP_MODES.TRAFFIC]: {
-        layer:          TrafficLayer,
+        layer:          TrafficModeLayer,
         legend:         TrafficLegend,
         stats:          TrafficStats,
-        submodes:       ['traces', 'heatmap'],
-        defaultSubmode: 'traces',
+        submodes:       ['rutas', 'od'],
+        defaultSubmode: 'rutas',
     },
 };

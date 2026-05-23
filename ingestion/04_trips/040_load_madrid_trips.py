@@ -669,6 +669,59 @@ def ingest_csvs(conn, city_id: int, done_files: set[str], on_file_done,
     return processed
 
 
+def _build_master_station_map():
+    """Build master_station_map.json from 2018 station directory ZIPs if it doesn't exist."""
+    if MASTER_MAP_PATH.exists():
+        existing = load_master_map()
+        if existing:
+            print("✅ Using existing master_station_map.json")
+            return
+
+    print("🔨 Building master_station_map.json from station directories...")
+    station_map = {}
+
+    # Extract from 2018 station ZIPs (which have station ID → coordinates)
+    zip_path = DATA_DIR / "raw" / "bicimad_2018.zip"
+    if zip_path.exists():
+        print(f"   Extracting from 2018 station ZIPs...")
+        try:
+            with zipfile.ZipFile(zip_path) as zf:
+                for member in zf.namelist():
+                    if "station" not in member.lower() or "__MACOSX" in member: continue
+                    if not member.lower().endswith(".zip"): continue
+
+                    try:
+                        with zf.open(member) as nf:
+                            with zipfile.ZipFile(io.BytesIO(nf.read())) as station_zip:
+                                for station_file in station_zip.namelist():
+                                    if not station_file.lower().endswith(".json"): continue
+                                    content = station_zip.read(station_file).decode("latin-1")
+                                    for line in content.strip().split("\n"):
+                                        line = line.strip()
+                                        if not line: continue
+                                        try:
+                                            data = json.loads(line)
+                                            for station in data.get("stations", []):
+                                                if not isinstance(station, dict): continue
+                                                sid = str(station.get("id", ""))
+                                                lat = station.get("latitude")
+                                                lon = station.get("longitude")
+                                                if sid and lat and lon:
+                                                    station_map[sid] = [float(lon), float(lat)]
+                                        except Exception:
+                                            pass
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"   ⚠️  Error processing 2018 ZIPs: {e}")
+
+    if station_map:
+        save_master_map(station_map)
+        print(f"   ✅ Saved {len(station_map)} stations to master_station_map.json")
+    else:
+        print("   ⚠️  No station data found")
+
+
 def main():
     load_dotenv()
     parser = argparse.ArgumentParser(description="Unified Madrid trip downloader and loader")
@@ -679,6 +732,9 @@ def main():
     args = parser.parse_args()
 
     DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    _build_master_station_map()
+
     conn = connect_db()
     city_id = get_city_id_by_name(conn, "Madrid")
     if city_id is None:
@@ -689,11 +745,11 @@ def main():
         status_obj = get_ingestion_status(conn, PROCESS_NAME, city_id=city_id)
         details = (status_obj.get("details") or {}) if status_obj else {}
         done_files = set(details.get("done_files", []))
-        
+
         if args.force:
             done_files.clear()
             details["done_files"] = []
-        
+
         years = args.years or sorted(HISTORICAL_URLS.keys(), reverse=True)
         for year in years:
             ensure_data_present(year, force=args.force)

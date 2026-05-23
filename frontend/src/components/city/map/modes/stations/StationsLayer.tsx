@@ -2,8 +2,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
-import { fetchStations, fetchStationHourlyAvailability, fetchStationReach } from '../../../../../services/api';
-import type { HourlyAvailability } from '../../../../../services/api';
+import { fetchStations, fetchStationHourlyAvailability, fetchStationMedianMaxHourlyBikes, fetchStationReach, fetchStationDemandProfile } from '../../../../../services/api';
+import type { HourlyAvailability, HourlyDemand } from '../../../../../services/api';
 import type { SelectionDetail } from '../../../../../types/selection';
 
 
@@ -56,12 +56,13 @@ const getViridisColor = (distance: number, maxDistance: number) => {
 
 // ---- DOM-based popup builders ----
 
-function buildLinePlotDOM(data: HourlyAvailability[]) {
+function buildLinePlotDOM(data: HourlyAvailability[], medianMaxBikes?: number) {
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const w = 230, h = 105, padL = 35, padB = 35, padT = 18, padR = 12;
     const chartW = w - padL - padR;
     const chartH = h - padT - padB;
-    const maxBikes = Math.max(...data.map(d => d.avg_bikes), 5);
+    const stationMax = Math.max(...data.map(d => d.avg_bikes), 5);
+    const maxBikes = Math.max(medianMaxBikes ?? 0, stationMax);
 
     const svg = document.createElementNS(SVG_NS, 'svg');
     svg.setAttribute('width', String(w));
@@ -171,6 +172,104 @@ function buildLinePlotDOM(data: HourlyAvailability[]) {
     return container;
 }
 
+function buildDemandPlotDOM(data: HourlyDemand[]) {
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const w = 230, h = 115, padL = 35, padB = 35, padT = 18, padR = 12;
+    const chartW = w - padL - padR;
+    const chartH = h - padT - padB;
+
+    const sorted = [...data].sort((a, b) => a.hour_of_day - b.hour_of_day);
+    const allVals = sorted.flatMap(d => [d.lambda_departure, d.mu_arrival]);
+    const maxVal = Math.max(...allVals, 0.1);
+
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('width', String(w));
+    svg.setAttribute('height', String(h));
+    svg.style.cssText = 'margin-top:4px;display:block;overflow:visible;cursor:default;';
+
+    const getX = (hour: number) => padL + (hour / 23) * chartW;
+    const getY = (val: number) => padT + chartH - (val / maxVal) * chartH;
+    const zeroY = getY(0);
+
+    const axisColor = '#E2E8F0';
+    const yLine = document.createElementNS(SVG_NS, 'line');
+    yLine.setAttribute('x1', String(padL)); yLine.setAttribute('y1', String(padT));
+    yLine.setAttribute('x2', String(padL)); yLine.setAttribute('y2', String(zeroY));
+    yLine.setAttribute('stroke', axisColor);
+    svg.appendChild(yLine);
+    const xLine = document.createElementNS(SVG_NS, 'line');
+    xLine.setAttribute('x1', String(padL)); xLine.setAttribute('y1', String(zeroY));
+    xLine.setAttribute('x2', String(padL + chartW)); xLine.setAttribute('y2', String(zeroY));
+    xLine.setAttribute('stroke', axisColor);
+    svg.appendChild(xLine);
+
+    const labelStyle = 'font-size:8px;fill:#A1A1AA;font-weight:700;font-family:sans-serif;pointer-events:none;';
+    const maxTick = document.createElementNS(SVG_NS, 'text');
+    maxTick.setAttribute('x', String(padL - 6));
+    maxTick.setAttribute('y', String(padT + 4));
+    maxTick.setAttribute('text-anchor', 'end');
+    maxTick.style.cssText = labelStyle;
+    maxTick.textContent = maxVal.toFixed(1);
+    svg.appendChild(maxTick);
+
+    // Legend — short lines matching polyline style
+    const COLORS = { dep: '#f97316', arr: '#3b82f6' };
+    const legendY = padT - 6;
+    [{ color: COLORS.dep, label: 'Salidas' }, { color: COLORS.arr, label: 'Entradas' }].forEach(({ color, label }, i) => {
+        const lx = padL + i * 72;
+        const legendLine = document.createElementNS(SVG_NS, 'line');
+        legendLine.setAttribute('x1', String(lx - 5)); legendLine.setAttribute('y1', String(legendY));
+        legendLine.setAttribute('x2', String(lx + 5)); legendLine.setAttribute('y2', String(legendY));
+        legendLine.setAttribute('stroke', color);
+        legendLine.setAttribute('stroke-width', '2');
+        legendLine.setAttribute('stroke-linecap', 'round');
+        svg.appendChild(legendLine);
+        const txt = document.createElementNS(SVG_NS, 'text');
+        txt.setAttribute('x', String(lx + 9)); txt.setAttribute('y', String(legendY + 4));
+        txt.style.cssText = 'font-size:8px;fill:#A1A1AA;font-weight:700;font-family:sans-serif;';
+        txt.textContent = label;
+        svg.appendChild(txt);
+    });
+
+    // Hour labels (0, 8, 12, 20)
+    const wrapIcon = (c: string) => `<g fill="none" stroke="#A1A1AA" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${c}</g>`;
+    const addTimeLabel = (hour: number, timeStr: string, svgContent: string) => {
+        const x = getX(hour);
+        const g = document.createElementNS(SVG_NS, 'g');
+        g.setAttribute('transform', `translate(${x - 6}, ${h - 28}) scale(0.5)`);
+        g.innerHTML = svgContent;
+        svg.appendChild(g);
+        const txt = document.createElementNS(SVG_NS, 'text');
+        txt.setAttribute('x', String(x)); txt.setAttribute('y', String(h - 4));
+        txt.setAttribute('text-anchor', 'middle');
+        txt.style.cssText = 'font-size:8px;fill:#A1A1AA;font-weight:700;';
+        txt.textContent = timeStr;
+        svg.appendChild(txt);
+    };
+    addTimeLabel(0, '00:00', wrapIcon('<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>'));
+    addTimeLabel(8, '08:00', wrapIcon('<path d="M12 2v8"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m8 22 4-4 4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
+    addTimeLabel(12, '12:00', wrapIcon('<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>'));
+    addTimeLabel(20, '20:00', wrapIcon('<path d="M12 10V2"/><path d="m4.93 10.93 1.41 1.41"/><path d="M2 18h2"/><path d="M20 18h2"/><path d="m19.07 10.93-1.41 1.41"/><path d="M22 22H2"/><path d="m16 22-4-4-4 4"/><path d="M16 18a4 4 0 0 0-8 0"/>'));
+
+    const drawSeries = (key: 'lambda_departure' | 'mu_arrival', color: string) => {
+        const pts = sorted.map(d => `${getX(d.hour_of_day).toFixed(1)},${getY(d[key]).toFixed(1)}`).join(' ');
+        const poly = document.createElementNS(SVG_NS, 'polyline');
+        poly.setAttribute('points', pts);
+        poly.setAttribute('fill', 'none');
+        poly.setAttribute('stroke', color);
+        poly.setAttribute('stroke-width', '2');
+        poly.setAttribute('stroke-linejoin', 'round');
+        svg.appendChild(poly);
+    };
+
+    drawSeries('mu_arrival', COLORS.arr);
+    drawSeries('lambda_departure', COLORS.dep);
+
+    const container = document.createElement('div');
+    container.appendChild(svg);
+    return container;
+}
+
 let spinnerInjected = false;
 function ensureSpinnerCSS() {
     if (spinnerInjected) return;
@@ -206,11 +305,13 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
     const [stations, setStations] = useState<any[]>([]);
     const [activePeriod, setActivePeriod] = useState<string>('all');
     const [stickyId, setStickyId] = useState<string | null>(null);
+    const [medianMaxBikes, setMedianMaxBikes] = useState<number | undefined>(undefined);
     const isReach = submode === 'reach';
     const metric = submode === 'downtime' ? 'downtime' : 'trips';
 
     const stickyRef = useRef<{ id: string | null; coords: [number, number]; props: any } | null>(null);
     const hourlyCache = useRef<Map<string, Record<string, HourlyAvailability[]>>>(new Map());
+    const demandCache = useRef<Map<string, HourlyDemand[]>>(new Map());
     const reachAbortRef = useRef<AbortController | null>(null);
 
     const cleanupReachLayers = useCallback(() => {
@@ -259,10 +360,16 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                 if (!data || data.length === 0) {
                     setLayerState?.('empty');
                     setStations([]);
+                    setMedianMaxBikes(undefined);
                     return;
                 }
                 setLayerState?.('idle');
                 setStations(data);
+
+                // Fetch city-wide median in the background — doesn't block map load
+                fetchStationMedianMaxHourlyBikes(city!.id as number)
+                    .then(median => { if (median !== null) setMedianMaxBikes(median); })
+                    .catch(() => { /* non-critical, plots just auto-scale */ });
 
                 const features = data.map(s => {
                     let normalizedName = (s.name || 'Sin nombre')
@@ -278,6 +385,8 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                             usage: s.estimated_monthly_trips || 0,
                             downtime: s.downtime_minutes || 0,
                             reach_coverage: s.reach_coverage || 0,
+                            inbound: s.estimated_inbound || 0,
+                            outbound: s.estimated_outbound || 0,
                         },
                     };
                 });
@@ -522,34 +631,51 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
                     badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
                     rows: metric === 'downtime' ? [
                         { label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` },
-                    ] : [
-                        { label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` },
-                    ],
+                    ] : [],
+                    pairRows: metric === 'trips' && (props.inbound > 0 || props.outbound > 0) ? [
+                        [
+                            { label: 'Entradas', value: `${Math.round(props.inbound)} v/mes`, color: '#3b82f6' },
+                            { label: 'Salidas', value: `${Math.round(props.outbound)} v/mes`, color: '#f97316' },
+                        ]
+                    ] : undefined,
                     periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
                     activePeriod: activePeriod,
                     onPeriodChange: (period: string) => setActivePeriod(period),
                 };
 
-                // Fetch hourly data for downtime chart
                 if (metric === 'downtime' && city?.id) {
                     const stationCache = hourlyCache.current.get(props.id) || {};
                     const cached = stationCache[activePeriod];
-
                     if (cached) {
-                        const chart = buildLinePlotDOM(cached) as unknown as HTMLElement;
+                        const chart = buildLinePlotDOM(cached, medianMaxBikes) as unknown as HTMLElement;
                         dispatchSelection({ ...selectionDetail, chart });
                     } else {
                         dispatchSelection({ ...selectionDetail, loading: true });
                         fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                             .then(data => {
                                 hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
-                                const chart = data.length > 0 ? (buildLinePlotDOM(data) as unknown as HTMLElement) : null;
+                                const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
                                 dispatchSelection({ ...selectionDetail, chart, loading: false });
                             })
                             .catch(err => {
                                 console.error('Failed to fetch hourly data:', err);
                                 dispatchSelection({ ...selectionDetail, loading: false });
                             });
+                    }
+                } else if (metric === 'trips' && city?.id) {
+                    const cached = demandCache.current.get(props.id);
+                    if (cached) {
+                        const chart = cached.length > 0 ? (buildDemandPlotDOM(cached) as unknown as HTMLElement) : null;
+                        dispatchSelection({ ...selectionDetail, chart });
+                    } else {
+                        dispatchSelection({ ...selectionDetail, loading: true });
+                        fetchStationDemandProfile(city!.id, props.id)
+                            .then(data => {
+                                demandCache.current.set(props.id, data);
+                                const chart = data.length > 0 ? (buildDemandPlotDOM(data) as unknown as HTMLElement) : null;
+                                dispatchSelection({ ...selectionDetail, chart, loading: false });
+                            })
+                            .catch(() => dispatchSelection({ ...selectionDetail, loading: false }));
                     }
                 } else {
                     dispatchSelection(selectionDetail);
@@ -603,52 +729,60 @@ export default function StationsLayer({ submode }: StationsLayerProps) {
             badge: { text: `${Math.round(val)} ${unit}`, color, textColor },
             rows: metric === 'downtime'
                 ? [{ label: 'Tiempo sin bicis', value: `${Math.round(val)} min/día` }]
-                : [{ label: 'Viajes mensuales', value: `${Math.round(val)} v/mes` }],
+                : [],
+            pairRows: metric === 'trips' && (props.inbound > 0 || props.outbound > 0) ? [
+                [
+                    { label: 'Entradas', value: `${Math.round(props.inbound)} v/mes`, color: '#3b82f6' },
+                    { label: 'Salidas', value: `${Math.round(props.outbound)} v/mes`, color: '#f97316' },
+                ]
+            ] : undefined,
             periodOptions: metric === 'downtime' ? PERIOD_OPTIONS : undefined,
             activePeriod: activePeriod,
             onPeriodChange: (period: string) => setActivePeriod(period),
         };
 
-        // Fetch hourly data for downtime chart when switching to downtime metric
         if (metric === 'downtime' && city?.id) {
             const stationCache = hourlyCache.current.get(props.id) || {};
             const cached = stationCache[activePeriod];
-
             if (cached) {
-                // Use cached data
-                const chart = buildLinePlotDOM(cached) as unknown as HTMLElement;
+                const chart = buildLinePlotDOM(cached, medianMaxBikes) as unknown as HTMLElement;
                 dispatchSelection({ ...selectionDetail, chart });
             } else {
-                // Show loading state
                 dispatchSelection({ ...selectionDetail, loading: true });
-
-                // Fetch new data
                 fetchStationHourlyAvailability(city!.id, props.id, activePeriod)
                     .then(data => {
-                        // Update cache
                         hourlyCache.current.set(props.id, { ...stationCache, [activePeriod]: data });
-
-                        // Only update if this is still the selected station
                         if (stickyRef.current?.id === props.id) {
-                            const chart = data.length > 0 ? (buildLinePlotDOM(data) as unknown as HTMLElement) : null;
-                            dispatchSelection({
-                                ...selectionDetail,
-                                chart,
-                                loading: false
-                            });
+                            const chart = data.length > 0 ? (buildLinePlotDOM(data, medianMaxBikes) as unknown as HTMLElement) : null;
+                            dispatchSelection({ ...selectionDetail, chart, loading: false });
                         }
                     })
                     .catch(err => {
                         console.error('Failed to fetch hourly data:', err);
-                        if (stickyRef.current?.id === props.id) {
-                            dispatchSelection({ ...selectionDetail, loading: false });
-                        }
+                        if (stickyRef.current?.id === props.id) dispatchSelection({ ...selectionDetail, loading: false });
                     });
+            }
+        } else if (metric === 'trips' && city?.id) {
+            const cached = demandCache.current.get(props.id);
+            if (cached) {
+                const chart = cached.length > 0 ? (buildDemandPlotDOM(cached) as unknown as HTMLElement) : null;
+                dispatchSelection({ ...selectionDetail, chart });
+            } else {
+                dispatchSelection({ ...selectionDetail, loading: true });
+                fetchStationDemandProfile(city!.id, props.id)
+                    .then(data => {
+                        demandCache.current.set(props.id, data);
+                        if (stickyRef.current?.id === props.id) {
+                            const chart = data.length > 0 ? (buildDemandPlotDOM(data) as unknown as HTMLElement) : null;
+                            dispatchSelection({ ...selectionDetail, chart, loading: false });
+                        }
+                    })
+                    .catch(() => { if (stickyRef.current?.id === props.id) dispatchSelection({ ...selectionDetail, loading: false }); });
             }
         } else {
             dispatchSelection(selectionDetail);
         }
-    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection]);
+    }, [metric, thresholds, isReach, city, activePeriod, dispatchSelection, medianMaxBikes]);
 
     useEffect(() => { updateSelectionPanel(); }, [stickyId, metric, thresholds, activePeriod, updateSelectionPanel, city]);
 

@@ -50,6 +50,7 @@ from .graph import (
     get_cycling_components_geojson,
     get_building_coverage_components_geojson,
     get_edge_building_coverage,
+    analyze_graph_tables,
 )
 
 from .trips import (
@@ -57,13 +58,17 @@ from .trips import (
     count_trips,
     count_unrouted_trips,
     get_unrouted_trip_groups,
+    count_unsaferouted_trips,
+    get_unsaferouted_trip_groups,
     city_has_real_trips,
     get_paginated_trips,
     get_trip_stats,
+    get_od_hex_flows,
 )
 
 from .paths import (
     get_or_create_shortest_path,
+    get_or_create_safest_path,
     put_map_matched_path,
     put_path_edges,
     put_path_nodes,
@@ -92,6 +97,7 @@ from .stations import (
     upsert_stations,
     insert_station_readings,
     get_station_hourly_availability,
+    get_city_median_max_hourly_bikes,
     update_station_reach_coverage,
     compute_station_building_coverages,
     get_avg_station_building_count,
@@ -108,6 +114,7 @@ from .traffic import (
     get_traffic_stats,
     get_max_traffic_edge,
     get_latest_traffic_month,
+    resolve_traffic_params,
     has_traffic,
     get_traffic_infra_coverage,
     get_route_histogram,
@@ -121,6 +128,9 @@ from .edge_routes import (
 
 from .accidents import (
     get_accidents_geojson,
+    get_accidents_summary,
+    get_accident_detail,
+    get_vehicle_pair_severity,
 )
 
 from .scores import (
@@ -133,6 +143,8 @@ from .metrics import (
     get_citybikes_network_id,
     update_station_metrics,
     upsert_station_monthly,
+    upsert_station_monthly_demand,
+    get_station_hourly_demand,
     get_station_monthly_flow,
     upsert_station_actual_trips,
     upsert_city_actual_trips,
@@ -163,12 +175,13 @@ __all__ = [
     "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
     "get_gcc_coverage", "get_cycling_components_geojson", "get_building_coverage_components_geojson",
-    "get_edge_building_coverage",
+    "get_edge_building_coverage", "analyze_graph_tables",
     # trips
     "put_trips", "count_trips", "count_unrouted_trips", "get_unrouted_trip_groups",
+    "count_unsaferouted_trips", "get_unsaferouted_trip_groups",
     "city_has_real_trips", "get_paginated_trips", "get_trip_stats",
     # paths
-    "get_or_create_shortest_path", "put_map_matched_path",
+    "get_or_create_shortest_path", "get_or_create_safest_path", "put_map_matched_path",
     "put_path_edges", "put_path_nodes",
     "link_trip_to_path", "bulk_link_trips_to_path",
     # routes (join table helpers + backward-compat alias)
@@ -179,24 +192,26 @@ __all__ = [
     # stations
     "get_stations", "get_paginated_stations", "has_station_readings_for_month",
     "get_nearby_unmerged_station", "upsert_stations", "insert_station_readings",
-    "get_station_hourly_availability", "update_station_reach_coverage",
+    "get_station_hourly_availability", "get_city_median_max_hourly_bikes",
+    "update_station_reach_coverage",
     "compute_station_building_coverages", "get_avg_station_building_count",
     "update_city_station_coverage", "get_city_station_coverage",
     # traffic
     "upsert_edge_traffic", "upsert_edge_traffic_for_city",
     "get_traffic_modes", "get_best_traffic_mode",
     "get_edge_traffic", "get_traffic_stats", "get_max_traffic_edge",
-    "get_latest_traffic_month", "has_traffic",
+    "get_latest_traffic_month", "resolve_traffic_params", "has_traffic",
     "get_traffic_infra_coverage", "get_route_histogram",
     # edge routes
     "get_edge_route_traces", "get_edge_route_od", "count_edge_routes",
     # accidents
-    "get_accidents_geojson",
+    "get_accidents_geojson", "get_accidents_summary", "get_accident_detail", "get_vehicle_pair_severity",
     # scores
     "compute_mode_scores",
     # metrics
     "get_skellam_readings_diffs", "get_station_merge_map", "get_citybikes_network_id",
-    "update_station_metrics", "upsert_station_monthly", "get_station_monthly_flow",
+    "update_station_metrics", "upsert_station_monthly", "upsert_station_monthly_demand",
+    "get_station_monthly_flow",
     "upsert_station_actual_trips", "upsert_city_actual_trips", "get_city_actual_vs_estimated",
     "upsert_estimated_trips_interval",
     "get_city_months_with_station_data", "calculate_osm_metrics",

@@ -101,7 +101,7 @@
         "longitude": -1.130654,
         "latitude": 37.99224,
         "raster": "south_spain",
-        "citybikes_network_id": "dott-murcia",
+        "citybikes_network_id": null,
         "wikidata_id": "Q12225",
         "ine_code": "30030",
         "slug": "murcia",
@@ -166,7 +166,7 @@
         "latitude": 43.362343,
         "raster": "north_spain",
         "citybikes_network_id": "bicicorunha",
-        "wikidata_id": "Q8366",
+        "wikidata_id": "Q8757",
         "ine_code": "15030",
         "slug": "a-coruna",
         "alt_name": null

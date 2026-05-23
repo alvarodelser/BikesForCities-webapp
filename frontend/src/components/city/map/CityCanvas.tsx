@@ -35,20 +35,11 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         city.geoCoords.longitude !== null &&
         (city.geoCoords.latitude !== 0 || city.geoCoords.longitude !== 0);
 
-    // For infrastructure mode restrict panning to the 10×10 km study area (with 5% padding).
-    // For other modes fall back to a fixed radius so traffic/stations data is navigable.
+    // All modes use a fixed radius so data is navigable without bounds restrictions.
     const bounds = useMemo(() => {
         if (!hasValidCoords) return null;
         const lat = city.geoCoords.latitude;
         const lon = city.geoCoords.longitude;
-        if (mode === MAP_MODES.INFRASTRUCTURE) {
-            const halfLat = 5000 / 111320;
-            const halfLon = 5000 / (111320 * Math.cos((lat * Math.PI) / 180));
-            return [
-                [lon - halfLon, lat - halfLat],
-                [lon + halfLon, lat + halfLat],
-            ] as [[number, number], [number, number]];
-        }
         const radiusKm = 50;
         const latDelta = radiusKm / 111.32;
         const lonDelta = radiusKm / (111.32 * Math.cos(lat * (Math.PI / 180)));
@@ -56,10 +47,12 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             [lon - lonDelta, lat - latDelta],
             [lon + lonDelta, lat + latDelta]
         ] as [[number, number], [number, number]];
-    }, [city.geoCoords.latitude, city.geoCoords.longitude, mode, hasValidCoords]);
+    }, [city.geoCoords.latitude, city.geoCoords.longitude, hasValidCoords]);
 
     useEffect(() => {
         if (!mapContainer.current || !hasValidCoords) return;
+
+        let mounted = true;
 
         const mapInstance = new maplibregl.Map({
             container: mapContainer.current,
@@ -108,6 +101,8 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         mapRef.current = mapInstance;
 
         mapInstance.on('load', () => {
+            if (!mounted) return;
+
             // Hard-lock rotation / pitch
             mapInstance.dragRotate.disable();
             mapInstance.touchZoomRotate.disableRotation();
@@ -159,11 +154,15 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 },
             });
 
-            // Edges vector source for traffic
-            // promoteId ensures MapLibre uses the feature's `id` field for setFeatureState across tile boundaries
+            // Edges vector source for traffic.
+            // Initialized with the parameterless edges_with_traffic URL (trip_count=0 for
+            // all edges) so MapLibre never fires 404 requests against the non-existent
+            // /edges/ endpoint. TrafficLayer calls setTiles() after resolving
+            // (generation_type, algorithm, month) to swap in the parameterised URL.
+            // promoteId is still needed for feature-state selection highlight.
             mapInstance.addSource('edges-source', {
                 type: 'vector',
-                tiles: [`${TILE_SERVER_URL}/edges/{z}/{x}/{y}`],
+                tiles: [`${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}`],
                 minzoom: 0, maxzoom: 22,
                 promoteId: 'id',
             });
@@ -180,7 +179,8 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                         ['==', ['feature-state', 'selected'], true], 5,
                         1.5,
                     ],
-                    // TrafficLayer.setPaintProperty replaces color+opacity with percentile-based expressions after data loads
+                    // TrafficLayer.setPaintProperty replaces color+opacity with
+                    // percentile-based expressions that read ['get','trip_count'] from tiles
                     'line-color': [
                         'case',
                         ['==', ['feature-state', 'selected'], true], '#f0c040',
@@ -203,15 +203,18 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         });
 
         return () => {
+            mounted = false;
             onMapInstance(null);
             mapRef.current = null;
             setMapReady(false);
             setLoading(true);
-            // Defer removal so React can finish running all child cleanup effects
-            // before map.style is destroyed. Synchronous removal causes layer
-            // components to crash when their cleanup calls map.getLayer().
-            const mapToRemove = mapInstance;
-            setTimeout(() => mapToRemove.remove(), 0);
+            // Synchronous removal is safe because:
+            // - React cleanups run child→parent, so AccidentsLayer (child) already
+            //   removed its layer/source before this runs on real unmount.
+            // - On StrictMode's simulated cleanup, mapReady was never true (load
+            //   was blocked by the mounted guard), so <ActiveLayer> was never
+            //   mounted and there are no child effects accessing this map's style.
+            mapInstance.remove();
         };
     }, [city.geoCoords.latitude, city.geoCoords.longitude, city.id]);
 

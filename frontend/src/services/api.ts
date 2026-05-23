@@ -10,6 +10,14 @@ const apiFetch = async (url: string, options: RequestInit = {}): Promise<Respons
   return fetch(url, { ...options, headers });
 };
 
+const apiFetchWithSignal = async (url: string, signal: AbortSignal, options: RequestInit = {}): Promise<Response> => {
+  const headers = new Headers(options.headers || {});
+  if (API_KEY) {
+    headers.set('X-API-Key', API_KEY);
+  }
+  return fetch(url, { ...options, headers, signal });
+};
+
 export const fetchCities = async (): Promise<CityData[]> => {
   const response = await apiFetch(`${API_BASE_URL}/cities`);
   if (!response.ok) {
@@ -53,6 +61,9 @@ export interface StationData {
   citybikes_network_id: string;
   estimated_monthly_trips: number | null;
   downtime_minutes: number | null;
+  estimated_inbound: number | null;
+  estimated_outbound: number | null;
+  capacity?: number | null;
   reach_coverage?: number;
   building_count?: number;
   extra?: any;
@@ -70,6 +81,12 @@ export const fetchStations = async (cityId: number): Promise<StationData[]> => {
 export interface HourlyAvailability {
   hour_of_day: number;
   avg_bikes: number;
+}
+
+export interface HourlyDemand {
+  hour_of_day: number;
+  lambda_departure: number;
+  mu_arrival: number;
 }
 
 export interface SystemStatusCity {
@@ -113,6 +130,15 @@ export const fetchSystemStatus = async (): Promise<SystemStatus> => {
   return result.data;
 };
 
+export const fetchStationMedianMaxHourlyBikes = async (cityId: number): Promise<number | null> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/stations/median-max-hourly-bikes`
+  );
+  if (!response.ok) return null;
+  const result = await response.json();
+  return result.data?.median_max_hourly_bikes ?? null;
+};
+
 export const fetchStationHourlyAvailability = async (
   cityId: number,
   stationId: string,
@@ -126,6 +152,18 @@ export const fetchStationHourlyAvailability = async (
   }
   const result = await response.json();
   return result.data;
+};
+
+export const fetchStationDemandProfile = async (
+  cityId: number,
+  stationId: string
+): Promise<HourlyDemand[]> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/stations/${stationId}/demand-profile`
+  );
+  if (!response.ok) return [];
+  const result = await response.json();
+  return result.data ?? [];
 };
 
 export interface TrafficCount {
@@ -187,10 +225,63 @@ export const fetchTraffic = async (
   };
 };
 
+// Lean alternative to fetchTraffic: resolves (generation_type, algorithm, month) and
+// returns percentile stats without any per-edge data. The trip_count values themselves
+// are now baked into Martin vector tiles via the edges_with_traffic() SQL function.
+export interface TrafficResolveResult {
+  generation_type: string | null;
+  algorithm: string | null;
+  month: string | null;
+  stats: TrafficApiResponse['stats'];
+  available_periods?: string[];
+  max_edge_name?: string | null;
+  edge_count?: number | null;
+}
 
+export const fetchTrafficResolve = async (
+  cityId: number,
+  generationType?: string,
+  algorithm?: string,
+  month?: string,
+): Promise<TrafficResolveResult> => {
+  const params = new URLSearchParams();
+  if (generationType) params.set('generation_type', generationType);
+  if (algorithm) params.set('algorithm', algorithm);
+  if (month) params.set('month', month);
+  const qs = params.toString();
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
+  if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
+  const result = await response.json();
+  return {
+    generation_type: result.generation_type ?? null,
+    algorithm: result.algorithm ?? null,
+    month: result.month ?? null,
+    stats: result.stats ?? null,
+    available_periods: result.available_periods,
+    max_edge_name: result.max_edge_name ?? null,
+    edge_count: result.edge_count ?? null,
+  };
+};
+
+
+export const fetchODFlows = async (
+  cityId: number,
+  generationType: string,
+  period?: string,
+  resolution: number = 8,
+): Promise<GeoJSON.FeatureCollection> => {
+  const params = new URLSearchParams({
+    generation_type: generationType,
+    resolution: String(resolution),
+  });
+  if (period) params.set('period', period);
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/trips/od-flows?${params}`);
+  if (!response.ok) throw new Error('Error al cargar flujos O-D');
+  return response.json();
+};
 
 export const fetchTrafficModes = async (cityId: number): Promise<TrafficMode[]> => {
-  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/modes`);
+  const response = await fetch(`${API_BASE_URL}/cities/${cityId}/traffic/modes`);
   if (!response.ok) throw new Error('Error al cargar los modos de tráfico');
   const result = await response.json();
   return result.data;
@@ -210,6 +301,8 @@ export interface EdgeRoutesParams {
   generationType?: string;
   algorithm?: string;
   month?: string;
+  skipCount?: boolean;
+  signal?: AbortSignal;
 }
 
 export const fetchEdgeRoutes = async (
@@ -224,7 +317,11 @@ export const fetchEdgeRoutes = async (
   if (params.generationType) qs.set('generation_type', params.generationType);
   if (params.algorithm) qs.set('algorithm', params.algorithm);
   if (params.month) qs.set('month', params.month);
-  const response = await apiFetch(
+  if (params.skipCount) qs.set('skip_count', 'true');
+  const fetchFn = params.signal
+    ? (url: string) => apiFetchWithSignal(url, params.signal!, {})
+    : apiFetch;
+  const response = await fetchFn(
     `${API_BASE_URL}/cities/${cityId}/edges/${edgeId}/routes?${qs.toString()}`
   );
   if (!response.ok) throw new Error('Error al cargar las rutas de los tramos');
@@ -286,12 +383,11 @@ export interface AccidentFeature {
     total_involved: number;
     injured: number;
     killed: number;
-    cyclists_involved: number;
-    pedestrians_involved: number;
+    vehicles_involved: string[];
     severity: 'fatal' | 'serious' | 'minor' | 'uninjured';
     max_injury_code: number | null;
     worst_injury_status: string | null;
-    participants?: AccidentParticipant[];
+    has_epac: boolean;
   };
 }
 
@@ -300,11 +396,84 @@ export interface AccidentsGeoJSON {
   features: AccidentFeature[];
 }
 
-export const fetchAccidents = async (cityId: number): Promise<AccidentsGeoJSON> => {
-  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents?cyclists_only=false`);
-  if (!response.ok) {
-    throw new Error('Error al cargar los datos de accidentes');
-  }
+export const fetchAccidents = async (
+  cityId: number,
+  cyclistsOnly: boolean = true,
+  year?: number,
+): Promise<AccidentsGeoJSON> => {
+  const params = new URLSearchParams({ cyclists_only: String(cyclistsOnly) });
+  if (year != null) params.set('year', String(year));
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/accidents?${params}`,
+  );
+  if (!response.ok) throw new Error('Error al cargar los datos de accidentes');
+  const result = await response.json();
+  return result.data;
+};
+
+export interface AccidentsSummary {
+  total: number;
+  cyclist: number;
+  pedestrian: number;
+  latest_year: number | null;
+  available_years: number[];
+}
+
+export const fetchAccidentsSummary = async (cityId: number, year?: number): Promise<AccidentsSummary> => {
+  const params = new URLSearchParams();
+  if (year != null) params.set('year', String(year));
+  const qs = params.toString();
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents/summary${qs ? '?' + qs : ''}`);
+  if (!response.ok) throw new Error('Error al cargar el resumen de accidentes');
+  const result = await response.json();
+  return result.data;
+};
+
+export interface AccidentDetail {
+  accident_id: string;
+  timestamp: string | null;
+  street: string | null;
+  street_number: string | null;
+  district: string | null;
+  accident_type: string | null;
+  weather: string | null;
+  vehicles_involved: string[];
+  participants: AccidentParticipant[];
+}
+
+export const fetchAccidentDetail = async (
+  cityId: number,
+  accidentId: string,
+): Promise<AccidentDetail> => {
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/accidents/${encodeURIComponent(accidentId)}`,
+  );
+  if (!response.ok) throw new Error('Error al cargar el detalle del accidente');
+  const result = await response.json();
+  return result.data;
+};
+
+export interface VehiclePairStat {
+  cat_a: string;
+  cat_b: string;
+  accident_count: number;
+  fatal: number;
+  serious: number;
+  minor: number;
+  uninjured: number;
+}
+
+export const fetchVehiclePairStats = async (
+  cityId: number,
+  year?: number,
+): Promise<VehiclePairStat[]> => {
+  const params = new URLSearchParams();
+  if (year != null) params.set('year', String(year));
+  const qs = params.toString();
+  const response = await apiFetch(
+    `${API_BASE_URL}/cities/${cityId}/accidents/pair-stats${qs ? '?' + qs : ''}`,
+  );
+  if (!response.ok) throw new Error('Error al cargar las estadísticas de pares de vehículos');
   const result = await response.json();
   return result.data;
 };
