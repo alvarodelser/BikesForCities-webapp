@@ -252,6 +252,14 @@ def get_vehicle_pair_severity(
                 WHERE category IS NOT NULL
                 GROUP BY accident_db_id, category
             ),
+            -- Accidents where 2+ participants share the same category (true same-vehicle crashes)
+            multi_same_cat AS (
+                SELECT accident_db_id, category
+                FROM participant_cats
+                WHERE category IS NOT NULL
+                GROUP BY accident_db_id, category
+                HAVING COUNT(*) >= 2
+            ),
             paired AS (
                 SELECT a.accident_db_id,
                        a.category AS cat_a,
@@ -273,19 +281,31 @@ def get_vehicle_pair_severity(
             FROM paired
             GROUP BY cat_a, cat_b
             UNION ALL
+            -- Same-type-only accidents for every category (includes solo falls and same-vehicle crashes)
             SELECT
-                'bike_vmu'                                         AS cat_a,
-                'solo'                                             AS cat_b,
-                COUNT(DISTINCT acs.accident_db_id)::INT            AS accident_count,
+                acs.category                                        AS cat_a,
+                acs.category                                        AS cat_b,
+                COUNT(DISTINCT acs.accident_db_id)::INT             AS accident_count,
                 SUM(CASE WHEN acs.sev = 3 THEN 1 ELSE 0 END)::INT  AS fatal,
                 SUM(CASE WHEN acs.sev = 2 THEN 1 ELSE 0 END)::INT  AS serious,
                 SUM(CASE WHEN acs.sev = 1 THEN 1 ELSE 0 END)::INT  AS minor,
                 SUM(CASE WHEN acs.sev = 0 THEN 1 ELSE 0 END)::INT  AS uninjured
             FROM acc_cat_sev acs
-            WHERE acs.category = 'bike_vmu'
-              AND acs.accident_db_id NOT IN (
-                  SELECT accident_db_id FROM acc_cat_sev WHERE category != 'bike_vmu'
-              )
+            WHERE (
+                -- Solo or same-type-only accidents (no other category present)
+                NOT EXISTS (
+                    SELECT 1 FROM acc_cat_sev acs2
+                    WHERE acs2.accident_db_id = acs.accident_db_id
+                      AND acs2.category != acs.category
+                )
+                -- OR true same-vehicle crash: 2+ participants of this type in the accident
+                OR EXISTS (
+                    SELECT 1 FROM multi_same_cat ms
+                    WHERE ms.accident_db_id = acs.accident_db_id
+                      AND ms.category = acs.category
+                )
+            )
+            GROUP BY acs.category
         """, params)
         rows = cur.fetchall()
 

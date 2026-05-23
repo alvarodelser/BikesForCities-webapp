@@ -1,29 +1,24 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
-import { cellToBoundary, gridDistance } from 'h3-js';
 import { useMap } from '../../MapContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
+import { ODAccumulationLayer, ACCUM_LAYER_ID } from './ODAccumulationLayer';
 import type { SelectionDetail } from '../../../../../types/selection';
 import type * as GeoJSON from 'geojson';
 
 type Combo = { generation_type: string; algorithm: string };
 
-const OD_HEX_SOURCE = 'od-hex-source';
-const OD_HEX_FILL_LAYER = 'od-hex-fill-layer';
-const OD_HEX_LINE_LAYER = 'od-hex-line-layer';
-const OD_FLOW_SOURCE = 'od-flow-source';
-const OD_FLOW_LAYER = 'od-flow-layer';
-const OD_SPIDER_OUT_SOURCE = 'od-spider-out-source';
-const OD_SPIDER_OUT_LAYER = 'od-spider-out-layer';
-const OD_SPIDER_IN_SOURCE = 'od-spider-in-source';
-const OD_SPIDER_IN_LAYER = 'od-spider-in-layer';
+const OD_NODE_SOURCE = 'od-node-source';
+const OD_NODE_LAYER  = 'od-node-layer';
+const OD_SEL_SOURCE  = 'od-sel-source';
+const OD_SEL_LAYER   = 'od-sel-layer';
 
-// ---- Force-Directed Edge Bundling (FDEB) ----
+// ── Force-Directed Edge Bundling ──────────────────────────────────────────────
 
 function fdebCompatibility(
-    p0: [number, number], p1: [number, number],
-    q0: [number, number], q1: [number, number],
+    p0: [number,number], p1: [number,number],
+    q0: [number,number], q1: [number,number],
 ): number {
     const px = p1[0]-p0[0], py = p1[1]-p0[1];
     const qx = q1[0]-q0[0], qy = q1[1]-q0[1];
@@ -41,23 +36,28 @@ function fdebCompatibility(
 
 function runFDEB(
     pairs: Array<{ orig: [number,number]; dest: [number,number]; count: number }>,
-    { K=0.1, S0=0.004, I0=60, P0=6, cycles=4, compatThreshold=0.5 } = {},
+    { K=0.3, S0=0.002, I0=40, P0=6, cycles=3, compatThreshold=0.65 } = {},
 ): Array<{ coords: [number,number][]; count: number }> {
     const n = pairs.length;
     if (n === 0) return [];
 
-    // Pre-compute compatibility matrix (only pairs above threshold)
+    // Compatibility + anti-parallel flags
     const compat: Float32Array[] = Array.from({length: n}, () => new Float32Array(n));
+    const antipar: Uint8Array[]  = Array.from({length: n}, () => new Uint8Array(n));
     for (let i = 0; i < n; i++) {
+        const dxi = pairs[i].dest[0]-pairs[i].orig[0];
+        const dyi = pairs[i].dest[1]-pairs[i].orig[1];
         for (let j = i+1; j < n; j++) {
+            const dxj = pairs[j].dest[0]-pairs[j].orig[0];
+            const dyj = pairs[j].dest[1]-pairs[j].orig[1];
+            antipar[i][j] = antipar[j][i] = (dxi*dxj + dyi*dyj < 0) ? 1 : 0;
             const c = fdebCompatibility(pairs[i].orig, pairs[i].dest, pairs[j].orig, pairs[j].dest);
             compat[i][j] = compat[j][i] = c;
         }
     }
 
-    // Initialize subdivision points
     let P = P0;
-    const pts: Array<Array<[number,number]>> = pairs.map(({orig, dest}) => {
+    const pts: [number,number][][] = pairs.map(({orig, dest}) => {
         const arr: [number,number][] = [];
         for (let k = 0; k <= P; k++) {
             const t = k/P;
@@ -66,358 +66,254 @@ function runFDEB(
         return arr;
     });
 
-    let S = S0;
-    let I = I0;
+    let S = S0, I = I0;
     for (let c = 0; c < cycles; c++) {
         for (let iter = 0; iter < I; iter++) {
             for (let e = 0; e < n; e++) {
-                const ep = pts[e];
-                for (let q = 1; q < ep.length-1; q++) {
+                const ep   = pts[e];
+                const last = ep.length - 1;
+                const row  = compat[e];
+                const ap   = antipar[e];
+                for (let q = 1; q < last; q++) {
                     const curr = ep[q];
-                    const prev = ep[q-1], next = ep[q+1];
-                    // Spring force toward midpoint of neighbours
-                    let fx = K*((prev[0]+next[0])/2-curr[0]);
-                    let fy = K*((prev[1]+next[1])/2-curr[1]);
-                    // Attraction from compatible edges
-                    const row = compat[e];
+                    let fx = K*((ep[q-1][0]+ep[q+1][0])/2 - curr[0]);
+                    let fy = K*((ep[q-1][1]+ep[q+1][1])/2 - curr[1]);
                     for (let f = 0; f < n; f++) {
-                        const w = row[f];
-                        if (w < compatThreshold) continue;
-                        const cp = pts[f][q];
-                        fx += w*(cp[0]-curr[0]);
-                        fy += w*(cp[1]-curr[1]);
+                        if (row[f] < compatThreshold) continue;
+                        // Mirror index for anti-parallel edges so forces pull toward
+                        // the geometrically matching point, not the opposite endpoint.
+                        const qi = ap[f] ? last - q : q;
+                        fx += row[f] * (pts[f][qi][0] - curr[0]);
+                        fy += row[f] * (pts[f][qi][1] - curr[1]);
                     }
                     ep[q] = [curr[0]+S*fx, curr[1]+S*fy];
                 }
             }
         }
-        // Double subdivisions between cycles
         if (c < cycles-1) {
             P *= 2;
             for (let e = 0; e < n; e++) {
                 const old = pts[e];
-                const next: [number,number][] = [old[0]];
+                const nxt: [number,number][] = [old[0]];
                 for (let k = 1; k < old.length; k++) {
-                    next.push([(old[k-1][0]+old[k][0])/2, (old[k-1][1]+old[k][1])/2]);
-                    next.push(old[k]);
+                    nxt.push([(old[k-1][0]+old[k][0])/2, (old[k-1][1]+old[k][1])/2]);
+                    nxt.push(old[k]);
                 }
-                pts[e] = next;
+                pts[e] = nxt;
             }
         }
         S /= 2;
-        I = Math.max(1, Math.floor(I*2/3));
+        I = Math.max(1, Math.floor(I * 2/3));
     }
 
     return pairs.map(({count}, e) => ({ coords: pts[e], count }));
 }
 
-// ---- end FDEB ----
-
-function bezierArc(orig: [number, number], dest: [number, number], curvature: number, numPoints = 24): [number, number][] {
-    const [x0, y0] = orig, [x1, y1] = dest;
-    const mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
-    const cx = mx - (y1 - y0) * curvature;
-    const cy = my + (x1 - x0) * curvature;
-    const pts: [number, number][] = [];
-    for (let i = 0; i <= numPoints; i++) {
-        const t = i / numPoints, u = 1 - t;
-        pts.push([u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1]);
+// Chaikin corner-cutting: each iteration doubles point count and rounds corners.
+// 2 passes gives visually smooth curves without significantly altering the bundled paths.
+function chaikinSmooth(pts: [number,number][], iterations = 2): [number,number][] {
+    let p = pts;
+    for (let i = 0; i < iterations; i++) {
+        const next: [number,number][] = [p[0]];
+        for (let j = 0; j < p.length - 1; j++) {
+            next.push([0.75*p[j][0] + 0.25*p[j+1][0], 0.75*p[j][1] + 0.25*p[j+1][1]]);
+            next.push([0.25*p[j][0] + 0.75*p[j+1][0], 0.25*p[j][1] + 0.75*p[j+1][1]]);
+        }
+        next.push(p[p.length - 1]);
+        p = next;
     }
-    return pts;
+    return p;
 }
 
-function raySegmentIntersect(
-    cx: number, cy: number,
-    dx: number, dy: number,
-    p1x: number, p1y: number,
-    p2x: number, p2y: number,
-): [number, number] | null {
-    const ex = p2x - p1x, ey = p2y - p1y;
-    const denom = dx * ey - dy * ex;
-    if (Math.abs(denom) < 1e-12) return null;
-    const t = ((p1x - cx) * ey - (p1y - cy) * ex) / denom;
-    const s = ((p1x - cx) * dy - (p1y - cy) * dx) / denom;
-    if (t > -1e-9 && s >= -1e-9 && s <= 1 + 1e-9) {
-        return [cx + t * dx, cy + t * dy];
-    }
-    return null;
-}
-
-// Returns the point where the ray from (fromLng,fromLat) toward (toLng,toLat) exits hexId.
-function hexEdgePoint(hexId: string, fromLng: number, fromLat: number, toLng: number, toLat: number): [number, number] {
-    const boundary = cellToBoundary(hexId); // [lat, lng][]
-    const ring = boundary.map(([lat, lng]) => [lng, lat] as [number, number]);
-    ring.push(ring[0]);
-    const dx = toLng - fromLng, dy = toLat - fromLat;
-    for (let i = 0; i < ring.length - 1; i++) {
-        const pt = raySegmentIntersect(fromLng, fromLat, dx, dy, ring[i][0], ring[i][1], ring[i + 1][0], ring[i + 1][1]);
-        if (pt) return pt;
-    }
-    return [fromLng, fromLat];
-}
-
-function edgePointFeature(f: GeoJSON.Feature): GeoJSON.Feature {
-    const coords = (f.geometry as GeoJSON.LineString).coordinates as [number, number][];
-    if (coords.length < 2) return f;
-    const [o, d] = coords;
-    const oh = f.properties?.orig_hex as string | undefined;
-    const dh = f.properties?.dest_hex as string | undefined;
-    if (!oh || !dh) return f;
-
-    const start = hexEdgePoint(oh, o[0], o[1], d[0], d[1]);
-    const end   = hexEdgePoint(dh, d[0], d[1], o[0], o[1]);
-
-    let newCoords: [number, number][];
-    try {
-        const dist = gridDistance(oh, dh);
-        // Adjacent hexes: straight. Longer hops: gentle curve scaling with distance.
-        const curvature = dist > 1 ? Math.min(0.25, (dist - 1) * 0.04) : 0;
-        newCoords = curvature > 0 ? bezierArc(start, end, curvature) : [start, end];
-    } catch {
-        newCoords = [start, end];
-    }
-
-    return { ...f, geometry: { type: 'LineString', coordinates: newCoords } };
-}
-
-function hexToPolygonFeature(hexId: string, featureId: number): GeoJSON.Feature<GeoJSON.Polygon> {
-    const boundary = cellToBoundary(hexId); // returns [lat, lng][]
-    const ring: [number, number][] = boundary.map(([lat, lng]) => [lng, lat]);
-    ring.push(ring[0]); // close GeoJSON ring
-    return {
-        type: 'Feature',
-        id: featureId,
-        geometry: { type: 'Polygon', coordinates: [ring] },
-        properties: { orig_hex: hexId },
-    };
-}
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TrafficTripsLayer() {
     const { map, city, setLayerState } = useMap();
     const { generation, period, setGeneration } = useMapState();
 
-    // Resolve generation from city data if not in URL (e.g. direct navigation to ?submode=od)
     useEffect(() => {
         if (generation) return;
         const combos = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
         if (combos.length > 0) setGeneration(combos[0].generation_type);
     }, [city?.id, generation]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const odFlowsRef = useRef<GeoJSON.Feature[]>([]);
-    const selectedHexRef = useRef<string | null>(null);
-    const prevHoverIdRef = useRef<number | null>(null);
-    const popupRef = useRef<maplibregl.Popup | null>(null);
+    const odFlowsRef    = useRef<GeoJSON.Feature[]>([]);
+    const accumLayerRef = useRef<ODAccumulationLayer | null>(null);
+    const selectedHexRef  = useRef<string | null>(null);
+    const selectedNodeRef = useRef<number | null>(null);
+    const popupRef        = useRef<maplibregl.Popup | null>(null);
 
-    const clearSpider = useCallback(() => {
+    // ── Selection helpers ─────────────────────────────────────────────────────
+
+    const clearSelected = useCallback(() => {
         if (!map) return;
         try {
-            if (map.getLayer(OD_SPIDER_OUT_LAYER)) map.removeLayer(OD_SPIDER_OUT_LAYER);
-            if (map.getSource(OD_SPIDER_OUT_SOURCE)) map.removeSource(OD_SPIDER_OUT_SOURCE);
-            if (map.getLayer(OD_SPIDER_IN_LAYER)) map.removeLayer(OD_SPIDER_IN_LAYER);
-            if (map.getSource(OD_SPIDER_IN_SOURCE)) map.removeSource(OD_SPIDER_IN_SOURCE);
+            if (map.getLayer(OD_SEL_LAYER))  map.removeLayer(OD_SEL_LAYER);
+            if (map.getSource(OD_SEL_SOURCE)) map.removeSource(OD_SEL_SOURCE);
         } catch { /* ok */ }
-        // Restore global flow overview when deselecting
-        try {
-            if (map.getLayer(OD_FLOW_LAYER)) map.setLayoutProperty(OD_FLOW_LAYER, 'visibility', 'visible');
-        } catch { /* ok */ }
+        if (selectedNodeRef.current !== null) {
+            try { map.setFeatureState({ source: OD_NODE_SOURCE, id: selectedNodeRef.current }, { selected: false }); } catch { /* ok */ }
+            selectedNodeRef.current = null;
+        }
+        selectedHexRef.current = null;
     }, [map]);
 
-    const renderSpider = useCallback((origHex: string) => {
+    const renderSelected = useCallback((hexId: string, nodeFeatureId: number) => {
         if (!map) return;
-        const outbound = odFlowsRef.current.filter(f => f.properties?.orig_hex === origHex);
-        const inbound  = odFlowsRef.current.filter(f => f.properties?.dest_hex === origHex);
 
-        clearSpider();
+        selectedNodeRef.current = nodeFeatureId;
+        map.setFeatureState({ source: OD_NODE_SOURCE, id: nodeFeatureId }, { selected: true });
 
-        // Hide the global overview while a hex is selected
+        const connected = odFlowsRef.current.filter(f =>
+            f.properties?.orig_hex === hexId || f.properties?.dest_hex === hexId,
+        );
+
         try {
-            if (map.getLayer(OD_FLOW_LAYER)) map.setLayoutProperty(OD_FLOW_LAYER, 'visibility', 'none');
+            if (map.getLayer(OD_SEL_LAYER))  map.removeLayer(OD_SEL_LAYER);
+            if (map.getSource(OD_SEL_SOURCE)) map.removeSource(OD_SEL_SOURCE);
         } catch { /* ok */ }
 
-        const normalize = (features: GeoJSON.Feature[]): GeoJSON.Feature[] => {
-            const max = Math.max(...features.map(f => f.properties?.count ?? 1), 1);
-            return features.map(f => ({
+        if (connected.length > 0) {
+            const maxCnt = Math.max(...connected.map(f => f.properties?.count ?? 1), 1);
+            const selFeatures = connected.map(f => ({
                 ...f,
-                properties: { ...f.properties, local_weight: (f.properties?.count ?? 1) / max },
+                properties: {
+                    ...f.properties,
+                    sel_lw: Math.log1p(f.properties?.count ?? 0) / Math.log1p(maxCnt),
+                },
             }));
-        };
-
-        if (outbound.length > 0) {
-            const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: normalize(outbound) };
-            map.addSource(OD_SPIDER_OUT_SOURCE, { type: 'geojson', data: geo });
+            map.addSource(OD_SEL_SOURCE, { type: 'geojson', data: { type: 'FeatureCollection', features: selFeatures } });
             map.addLayer({
-                id: OD_SPIDER_OUT_LAYER,
+                id: OD_SEL_LAYER,
                 type: 'line',
-                source: OD_SPIDER_OUT_SOURCE,
+                source: OD_SEL_SOURCE,
                 paint: {
                     'line-color': '#f59e0b',
-                    'line-opacity': 0.85,
-                    'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 10],
+                    'line-opacity': ['interpolate', ['linear'], ['get', 'sel_lw'], 0, 0.3, 1, 1.0],
+                    'line-width': 1.5,
                 },
                 layout: { 'line-cap': 'round' },
             });
         }
 
-        if (inbound.length > 0) {
-            const geo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: normalize(inbound) };
-            map.addSource(OD_SPIDER_IN_SOURCE, { type: 'geojson', data: geo });
-            map.addLayer({
-                id: OD_SPIDER_IN_LAYER,
-                type: 'line',
-                source: OD_SPIDER_IN_SOURCE,
-                paint: {
-                    'line-color': '#3b82f6',
-                    'line-opacity': 0.85,
-                    'line-width': ['interpolate', ['linear'], ['get', 'local_weight'], 0, 1, 1, 10],
-                },
-                layout: { 'line-cap': 'round' },
-            });
-        }
-
-        // Dispatch selection panel with hex stats
-        const outTrips = outbound.reduce((s, f) => s + (f.properties?.count ?? 0), 0);
-        const inTrips  = inbound.reduce((s, f) => s + (f.properties?.count ?? 0), 0);
+        const total = connected.reduce((s, f) => s + (f.properties?.count ?? 0), 0);
         const detail: SelectionDetail = {
             type: 'od_hex',
-            title: `Zona ${origHex.slice(-6)}`,
+            title: `Zona ${hexId.slice(-6)}`,
             rows: [
-                { label: 'DESTINOS', value: String(outbound.length) },
-                { label: 'ORÍGENES', value: String(inbound.length) },
+                { label: 'CONEXIONES', value: String(connected.length) },
+                { label: 'VIAJES',     value: total.toLocaleString('es-ES') },
             ],
-            pairRows: [[
-                { label: 'SALIDAS', value: outTrips.toLocaleString('es-ES'), color: '#f59e0b' },
-                { label: 'LLEGADAS', value: inTrips.toLocaleString('es-ES'), color: '#3b82f6' },
-            ]],
         };
         window.dispatchEvent(new CustomEvent('map-selection', { detail }));
-    }, [map, clearSpider]);
+    }, [map]);
 
-    // Coarse resolution used for bundling the global overview.
+    // ── Build layers ──────────────────────────────────────────────────────────
+
     const buildLayers = useCallback((geojson: GeoJSON.FeatureCollection) => {
         if (!map) return;
-        console.log('[TrafficTripsLayer] buildLayers called with', geojson.features.length, 'features');
 
-        odFlowsRef.current = geojson.features.map(edgePointFeature);
+        // Undirected aggregation: merge A→B with B→A under canonical key min|max
+        const hexCenter = new Map<string, [number,number]>();
+        type UPair = { oh: string; dh: string; oC: [number,number]; dC: [number,number]; count: number };
+        const undirected = new Map<string, UPair>();
 
-        // --- FDEB (Force-Directed Edge Bundling) ---
-        // Sample top 250 OD pairs, run FDEB to pull compatible flows into corridors.
-        const top250 = [...odFlowsRef.current]
-            .sort((a, b) => (b.properties?.count ?? 0) - (a.properties?.count ?? 0))
-            .slice(0, 250)
-            .map(f => {
-                const coords = (f.geometry as GeoJSON.LineString).coordinates as [number,number][];
-                return { orig: coords[0], dest: coords[coords.length-1], count: (f.properties?.count ?? 0) as number };
-            });
+        for (const f of geojson.features) {
+            const coords = (f.geometry as GeoJSON.LineString).coordinates as [number,number][];
+            const oh = f.properties?.orig_hex as string | undefined;
+            const dh = f.properties?.dest_hex as string | undefined;
+            if (!oh || !dh || oh === dh) continue;
+            if (!hexCenter.has(oh)) hexCenter.set(oh, coords[0]);
+            if (!hexCenter.has(dh)) hexCenter.set(dh, coords[coords.length-1]);
 
-        console.log('[TrafficTripsLayer] running FDEB on', top250.length, 'pairs');
-        const t0 = performance.now();
-        const bundled = runFDEB(top250);
-        console.log('[TrafficTripsLayer] FDEB done in', (performance.now()-t0).toFixed(0), 'ms');
+            const [a, b]   = oh < dh ? [oh, dh] : [dh, oh];
+            const [aC, bC] = oh < dh
+                ? [coords[0], coords[coords.length-1]]
+                : [coords[coords.length-1], coords[0]];
+            const cnt = (f.properties?.count ?? 0) as number;
+            const key = `${a}|${b}`;
+            const ex  = undirected.get(key);
+            if (ex) { ex.count += cnt; }
+            else    { undirected.set(key, { oh: a, dh: b, oC: aC, dC: bC, count: cnt }); }
+        }
 
-        const maxCount = top250.length > 0 ? top250[0].count : 1;
-        const bundleFeatures: GeoJSON.Feature[] = bundled.map(({ coords, count }) => ({
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: coords },
+        // FDEB on top 500 undirected pairs by count
+        const pairs = [...undirected.values()].sort((a, b) => b.count - a.count).slice(0, 500);
+        const bundled = runFDEB(pairs.map(p => ({ orig: p.oC, dest: p.dC, count: p.count })));
+
+        const maxCount = pairs.length > 0 ? pairs[0].count : 1;
+        odFlowsRef.current = bundled.map(({ coords, count }, i) => ({
+            type: 'Feature' as const,
+            geometry: { type: 'LineString' as const, coordinates: chaikinSmooth(coords) },
             properties: {
+                orig_hex:   pairs[i].oh,
+                dest_hex:   pairs[i].dh,
                 count,
                 log_weight: Math.log1p(count) / Math.log1p(maxCount),
             },
         }));
 
-        const flowGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: bundleFeatures };
-
-        // Hex polygons from all fine-res hexes (orig + dest), coloured by total flow volume
+        // One circle per unique hex in the sampled 500 pairs only
         const hexFlow = new Map<string, number>();
-        for (const f of geojson.features) {
-            const oh = f.properties?.orig_hex as string | undefined;
-            const dh = f.properties?.dest_hex as string | undefined;
-            const cnt = (f.properties?.count ?? 0) as number;
-            if (oh) hexFlow.set(oh, (hexFlow.get(oh) ?? 0) + cnt);
-            if (dh) hexFlow.set(dh, (hexFlow.get(dh) ?? 0) + cnt);
+        for (const { oh, dh, count } of pairs) {
+            hexFlow.set(oh, (hexFlow.get(oh) ?? 0) + count);
+            hexFlow.set(dh, (hexFlow.get(dh) ?? 0) + count);
         }
         const maxHexFlow = Math.max(...hexFlow.values(), 1);
-        const hexFeatures: GeoJSON.Feature<GeoJSON.Polygon>[] = [];
-        let idx = 0;
+        const nodeFeatures: GeoJSON.Feature<GeoJSON.Point>[] = [];
+        let nodeIdx = 0;
         for (const [hexId, total] of hexFlow) {
-            const base = hexToPolygonFeature(hexId, idx++);
-            hexFeatures.push({
-                ...base,
-                properties: { ...base.properties, flow_norm: total / maxHexFlow },
+            const center = hexCenter.get(hexId);
+            if (!center) continue;
+            nodeFeatures.push({
+                type: 'Feature',
+                id: nodeIdx++,
+                geometry: { type: 'Point', coordinates: center },
+                properties: { hex_id: hexId, flow_norm: total / maxHexFlow },
             });
         }
-        const hexGeo: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: hexFeatures };
 
-        // Remove existing layers/sources before re-adding
+        // Rebuild layers
         try {
-            [OD_HEX_FILL_LAYER, OD_HEX_LINE_LAYER, OD_FLOW_LAYER].forEach(l => {
-                if (map.getLayer(l)) map.removeLayer(l);
-            });
-            [OD_HEX_SOURCE, OD_FLOW_SOURCE].forEach(s => {
-                if (map.getSource(s)) map.removeSource(s);
-            });
+            [OD_SEL_LAYER, OD_NODE_LAYER].forEach(l => { if (map.getLayer(l)) map.removeLayer(l); });
+            [OD_SEL_SOURCE, OD_NODE_SOURCE].forEach(s => { if (map.getSource(s)) map.removeSource(s); });
         } catch { /* ok */ }
 
-        map.addSource(OD_HEX_SOURCE, { type: 'geojson', data: hexGeo });
-        map.addLayer({
-            id: OD_HEX_FILL_LAYER,
-            type: 'fill',
-            source: OD_HEX_SOURCE,
-            paint: {
-                'fill-color': [
-                    'interpolate', ['linear'], ['get', 'flow_norm'],
-                    0, 'rgba(124,58,237,0.04)',
-                    0.5, 'rgba(124,58,237,0.12)',
-                    1, 'rgba(124,58,237,0.28)',
-                ],
-                'fill-opacity': 1,
-            },
-        });
-        map.addLayer({
-            id: OD_HEX_LINE_LAYER,
-            type: 'line',
-            source: OD_HEX_SOURCE,
-            paint: {
-                'line-color': [
-                    'case',
-                    ['boolean', ['feature-state', 'hover'], false],
-                    'rgba(255,255,255,0.70)',
-                    'rgba(255,255,255,0.20)',
-                ],
-                'line-width': 0.5,
-            },
-        });
+        // GPU accumulation layer (add once; update data via setData on subsequent calls)
+        if (!accumLayerRef.current) {
+            accumLayerRef.current = new ODAccumulationLayer();
+        }
+        if (!map.getLayer(ACCUM_LAYER_ID)) {
+            map.addLayer(accumLayerRef.current);
+        }
+        accumLayerRef.current.setData(odFlowsRef.current);
 
-        map.addSource(OD_FLOW_SOURCE, { type: 'geojson', data: flowGeo });
+        // Circle nodes on top of the flow rendering
+        map.addSource(OD_NODE_SOURCE, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: nodeFeatures },
+        });
         map.addLayer({
-            id: OD_FLOW_LAYER,
-            type: 'line',
-            source: OD_FLOW_SOURCE,
+            id: OD_NODE_LAYER,
+            type: 'circle',
+            source: OD_NODE_SOURCE,
             paint: {
-                // Color encodes trip volume: lavender (few) → purple (mid) → amber (many)
-                'line-color': [
-                    'interpolate', ['linear'], ['get', 'log_weight'],
-                    0,   '#ddd6fe',
-                    0.4, '#7c3aed',
-                    0.75,'#db2777',
-                    1,   '#f59e0b',
-                ],
-                'line-opacity': ['interpolate', ['linear'], ['get', 'log_weight'], 0, 0.25, 1, 0.9],
-                'line-width': ['interpolate', ['linear'], ['get', 'log_weight'], 0, 0.6, 1, 4],
+                'circle-radius': ['interpolate', ['linear'], ['get', 'flow_norm'], 0, 2, 1, 6],
+                'circle-color':  ['case', ['boolean', ['feature-state', 'selected'], false], '#f59e0b', '#7c3aed'],
+                'circle-opacity':['case', ['boolean', ['feature-state', 'selected'], false], 1, 0.65],
+                'circle-stroke-width': 1,
+                'circle-stroke-color': 'rgba(255,255,255,0.5)',
             },
-            layout: { 'line-cap': 'round' },
         });
     }, [map]);
 
+    // ── Data loading ──────────────────────────────────────────────────────────
+
     const loadData = useCallback(async () => {
-        if (!map || !city?.id || !generation) {
-            console.log('[TrafficTripsLayer] loadData skipped — map:', !!map, 'cityId:', city?.id, 'generation:', generation);
-            return;
-        }
-        console.log('[TrafficTripsLayer] fetching OD flows — cityId:', city.id, 'generation:', generation, 'period:', period);
+        if (!map || !city?.id || !generation) return;
         setLayerState?.('loading');
         try {
             const geojson = await fetchODFlows(city.id, generation, period || undefined, 9);
-            console.log('[TrafficTripsLayer] received', geojson.features.length, 'features');
             buildLayers(geojson);
             setLayerState?.(geojson.features.length === 0 ? 'empty' : 'idle');
         } catch (err) {
@@ -426,142 +322,79 @@ export default function TrafficTripsLayer() {
         }
     }, [map, city?.id, generation, period, buildLayers]);
 
-    // Mount: hide unneeded layers, load data; unmount: clean up all sources/layers
+    // ── Effects ───────────────────────────────────────────────────────────────
+
     useEffect(() => {
         if (!map) return;
-        if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', 'none');
-        if (map.getLayer('bike-paths-layer')) map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
-
+        if (map.getLayer('stations-layer'))  map.setLayoutProperty('stations-layer',  'visibility', 'none');
+        if (map.getLayer('bike-paths-layer')) map.setLayoutProperty('bike-paths-layer','visibility', 'none');
         loadData();
-
         return () => {
             try {
-                [OD_SPIDER_OUT_LAYER, OD_SPIDER_IN_LAYER, OD_HEX_FILL_LAYER, OD_HEX_LINE_LAYER, OD_FLOW_LAYER].forEach(l => {
-                    if (map.getLayer(l)) map.removeLayer(l);
-                });
-                [OD_SPIDER_OUT_SOURCE, OD_SPIDER_IN_SOURCE, OD_HEX_SOURCE, OD_FLOW_SOURCE].forEach(s => {
-                    if (map.getSource(s)) map.removeSource(s);
-                });
+                [OD_SEL_LAYER, OD_NODE_LAYER, ACCUM_LAYER_ID].forEach(l => { if (map.getLayer(l)) map.removeLayer(l); });
+                [OD_SEL_SOURCE, OD_NODE_SOURCE].forEach(s => { if (map.getSource(s)) map.removeSource(s); });
             } catch { /* map may have been removed */ }
             popupRef.current?.remove();
+            accumLayerRef.current = null;
             odFlowsRef.current = [];
             selectedHexRef.current = null;
-            prevHoverIdRef.current = null;
-            window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+            selectedNodeRef.current = null;
             window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Reload when generation or period changes
     useEffect(() => {
         if (!map || !city?.id) return;
-        clearSpider();
-        if (selectedHexRef.current !== null) {
-            try { map.removeFeatureState({ source: OD_HEX_SOURCE }); } catch { /* ok */ }
-            selectedHexRef.current = null;
-        }
-        window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+        clearSelected();
         window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         loadData();
     }, [generation, period]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Handle SelectionPanel X-button close — restore overview and clear spider
     useEffect(() => {
         if (!map) return;
-        const onSelectionClose = (e: Event) => {
+        const onClose = (e: Event) => {
             if ((e as CustomEvent).detail !== null) return;
             if (!selectedHexRef.current) return;
-            clearSpider();
-            try { map.removeFeatureState({ source: OD_HEX_SOURCE }); } catch { /* ok */ }
-            selectedHexRef.current = null;
-            window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+            clearSelected();
         };
-        window.addEventListener('map-selection', onSelectionClose);
-        return () => window.removeEventListener('map-selection', onSelectionClose);
-    }, [map, clearSpider]);
+        window.addEventListener('map-selection', onClose);
+        return () => window.removeEventListener('map-selection', onClose);
+    }, [map, clearSelected]);
 
-    // Hex and spider interactions
     useEffect(() => {
         if (!map) return;
-
         const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false });
         popupRef.current = popup;
 
-        const onHexEnter = (e: maplibregl.MapLayerMouseEvent) => {
-            if (!e.features?.length) return;
-            const id = e.features[0].id as number;
-            if (prevHoverIdRef.current !== null && prevHoverIdRef.current !== id) {
-                map.setFeatureState({ source: OD_HEX_SOURCE, id: prevHoverIdRef.current }, { hover: false });
-            }
-            map.setFeatureState({ source: OD_HEX_SOURCE, id }, { hover: true });
-            prevHoverIdRef.current = id;
-            map.getCanvas().style.cursor = 'pointer';
-        };
-
-        const onHexLeave = () => {
-            if (prevHoverIdRef.current !== null) {
-                map.setFeatureState({ source: OD_HEX_SOURCE, id: prevHoverIdRef.current }, { hover: false });
-                prevHoverIdRef.current = null;
-            }
-            map.getCanvas().style.cursor = '';
-        };
+        const onNodeEnter = () => { map.getCanvas().style.cursor = 'pointer'; };
+        const onNodeLeave = () => { map.getCanvas().style.cursor = ''; };
 
         const onMapClick = (e: maplibregl.MapMouseEvent) => {
-            const hexHits = map.queryRenderedFeatures(e.point, { layers: [OD_HEX_FILL_LAYER] });
-            if (hexHits?.length) {
-                const origHex = hexHits[0].properties?.orig_hex as string;
-                if (!origHex) return;
-
-                if (selectedHexRef.current !== null) {
-                    try { map.removeFeatureState({ source: OD_HEX_SOURCE }); } catch { /* ok */ }
-                }
-
-                selectedHexRef.current = origHex;
-                // Re-apply hover to keep cursor hex highlighted
-                if (prevHoverIdRef.current !== null) {
-                    map.setFeatureState({ source: OD_HEX_SOURCE, id: prevHoverIdRef.current }, { hover: true });
-                }
-                window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: origHex } }));
-                renderSpider(origHex);
+            const hits = map.queryRenderedFeatures(e.point, { layers: [OD_NODE_LAYER] });
+            if (hits?.length) {
+                const hexId  = hits[0].properties?.hex_id as string | undefined;
+                const nodeId = hits[0].id as number;
+                if (!hexId) return;
+                if (selectedHexRef.current) clearSelected();
+                selectedHexRef.current = hexId;
+                renderSelected(hexId, nodeId);
             } else if (selectedHexRef.current) {
-                clearSpider();
-                try { map.removeFeatureState({ source: OD_HEX_SOURCE }); } catch { /* ok */ }
-                selectedHexRef.current = null;
-                window.dispatchEvent(new CustomEvent('trips-hex-selected', { detail: { hex: null } }));
+                clearSelected();
                 window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
             }
         };
 
-        const onSpiderEnter = (e: maplibregl.MapLayerMouseEvent) => {
-            if (!selectedHexRef.current || !e.features?.length) return;
-            const count = e.features[0].properties?.count ?? 0;
-            popup
-                .setLngLat(e.lngLat)
-                .setHTML(`<span style="font-size:11px;font-weight:700;color:#111">${count} viajes</span>`)
-                .addTo(map);
-        };
-
-        const onSpiderLeave = () => popup.remove();
-
-        map.on('mouseenter', OD_HEX_FILL_LAYER, onHexEnter);
-        map.on('mouseleave', OD_HEX_FILL_LAYER, onHexLeave);
+        map.on('mouseenter', OD_NODE_LAYER, onNodeEnter);
+        map.on('mouseleave', OD_NODE_LAYER, onNodeLeave);
         map.on('click', onMapClick);
-        map.on('mouseenter', OD_SPIDER_OUT_LAYER, onSpiderEnter);
-        map.on('mouseleave', OD_SPIDER_OUT_LAYER, onSpiderLeave);
-        map.on('mouseenter', OD_SPIDER_IN_LAYER, onSpiderEnter);
-        map.on('mouseleave', OD_SPIDER_IN_LAYER, onSpiderLeave);
 
         return () => {
-            map.off('mouseenter', OD_HEX_FILL_LAYER, onHexEnter);
-            map.off('mouseleave', OD_HEX_FILL_LAYER, onHexLeave);
+            map.off('mouseenter', OD_NODE_LAYER, onNodeEnter);
+            map.off('mouseleave', OD_NODE_LAYER, onNodeLeave);
             map.off('click', onMapClick);
-            map.off('mouseenter', OD_SPIDER_OUT_LAYER, onSpiderEnter);
-            map.off('mouseleave', OD_SPIDER_OUT_LAYER, onSpiderLeave);
-            map.off('mouseenter', OD_SPIDER_IN_LAYER, onSpiderEnter);
-            map.off('mouseleave', OD_SPIDER_IN_LAYER, onSpiderLeave);
             popup.remove();
         };
-    }, [map, renderSpider, clearSpider]);
+    }, [map, renderSelected, clearSelected]);
 
     return null;
 }

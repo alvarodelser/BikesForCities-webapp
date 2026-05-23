@@ -161,6 +161,14 @@ function emptyPairSev(): PairSev {
   return { accident_count: 0, fatal: 0, serious: 0, minor: 0, uninjured: 0 };
 }
 
+function addToPairSev(target: PairSev, src: VehiclePairStat): void {
+  target.accident_count += src.accident_count;
+  target.fatal += src.fatal;
+  target.serious += src.serious;
+  target.minor += src.minor;
+  target.uninjured += src.uninjured;
+}
+
 function buildCollisionMatrix(pairStats: VehiclePairStat[]): CollisionMatrixRow[] {
   const keys = [...COLLISION_VEHICLE_KEYS];
 
@@ -171,15 +179,19 @@ function buildCollisionMatrix(pairStats: VehiclePairStat[]): CollisionMatrixRow[
     for (const j of keys) lookup[k][j] = emptyPairSev();
   }
   for (const stat of pairStats) {
-    if (stat.cat_b === 'solo') continue;
-    if (!(stat.cat_a in lookup) || !(stat.cat_b in lookup[stat.cat_a])) continue;
-    lookup[stat.cat_a][stat.cat_b] = {
-      accident_count: stat.accident_count,
-      fatal: stat.fatal,
-      serious: stat.serious,
-      minor: stat.minor,
-      uninjured: stat.uninjured,
-    };
+    if (!(stat.cat_a in lookup)) continue;
+    if (stat.cat_b === stat.cat_a || stat.cat_b === 'solo') {
+      // Same-type accidents (incl. solo falls legacy format) → diagonal
+      addToPairSev(lookup[stat.cat_a][stat.cat_a], stat);
+    } else if (stat.cat_b in lookup[stat.cat_a]) {
+      lookup[stat.cat_a][stat.cat_b] = {
+        accident_count: stat.accident_count,
+        fatal: stat.fatal,
+        serious: stat.serious,
+        minor: stat.minor,
+        uninjured: stat.uninjured,
+      };
+    }
   }
 
   return keys.map(rowKey => ({
