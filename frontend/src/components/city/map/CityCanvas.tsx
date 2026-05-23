@@ -155,13 +155,14 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             });
 
             // Edges vector source for traffic.
-            // TrafficLayer rewrites the tile URL via setTiles() after resolving
-            // (generation_type, algorithm, month) from /traffic/resolve so that
-            // trip_count is baked into each tile by Martin's edges_with_traffic() function.
+            // Initialized with the parameterless edges_with_traffic URL (trip_count=0 for
+            // all edges) so MapLibre never fires 404 requests against the non-existent
+            // /edges/ endpoint. TrafficLayer calls setTiles() after resolving
+            // (generation_type, algorithm, month) to swap in the parameterised URL.
             // promoteId is still needed for feature-state selection highlight.
             mapInstance.addSource('edges-source', {
                 type: 'vector',
-                tiles: [`${TILE_SERVER_URL}/edges/{z}/{x}/{y}`],
+                tiles: [`${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}`],
                 minzoom: 0, maxzoom: 22,
                 promoteId: 'id',
             });

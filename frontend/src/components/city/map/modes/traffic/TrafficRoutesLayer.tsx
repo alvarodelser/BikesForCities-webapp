@@ -227,10 +227,9 @@ export default function TrafficRoutesLayer() {
     }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, handleStopRoutes]);
 
 
-    // --- Mount: show layer, hide others ---
+    // --- Mount: hide others (traffic layer stays hidden until loadData sets tiles + visible) ---
     useEffect(() => {
         if (!map) return;
-        if (map.getLayer(LAYER_ID)) map.setLayoutProperty(LAYER_ID, 'visibility', 'visible');
         if (map.getLayer('stations-layer')) map.setLayoutProperty('stations-layer', 'visibility', 'none');
         if (map.getLayer('bike-paths-layer')) map.setLayoutProperty('bike-paths-layer', 'visibility', 'none');
         return () => {
@@ -310,6 +309,10 @@ export default function TrafficRoutesLayer() {
 
                     const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
                     src.setTiles([newTileUrl]);
+                    // setTiles() clears the tile cache; triggerRepaint() ensures MapLibre
+                    // re-evaluates visible tiles for the current viewport without requiring
+                    // a pan/zoom interaction (unlike fitBounds which infrastructure mode uses).
+                    map.triggerRepaint();
                 }
 
                 const stats = result.stats;
