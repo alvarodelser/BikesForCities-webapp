@@ -562,9 +562,12 @@ Los edificios coloreados al activar esta capa pertenecen al radio de influencia 
 
 ---
 
-## 12. Controls help (always visible below each control card)
+## 12. Controls help
 
-Help text is rendered as a small paragraph directly below each `FilterCard` or `PeriodDropdown`, always visible — not hidden behind a flip. It is styled as muted text, smaller than the card body.
+Two tiers of help per control:
+
+1. **Always-visible summary** — one short sentence rendered as muted text directly below the control card body. Describes what the control does in plain language.
+2. **Expandable detail** *(Option A — per-control `?` button)* — a `?` button inside the FilterCard header (same size and style as the MetricPill help button). On click, a detail panel expands inline below the summary with three sections (Qué estás viendo / Cómo se recogieron / Por qué es útil). Clicking `?` again or clicking outside collapses it. Applied to **Generación** and **Enrutamiento** only — the methodology controls where understanding the algorithm matters. `PeriodRangeTimeline` and `Tipo de accidente` use the three-section format directly in their always-visible text (no extra expand needed).
 
 ---
 
@@ -578,11 +581,25 @@ El selector de mes se sustituye por `PeriodRangeTimeline` con `unit="mes"`. La t
 > **Cómo se recogieron**: Los meses disponibles dependen de los datos cargados para la fuente de generación activa — no todas las combinaciones de fuente y algoritmo tienen datos en todos los períodos.
 > **Por qué es útil**: Ampliar el rango suaviza la estacionalidad y muestra la tendencia de uso; reducirlo a un mes concreto permite comparar configuraciones en el mismo período sin ruido.
 
-#### Generación
-> Define cómo se estiman los orígenes y destinos de los viajes. **GPS real** usa trayectos registrados y es el más preciso. **Estaciones** parte del uso real de la bici pública. **Población** distribuye la demanda según densidad de habitantes y sirve como estimación cuando no hay datos de GPS o estaciones.
+#### Generación *(+ `?` expandable)*
 
-#### Enrutamiento
-> Determina cómo se asignan los viajes a la red. **Map-matched** sigue las trazas GPS exactas. **Ruta corta** elige siempre el camino más breve, sin considerar el tipo de vía. **Ruta segura** prioriza los carriles bici aunque el recorrido sea más largo — es la opción más realista para modelar comportamiento ciclista consciente del riesgo.
+**Summary (always visible)**: Define cómo se estiman los orígenes y destinos de los viajes — GPS real, bici pública o distribución por población.
+
+**Expanded detail:**
+
+> **Qué estás viendo**: La fuente de datos que determina dónde se originan y terminan los viajes del modelo. Cada opción usa una fuente diferente para estimar quién viaja, desde dónde y hacia dónde: **GPS real** usa trayectos registrados por ciclistas reales anonimizados; **Estaciones** usa los registros de uso del servicio de bici pública; **Población** genera demanda sintética a partir de la densidad de residentes y empleos por zona.
+> **Cómo se recogieron**: Los datos GPS proceden de plataformas de ciclismo (Strava, Wikiloc, etc.) con anonimización y agregación mínima de 5 usuarios por tramo. Los datos de estaciones son los registros operativos del sistema de bici pública. Los datos de población proceden del padrón municipal y del catastro de usos del suelo.
+> **Por qué es útil**: La elección de la fuente cambia radicalmente el resultado. GPS capta al ciclista habitual; Estaciones mide al usuario del servicio público; Población estima la demanda potencial de quienes podrían usar la bici pero aún no lo hacen. Comparar los tres revela qué parte de la demanda se cubre, cuánta viene de usuarios de bici pública y cuánta queda sin infraestructura que la soporte.
+
+#### Enrutamiento *(+ `?` expandable)*
+
+**Summary (always visible)**: Determina por qué camino de la red discurre cada viaje — trazas reales, ruta más corta o ruta más segura.
+
+**Expanded detail:**
+
+> **Qué estás viendo**: El algoritmo que decide por qué tramos de la red ciclista discurre cada viaje. Define si los ciclistas modelados priorizan velocidad, seguridad o siguen trazas registradas.
+> **Cómo se recogieron**: **Map-matched** ajusta las trazas GPS reales a la red viaria tramo a tramo — refleja el comportamiento exacto de los usuarios registrados. **Ruta corta** aplica el algoritmo de camino mínimo en distancia sin penalizar ningún tipo de vía. **Ruta segura** aplica el mismo algoritmo pero con penalización sobre tramos sin carril bici — los ciclistas modelados prefieren dar un rodeo si el camino más corto es una calzada sin protección.
+> **Por qué es útil**: Ruta corta y Ruta segura permiten simular escenarios de inversión: si se construye un nuevo tramo de carril, ¿cuántos viajes se desplazarían hacia él? La diferencia en volumen entre ambos algoritmos identifica exactamente qué corredores están forzando a los ciclistas a circular por calzada — y cuánto tráfico captaría una mejora de infraestructura en ese punto.
 
 ---
 
