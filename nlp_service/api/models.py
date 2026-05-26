@@ -23,6 +23,8 @@ class GeotagRequest(BaseModel):
     article_id: str
     text: str
     headline: str = ""
+    source: str = ""
+    scope_signal: Literal["national", "regional"] | None = None
 
 
 class PlaceMention(BaseModel):
@@ -34,11 +36,36 @@ class PlaceMention(BaseModel):
     city_id: int | None = None
 
 
+class GeoCity(BaseModel):
+    city_id: int
+    city_name: str
+    confidence: float
+
+
+class GeoStreet(BaseModel):
+    span: str
+    edge_ids: list[int]
+    city_id: int | None = None
+
+
+class GeoPoint(BaseModel):
+    span: str
+    lat: float
+    lon: float
+    geonames_id: int | None = None
+
+
 class GeotagResponse(BaseModel):
     article_id: str
+    geo_scope: Literal["national", "regional", "city"] | None = None
+    geo_region: str | None = None
+    geo_cities: list[GeoCity] = []
+    geo_streets: list[GeoStreet] = []
+    geo_points: list[GeoPoint] = []
+    all_places: list[PlaceMention] = []
+    # legacy — kept for backward compat with existing eval notebook
     city: str | None = None
     city_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    all_places: list[PlaceMention]
 
 
 # --- Classify ---
@@ -53,6 +80,7 @@ class ClassifyResponse(BaseModel):
     topics: list[str]
     scores: dict[str, float]
     out_of_scope: bool = False
+    scope_signal: Literal["national", "regional"] | None = None
 
 
 # --- Dedup ---
