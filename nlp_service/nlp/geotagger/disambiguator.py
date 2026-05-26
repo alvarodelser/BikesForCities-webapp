@@ -1,4 +1,6 @@
 # nlp_service/nlp/geotagger/disambiguator.py
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,9 +45,12 @@ def _match_city(geo_entry: gazetteer.GeoEntry) -> dict | None:
     return _by_name.get(gazetteer._normalize(geo_entry.name))
 
 
-def score_candidates(spans_with_geo: list[tuple[str, list[gazetteer.GeoEntry]]],
-                     full_text: str,
-                     headline: str) -> CityHit | None:
+def score_candidates(
+    spans_with_geo: list[tuple[str, list[gazetteer.GeoEntry]]],
+    full_text: str,
+    headline: str,
+    source_prior_city_id: int | None = None,
+) -> CityHit | None:
     """Score each candidate city. Returns highest-scoring CityHit, or None."""
     load()
     if not _cities:
@@ -68,6 +73,9 @@ def score_candidates(spans_with_geo: list[tuple[str, list[gazetteer.GeoEntry]]],
             pop_norm = (entry.population or 0) / max(_max_population, 1)
             in_title = 1.0 if entry.name.lower() in headline_lower else 0.0
             score = 0.5 * min(freq, 5) / 5 + 0.3 * pop_norm + 0.2 * in_title
+            # Source prior: small additive boost when a known source maps to this city
+            if source_prior_city_id is not None and cid == source_prior_city_id:
+                score = min(score + 0.1, 1.0)
             if score > city_scores.get(cid, 0):
                 city_scores[cid] = score
                 city_geo[cid] = entry
