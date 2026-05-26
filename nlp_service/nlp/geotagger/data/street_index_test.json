@@ -1,0 +1,13 @@
+{
+  "1": {
+    "gran via": [1021, 1022, 1023],
+    "paseo del prado": [2010, 2011],
+    "calle alcala": [3005],
+    "plaza mayor": [4001]
+  },
+  "2": {
+    "las ramblas": [5001, 5002],
+    "passeig de gracia": [6010, 6011],
+    "calle pelai": [7001]
+  }
+}
