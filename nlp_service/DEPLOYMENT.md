@@ -49,9 +49,21 @@ python -c "import json; d=json.load(open('nlp_service/nlp/geotagger/data/cities_
 Commit the generated files:
 
 ```bash
-git add nlp_service/nlp/geotagger/data/
+git add -f nlp_service/nlp/geotagger/data/geonames_es.tsv nlp_service/nlp/geotagger/data/cities_snapshot.json
 git commit -m "chore: add geotagger data files"
 ```
+
+### 2c. (Optional) Build the street index
+
+Once the `edges` table is populated with OSM data, generate the street lookup index:
+
+```bash
+python nlp_service/scripts/snapshot_streets.py \
+  --database-url "$DATABASE_URL" \
+  --out nlp_service/config/street_index.json
+```
+
+This replaces the committed empty stub. Until populated, `geo_streets` will return `edge_ids: []`.
 
 ---
 
@@ -64,11 +76,11 @@ docker compose build
 
 The build:
 - installs Python deps (`requirements.txt`)
-- downloads `es_core_news_lg` spaCy model (~600 MB)
 - pulls NLTK punkt/stopwords
-- pre-pulls the NLI model (`Recognai/bert-base-spanish-wwm-cased-xnli`)
-- pre-pulls the embedding model (`paraphrase-multilingual-MiniLM-L12-v2`)
-- runs a guard `RUN test -f ...` for all three required data/config files
+- pre-pulls PlanTL NER model (`PlanTL-GOB-ES/roberta-base-bne-ner-capiter`, ~500 MB)
+- pre-pulls the NLI model (`Recognai/bert-base-spanish-wwm-cased-xnli`, ~600 MB)
+- pre-pulls the embedding model (`paraphrase-multilingual-MiniLM-L12-v2`, ~500 MB)
+- runs a guard `RUN test -f ...` for all required data/config files
 
 Expected output ends with: `Successfully built` (no errors).
 
@@ -107,7 +119,7 @@ Expected log lines (in order):
 
 ```
 nlp-service starting up
-INFO     nlp_service ... spaCy model loaded
+INFO     nlp_service ... NER pipeline loaded (PlanTL)
 INFO     nlp_service ... classifier pipeline loaded
 INFO     nlp_service ... dedup indexes loaded
 ```
@@ -160,12 +172,15 @@ curl -s -X POST http://localhost:8001/geotag \
   -H 'Content-Type: application/json' \
   -d '{
     "article_id": "smoke-2",
-    "text": "El carril bici de la Gran Vía de Madrid llega hasta Cibeles.",
-    "headline": "Nuevo carril bici en Gran Vía"
+    "text": "El carril bici de la Gran Vía de Madrid llega hasta la Calle Alcalá.",
+    "headline": "Nuevo carril bici en Gran Vía",
+    "source": ""
   }' | jq .
 ```
 
-Expected: `city` = `"Madrid"`, `city_confidence` > 0, `all_places` non-empty.
+Expected: `geo_cities[0].city_name` = `"Madrid"`, `geo_scope` = `"city"`, `all_places` non-empty.  
+Street spans (`Calle Alcalá`) will appear in `geo_streets` once `street_index.json` is populated.  
+Legacy fields `city` and `city_confidence` are still present for backward compat.
 
 ### 7c · Classify — in-scope
 
@@ -253,7 +268,75 @@ If a metric is below target, follow the **Tuning** section inside the relevant n
 
 ---
 
-## 10 · Resetting dedup state  **[user]**
+## 10 · Deploying via rsync  **[user]**
+
+This is the standard update flow when Docker is not running locally and you deploy to the staging server.
+
+### When to use a full rebuild vs a fast restart
+
+| What changed | Action |
+|---|---|
+| `requirements.txt`, `Dockerfile`, or any model | Full rebuild (`docker compose build --no-cache`) |
+| Python source only (`.py` files, `config/`, `eval/`) | Rebuild without `--no-cache` (layer cache reuses models) |
+| `config/topics.yaml` or `config/street_index.json` only | Restart only (`docker compose restart nlp-service`) — files are COPY'd at build time, so rebuild is still needed if you didn't mount them as volumes |
+
+### Full update procedure
+
+```bash
+# 1. Sync code to server (excludes large gitignored data files already present there)
+rsync -avz --exclude='.git' \
+  --exclude='__pycache__' \
+  --exclude='*.pyc' \
+  --exclude='nlp/geotagger/data/*.tsv' \
+  --exclude='nlp/geotagger/data/*.json' \
+  nlp_service/ user@wwig.dia.fi.upm.es:/path/to/nlp_service/
+
+# 2. If data files were regenerated locally, sync them separately
+rsync -avz \
+  nlp_service/nlp/geotagger/data/geonames_es.tsv \
+  nlp_service/nlp/geotagger/data/cities_snapshot.json \
+  user@wwig.dia.fi.upm.es:/path/to/nlp_service/nlp/geotagger/data/
+
+# 3. SSH and rebuild
+ssh user@wwig.dia.fi.upm.es
+cd /path/to/nlp_service
+
+# Full rebuild (needed after requirements.txt or Dockerfile change):
+docker compose build
+
+# Fast rebuild (source-only changes — reuses model download layers):
+docker compose build nlp-service
+
+# 4. Restart
+docker compose up -d nlp-service
+
+# 5. Tail logs until ready
+docker logs -f nlp-service
+```
+
+### First deploy after this sprint (NER model change)
+
+`requirements.txt` removed `spacy` and `Dockerfile` now pulls PlanTL NER (~500 MB) instead.  
+The model layer cache will be **invalid** — do a full rebuild:
+
+```bash
+docker compose build --no-cache nlp-service
+```
+
+This will take ~10–15 min on a cold cache (downloading ~1.6 GB of models).
+
+### Config-only updates (no code change)
+
+If you only updated `config/topics.yaml` or `config/street_index.json`:
+
+```bash
+rsync -avz nlp_service/config/ user@wwig.dia.fi.upm.es:/path/to/nlp_service/config/
+ssh user@wwig.dia.fi.upm.es "cd /path/to/nlp_service && docker compose build nlp-service && docker compose up -d nlp-service"
+```
+
+---
+
+## 11 · Resetting dedup state  **[user]**
 
 If you need to rebuild the dedup indexes from scratch (e.g. after truncating the `articles` table):
 
