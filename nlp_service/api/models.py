@@ -24,7 +24,6 @@ class GeotagRequest(BaseModel):
     text: str
     headline: str = ""
     source: str = ""
-    scope_signal: Literal["national", "regional"] | None = None
 
 
 class PlaceMention(BaseModel):
@@ -80,7 +79,6 @@ class ClassifyResponse(BaseModel):
     topics: list[str]
     scores: dict[str, float]
     out_of_scope: bool = False
-    scope_signal: Literal["national", "regional"] | None = None
 
 
 # --- Dedup ---

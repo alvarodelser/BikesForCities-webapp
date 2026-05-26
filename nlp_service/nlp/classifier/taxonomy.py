@@ -17,6 +17,8 @@ class Taxonomy:
     top_k: int
     relevance_hypothesis: str
     relevance_threshold: float
+    blacklist_labels: list[str]
+    blacklist_threshold: float
 
 
 def load() -> Taxonomy:
@@ -30,5 +32,7 @@ def load() -> Taxonomy:
             top_k=int(data.get("top_k", 3)),
             relevance_hypothesis=str(data.get("relevance_hypothesis", "")),
             relevance_threshold=float(data.get("relevance_threshold", 0.4)),
+            blacklist_labels=list(data.get("blacklist_labels", [])),
+            blacklist_threshold=float(data.get("blacklist_threshold", 0.7)),
         )
     return _taxonomy

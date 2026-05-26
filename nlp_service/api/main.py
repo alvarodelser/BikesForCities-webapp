@@ -68,10 +68,12 @@ def _register_routers() -> None:
     from api.routers import geotag as geotag_router
     from api.routers import classify as classify_router
     from api.routers import dedup as dedup_router
+    from api.routers import ollama as ollama_router
     app.include_router(summarize_router.router)
     app.include_router(geotag_router.router)
     app.include_router(classify_router.router)
     app.include_router(dedup_router.router)
+    app.include_router(ollama_router.router)
 
 
 _register_routers()

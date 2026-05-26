@@ -44,3 +44,14 @@ relevance_hypothesis: >-
   bicicletas, patinetes, peatonalización, infraestructura para transporte activo
   o política de movilidad sostenible urbana.
 relevance_threshold: 0.4
+
+# Blacklist labels: NLI hypotheses for known out-of-scope clusters.
+# Checked in the same NLI call as the topic labels. If any scores above
+# blacklist_threshold the article is immediately flagged out_of_scope=true,
+# even if it passed the relevance gate.
+# Add new entries when the eval notebook reveals a recurring false-positive cluster.
+blacklist_threshold: 0.7
+blacklist_labels:
+  - Este artículo trata sobre ciclismo deportivo, competición ciclista o carreras de bicicletas.
+  - Este artículo trata sobre senderismo, montañismo o deporte en la naturaleza sin relación con la movilidad urbana.
+  - Este artículo trata sobre un evento deportivo o competición atlética, sin relación con infraestructura urbana.

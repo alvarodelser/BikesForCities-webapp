@@ -21,7 +21,6 @@ def geotag(req: GeotagRequest) -> GeotagResponse:
             req.text,
             headline=req.headline,
             source=req.source,
-            scope_signal=req.scope_signal,
         )
     except FileNotFoundError as exc:
         log.error("geotagger data missing: %s", exc, extra={"article_id": req.article_id})

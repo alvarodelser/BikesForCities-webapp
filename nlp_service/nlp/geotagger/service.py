@@ -1,9 +1,12 @@
 # nlp_service/nlp/geotagger/service.py
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from . import disambiguator, gazetteer, ner
+
+log = logging.getLogger("nlp_service.geotagger")
 
 
 def load() -> None:
@@ -31,7 +34,6 @@ def run(
     text: str,
     headline: str = "",
     source: str = "",
-    scope_signal: str | None = None,
 ) -> dict[str, Any]:
     load()
 
@@ -43,17 +45,35 @@ def run(
     street_spans = [s for s in spans if s.hint == "street"]
     loc_spans    = [s for s in spans if s.hint != "street"]
 
+    log.info(
+        "Stage A — spans detected: loc=%s street=%s",
+        [s.text for s in loc_spans],
+        [s.text for s in street_spans],
+    )
+
     # ── Stage B1: City resolution ─────────────────────────────────────────────
     source_prior_city_id = gazetteer.get_city_prior(source) if source else None
 
     spans_with_geo = [
         (s.text, gazetteer.lookup(s.text)) for s in loc_spans
     ]
+
+    log.info(
+        "Stage B1 — gazetteer hits: %s",
+        {text: [e.name for e in entries] for text, entries in spans_with_geo},
+    )
+
     city_hit = disambiguator.score_candidates(
         spans_with_geo,
         full_text=text,
         headline=headline,
         source_prior_city_id=source_prior_city_id,
+    )
+
+    log.info(
+        "Stage B1 — city resolved: %s (score=%.2f)",
+        city_hit.city_name if city_hit else None,
+        city_hit.score if city_hit else 0.0,
     )
 
     geo_cities: list[dict] = []
@@ -104,8 +124,15 @@ def run(
                     "geonames_id": best.geonames_id,
                 })
 
+    log.info(
+        "Stage B2 — streets resolved: %s",
+        [{"span": s["span"], "edge_ids": s["edge_ids"], "city_id": s.get("city_id")} for s in geo_streets],
+    )
+    log.info("Stage B3 — region=%s points=%s", geo_region, [p["span"] for p in geo_points])
+
     # ── Scope imputation ──────────────────────────────────────────────────────
-    geo_scope = _resolve_scope(scope_signal, geo_cities, geo_region)
+    geo_scope = _resolve_scope(None, geo_cities, geo_region)
+    log.info("Scope — resolved=%s", geo_scope)
 
     # ── Backward-compat all_places ────────────────────────────────────────────
     all_places: list[dict] = []

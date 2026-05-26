@@ -27,5 +27,4 @@ def classify(req: ClassifyRequest) -> ClassifyResponse:
         topics=result["topics"],
         scores=result["scores"],
         out_of_scope=result.get("out_of_scope", False),
-        scope_signal=result.get("scope_signal"),
     )
