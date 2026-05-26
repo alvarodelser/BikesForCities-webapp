@@ -7,6 +7,7 @@
     "text": "El Ayuntamiento de Madrid ha inaugurado un nuevo tramo de carril bici en la Gran Vía que conecta con la red existente.",
     "expected_city": "Madrid",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
     "expected_places_min": 1
   },
   {
@@ -17,6 +18,7 @@
     "text": "El Ayuntamiento de Valladolid aprobó ayer un plan de 3 millones de euros para ampliar la red de carriles bici en la ciudad castellana.",
     "expected_city": "Valladolid",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
     "expected_places_min": 1
   },
   {
@@ -27,6 +29,7 @@
     "text": "Según un estudio reciente, Barcelona cuenta con 250 km de carril bici frente a los 190 km de Madrid. La capital catalana lidera el ranking nacional de movilidad sostenible, seguida de cerca por Sevilla, que ha triplicado su red ciclista en los últimos tres años.",
     "expected_city": "Barcelona",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
     "expected_places_min": 2,
     "notes": "Barcelona appears first and is the article subject"
   },
@@ -38,8 +41,10 @@
     "text": "Las obras de renovación de la Avenida Diagonal han obligado a desviar temporalmente el carril bici. Los vecinos del Eixample se han quejado de los inconvenientes.",
     "expected_city": "Barcelona",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
+    "expected_streets_min": 1,
     "expected_places_min": 1,
-    "notes": "'Diagonal' and 'Eixample' are Barcelona-specific"
+    "notes": "'Diagonal' and 'Eixample' are Barcelona-specific; Avenida Diagonal triggers street regex"
   },
   {
     "id": "geo-005",
@@ -49,8 +54,9 @@
     "text": "El Ministerio de Transportes ha presentado la nueva Estrategia Nacional de Movilidad Ciclista 2026-2030, que establece objetivos para todas las ciudades españolas con más de 50.000 habitantes.",
     "expected_city": null,
     "expected_city_present": false,
+    "expected_geo_scope": "national",
     "expected_places_min": 0,
-    "notes": "No specific city — should return city=null"
+    "notes": "No specific city — should return city=null and geo_scope=national"
   },
   {
     "id": "geo-006",
@@ -60,6 +66,7 @@
     "text": "La Rambla ha estrenado una nueva señalización para mejorar la convivencia entre peatones y ciclistas tras las quejas vecinales.",
     "expected_city": "Barcelona",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
     "expected_places_min": 1,
     "notes": "'La Rambla' is strongly associated with Barcelona in the gazetteer"
   },
@@ -71,6 +78,7 @@
     "text": "El servicio municipal de préstamo de bicicletas sumará 500 nuevas unidades a partir del próximo mes, lo que elevará su flota total a 3.200 bicis distribuidas en 280 estaciones.",
     "expected_city": "Sevilla",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
     "expected_places_min": 1,
     "notes": "City appears in headline ('Sevilla' in 'BiciSevilla'), not body"
   },
@@ -82,7 +90,33 @@
     "text": "El barrio de Gracia será el primero de Barcelona en implantar una zona de bajas emisiones integral que afecte también a las calles secundarias.",
     "expected_city": "Barcelona",
     "expected_city_present": true,
+    "expected_geo_scope": "city",
     "expected_places_min": 1,
     "notes": "Gracia is a district; city should still resolve to Barcelona"
+  },
+  {
+    "id": "geo-009",
+    "description": "Regional scope — Comunidad de Madrid policy",
+    "article_id": "geo-009",
+    "headline": "La Comunidad de Madrid amplía la red ciclista interurbana",
+    "text": "La Comunidad de Madrid ha aprobado un plan para conectar los municipios del corredor del Henares mediante una red ciclista interurbana de 120 kilómetros. La inversión beneficiará a Alcalá de Henares, Torrejón de Ardoz y Coslada.",
+    "expected_city": null,
+    "expected_city_present": false,
+    "expected_geo_scope": "regional",
+    "expected_places_min": 0,
+    "notes": "Comunidad de Madrid (A-class admin region) with multiple sub-cities — regional scope"
+  },
+  {
+    "id": "geo-010",
+    "description": "Street span with known city — should populate geo_streets",
+    "article_id": "geo-010",
+    "headline": "Corte de tráfico en la Calle Alcalá por obras",
+    "text": "El Ayuntamiento de Madrid ha comunicado el corte de la Calle Alcalá entre la Plaza de Cibeles y la Calle Goya durante las próximas dos semanas por obras de reurbanización.",
+    "expected_city": "Madrid",
+    "expected_city_present": true,
+    "expected_geo_scope": "city",
+    "expected_streets_min": 1,
+    "expected_places_min": 1,
+    "notes": "'Calle Alcalá' and 'Plaza de Cibeles' trigger the street-prefix regex"
   }
 ]
