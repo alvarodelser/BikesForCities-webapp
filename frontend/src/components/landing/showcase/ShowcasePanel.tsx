@@ -66,7 +66,7 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
       <div style={{ flex: 1 }}>
         <p
           style={{
-            fontSize: '0.58rem',
+            fontSize: '0.65rem',
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
             color: 'var(--green-dark)',
@@ -99,6 +99,8 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
           {body}
         </p>
         <button
+          type="button"
+          aria-label={`${ctaLabel} — ${title}`}
           onClick={onCta}
           style={{
             display: 'inline-block',

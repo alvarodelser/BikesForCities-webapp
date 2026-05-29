@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ShowcasePanel from './ShowcasePanel';
 
@@ -34,11 +34,18 @@ describe('ShowcasePanel', () => {
     expect(screen.getByText('Rankings · ciudades')).toBeInTheDocument();
     expect(screen.getByText('Visita nuestro ranking')).toBeInTheDocument();
     expect(screen.getByText('Cuerpo del panel.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ver ranking →' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ver ranking →/ })).toBeInTheDocument();
   });
 
   it('renders the graphic slot', () => {
     render(<ShowcasePanel {...baseProps} />);
     expect(screen.getByTestId('graphic')).toBeInTheDocument();
+  });
+
+  it('calls onCta when the button is clicked', () => {
+    const onCta = vi.fn();
+    render(<ShowcasePanel {...baseProps} onCta={onCta} />);
+    fireEvent.click(screen.getByRole('button', { name: /Ver ranking →/ }));
+    expect(onCta).toHaveBeenCalledOnce();
   });
 });
