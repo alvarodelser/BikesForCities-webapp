@@ -168,7 +168,7 @@ frontend/dist
 # Gatsby files
 frontend/.cache/
 # frontend/public is tracked (contains favicon.svg and landing/ assets)
-# Add specific build-generated subdirs here if needed
+!frontend/public/landing/
 
 # Storybook build outputs
 frontend/.out
