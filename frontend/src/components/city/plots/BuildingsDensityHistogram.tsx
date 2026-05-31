@@ -109,13 +109,11 @@ export const BuildingsDensityHistogram: React.FC<BuildingsDensityHistogramProps>
       yUnit="km"
       variant={variant}
       helpContent={
-        <p>
-          Cada barra representa los kilómetros de carril bici de la ciudad que pasan por una tipología urbana determinada,
-          clasificada según el número de edificios que tienen a menos de 150 metros de ese tramo.
-          Un tramo con más edificios cercanos por km sirve a más viviendas y genera más impacto en la movilidad cotidiana.
-          Esta distribución permite identificar cuánta infraestructura existe en zonas de alta efectividad (centros urbanos densos)
-          frente a zonas periféricas o poco pobladas.
-        </p>
+        <>
+          <p><strong>QUÉ VES</strong>: Un histograma que agrupa los tramos de carril bici según la densidad de edificios en su entorno inmediato, diferenciando por tipo de infraestructura. Cada barra representa cuántos kilómetros de carril existen en zonas con más o menos edificios cerca.</p>
+          <p><strong>POR QUÉ IMPORTA</strong>: No toda la red ciclista tiene el mismo impacto. Un carril en una zona de baja densidad tiene mucho menos potencial de uso que uno en el centro de un barrio residencial. Este gráfico revela si la inversión se dirige hacia donde vive la gente o si la red existe principalmente en periferias con poco uso potencial. Las ciudades españolas tienden a construir carriles en ensanches o de uso deportivo; extender la red hacia los núcleos urbanos consolidados es donde más efectividad en movilidad urbana tiene.</p>
+          <p><strong>METODOLOGÍA</strong>: Para cada tramo de la red se cuentan los edificios en un radio de 150 metros usando datos de OpenStreetMap. Los tramos se agrupan por intervalos de densidad.</p>
+        </>
       }
     />
   );

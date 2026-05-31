@@ -44,6 +44,7 @@ export function useLiveStats(
   generation: string,
   routing: string,
   period: string = '',
+  periodFrom: string = '',
 ): LiveStatsResult {
   const [stats, setStats] = useState<LiveStat[]>([]);
   const [trafficModes, setTrafficModes] = useState<TrafficMode[]>([]);
@@ -133,9 +134,9 @@ export function useLiveStats(
 
         if (mode === MAP_MODES.TRAFFIC) {
           const [traffic, fetchedModes, infraCov] = await Promise.all([
-            fetchTrafficResolve(city.id, generation || undefined, routing || undefined, period || undefined),
+            fetchTrafficResolve(city.id, generation || undefined, routing || undefined, period || undefined, periodFrom || undefined),
             fetchTrafficModes(city.id),
-            fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined).catch(() => null),
+            fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined, period || undefined, periodFrom || undefined).catch(() => null),
           ]);
           modes = fetchedModes;
 
@@ -204,7 +205,7 @@ export function useLiveStats(
 
     load();
     return () => { cancelled = true; };
-  }, [city.id, mode, generation, routing, period, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
+  }, [city.id, mode, generation, routing, period, periodFrom, city.population, city.bicycles_count, city.stations_count, city.monthly_trips]);
 
   return { stats, trafficModes, availablePeriods, loading };
 }

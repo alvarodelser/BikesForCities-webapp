@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Navigation, Users, TrendingUp, Activity, Calendar, Network, Route } from 'lucide-react';
+import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
 import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
@@ -7,6 +7,7 @@ import { fetchTrafficInfraCoverage, fetchTrafficResolve } from '../../../../../s
 import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
 import LineAreaChart from '../../../plots/LineAreaChart';
+import PeriodRangeTimeline from '../PeriodRangeTimeline';
 
 export interface TrafficStatsProps {
   city: CityData;
@@ -32,6 +33,15 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
 
 const ACCENT = '#3A6C7F';
 
+const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+function trafficLabel(period: string): string {
+  // period is YYYY-MM
+  const [year, month] = period.split('-');
+  const monthIdx = parseInt(month, 10) - 1;
+  return `${MONTH_NAMES[monthIdx] ?? month} ${year}`;
+}
+
 interface FilterCardProps {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
@@ -39,9 +49,19 @@ interface FilterCardProps {
   options: { value: string; label: string; disabled?: boolean }[];
   activeValue: string | undefined;
   onSelect: (v: string) => void;
+  helpQueVes?: string;
+  helpPorQueEsUtil?: string;
+  helpComoSeRecogieron?: string;
 }
 
-function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect }: FilterCardProps) {
+function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect, helpQueVes, helpPorQueEsUtil, helpComoSeRecogieron }: FilterCardProps) {
+  const [expanded, setExpanded] = useState(false);
+  const hasHelp = !!(helpQueVes || helpPorQueEsUtil || helpComoSeRecogieron);
+
+  const sectionHead = (text: string) => (
+    <p className="text-[8px] font-black uppercase tracking-widest mb-0.5 text-[var(--blue-dark)]/35">{text}</p>
+  );
+
   return (
     <div
       className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden"
@@ -54,10 +74,19 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
         >
           <Icon className="w-4 h-4 text-white" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-[var(--blue-dark)]">{title}</h3>
-          <p className="text-[10px] text-[var(--blue)] opacity-70 truncate">{description}</p>
+          <p className="text-[10px] text-[var(--blue)] opacity-70 leading-snug">{description}</p>
         </div>
+        {hasHelp && (
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 bg-black/5 hover:bg-black/10 text-[var(--blue-dark)]/30 hover:text-[var(--blue-dark)]/60 transition-all"
+            aria-label={expanded ? 'Cerrar información' : 'Mostrar información'}
+          >
+            {expanded ? <X className="w-3 h-3" /> : <HelpCircle className="w-3 h-3" />}
+          </button>
+        )}
       </div>
       <div className="px-4 pb-4 flex flex-wrap gap-1.5">
         {options.map(opt => {
@@ -83,55 +112,28 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
           );
         })}
       </div>
-    </div>
-  );
-}
-
-interface PeriodDropdownProps {
-  periods: string[];
-  value: string | undefined;
-  onChange: (v: string) => void;
-}
-
-function PeriodDropdown({ periods, value, onChange }: PeriodDropdownProps) {
-  return (
-    <div
-      className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden"
-      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
-    >
-      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-        <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
-        >
-          <Calendar className="w-4 h-4 text-white" />
+      {expanded && hasHelp && (
+        <div className="px-4 pb-4 border-t flex flex-col gap-2" style={{ borderColor: 'rgba(0,0,0,0.06)' }}>
+          {helpQueVes && (
+            <div className="pt-3">
+              {sectionHead('QUÉ VES')}
+              <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpQueVes}</p>
+            </div>
+          )}
+          {helpPorQueEsUtil && (
+            <div>
+              {sectionHead('POR QUÉ IMPORTA')}
+              <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpPorQueEsUtil}</p>
+            </div>
+          )}
+          {helpComoSeRecogieron && (
+            <div>
+              {sectionHead('METODOLOGÍA')}
+              <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpComoSeRecogieron}</p>
+            </div>
+          )}
         </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-bold text-[var(--blue-dark)]">Período</h3>
-          <p className="text-[10px] text-[var(--blue)] opacity-70 truncate">Mes / período de datos</p>
-        </div>
-      </div>
-      <div className="px-4 pb-4">
-        <select
-          value={value ?? ''}
-          onChange={e => onChange(e.target.value)}
-          className="w-full px-3 py-1.5 rounded-xl text-xs font-bold border transition-all appearance-none cursor-pointer"
-          style={{
-            borderColor: value ? ACCENT : 'rgba(0,0,0,0.08)',
-            color: 'var(--blue-dark)',
-            backgroundColor: 'white',
-            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233A6C7F' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'right 10px center',
-            paddingRight: '28px',
-          }}
-        >
-          {periods.length === 0 && <option value="">—</option>}
-          {periods.map(p => (
-            <option key={p} value={p}>{p}</option>
-          ))}
-        </select>
-      </div>
+      )}
     </div>
   );
 }
@@ -139,23 +141,17 @@ function PeriodDropdown({ periods, value, onChange }: PeriodDropdownProps) {
 type Combo = { generation_type: string; algorithm: string };
 
 const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
-  // Shared state via URL params — TrafficLayer reads/writes the same values
-  const { generation, routing, period, submode, setGeneration, setRouting, setPeriod } = useMapState();
+  const { generation, routing, period, periodFrom, submode, setGeneration, setRouting, setPeriod, setPeriodFrom } = useMapState();
   const isODMode = submode === 'od';
 
   const combos = (city?.available_modes?.traffic_combinations as Combo[] | undefined) ?? [];
-
-  // Which generation types have any data for this city
   const availableGenerations = new Set(combos.map(c => c.generation_type));
-
-  // Which algorithms are valid for the currently-selected generation (or all if none selected)
   const availableAlgorithms = generation
     ? new Set(combos.filter(c => c.generation_type === generation).map(c => c.algorithm))
     : new Set(combos.map(c => c.algorithm));
 
   const handleGenerationSelect = (v: string) => {
     setGeneration(v);
-    // If current routing is not valid for the new generation, pick the first valid one
     const validAlgos = new Set(combos.filter(c => c.generation_type === v).map(c => c.algorithm));
     if (routing && !validAlgos.has(routing)) {
       const firstValid = combos.find(c => c.generation_type === v)?.algorithm;
@@ -165,6 +161,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
 
   const options: TrafficOptions = {
     period: period || undefined,
+    periodFrom: periodFrom || undefined,
     generationType: (generation || undefined) as TrafficOptions['generationType'],
     algorithm: (routing || undefined) as TrafficOptions['algorithm'],
   };
@@ -172,23 +169,31 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
   const { tripsPerMonth, tripsPerThousandHab, maxVolume, maxEdgeName, availablePeriods, loading } =
     useTrafficStats(city.id ?? null, options, city.population);
 
+  // Auto-init period range to the latest available period on first load
+  useEffect(() => {
+    if (!period && !periodFrom && availablePeriods.length > 0) {
+      const sorted = [...availablePeriods].sort();
+      const latest = sorted[sorted.length - 1];
+      setPeriod(latest);
+      setPeriodFrom(latest);
+    }
+  }, [availablePeriods, period, periodFrom, setPeriod, setPeriodFrom]);
+
   const [infraFraction, setInfraFraction] = useState<number | null>(null);
   useEffect(() => {
     if (!city.id) return;
     let cancelled = false;
-    fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined, period || undefined)
+    fetchTrafficInfraCoverage(city.id, generation || undefined, routing || undefined, period || undefined, periodFrom || undefined)
       .then(cov => { if (!cancelled) setInfraFraction(cov?.infra_fraction ?? null); })
       .catch(() => { if (!cancelled) setInfraFraction(null); });
     return () => { cancelled = true; };
-  }, [city.id, generation, routing, period]);
+  }, [city.id, generation, routing, period, periodFrom]);
 
   const [evolutionData, setEvolutionData] = useState<Record<string, unknown>[]>([]);
   useEffect(() => {
     if (!city.id || availablePeriods.length === 0) return;
     let cancelled = false;
 
-    // Fetch periods sequentially to avoid flooding the single-worker API
-    // with 17 parallel requests that queue up and stall everything else.
     async function loadEvolution() {
       const points: { period: string; tripsPerMonth: number }[] = [];
       for (const p of availablePeriods) {
@@ -212,76 +217,99 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
   const infraFractionStr = loading ? '—' : (infraFraction !== null ? `${(infraFraction * 100).toFixed(1)}%` : '—');
   const maxVolumeStr = loading ? '—' : fmt(maxVolume, 0, '');
 
+  const sortedPeriods = [...availablePeriods].sort();
+  const defaultPeriod = sortedPeriods.length > 0 ? sortedPeriods[sortedPeriods.length - 1] : '';
+
   return (
     <div className="w-full flex flex-col gap-4">
 
       {/* Header */}
       <div>
-        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Tráfico Ciclista</h2>
+        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Modelo de Movilidad</h2>
       </div>
 
-      {/* ── Filter cards ─────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-3 gap-3">
-        <PeriodDropdown
-          periods={availablePeriods}
-          value={period || undefined}
-          onChange={v => setPeriod(v)}
+      {/* ── Period range timeline ───────────────────────────────────────── */}
+      {sortedPeriods.length > 0 && (
+        <PeriodRangeTimeline
+          items={sortedPeriods}
+          from={periodFrom || defaultPeriod}
+          to={period || defaultPeriod}
+          onChange={(f, t) => { setPeriodFrom(f); setPeriod(t); }}
+          accent={ACCENT}
+          unit="mes"
+          formatLabel={trafficLabel}
         />
+      )}
+
+      {/* ── Filter cards ─────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3">
         <FilterCard
           icon={Network}
           title="Generación"
-          description="Estimación de la demanda"
+          description="Define cómo se estiman los orígenes y destinos de los viajes — GPS real, bici pública o distribución por población."
           options={GENERATION_OPTIONS.map(o => ({ ...o, disabled: !availableGenerations.has(o.value) }))}
           activeValue={generation || undefined}
           onSelect={handleGenerationSelect}
+          helpQueVes="La fuente de datos que determina dónde se originan y terminan los viajes del modelo. Real usa trayectos GPS del sistema de bici pública; Estaciones estima los viajes a partir de los flujos de entrada y salida de cada estación; Población genera demanda sintética a partir de la densidad de edificios y la distribución de población."
+          helpPorQueEsUtil="La elección de la fuente cambia radicalmente el resultado. Real capta la movilidad observada de los usuarios actuales; Estaciones amplía la estimación a todo el sistema de bici pública; Población estima la demanda potencial de la ciudad entera, incluyendo quienes podrían usar la bici pero aún no lo hacen. Comparar los tres revela qué parte de la demanda se cubre y cuánta queda sin infraestructura."
+          helpComoSeRecogieron="Real: trayectos GPS del sistema de bici pública proyectados al nodo más cercano de la red (tolerancia 150 m). Estaciones: viajes sintetizados a partir de flujos de entrada/salida por estación. Población: modelo de gravedad donde la probabilidad de viaje es proporcional a la densidad de edificios del origen, la densidad de población del destino e inversamente proporcional a la distancia."
         />
         <div style={{ opacity: isODMode ? 0.4 : 1, pointerEvents: isODMode ? 'none' : undefined }}>
           <FilterCard
             icon={Route}
             title="Enrutamiento"
-            description={isODMode ? 'No aplica en Origen-Destino' : 'Algoritmo de asignación de rutas'}
+            description={isODMode ? 'No aplica en Origen-Destino' : 'Determina por qué camino de la red discurre cada viaje — trazas reales, ruta más corta o ruta más segura.'}
             options={ALGORITHM_OPTIONS.map(o => ({ ...o, disabled: !availableAlgorithms.has(o.value) || isODMode }))}
             activeValue={routing || undefined}
             onSelect={v => setRouting(v)}
+            helpQueVes="El algoritmo que decide por qué tramos de la red ciclista discurre cada viaje. Define si los ciclistas modelados priorizan distancia, seguridad o siguen trazas GPS registradas."
+            helpPorQueEsUtil="La diferencia de volumen entre Ruta corta y Ruta segura identifica qué corredores están forzando a los ciclistas a circular por calzada — y cuánto tráfico captaría un nuevo tramo de carril en ese punto. Ambas opciones son escenarios de simulación que permiten evaluar el impacto de cualquier mejora de infraestructura antes de construirla."
+            helpComoSeRecogieron="Map-matched: cada viaje GPS se ancla a los nodos más cercanos a inicio y fin (tolerancia 150 m); la ruta se resuelve por distancia mínima. Ruta corta: Dijkstra con peso = longitud en metros. Ruta segura: Dijkstra con route_cost = length × (1 + peligrosidad × ln(max(length,1)) / 144); la peligrosidad depende del tipo de vía, velocidad máxima y número de carriles."
           />
         </div>
       </div>
 
-      {/* ── Row 1: Viajes + Tráfico en carril ───────────────────────────── */}
+      {/* ── Row 1: Viajes + Trayectos en carril ─────────────────────────── */}
       <div className="grid grid-cols-2 gap-4">
         <MetricPill
           loading={loading}
           value={tripsStr}
-          label="Viajes / mes"
-          sublabel="Rutas estimadas en el período"
+          label="Viajes / período"
+          sublabel="Trayectos estimados en el período"
           icon={Navigation}
           accent={ACCENT}
           variant={variant}
-          helpContent="Número total de rutas estimadas para el período y configuración seleccionados. Cada ruta representa un viaje en bicicleta modelado a partir de la fuente de generación elegida."
+          helpQueVes="El número total de trayectos en bicicleta estimados para el período y la configuración del modelo seleccionados."
+          helpPorQueEsUtil="Da escala real a la movilidad ciclista: cuántos desplazamientos hay que servir. Es el punto de partida para cualquier planificación de infraestructura o servicio."
+          helpComoSeRecogieron="Se aplica el modelo de generación activo (GPS real, estaciones o población) y se asignan las rutas sobre la red. Los detalles de cada modelo están en la ayuda de los controles Generación y Enrutamiento."
         />
         <MetricPill
           loading={loading}
           value={infraFractionStr}
-          label="Tráfico en carril"
-          sublabel="% rutas sobre infra. ciclista"
+          label="Trayectos en carril"
+          sublabel="% trayectos sobre infra. ciclista"
           icon={TrendingUp}
           accent={ACCENT}
           variant={variant}
-          helpContent="Porcentaje de los viajes generados que discurren por carriles bici existentes. Un valor alto indica que la infraestructura está bien alineada con los flujos de demanda."
+          helpQueVes="El porcentaje de los trayectos estimados que discurren sobre tramos con carril bici con separación física del tráfico."
+          helpPorQueEsUtil="Un porcentaje bajo significa que la mayoría de los ciclistas circulan por calzadas sin ninguna protección. Es el argumento más directo para justificar dónde construir el siguiente tramo de carril."
+          helpComoSeRecogieron="Se superpone la geometría de cada ruta generada con el trazado de la red ciclista. Un trayecto contribuye al porcentaje en proporción a los kilómetros que transcurren sobre infraestructura protegida respecto a su longitud total."
         />
       </div>
 
-      {/* ── Row 2: Uso relativo + Tramo más cargado ──────────────────────── */}
+      {/* ── Row 2: Incidencia ciclista + Tramo más cargado ───────────────── */}
       <div className="grid grid-cols-2 gap-4">
         <MetricPill
           loading={loading}
           value={tphStr}
-          label="Uso relativo"
-          sublabel="Viajes / 1.000 hab."
+          label="Incidencia Ciclista"
+          sublabel="Trayectos / 1.000 hab."
           icon={Users}
           accent={ACCENT}
           variant={variant}
-          helpContent="Viajes estimados por cada 1.000 habitantes. Permite comparar la intensidad del uso ciclista entre ciudades de distinto tamaño."
+          helpQueVes="Los trayectos estimados en el período por cada 1.000 habitantes."
+          helpPorQueEsUtil="Refleja la implantación del modo bici en la ciudad; no solo cuántos ciudadanos usan la bici, sino con qué frecuencia. Permite comparar ciudades con poblaciones muy distintas."
+          helpComoSeRecogieron="Se divide el total de viajes generados por el modelo entre la población del municipio según el padrón."
         />
         <MetricPill
           loading={loading}
@@ -291,7 +319,9 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
           icon={Activity}
           accent={ACCENT}
           variant={variant}
-          helpContent="Número máximo de viajes que pasan por un único tramo de la red ciclista, identificando el corredor de mayor demanda."
+          helpQueVes="El número de trayectos que pasan por el tramo de mayor intensidad de uso en la red, con su nombre identificado."
+          helpPorQueEsUtil="Identifica el tramo más crítico de toda la red y el que más ganaría con una mejora de infraestructura. Una concentración muy alta señala un cuello de botella que aumenta la exposición al riesgo."
+          helpComoSeRecogieron="Una vez asignados todos los viajes sobre la red, se acumula el volumen en cada tramo y se identifica el máximo."
         />
       </div>
 
@@ -300,21 +330,22 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
         <LineAreaChart
           data={evolutionData}
           xKey="period"
-          title="Evolución de viajes"
-          subtitle="Total de rutas generadas por mes"
+          title="Evolución mensual de trayectos"
+          subtitle="Total de trayectos generados por mes"
           series={[
             {
               key: 'tripsPerMonth',
-              label: 'Viajes/mes',
+              label: 'Trayectos/mes',
               color: '#4b749f',
               type: 'area',
             },
           ]}
           helpContent={
-            <p>
-              Evolución mensual del número total de rutas estimadas en bicicleta para la configuración seleccionada.
-              Permite identificar tendencias de crecimiento o estacionalidad en la demanda ciclista.
-            </p>
+            <>
+              <p><strong>QUÉ VES</strong>: El número total de trayectos del modelo para la configuración activa, representado mes a mes.</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: Detecta estacionalidad y tendencia de uso. Un crecimiento sostenido valida la inversión en infraestructura; la estacionalidad habitual muestra pico en septiembre y caídas moderadas en verano e invierno.</p>
+              <p><strong>METODOLOGÍA</strong>: Para cada mes disponible se agregan todos los trayectos generados por la combinación activa de generación + enrutamiento. Los meses sin datos no se interpolan.</p>
+            </>
           }
         />
       )}

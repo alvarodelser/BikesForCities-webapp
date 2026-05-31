@@ -8,11 +8,13 @@ def _filter_clauses(
     generation_type: Optional[str],
     algorithm: Optional[str],
     month: Optional[str],
+    month_from: Optional[str] = None,
 ) -> Tuple[str, str, Dict[str, Any]]:
     """Build optional WHERE fragments for trip/path/month filters.
 
     Returns (trip_clause, path_clause, params). Each clause is appended to
     the appropriate JOIN's WHERE; empty when the filter is unset.
+    When month_from and month are both provided, filters a date range.
     """
     params: Dict[str, Any] = {}
     trip_parts: List[str] = []
@@ -23,7 +25,12 @@ def _filter_clauses(
     if algorithm:
         path_parts.append("p.algorithm = %(algorithm)s")
         params["algorithm"] = algorithm
-    if month:
+    if month_from and month:
+        trip_parts.append("to_char(t.datetime_unlock, 'YYYY-MM') >= %(month_from)s")
+        trip_parts.append("to_char(t.datetime_unlock, 'YYYY-MM') <= %(month)s")
+        params["month_from"] = month_from
+        params["month"] = month
+    elif month:
         trip_parts.append("to_char(t.datetime_unlock, 'YYYY-MM') = %(month)s")
         params["month"] = month
     trip_clause = (" AND " + " AND ".join(trip_parts)) if trip_parts else ""
@@ -38,10 +45,11 @@ def count_edge_routes(
     generation_type: Optional[str] = None,
     algorithm: Optional[str] = None,
     month: Optional[str] = None,
+    month_from: Optional[str] = None,
 ) -> int:
     """Return the total number of distinct path_ids passing through edge_id
     that match the optional generation/algorithm/month filters."""
-    trip_clause, path_clause, params = _filter_clauses(generation_type, algorithm, month)
+    trip_clause, path_clause, params = _filter_clauses(generation_type, algorithm, month, month_from)
     params.update({"city_id": city_id, "edge_id": edge_id})
     with conn.cursor() as cur:
         cur.execute(
@@ -71,12 +79,13 @@ def get_edge_route_traces(
     generation_type: Optional[str] = None,
     algorithm: Optional[str] = None,
     month: Optional[str] = None,
+    month_from: Optional[str] = None,
 ) -> List[str]:
     """Return GeoJSON geometry strings (LineString or MultiLineString) for
     paths in city_id that pass through edge_id, paginated by limit/offset
     and optionally filtered by trip generation/algorithm/month.
     """
-    trip_clause, path_clause, params = _filter_clauses(generation_type, algorithm, month)
+    trip_clause, path_clause, params = _filter_clauses(generation_type, algorithm, month, month_from)
     params.update({
         "city_id": city_id,
         "edge_id": edge_id,
@@ -118,11 +127,12 @@ def get_edge_route_od(
     generation_type: Optional[str] = None,
     algorithm: Optional[str] = None,
     month: Optional[str] = None,
+    month_from: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
     """Return origin and destination lat/lon for each trip passing through
     edge_id in city_id, paginated and optionally filtered.
     """
-    trip_clause, path_clause, params = _filter_clauses(generation_type, algorithm, month)
+    trip_clause, path_clause, params = _filter_clauses(generation_type, algorithm, month, month_from)
     params.update({
         "city_id": city_id,
         "edge_id": edge_id,

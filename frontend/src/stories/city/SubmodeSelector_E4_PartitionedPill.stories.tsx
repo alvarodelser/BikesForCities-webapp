@@ -32,9 +32,9 @@ const VIZ_SUBMODES: Record<
 > = {
   stations: {
     items: [
-      { id: 'trips', label: 'Viajes' },
-      { id: 'downtime', label: 'Tiempo' },
-      { id: 'reach', label: 'Alcance' },
+      { id: 'trips', label: 'Demanda' },
+      { id: 'downtime', label: 'Disponibilidad' },
+      { id: 'reach', label: 'Cobertura' },
     ],
     visibility: 'always',
   },

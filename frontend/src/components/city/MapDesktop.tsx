@@ -18,10 +18,8 @@ import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
 const modeNames: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
-    [MAP_MODES.TRAFFIC]: 'Tráfico',
-    [MAP_MODES.STATIONS]: 'Servicios de Bici',
-    [MAP_MODES.TERRAIN]: 'Terreno',
-    [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
+    [MAP_MODES.TRAFFIC]: 'Modelo de Movilidad',
+    [MAP_MODES.STATIONS]: 'Servicio Bici',
     [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
@@ -29,8 +27,6 @@ const modeColors: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: '#027A76',
     [MAP_MODES.TRAFFIC]: '#3A6C7F',
     [MAP_MODES.STATIONS]: '#ffa585',
-    [MAP_MODES.TERRAIN]: 'var(--orange)',
-    [MAP_MODES.INTERSECTIONS]: 'var(--yellow)',
     [MAP_MODES.ACCIDENTS]: 'var(--red)',
 };
 

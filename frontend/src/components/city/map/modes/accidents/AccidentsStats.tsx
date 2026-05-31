@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { CityData } from '../../../../../constants/cities';
 import { useAccidentsStats } from '../../../../../hooks/useAccidentsStats';
 import { useMapState } from '../../../../../hooks/useMapState';
@@ -6,8 +6,8 @@ import MetricPill from '../../../pills/MetricPill';
 import StackedBarMatrix from '../../../plots/StackedBarMatrix';
 import BarHistogram from '../../../plots/BarHistogram';
 import CollisionHeatmap from '../../../plots/CollisionHeatmap';
-import { Car, Bus, Truck, Motorcycle, Bicycle, Sun, CloudRain } from '@phosphor-icons/react';
-
+import PeriodRangeTimeline from '../PeriodRangeTimeline';
+import { Car, Bus, Truck, Motorcycle, Bicycle, Sun, CloudRain, Warning } from '@phosphor-icons/react';
 
 export interface AccidentsStatsProps {
   city: CityData;
@@ -17,7 +17,54 @@ export interface AccidentsStatsProps {
 const SEVERITY_LABELS = ['Ileso', 'Leve', 'Grave', 'Fatal'];
 const ACCENT = '#ef4444';
 
-// Caída sola uses Bicycle since it covers solo falls and bike-vs-bike incidents
+function AccidentFilterCard({ value, onChange }: { value: 'bike' | 'all'; onChange: (v: 'bike' | 'all') => void }) {
+  const options: { value: 'bike' | 'all'; label: string }[] = [
+    { value: 'bike', label: 'Bicicleta' },
+    { value: 'all',  label: 'Todos' },
+  ];
+  return (
+    <div
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden"
+      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+    >
+      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+        <div
+          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
+        >
+          <Warning size={16} className="text-white" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-[var(--blue-dark)]">Tipo de accidente</h3>
+          <p className="text-[10px] text-[var(--blue)] opacity-70 leading-snug">
+            Siniestros con ciclista implicado o todos los accidentes registrados.
+          </p>
+        </div>
+      </div>
+      <div className="px-4 pb-4 flex flex-wrap gap-1.5">
+        {options.map(opt => {
+          const isActive = value === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => onChange(opt.value)}
+              className="px-3 py-1 rounded-xl text-xs font-bold transition-all border"
+              style={{
+                backgroundColor: isActive ? ACCENT : 'white',
+                borderColor: isActive ? ACCENT : 'rgba(0,0,0,0.08)',
+                color: isActive ? 'white' : 'var(--blue-dark)',
+                boxShadow: isActive ? `0 4px 12px ${ACCENT}40` : undefined,
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 const CYCLIST_ROW_ICONS = [
   <Car size={13} color="#6b7280" />,
   <Bus size={13} color="#f59e0b" />,
@@ -34,134 +81,11 @@ const PEDESTRIAN_ROW_ICONS = [
   <Bicycle size={13} color="#22c55e" />,
 ];
 
-// ── Year timeline component ───────────────────────────────────────────────────
-
-interface YearTimelineProps {
-  years: number[];
-  selected: number | null;
-  onSelect: (year: number | null) => void;
-}
-
-function YearTimeline({ years, selected, onSelect }: YearTimelineProps) {
-  if (years.length === 0) return null;
-
-  const sorted = [...years].sort((a, b) => a - b);
-
-  return (
-    <div
-      className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden"
-      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-3">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-              <line x1="16" y1="2" x2="16" y2="6"/>
-              <line x1="8" y1="2" x2="8" y2="6"/>
-              <line x1="3" y1="10" x2="21" y2="10"/>
-            </svg>
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-[var(--blue-dark)]">Período</h3>
-            <p className="text-[10px] text-[var(--blue)] opacity-70">
-              {selected != null ? `Mostrando año ${selected}` : 'Todos los años'}
-            </p>
-          </div>
-        </div>
-        {selected != null && (
-          <button
-            onClick={() => onSelect(null)}
-            className="text-[10px] font-bold px-2 py-1 rounded-lg transition-all"
-            style={{ color: ACCENT, backgroundColor: `${ACCENT}15`, border: `1px solid ${ACCENT}30` }}
-          >
-            Ver todos
-          </button>
-        )}
-      </div>
-
-      {/* Timeline */}
-      <div className="px-4 pb-4">
-        <div className="relative">
-          {/* Connecting line */}
-          <div
-            className="absolute top-[11px] left-3 right-3 h-[2px]"
-            style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
-          />
-          {/* Active segment overlay */}
-          {selected != null && (() => {
-            const idx = sorted.indexOf(selected);
-            if (idx < 0 || sorted.length <= 1) return null;
-            const leftPct = (idx / (sorted.length - 1)) * 100;
-            return (
-              <div
-                className="absolute top-[11px] h-[2px]"
-                style={{
-                  left: `calc(${leftPct}% + 12px - ${leftPct / 100 * 24}px)`,
-                  width: 0,
-                  backgroundColor: ACCENT,
-                }}
-              />
-            );
-          })()}
-
-          {/* Dots */}
-          <div className="relative flex justify-between">
-            {sorted.map((yr) => {
-              const isActive = selected === yr;
-              return (
-                <button
-                  key={yr}
-                  onClick={() => onSelect(isActive ? null : yr)}
-                  className="flex flex-col items-center gap-1.5 group"
-                  style={{ minWidth: 0 }}
-                >
-                  {/* Dot */}
-                  <div
-                    className="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-200"
-                    style={{
-                      backgroundColor: isActive ? ACCENT : 'white',
-                      borderColor: isActive ? ACCENT : 'rgba(0,0,0,0.15)',
-                      boxShadow: isActive ? `0 0 0 3px ${ACCENT}25, 0 4px 8px ${ACCENT}40` : '0 1px 3px rgba(0,0,0,0.1)',
-                      transform: isActive ? 'scale(1.2)' : 'scale(1)',
-                    }}
-                  >
-                    {isActive && (
-                      <div className="w-2 h-2 rounded-full bg-white" />
-                    )}
-                  </div>
-                  {/* Year label */}
-                  <span
-                    className="text-[9px] font-bold transition-all duration-200"
-                    style={{
-                      color: isActive ? ACCENT : 'rgba(0,0,0,0.4)',
-                      transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                    }}
-                  >
-                    {yr}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main component ────────────────────────────────────────────────────────────
-
 const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
-  const { submode, setSubmode, period, setPeriod } = useMapState();
+  const { yearFrom, yearTo, setYearFrom, setYearTo, accidentType, setAccidentType } = useMapState();
 
-  // period stores the selected year as a string (same param as traffic mode)
-  const selectedYear = period ? parseInt(period, 10) : undefined;
-  const handleYearSelect = (yr: number | null) => setPeriod(yr != null ? String(yr) : '');
+  const yearFromNum = yearFrom ? parseInt(yearFrom, 10) : undefined;
+  const yearToNum   = yearTo   ? parseInt(yearTo,   10) : undefined;
 
   const {
     totalAccidents,
@@ -173,86 +97,75 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
     epacWeatherBars,
     collisionMatrix,
     loading,
-  } = useAccidentsStats(city.id ?? null, selectedYear);
+  } = useAccidentsStats(city.id ?? null, yearFromNum, yearToNum);
 
-  // Default to bike when no submode is in the URL.
-  const activeLayer: 'all' | 'bike' = submode === 'all' ? 'all' : 'bike';
-
-  function handleLayerToggle(layer: 'all' | 'bike') {
-    setSubmode(layer);
-  }
+  // Auto-initialise range to latest year on first load
+  useEffect(() => {
+    if (!yearTo && !yearFrom && latestYear) {
+      const yr = String(latestYear);
+      setYearTo(yr);
+      setYearFrom(yr);
+    }
+  }, [latestYear, yearTo, yearFrom, setYearTo, setYearFrom]);
 
   const fmt = (n: number) => (loading ? '—' : n.toLocaleString('es'));
+
+  const yearStrings = [...availableYears].sort((a, b) => a - b).map(String);
+  const defaultYear = latestYear != null ? String(latestYear) : '';
 
   return (
     <div className="w-full flex flex-col gap-6">
 
-      {/* ── Header with toggle ──────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 px-1">
-        <div>
-          <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>Siniestralidad Vial</h2>
-        </div>
+      {/* ── Period range timeline ───────────────────────────────────────── */}
+      {yearStrings.length > 0 && (
+        <PeriodRangeTimeline
+          items={yearStrings}
+          from={yearFrom || defaultYear}
+          to={yearTo || defaultYear}
+          onChange={(f, t) => { setYearFrom(f); setYearTo(t); }}
+          accent={ACCENT}
+          unit="año"
+        />
+      )}
 
-        <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl border border-black/5">
-          <button
-            onClick={() => handleLayerToggle('bike')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
-              activeLayer === 'bike'
-                ? 'bg-white text-red-600 shadow-sm'
-                : 'text-gray-400 hover:text-gray-600'
-            }`}
-          >
-            <div className={`w-2 h-2 rounded-full ${activeLayer === 'bike' ? 'bg-red-500 animate-pulse' : 'bg-red-200'}`} />
-            BICICLETA ({fmt(cyclistAccidents)})
-          </button>
-          <button
-            onClick={() => handleLayerToggle('all')}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 ${
-              activeLayer === 'all'
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-400 hover:text-gray-600'
-            }`}
-          >
-            <div className={`w-2 h-2 rounded-full ${activeLayer === 'all' ? 'bg-gray-400' : 'bg-gray-200'}`} />
-            TODOS ({fmt(totalAccidents)})
-          </button>
-        </div>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div className="px-1">
+        <h2 className={`text-2xl font-bold ${variant === 'darkTint' ? 'text-[var(--blue-dark)]' : 'text-white'}`}>
+          Siniestralidad Vial
+        </h2>
       </div>
 
-      {/* ── Year timeline ──────────────────────────────────────────────────── */}
-      <YearTimeline
-        years={availableYears}
-        selected={selectedYear ?? null}
-        onSelect={handleYearSelect}
-      />
+      {/* ── Tipo de accidente filter ────────────────────────────────────── */}
+      <AccidentFilterCard value={accidentType} onChange={setAccidentType} />
 
-      {/* ── Stat pills ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      {/* ── Stat pills (3 cols) ─────────────────────────────────────────── */}
+      <div className="grid grid-cols-3 gap-4">
         <MetricPill
           value={fmt(totalAccidents)}
-          label="Total accidentes"
+          label="Total siniestros"
           accent={ACCENT}
           variant={variant}
-          helpContent="Número total de accidentes registrados en el municipio para el período seleccionado."
+          helpQueVes="El número total de accidentes con víctimas registrados en el municipio para el período seleccionado, de todos los modos de transporte."
+          helpPorQueEsUtil="Es la magnitud global del problema vial. Comparar este número con años anteriores o con ciudades similares es el primer paso para evaluar si las políticas de seguridad vial tienen efecto real."
+          helpComoSeRecogieron="Datos del registro oficial de accidentalidad de la DGT o equivalente municipal. Se cuentan únicamente los partes con al menos una víctima."
         />
         <MetricPill
           value={fmt(cyclistAccidents)}
-          label="Accidentes con bici"
+          label="Siniestros ciclistas"
           accent={ACCENT}
           variant={variant}
-          helpContent="Accidentes donde al menos un vehículo implicado era una bicicleta."
+          helpQueVes="El número de accidentes en los que al menos un vehículo implicado era una bicicleta o vehículo de movilidad personal (VMP)."
+          helpPorQueEsUtil="Los ciclistas son el colectivo más vulnerable de la vía. Este número es el que deben reducir las políticas de infraestructura ciclista — y el que mide directamente si lo consiguen."
+          helpComoSeRecogieron="Se filtra el registro general de accidentes por el campo de tipo de vehículo implicado. Los VMP se incluyen cuando la fuente de datos los distingue."
         />
         <MetricPill
           value={totalAccidents > 0 ? `${((cyclistAccidents / totalAccidents) * 100).toFixed(1)} %` : '—'}
           label="Incidencia ciclista"
           accent={ACCENT}
           variant={variant}
-        />
-        <MetricPill
-          value={loading ? '—' : (selectedYear != null ? String(selectedYear) : latestYear != null ? String(latestYear) : '—')}
-          label="Año de datos"
-          accent="#6b7280"
-          variant={variant}
+          helpQueVes="El porcentaje de todos los accidentes con víctimas del período en los que hay al menos un ciclista o VMP implicado."
+          helpPorQueEsUtil="Pone en contexto la exposición del ciclista frente a otros modos. Si la incidencia es alta pero el número absoluto es pequeño, puede indicar que hay pocos ciclistas expuestos, no que la infraestructura esté bien."
+          helpComoSeRecogieron="siniestros_ciclistas / siniestros_totales × 100. Ambos valores se calculan sobre el mismo período y área de estudio."
         />
       </div>
 
@@ -264,6 +177,13 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           title="Severidad ciclista"
           subtitle="Por tipo de vehículo implicado"
           rowIcons={CYCLIST_ROW_ICONS}
+          helpContent={
+            <>
+              <p><strong>QUÉ VES</strong>: Para cada tipo de vehículo contrario (turismo, camión, moto, etc.), la distribución de los siniestros ciclistas por nivel de gravedad: ileso, leve, grave y fatal.</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: No todos los choques son iguales. Las colisiones con camiones y autobuses concentran la mortalidad aunque sean menos frecuentes. Este gráfico identifica con qué tipo de vehículo hay que separar físicamente el carril para reducir fatalidades.</p>
+              <p><strong>METODOLOGÍA</strong>: Se cruzan el tipo de vehículo contrario y la severidad de las víctimas ciclistas. La altura de cada barra es el número total de siniestros; los colores apilados representan las cuatro categorías de gravedad según la clasificación oficial de la DGT.</p>
+            </>
+          }
         />
         <StackedBarMatrix
           rows={pedestrianVehicleMatrix}
@@ -271,10 +191,17 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           title="Severidad peatonal"
           subtitle="Por tipo de vehículo implicado"
           rowIcons={PEDESTRIAN_ROW_ICONS}
+          helpContent={
+            <>
+              <p><strong>QUÉ VES</strong>: Para cada tipo de vehículo, la distribución de los siniestros con víctimas peatonales según gravedad: ileso, leve, grave y fatal.</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: Muestra qué tipo de tráfico pone en riesgo a los peatones. La gravedad media de los atropellos varía mucho según el vehículo. Sirve para priorizar zonas de coexistencia o de velocidad reducida junto a la red ciclista.</p>
+              <p><strong>METODOLOGÍA</strong>: Mismo registro que la matriz ciclista, filtrado por víctima peatonal. El vehículo contrario puede ser motorizado, bicicleta o VMP.</p>
+            </>
+          }
         />
       </div>
 
-      {/* ── Weather + Collision matrix side by side ────────────────────────── */}
+      {/* ── Weather + Collision matrix side by side ─────────────────────── */}
       <div className="grid grid-cols-2 gap-6">
         <BarHistogram
           data={epacWeatherBars.map(d => ({
@@ -282,13 +209,27 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
             icon: d.label.includes('lluvia') ? CloudRain : Sun,
           }))}
           accent={ACCENT}
-          title="Bicicleta y EPAC: seco vs lluvia"
-          subtitle="Accidentes ciclistas según condiciones meteorológicas"
+          title="Efecto meteorológico sobre caídas"
+          subtitle="Siniestros ciclistas según condiciones meteorológicas"
+          helpContent={
+            <>
+              <p><strong>QUÉ VES</strong>: La comparación del número de siniestros ciclistas en condiciones de buen tiempo frente a lluvia, separado por bicicletas convencionales y EPACs.</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: Si los siniestros en lluvia son desproporcionadamente graves, puede indicar problemas de adherencia o visibilidad. Si son más frecuentes en seco, el patrón apunta a mayor volumen de uso en buen tiempo.</p>
+              <p><strong>METODOLOGÍA</strong>: Se filtra el registro de accidentes por tipo de vehículo (bicicleta / EPAC) y por la condición meteorológica declarada en el parte oficial: seco vs lluvia. Las demás condiciones se agrupan en "otras".</p>
+            </>
+          }
         />
         <CollisionHeatmap
           data={collisionMatrix}
           title="Matriz de colisiones"
           subtitle="▽ fila · △ columna · gravedad media del vehículo"
+          helpContent={
+            <>
+              <p><strong>QUÉ VES</strong>: Una matriz donde filas y columnas representan tipos de vehículo. El color de cada celda indica la gravedad media de los accidentes entre ese par, escalado de verde (ileso promedio) a rojo (mortal promedio).</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: De un vistazo, muestra qué combinaciones de vehículos producen los peores resultados. Es el argumento más visual para justificar la separación física entre bicicletas y tráfico motorizado pesado.</p>
+              <p><strong>METODOLOGÍA</strong>: Para cada par de tipos de vehículo se promedian los valores de gravedad (0=ileso, 1=leve, 2=grave, 3=fatal). Solo se muestran celdas con al menos 5 siniestros en el período para evitar ruido estadístico.</p>
+            </>
+          }
         />
       </div>
     </div>

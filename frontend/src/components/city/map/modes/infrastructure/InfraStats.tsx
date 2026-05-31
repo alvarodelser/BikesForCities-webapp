@@ -54,7 +54,9 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
           icon={Route}
           accent={ACCENT}
           variant={variant}
-          helpContent="Solo contabilizamos infraestructura físicamente segregada del tráfico rodado dentro del área de estudio delimitada en el mapa. Los tramos pintados en calzada o en acera compartida no se incluyen en este cálculo."
+          helpQueVes="El total de kilómetros de carril bici con separación física del tráfico motorizado dentro del área de estudio de la ciudad."
+          helpPorQueEsUtil="La infraestructura segregada es el indicador más directamente relacionado con el incremento del uso de la bici. La longitud total determina la seguridad del ciclista, la conectividad de la red y la variedad de rutas disponibles. Una red corta obliga a los ciclistas a compartir calzada y limita mucho el tipo de usuario que está dispuesto a aceptar esos riesgos."
+          helpComoSeRecogieron="Se mapea la red combinando datos de OpenStreetMap y fuentes municipales. Solo se contabilizan tramos con separación física del tráfico motorizado (aceras bici incluidas, carriles sin separación sobre calzada no). El área de estudio se estandariza a un cuadrado de 10 × 10 km para hacer comparables ciudades de tamaños distintos."
         />
         <MetricPill
           loading={displayLoading}
@@ -64,7 +66,9 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
           icon={TrendingUp}
           accent={ACCENT}
           variant={variant}
-          helpContent="Consideramos 150 metros una distancia razonable para que alguien acceda andando con su bici desde un edificio hasta la red de carril bici. La métrica divide los edificios con acceso a la red dentro del área de estudio entre el total de edificios del área de estudio."
+          helpQueVes="El porcentaje de edificios del área de estudio que tienen al menos un tramo de carril bici a menos de 150 metros."
+          helpPorQueEsUtil="Los kilómetros totales no dicen nada sobre la efectividad de la red. Las ciudades españolas tienden a concentrar kilómetros en áreas dispersas dedicadas al deporte y dejar núcleos urbanos sin opción ciclista segura. Una cobertura baja indica que la red existe pero no llega donde vive la gente."
+          helpComoSeRecogieron="Se calcula la distancia entre cada edificio del mapa y el tramo más cercano de la red ciclista. El umbral de 150 metros corresponde a un desplazamiento a pie de menos de dos minutos."
         />
       </div>
 
@@ -80,7 +84,9 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
             icon={Users}
             accent={ACCENT}
             variant={variant}
-            helpContent="Kilómetros de carril bici por cada 100.000 habitantes. Normalizar por población permite comparar ciudades de tamaño muy diferente en igualdad de condiciones."
+            helpQueVes="Los kilómetros de carril bici disponibles por cada 100.000 habitantes de la ciudad."
+            helpPorQueEsUtil="Permite comparar ciudades de tamaño muy diferente en igualdad de condiciones. Una ciudad pequeña con pocos kilómetros puede tener más infraestructura per cápita que una gran ciudad con una red aparentemente extensa. Esta métrica revela el esfuerzo real de cada administración en relación a su población."
+            helpComoSeRecogieron="Se divide la longitud total de la red entre la población del municipio según el último padrón disponible."
           />
           <MetricPill
           loading={displayLoading}
@@ -90,7 +96,9 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
             icon={Activity}
             accent={ACCENT}
             variant={variant}
-            helpContent="Kilómetros construidos por cada millón de euros invertido en la categoría de Vías Públicas del presupuesto municipal. Esta partida recoge el mantenimiento y ampliación de infraestructura viaria y es el indicador más directo de eficiencia en la construcción de red ciclista."
+            helpQueVes="El porcentaje de kilómetros de carril bici que forman parte del fragmento continuo más grande de la red: los tramos que están todos conectados entre sí sin interrupciones."
+            helpPorQueEsUtil="Saber cuánto dinero se destina a movilidad no es suficiente, lo relevante es cuánto de ese dinero se convierte en infraestructura ciclista. Es el indicador más directo de la prioridad política hacia el ciclismo urbano."
+            helpComoSeRecogieron="Se cruza la longitud de red con la partida de Vías Públicas del presupuesto municipal publicado, que recoge inversión en infraestructura viaria."
           />
         </div>
         {/* Right: GCC full column width */}
@@ -102,7 +110,9 @@ const InfraStats: React.FC<InfraStatsProps> = ({ city, variant }) => {
           icon={Network}
           accent={ACCENT}
           variant={variant}
-          helpContent="La métrica de cobertura anterior cuenta cualquier tramo cercano, aunque esté aislado. La Gran Componente Conexa (GCC) es el mayor fragmento continuo de la red. Esta métrica mide qué porcentaje de los kilómetros totales de carril bici del área de estudio pertenecen a ese fragmento, reflejando así la conectividad real: solo importa la infraestructura que forma una red navegable de extremo a extremo."
+          helpQueVes="El porcentaje de kilómetros de carril que forman parte del mayor fragmento continuo de la red."
+          helpPorQueEsUtil="Puedes tener muchos kilómetros de carril y aun así no tener una red utilizable. Un tramo que empieza y termina sin conectar con nada obliga al ciclista a incorporarse al tráfico, rompiendo el viaje y la seguridad. Esta métrica revela si la infraestructura existente forma un sistema coherente o una colección de tramos inconexos."
+          helpComoSeRecogieron="Se aplica análisis de grafos sobre la red ciclista mapeada para identificar la Gran Componente Conexa (GCC): el subconjunto más grande de tramos interconectados sin interrupciones. El porcentaje se calcula sobre el total de kilómetros de red."
         />
       </div>
 

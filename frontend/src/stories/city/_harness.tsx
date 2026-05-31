@@ -1,12 +1,6 @@
 import * as React from 'react';
-import {
-  Car,
-  MapPin,
-  Network,
-  Mountain,
-  TriangleAlert,
-  CircleDot,
-} from 'lucide-react';
+import { Network } from 'lucide-react';
+import { Graph, Bicycle, Warning } from '@phosphor-icons/react';
 
 export type Strategy = { id: string; label: string };
 export type Submode = { id: string; label: string; strategies?: Strategy[] };
@@ -15,7 +9,7 @@ export type MockMode = {
   id: string;
   label: string;
   color: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
   submodes: Submode[];
 };
 
@@ -23,9 +17,9 @@ export const MOCK_MODES: MockMode[] = [
   { id: 'infrastructure', label: 'Infraestructura', color: 'var(--blue)', icon: Network, submodes: [] },
   {
     id: 'traffic',
-    label: 'Tráfico',
+    label: 'Modelo de Movilidad',
     color: 'var(--red)',
-    icon: Car,
+    icon: Graph,
     submodes: [
       {
         id: 'generation',
@@ -49,18 +43,16 @@ export const MOCK_MODES: MockMode[] = [
   },
   {
     id: 'stations',
-    label: 'Estaciones',
+    label: 'Servicio Bici',
     color: 'var(--green)',
-    icon: MapPin,
+    icon: Bicycle,
     submodes: [
-      { id: 'trips', label: 'Viajes' },
-      { id: 'downtime', label: 'Tiempo' },
-      { id: 'reach', label: 'Alcance' },
+      { id: 'trips', label: 'Demanda' },
+      { id: 'downtime', label: 'Disponibilidad' },
+      { id: 'reach', label: 'Cobertura' },
     ],
   },
-  { id: 'terrain', label: 'Terreno', color: 'var(--orange)', icon: Mountain, submodes: [] },
-  { id: 'intersections', label: 'Intersecciones', color: 'var(--yellow)', icon: CircleDot, submodes: [] },
-  { id: 'accidents', label: 'Accidentes', color: 'var(--red)', icon: TriangleAlert, submodes: [] },
+  { id: 'accidents', label: 'Accidentalidad', color: 'var(--red)', icon: Warning, submodes: [] },
 ];
 
 const themeVars: React.CSSProperties = {

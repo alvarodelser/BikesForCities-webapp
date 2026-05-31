@@ -2,8 +2,6 @@ export const MAP_MODES = {
   INFRASTRUCTURE: 'infrastructure',
   TRAFFIC: 'traffic',
   STATIONS: 'stations',
-  TERRAIN: 'terrain',
-  INTERSECTIONS: 'intersections',
   ACCIDENTS: 'accidents',
 } as const;
 

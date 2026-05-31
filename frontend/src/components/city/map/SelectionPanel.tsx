@@ -60,7 +60,7 @@ export default function SelectionPanel({
     const typeLabel: Record<string, string> = {
         station: 'Estación',
         edge: 'Tramo',
-        reach: 'Alcance',
+        reach: 'Cobertura',
         accident: 'Accidente',
         od_hex: 'Zona OD',
     };

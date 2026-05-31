@@ -341,12 +341,13 @@ def get_od_flows(
     city_id: int,
     generation_type: str = Query(..., description="Trip generation type"),
     period: Optional[str] = Query(None, description="Month filter YYYY-MM"),
+    period_from: Optional[str] = Query(None, description="Start month filter YYYY-MM"),
     resolution: int = Query(8, ge=6, le=10, description="H3 resolution (8 ≈ 0.5 km edge)"),
     conn=Depends(get_db_connection),
 ):
     """O-D flows aggregated by H3 hex as a GeoJSON FeatureCollection."""
     try:
-        geojson = get_od_hex_flows(conn, city_id, generation_type, period=period, resolution=resolution)
+        geojson = get_od_hex_flows(conn, city_id, generation_type, period=period, resolution=resolution, period_from=period_from)
         return geojson
     except Exception as e:
         logger.error(f"Error computing OD hex flows for city {city_id}: {e}")
@@ -676,7 +677,8 @@ def get_city_traffic(
     city_id: int,
     generation_type: Optional[str] = Query(None, description="Filter: real | station_based | buildings_population"),
     algorithm: Optional[str] = Query(None, description="Filter: map_matched | safest | shortest | grouped"),
-    month: Optional[str] = Query(None, description="Month YYYY-MM (defaults to latest for combination)"),
+    month: Optional[str] = Query(None, description="Month YYYY-MM (end of range, defaults to latest)"),
+    month_from: Optional[str] = Query(None, description="Start month YYYY-MM (range start)"),
     conn=Depends(get_db_connection)
 ):
     """Get trip counts per road segment. Defaults to best available (generation, algorithm) combination."""
@@ -685,9 +687,15 @@ def get_city_traffic(
 
         from datetime import date as date_type
         month_date: Optional[date_type] = None
+        month_from_date: Optional[date_type] = None
         if month:
             try:
                 month_date = date_type.fromisoformat(month + "-01")
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Formato de mes inválido. Use AAAA-MM.")
+        if month_from:
+            try:
+                month_from_date = date_type.fromisoformat(month_from + "-01")
             except ValueError:
                 raise HTTPException(status_code=422, detail="Formato de mes inválido. Use AAAA-MM.")
 
@@ -696,15 +704,16 @@ def get_city_traffic(
             generation_type=generation_type,
             algorithm=algorithm,
             month=month_date,
+            month_from=month_from_date,
         )
 
         stats = None
         max_edge_name = None
         if resolved_gen and resolved_algo and resolved_month:
-            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
             if raw:
                 stats = TrafficStats(**raw)
-            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
             if max_edge:
                 max_edge_name = max_edge.get('edge_name')
 
@@ -747,7 +756,8 @@ def resolve_city_traffic(
     city_id: int,
     generation_type: Optional[str] = Query(None),
     algorithm: Optional[str] = Query(None),
-    month: Optional[str] = Query(None, description="Month YYYY-MM (defaults to latest)"),
+    month: Optional[str] = Query(None, description="Month YYYY-MM end of range (defaults to latest)"),
+    month_from: Optional[str] = Query(None, description="Start month YYYY-MM"),
     conn=Depends(get_db_connection),
 ):
     """Resolve traffic parameters and return stats without per-edge data.
@@ -762,9 +772,15 @@ def resolve_city_traffic(
 
         from datetime import date as date_type
         month_date: Optional[date_type] = None
+        month_from_date: Optional[date_type] = None
         if month:
             try:
                 month_date = date_type.fromisoformat(month + "-01")
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
+        if month_from:
+            try:
+                month_from_date = date_type.fromisoformat(month_from + "-01")
             except ValueError:
                 raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
 
@@ -789,12 +805,12 @@ def resolve_city_traffic(
         stats = None
         max_edge_name = None
         edge_count = None
-        raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+        raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
         if raw:
             edge_count = raw.get('edge_count')
             stats = TrafficStats(**{k: v for k, v in raw.items() if k != 'edge_count'})
 
-        max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+        max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
         if max_edge:
             max_edge_name = max_edge.get('edge_name')
 
@@ -841,6 +857,7 @@ def get_edge_routes(
     generation_type: Optional[str] = Query(None, description="Trip generation filter"),
     algorithm: Optional[str] = Query(None, description="Path algorithm filter"),
     month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
+    month_from: Optional[str] = Query(None, description="Start month filter YYYY-MM"),
     skip_count: bool = Query(False, description="Skip the total count query; use tile trip_count instead"),
     conn=Depends(get_db_connection),
 ):
@@ -872,6 +889,7 @@ def get_edge_routes(
             generation_type=generation_type,
             algorithm=algorithm,
             month=month,
+            month_from=month_from,
         )
 
         if mode == "heatmap":
@@ -881,6 +899,7 @@ def get_edge_routes(
                 generation_type=generation_type,
                 algorithm=algorithm,
                 month=month,
+                month_from=month_from,
             )
             features = []
             for row in rows:
@@ -902,6 +921,7 @@ def get_edge_routes(
                 generation_type=generation_type,
                 algorithm=algorithm,
                 month=month,
+                month_from=month_from,
             )
             features = [
                 {"type": "Feature", "geometry": json.loads(g), "properties": {}}
@@ -933,7 +953,8 @@ def get_edge_routes(
 def get_city_accidents(
     city_id: int,
     cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
-    year: Optional[int] = Query(None, description="Filter to a specific year"),
+    year_from: Optional[int] = Query(None, description="Start year (inclusive)"),
+    year_to: Optional[int] = Query(None, description="End year (inclusive)"),
     conn=Depends(get_db_connection),
 ):
     """Slim GeoJSON FeatureCollection for the map (no per-victim participants).
@@ -945,7 +966,7 @@ def get_city_accidents(
         with conn.cursor() as _cur:
             _cur.execute("SET LOCAL statement_timeout = '30s'")
         validate_network_exists(conn, city_id)
-        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only, year=year)
+        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only, year_from=year_from, year_to=year_to)
         return {
             "data": geojson,
             "count": len(geojson["features"]),
@@ -961,13 +982,14 @@ def get_city_accidents(
 @router.get("/cities/{city_id}/accidents/summary")
 def get_city_accidents_summary(
     city_id: int,
-    year: Optional[int] = Query(None, description="Filter counts to a specific year"),
+    year_from: Optional[int] = Query(None, description="Start year (inclusive)"),
+    year_to: Optional[int] = Query(None, description="End year (inclusive)"),
     conn=Depends(get_db_connection),
 ):
     """Aggregate counts (total / cyclist / pedestrian / latest_year / available_years)."""
     try:
         validate_network_exists(conn, city_id)
-        return {"data": get_accidents_summary(conn, city_id, year=year)}
+        return {"data": get_accidents_summary(conn, city_id, year_from=year_from, year_to=year_to)}
     except HTTPException:
         raise
     except Exception as e:
@@ -978,18 +1000,14 @@ def get_city_accidents_summary(
 @router.get("/cities/{city_id}/accidents/pair-stats")
 def get_city_accidents_pair_stats(
     city_id: int,
-    year: Optional[int] = Query(None, description="Filter to a specific year"),
+    year_from: Optional[int] = Query(None, description="Start year (inclusive)"),
+    year_to: Optional[int] = Query(None, description="End year (inclusive)"),
     conn=Depends(get_db_connection),
 ):
-    """Per-vehicle-type severity for each vehicle-pair combination.
-
-    Returns severity counts for cat_a participants in accidents involving both
-    cat_a and cat_b vehicle types. Also includes (bike_vmu, solo) for solo cyclist
-    accidents. No year required — aggregate over all available data by default.
-    """
+    """Per-vehicle-type severity for each vehicle-pair combination."""
     try:
         validate_network_exists(conn, city_id)
-        return {"data": get_vehicle_pair_severity(conn, city_id, year=year)}
+        return {"data": get_vehicle_pair_severity(conn, city_id, year_from=year_from, year_to=year_to)}
     except HTTPException:
         raise
     except Exception as e:
@@ -1097,6 +1115,7 @@ def get_city_traffic_infra_coverage(
     generation_type: Optional[str] = Query(None),
     algorithm: Optional[str] = Query(None),
     month: Optional[str] = Query(None, description="YYYY-MM"),
+    month_from: Optional[str] = Query(None, description="Start month YYYY-MM for range aggregation"),
     conn=Depends(get_db_connection),
 ):
     """Return km of simulated trips on cycling infrastructure for a given (gen, algo, month)."""
@@ -1118,7 +1137,9 @@ def get_city_traffic_infra_coverage(
         if month_date is None:
             return TrafficInfraCoverage(message="No traffic data for this combination", data={})
 
-        cov = get_traffic_infra_coverage(conn, city_id, generation_type, algorithm, month_date)
+        month_from_date = date_type.fromisoformat(month_from + "-01") if month_from else None
+
+        cov = get_traffic_infra_coverage(conn, city_id, generation_type, algorithm, month_date, month_from=month_from_date)
         return TrafficInfraCoverage(
             message="Traffic infrastructure coverage retrieved",
             data={

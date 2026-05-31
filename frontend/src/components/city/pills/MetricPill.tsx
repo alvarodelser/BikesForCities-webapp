@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect, type ComponentType, type ReactNode } from 'react';
-import { HelpCircle, X } from 'lucide-react';
+import { HelpCircle, X, ChevronUp, ChevronDown } from 'lucide-react';
 
-function fmtNumber(raw: string): string {
-  const n = parseFloat(raw);
-  if (isNaN(n)) return raw;
-  const [intStr, decStr] = n.toString().split('.');
-  const intFormatted = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, ' '); // narrow no-break space
-  return decStr ? `${intFormatted}.${decStr}` : intFormatted;
+// Strip any non-% unit suffix — returns just the number (and % if applicable).
+function leftDisplay(raw: string): string {
+  const s = (raw ?? '').trim();
+  if (!s || s === '—') return s;
+  if (/\s*%$/.test(s)) return s;                    // keep "72.5 %" as-is
+  const m = s.match(/^([-\d.,]+)\s+[^\d]/);
+  if (m) return m[1].trim();                         // "12.3 km" → "12.3"
+  return s;
 }
 
 export interface MetricPillProps {
@@ -28,7 +30,6 @@ export interface MetricPillProps {
 
 const MetricPill: React.FC<MetricPillProps> = ({
   value,
-  unit,
   label,
   sublabel,
   helpQueVes,
@@ -40,7 +41,8 @@ const MetricPill: React.FC<MetricPillProps> = ({
   variant = 'light',
 }) => {
   const [flipped, setFlipped] = useState(false);
-  const [showScrollHint, setShowScrollHint] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [showScrollUp, setShowScrollUp] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -57,7 +59,10 @@ const MetricPill: React.FC<MetricPillProps> = ({
     if (!flipped) return;
     const el = scrollRef.current;
     if (!el) return;
-    const check = () => setShowScrollHint(el.scrollHeight - el.scrollTop > el.clientHeight + 4);
+    const check = () => {
+      setShowScrollDown(el.scrollHeight - el.scrollTop > el.clientHeight + 4);
+      setShowScrollUp(el.scrollTop > 4);
+    };
     const t = setTimeout(check, 420);
     el.addEventListener('scroll', check);
     return () => { clearTimeout(t); el.removeEventListener('scroll', check); };
@@ -132,18 +137,11 @@ const MetricPill: React.FC<MetricPillProps> = ({
             )}
           </div>
 
-          {/* Row 2: value left (big) · sublabel/unit right */}
+          {/* Row 2: value left (number only) · sublabel/unit right */}
           <div className="flex items-end justify-between gap-3">
-            <div className="flex-shrink-0">
-              <p className={`text-[32px] font-black leading-none tracking-tight ${textPrimary}`}>
-                {unit ? fmtNumber(value) : value}
-              </p>
-              {unit && (
-                <p className={`text-[10px] font-semibold leading-tight mt-0.5 ${textMuted}`}>
-                  {unit}
-                </p>
-              )}
-            </div>
+            <p className={`text-[32px] font-black leading-none tracking-tight flex-shrink-0 ${textPrimary}`}>
+              {leftDisplay(value)}
+            </p>
             {sublabel && (
               <p className={`text-[10px] font-medium leading-tight text-right min-w-0 ${textMuted}`}>
                 {sublabel}
@@ -154,7 +152,7 @@ const MetricPill: React.FC<MetricPillProps> = ({
 
         {/* ── Back face ── */}
         <div
-          className={`absolute inset-0 rounded-xl border backdrop-blur-md flex flex-col ${
+          className={`absolute inset-0 rounded-xl border backdrop-blur-md flex flex-col overflow-hidden ${
             isDark ? '' : 'border-white/55 bg-white/50'
           }`}
           style={{
@@ -194,20 +192,20 @@ const MetricPill: React.FC<MetricPillProps> = ({
             >
               {resolvedQueVes && (
                 <div>
-                  {sectionHead('Qué estás viendo')}
+                  {sectionHead('QUÉ VES')}
                   <p className={`text-[10.5px] leading-relaxed ${textBody}`}>{resolvedQueVes}</p>
-                </div>
-              )}
-              {helpComoSeRecogieron && (
-                <div>
-                  {sectionHead('Cómo se recogieron')}
-                  <p className={`text-[10.5px] leading-relaxed ${textBody}`}>{helpComoSeRecogieron}</p>
                 </div>
               )}
               {helpPorQueEsUtil && (
                 <div>
-                  {sectionHead('Por qué es útil')}
+                  {sectionHead('POR QUÉ IMPORTA')}
                   <p className={`text-[10.5px] leading-relaxed ${textBody}`}>{helpPorQueEsUtil}</p>
+                </div>
+              )}
+              {helpComoSeRecogieron && (
+                <div>
+                  {sectionHead('METODOLOGÍA')}
+                  <p className={`text-[10.5px] leading-relaxed ${textBody}`}>{helpComoSeRecogieron}</p>
                 </div>
               )}
               {/* Legacy ReactNode fallback */}
@@ -216,17 +214,14 @@ const MetricPill: React.FC<MetricPillProps> = ({
               )}
             </div>
 
-            {/* Scroll hint */}
-            {showScrollHint && (
-              <div
-                className="absolute bottom-0 left-0 right-0 h-7 flex items-end justify-center pb-1 pointer-events-none"
-                style={{
-                  background: isDark
-                    ? `linear-gradient(to bottom, transparent, color-mix(in srgb, ${accent} 20%, var(--cream, white)))`
-                    : 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.55))',
-                }}
-              >
-                <span className={`text-[9px] font-black tracking-widest ${textMuted}`}>↓ más</span>
+            {showScrollUp && (
+              <div className="absolute top-0.5 left-0 right-0 flex justify-center pointer-events-none">
+                <ChevronUp className={`w-3 h-3 opacity-35 ${isDark ? 'text-[var(--blue-dark)]' : 'text-white'}`} />
+              </div>
+            )}
+            {showScrollDown && (
+              <div className="absolute bottom-0.5 left-0 right-0 flex justify-center pointer-events-none">
+                <ChevronDown className={`w-3 h-3 opacity-35 ${isDark ? 'text-[var(--blue-dark)]' : 'text-white'}`} />
               </div>
             )}
           </div>

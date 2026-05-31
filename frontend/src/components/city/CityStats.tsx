@@ -137,13 +137,13 @@ interface CityStatsProps {
 }
 
 const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats, compact = false, theme = 'light' }) => {
-  const { mode, generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
+  const { mode, generation, routing, period, periodFrom, setGeneration, setRouting, setPeriod } = useMapState();
   const { insights = { primary: '', secondary: '' }, recommendations = { primary: '', secondary: '' } } = modeStats || {};
   const isTraffic = mode === MAP_MODES.TRAFFIC;
   const isInfra = mode === MAP_MODES.INFRASTRUCTURE;
   const accent = '#3A6C7F';
 
-  const { stats: liveStats, trafficModes, availablePeriods, loading } = useLiveStats(city, mode, generation, routing, period);
+  const { stats: liveStats, trafficModes, availablePeriods, loading } = useLiveStats(city, mode, generation, routing, period, periodFrom);
   const { gens, algos } = computationOptions(trafficModes, generation);
 
   const handleSetGeneration = (gen: string) => {
@@ -217,28 +217,36 @@ const CityStats: React.FC<CityStatsProps> = ({ city, title, subtitle, modeStats,
                 label="Longitud total"
                 sublabel="Red ciclista"
                 icon={BarChart3}
-                helpContent="Longitud total de la red de carriles bici e infraestructura ciclista detectada en la ciudad."
+                helpQueVes="El total de kilómetros de carril bici con separación física del tráfico motorizado dentro del área de estudio de la ciudad."
+                helpPorQueEsUtil="La infraestructura segregada es el indicador más directamente relacionado con el incremento del uso de la bici. Una red corta obliga a los ciclistas a compartir calzada y limita mucho el tipo de usuario que está dispuesto a aceptar esos riesgos."
+                helpComoSeRecogieron="Se mapea la red combinando datos de OpenStreetMap y fuentes municipales. Solo se contabilizan tramos con separación física del tráfico motorizado. El área de estudio se estandariza a 10 × 10 km."
               />
               <MetricPill
                 value={liveStats[3]?.value || '—'}
-                label="Cobertura poblacional"
-                sublabel="Accesibilidad"
+                label="Cobertura"
+                sublabel="% edificios a <150m del carril"
                 icon={TrendingUp}
-                helpContent="Porcentaje de la población que vive a menos de 150 metros de un carril bici."
+                helpQueVes="El porcentaje de edificios del área de estudio que tienen al menos un tramo de carril bici a menos de 150 metros."
+                helpPorQueEsUtil="Los kilómetros totales no dicen nada sobre la efectividad de la red. Una cobertura baja indica que la red existe pero no llega donde vive la gente."
+                helpComoSeRecogieron="Se calcula la distancia entre cada edificio del mapa y el tramo más cercano de la red ciclista. El umbral de 150 metros corresponde a un desplazamiento a pie de menos de dos minutos."
               />
               <MetricPill
                 value={liveStats[4]?.value || '—'}
                 label="Cobertura GCC"
                 sublabel="Conectividad"
                 icon={Network}
-                helpContent="Cobertura de la 'Gran Componente Conexa' (GCC). Indica el porcentaje de población servido por la red continua más grande, sin saltos."
+                helpQueVes="El porcentaje de kilómetros de carril que forman parte del mayor fragmento continuo de la red."
+                helpPorQueEsUtil="Un tramo que empieza y termina sin conectar con nada obliga al ciclista a incorporarse al tráfico, rompiendo el viaje y la seguridad. Esta métrica revela si la infraestructura forma un sistema coherente o una colección de tramos inconexos."
+                helpComoSeRecogieron="Se aplica análisis de grafos para identificar la Gran Componente Conexa (GCC): el subconjunto más grande de tramos interconectados. El porcentaje se calcula sobre el total de kilómetros de red."
               />
               <MetricPill
                 value={liveStats[2]?.value || '—'}
-                label="Eficiencia presupuestaria"
-                sublabel="Inversión"
+                label="Inversión"
+                sublabel="Km / M€"
                 icon={Activity}
-                helpContent="Kilómetros de infraestructura por cada millón de euros invertido en el programa de Vías Públicas."
+                helpQueVes="Los kilómetros de carril bici construidos por cada millón de euros invertido en infraestructura viaria."
+                helpPorQueEsUtil="Es el indicador más directo de la prioridad política hacia el ciclismo urbano. Permite evaluar si la inversión en movilidad se convierte en infraestructura ciclista."
+                helpComoSeRecogieron="Se cruza la longitud de red con la partida de Vías Públicas del presupuesto municipal publicado."
               />
             </div>
           </div>

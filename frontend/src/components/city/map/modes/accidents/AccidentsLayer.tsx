@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
+import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchAccidentDetail } from '../../../../../services/api';
 import type { AccidentDetail, AccidentParticipant } from '../../../../../services/api';
 import { TILE_SERVER_URL } from '../../../../../config/api';
@@ -92,16 +93,18 @@ function toSelectionParticipants(raw: AccidentParticipant[]): SelectionParticipa
 
 interface AccidentsLayerProps {
     submode: string;
-    year?: number;
 }
 
-export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
+export default function AccidentsLayer({ submode: _submode }: AccidentsLayerProps) {
     const { map, city, setLayerState } = useMap();
+    const { yearFrom, yearTo, accidentType } = useMapState();
+    const yearFromNum = yearFrom ? parseInt(yearFrom, 10) : undefined;
+    const yearToNum   = yearTo   ? parseInt(yearTo,   10) : undefined;
     const activeIdRef = useRef<string | null>(null);
     const globalClickHandlerRef = useRef<((e: maplibregl.MapMouseEvent) => void) | null>(null);
     const detailReqIdRef = useRef(0);
 
-    const cyclistsOnly = submode !== 'all';
+    const cyclistsOnly = accidentType !== 'all';
 
     const clearSelection = useCallback(() => {
         if (activeIdRef.current && map) {
@@ -128,7 +131,8 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
         window.addEventListener('map-selection', onSelectionEvent);
 
         const tileParams = new URLSearchParams({ city_id: String(cityId), cyclists_only: String(cyclistsOnly) });
-        if (year != null) tileParams.set('year', String(year));
+        if (yearFromNum != null) tileParams.set('year_from', String(yearFromNum));
+        if (yearToNum   != null) tileParams.set('year_to',   String(yearToNum));
         const tileUrl = `${TILE_SERVER_URL}/accidents_tile/{z}/{x}/{y}?${tileParams}`;
 
         setLayerState?.('loading');
@@ -243,7 +247,7 @@ export default function AccidentsLayer({ submode, year }: AccidentsLayerProps) {
                 if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
             } catch { /* map may have been removed */ }
         };
-    }, [map, city?.id, cyclistsOnly, year, clearSelection, setLayerState]);
+    }, [map, city?.id, accidentType, yearFrom, yearTo, clearSelection, setLayerState]);
 
     return null;
 }

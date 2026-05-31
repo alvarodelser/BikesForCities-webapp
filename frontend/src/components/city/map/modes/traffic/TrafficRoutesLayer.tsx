@@ -47,7 +47,7 @@ function buildOpacityExpr(q5: number): unknown[] {
 export default function TrafficRoutesLayer() {
     const { map, city, setSelectedEdgeId, setLayerState, setLayerRetry } = useMap();
     const { setThresholds } = useThresholds();
-    const { generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
+    const { generation, routing, period, periodFrom, setGeneration, setRouting, setPeriod, setPeriodFrom } = useMapState();
 
     const [renderMode, setRenderMode] = useState<'traces' | 'heatmap'>('traces');
     const renderModeRef = useRef<'traces' | 'heatmap'>('traces');
@@ -183,7 +183,7 @@ export default function TrafficRoutesLayer() {
             window.dispatchEvent(new CustomEvent('map-selection', {
                 detail: {
                     ...prev,
-                    rows: [{ label: 'Rutas', value: done ? `${loaded.toLocaleString('es-ES')} rutas` : rowValue }],
+                    rows: [{ label: 'Trayectos', value: done ? `${loaded.toLocaleString('es-ES')} trayectos` : rowValue }],
                     routeProgress: done ? undefined : { loaded, total, onStop: handleStopRoutes },
                 } as SelectionDetail,
             }));
@@ -199,6 +199,7 @@ export default function TrafficRoutesLayer() {
                     generationType: generation || undefined,
                     algorithm: routing || undefined,
                     month: period || undefined,
+                    monthFrom: periodFrom || undefined,
                     skipCount: true,
                     signal: controller.signal,
                 });
@@ -224,7 +225,7 @@ export default function TrafficRoutesLayer() {
             }
             console.error('Failed to fetch edge routes:', err);
         }
-    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, handleStopRoutes]);
+    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, periodFrom, handleStopRoutes]);
 
 
     // --- Mount: hide others (traffic layer stays hidden until loadData sets tiles + visible) ---
@@ -279,8 +280,8 @@ export default function TrafficRoutesLayer() {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            console.log(`[TrafficRoutesLayer] resolve → city=${city!.id} gen=${generation} routing=${routing} period=${period}`);
-            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
+            console.log(`[TrafficRoutesLayer] resolve → city=${city!.id} gen=${generation} routing=${routing} period=${period} periodFrom=${periodFrom}`);
+            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined, periodFrom || undefined).then(result => {
                 if (cancelled || !map) return;
 
                 if (!result.generation_type || !result.algorithm || !result.month) {
@@ -295,6 +296,7 @@ export default function TrafficRoutesLayer() {
                 if (!period && result.month) {
                     const resolvedMonthStr = result.month.slice(0, 7);
                     setPeriod(resolvedMonthStr);
+                    if (!periodFrom) setPeriodFrom(resolvedMonthStr);
                     urlChanged = true;
                 }
 
@@ -306,6 +308,7 @@ export default function TrafficRoutesLayer() {
                     tileParams.set('generation_type', result.generation_type);
                     tileParams.set('algorithm', result.algorithm);
                     tileParams.set('month', result.month);
+                    if (periodFrom) tileParams.set('month_from', periodFrom);
 
                     const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
                     src.setTiles([newTileUrl]);
@@ -345,7 +348,7 @@ export default function TrafficRoutesLayer() {
             cancelled = true;
             setLayerState?.('idle');
         };
-    }, [map, city?.id, generation, routing, period, setLayerState, setLayerRetry]);
+    }, [map, city?.id, generation, routing, period, periodFrom, setLayerState, setLayerRetry]);
 
     // --- Click handling ---
     useEffect(() => {
@@ -395,7 +398,7 @@ export default function TrafficRoutesLayer() {
                 badge: tripCount != null
                     ? { text: `${Math.round(tripCount)} v/mes`, color: '#027A76' }
                     : { text: 'Sin datos', color: '#9ca3af' },
-                rows: [{ label: 'Rutas', value: 'Cargando…' }],
+                rows: [{ label: 'Trayectos', value: 'Cargando…' }],
                 colormap: thresholdsRef.current
                     ? { ...thresholdsRef.current, value: tripCount }
                     : undefined,
@@ -441,7 +444,7 @@ export default function TrafficRoutesLayer() {
             ? parseFloat(lastSelectionRef.current.badge.text) || null
             : null;
         loadRoutes(stickyRef.current.edgeId, renderMode, tripCount);
-    }, [renderMode, generation, routing, period]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [renderMode, generation, routing, period, periodFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return null;
 }

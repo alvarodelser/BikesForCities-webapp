@@ -129,7 +129,7 @@ function chaikinSmooth(pts: [number,number][], iterations = 2): [number,number][
 
 export default function TrafficTripsLayer() {
     const { map, city, setLayerState } = useMap();
-    const { generation, period, setGeneration } = useMapState();
+    const { generation, period, periodFrom, setGeneration } = useMapState();
 
     useEffect(() => {
         if (generation) return;
@@ -313,14 +313,14 @@ export default function TrafficTripsLayer() {
         if (!map || !city?.id || !generation) return;
         setLayerState?.('loading');
         try {
-            const geojson = await fetchODFlows(city.id, generation, period || undefined, 9);
+            const geojson = await fetchODFlows(city.id, generation, period || undefined, 9, periodFrom || undefined);
             buildLayers(geojson);
             setLayerState?.(geojson.features.length === 0 ? 'empty' : 'idle');
         } catch (err) {
             console.error('[TrafficTripsLayer] Failed to load OD flows:', err);
             setLayerState?.('error');
         }
-    }, [map, city?.id, generation, period, buildLayers]);
+    }, [map, city?.id, generation, period, periodFrom, buildLayers]);
 
     // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -348,7 +348,7 @@ export default function TrafficTripsLayer() {
         clearSelected();
         window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         loadData();
-    }, [generation, period]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [generation, period, periodFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!map) return;

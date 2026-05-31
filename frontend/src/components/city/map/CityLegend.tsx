@@ -8,11 +8,11 @@ import SelectionPanel, { PANEL_WIDTH } from './SelectionPanel';
 import type { SelectionDetail } from '../../../types/selection';
 
 const SUBMODE_LABELS: Record<string, string> = {
-    trips:    'Viajes',
-    downtime: 'Tiempo',
-    reach:    'Alcance',
-    rutas:    'Rutas',
-    od:       'Origen-Destino',
+    trips:    'Demanda',
+    downtime: 'Disponibilidad',
+    reach:    'Cobertura',
+    rutas:    'Trayectos',
+    od:       'Desplazamientos',
 };
 
 interface CityLegendProps {

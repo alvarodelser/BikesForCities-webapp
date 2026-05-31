@@ -38,12 +38,19 @@ def get_accidents_geojson(
     conn,
     city_id: int,
     cyclists_only: bool = True,
-    year: Optional[int] = None,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Slim GeoJSON for the map (no per-victim participants)."""
     cyclist_clause = "AND 'bike_vmu' = ANY(a.vehicles_involved)" if cyclists_only else ""
-    year_clause = "AND EXTRACT(YEAR FROM a.timestamp)::INT = %s" if year is not None else ""
-    params = [city_id] + ([year] if year is not None else [])
+    year_clause = ""
+    params: list = [city_id]
+    if year_from is not None:
+        year_clause += "AND EXTRACT(YEAR FROM a.timestamp)::INT >= %s "
+        params.append(year_from)
+    if year_to is not None:
+        year_clause += "AND EXTRACT(YEAR FROM a.timestamp)::INT <= %s "
+        params.append(year_to)
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT
@@ -107,10 +114,16 @@ def get_accidents_geojson(
     return {"type": "FeatureCollection", "features": features}
 
 
-def get_accidents_summary(conn, city_id: int, year: Optional[int] = None) -> Dict[str, Any]:
+def get_accidents_summary(conn, city_id: int, year_from: Optional[int] = None, year_to: Optional[int] = None) -> Dict[str, Any]:
     """Aggregate counts for the stats panel — cheap, no features."""
-    year_clause = "AND EXTRACT(YEAR FROM timestamp)::INT = %s" if year is not None else ""
-    params_counts = [city_id] + ([year] if year is not None else [])
+    year_clause = ""
+    params_counts: list = [city_id]
+    if year_from is not None:
+        year_clause += "AND EXTRACT(YEAR FROM timestamp)::INT >= %s "
+        params_counts.append(year_from)
+    if year_to is not None:
+        year_clause += "AND EXTRACT(YEAR FROM timestamp)::INT <= %s "
+        params_counts.append(year_to)
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT
@@ -189,16 +202,18 @@ def get_accident_detail(conn, city_id: int, accident_id: str) -> Optional[Dict[s
 def get_vehicle_pair_severity(
     conn,
     city_id: int,
-    year: Optional[int] = None,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
 ) -> list:
-    """Per-vehicle-type severity for each vehicle-pair combination.
-
-    Returns one dict per (cat_a, cat_b) with severity counts for cat_a participants
-    in accidents involving both cat_a and cat_b. Also includes (bike_vmu, solo) for
-    single-vehicle cyclist accidents. No year gating — always returns aggregate data.
-    """
-    year_clause = "AND EXTRACT(YEAR FROM a.timestamp)::INT = %s" if year is not None else ""
-    params = [city_id] + ([year] if year is not None else [])
+    """Per-vehicle-type severity for each vehicle-pair combination."""
+    year_clause = ""
+    params: list = [city_id]
+    if year_from is not None:
+        year_clause += "AND EXTRACT(YEAR FROM a.timestamp)::INT >= %s "
+        params.append(year_from)
+    if year_to is not None:
+        year_clause += "AND EXTRACT(YEAR FROM a.timestamp)::INT <= %s "
+        params.append(year_to)
 
     with conn.cursor() as cur:
         cur.execute(f"""

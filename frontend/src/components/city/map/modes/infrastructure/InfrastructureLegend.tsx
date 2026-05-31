@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { HelpCircle } from 'lucide-react';
 import { useMap } from '../../MapContext';
 
 interface LegendItemProps {
@@ -76,7 +77,7 @@ const CoverageColorSquare = ({ active }: { active: boolean }) => (
 export default function InfrastructureLegend() {
     const [showBikePathBuildings, setShowBikePathBuildings] = useState(true);
     const [showCoverage, setShowCoverage] = useState(false);
-    const { map } = useMap();
+    const { map, openMapHelp } = useMap();
 
     // Buildings layer — controlled only by showBikePathBuildings
     useEffect(() => {
@@ -143,24 +144,33 @@ export default function InfrastructureLegend() {
                     </div>
 
                     {/* Sub-toggle */}
-                    <div
-                        className={`flex items-center justify-between flex-1 px-1.5 py-0.5 rounded-xl transition-all duration-300 ${
-                            coverageDisabled
-                                ? 'opacity-40 cursor-default'
-                                : 'cursor-pointer hover:bg-black/5'
-                        }`}
-                        onClick={() => !coverageDisabled && setShowCoverage(v => !v)}
-                    >
-                        <span className={`text-[var(--text-xs)] font-medium transition-colors ${showCoverage ? 'text-black/70' : 'text-black/40'}`}>
-                            Cobertura conectada
-                        </span>
-                        <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-300 flex-shrink-0 ml-2 ${
-                            showCoverage ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-gray-300'
-                        }`}>
-                            <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-all duration-300 ${
-                                showCoverage ? 'left-4' : 'left-0.5'
-                            }`} />
-                        </div>
+                    <div className="flex items-center gap-1 flex-1">
+                      <div
+                          className={`flex items-center justify-between flex-1 px-1.5 py-0.5 rounded-xl transition-all duration-300 ${
+                              coverageDisabled
+                                  ? 'opacity-40 cursor-default'
+                                  : 'cursor-pointer hover:bg-black/5'
+                          }`}
+                          onClick={() => !coverageDisabled && setShowCoverage(v => !v)}
+                      >
+                          <span className={`text-[var(--text-xs)] font-medium transition-colors ${showCoverage ? 'text-black/70' : 'text-black/40'}`}>
+                              Cobertura conectada
+                          </span>
+                          <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-300 flex-shrink-0 ml-2 ${
+                              showCoverage ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-gray-300'
+                          }`}>
+                              <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-all duration-300 ${
+                                  showCoverage ? 'left-4' : 'left-0.5'
+                              }`} />
+                          </div>
+                      </div>
+                      <button
+                          onClick={() => openMapHelp('gcc-section')}
+                          className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-black/25 hover:text-black/55 hover:bg-black/5 transition-all"
+                          aria-label="Información sobre cobertura conectada"
+                      >
+                          <HelpCircle className="w-3 h-3" />
+                      </button>
                     </div>
                 </div>
             </div>

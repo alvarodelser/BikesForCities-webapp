@@ -1,11 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { 
-  Network, 
-  Car, 
-  MapPin, 
-  ArrowUp, 
-  ArrowDown
-} from 'lucide-react';
+import { ArrowUp, ArrowDown, Network } from 'lucide-react';
+import { Graph, Bicycle } from '@phosphor-icons/react';
 import type { CityData } from '../../constants/cities';
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 import { formatPopulation, formatDistance, formatPercentage, formatServiceName } from '../../utils/formatters';
@@ -20,9 +15,9 @@ interface CityLeaderboardProps {
 }
 
 const MODE_META = [
-  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', icon: Network, color: 'var(--blue)' },
-  { id: MAP_MODES.STATIONS, name: 'Servicio Bici', icon: MapPin, color: 'var(--yellow)' },
-  { id: MAP_MODES.TRAFFIC, name: 'Tráfico', icon: Car, color: 'var(--red)' },
+  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura',     icon: Network,  color: 'var(--blue)' },
+  { id: MAP_MODES.STATIONS,       name: 'Servicio Bici',       icon: Bicycle,  color: 'var(--yellow)' },
+  { id: MAP_MODES.TRAFFIC,        name: 'Modelo de Movilidad', icon: Graph,    color: 'var(--red)' },
 ] as const;
 
 type SortKey = keyof CityData;

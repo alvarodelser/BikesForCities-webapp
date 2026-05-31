@@ -4,14 +4,7 @@ import { useMapState } from '../../hooks/useMapState';
 import CityMap from './CityMap';
 import MapSheetContent from './MapSheetContent';
 
-import {
-  Car,
-  MapPin,
-  Network,
-  Mountain,
-  TriangleAlert,
-  CircleDot,
-} from 'lucide-react';
+import { RoadHorizon, Graph, Bicycle, Warning } from '@phosphor-icons/react';
 
 import { MAP_MODES } from '../../constants/mapModes';
 
@@ -25,36 +18,28 @@ const modeColors: Record<string, string> = {
   [MAP_MODES.INFRASTRUCTURE]: '#027A76',
   [MAP_MODES.TRAFFIC]: '#3A6C7F',
   [MAP_MODES.STATIONS]: '#ffa585',
-  [MAP_MODES.TERRAIN]: 'var(--orange)',
-  [MAP_MODES.INTERSECTIONS]: 'var(--yellow)',
   [MAP_MODES.ACCIDENTS]: 'var(--red)',
 };
 
 const modeShortNames: Record<string, string> = {
   [MAP_MODES.INFRASTRUCTURE]: 'Infra',
-  [MAP_MODES.TRAFFIC]: 'Tráfico',
+  [MAP_MODES.TRAFFIC]: 'Movilidad',
   [MAP_MODES.STATIONS]: 'Est.',
-  [MAP_MODES.TERRAIN]: 'Ter.',
-  [MAP_MODES.INTERSECTIONS]: 'Inter.',
   [MAP_MODES.ACCIDENTS]: 'Accid.',
 };
 
 const modeNames: Record<string, string> = {
   [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
-  [MAP_MODES.TRAFFIC]: 'Tráfico',
-  [MAP_MODES.STATIONS]: 'Servicios de Bici',
-  [MAP_MODES.TERRAIN]: 'Terreno',
-  [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
+  [MAP_MODES.TRAFFIC]: 'Modelo de Movilidad',
+  [MAP_MODES.STATIONS]: 'Servicio Bici',
   [MAP_MODES.ACCIDENTS]: 'Accidentes',
 };
 
-const modeIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  [MAP_MODES.INFRASTRUCTURE]: Network,
-  [MAP_MODES.TRAFFIC]: Car,
-  [MAP_MODES.STATIONS]: MapPin,
-  [MAP_MODES.TERRAIN]: Mountain,
-  [MAP_MODES.INTERSECTIONS]: CircleDot,
-  [MAP_MODES.ACCIDENTS]: TriangleAlert,
+const modeIcons: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
+  [MAP_MODES.INFRASTRUCTURE]: RoadHorizon,
+  [MAP_MODES.TRAFFIC]: Graph,
+  [MAP_MODES.STATIONS]: Bicycle,
+  [MAP_MODES.ACCIDENTS]: Warning,
 };
 
 export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {

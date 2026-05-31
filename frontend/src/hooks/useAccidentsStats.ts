@@ -206,7 +206,7 @@ function buildCollisionMatrix(pairStats: VehiclePairStat[]): CollisionMatrixRow[
   }));
 }
 
-export function useAccidentsStats(cityId: number | null, year?: number): AccidentsStatsResult {
+export function useAccidentsStats(cityId: number | null, yearFrom?: number, yearTo?: number): AccidentsStatsResult {
   const [totalAccidents, setTotalAccidents] = useState(0);
   const [cyclistAccidents, setCyclistAccidents] = useState(0);
   const [pedestrianAccidents, setPedestrianAccidents] = useState(0);
@@ -227,9 +227,9 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
     setError(null);
 
     Promise.all([
-      fetchAccidentsSummary(cityId, year),
-      fetchAccidents(cityId, true, year),
-      fetchVehiclePairStats(cityId, year).catch(() => [] as VehiclePairStat[]),
+      fetchAccidentsSummary(cityId, yearFrom, yearTo),
+      fetchAccidents(cityId, true, yearFrom, yearTo),
+      fetchVehiclePairStats(cityId, yearFrom, yearTo).catch(() => [] as VehiclePairStat[]),
     ])
       .then(([summary, cyclistGeojson, pairStats]) => {
         if (cancelled) return;
@@ -268,7 +268,7 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
       });
 
     return () => { cancelled = true; };
-  }, [cityId, year]);
+  }, [cityId, yearFrom, yearTo]);
 
   return {
     totalAccidents,
