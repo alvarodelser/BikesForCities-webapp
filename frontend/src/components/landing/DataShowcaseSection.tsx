@@ -3,11 +3,6 @@ import RankingsPanel from './showcase/RankingsPanel';
 import NewsPanel from './showcase/NewsPanel';
 import MapsPanel from './showcase/MapsPanel';
 
-const AUDIENCE_PILLS = [
-  { label: 'Ciudadanos',    bg: 'rgba(58,108,127,0.1)',  color: 'var(--blue)'       },
-  { label: 'Asociaciones',  bg: 'rgba(2,122,118,0.1)',   color: 'var(--green-dark)' },
-  { label: 'Ayuntamientos', bg: 'rgba(0,56,73,0.08)',    color: 'var(--blue-dark)'  },
-];
 
 const DataShowcaseSection: React.FC = () => {
   return (
@@ -56,31 +51,11 @@ const DataShowcaseSection: React.FC = () => {
               color: 'var(--blue)',
               opacity: 0.8,
               lineHeight: 1.65,
-              maxWidth: '54ch',
               marginBottom: 16,
             }}
           >
             Tanto si eres ciudadano que quiere entender su barrio, formas parte de una asociación que busca argumentos, o trabajas en un ayuntamiento con ganas de actuar — aquí tienes las herramientas.
           </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {AUDIENCE_PILLS.map(p => (
-              <span
-                key={p.label}
-                style={{
-                  fontSize: '0.6rem',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  padding: '4px 12px',
-                  borderRadius: 20,
-                  fontWeight: 600,
-                  background: p.bg,
-                  color: p.color,
-                }}
-              >
-                {p.label}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* Three panels */}

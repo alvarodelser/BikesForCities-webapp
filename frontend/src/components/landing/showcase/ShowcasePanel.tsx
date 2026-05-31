@@ -4,6 +4,7 @@ import { useViewport } from '../../../hooks/useViewport';
 interface ShowcasePanelProps {
   flip?: boolean;
   graphic: React.ReactNode;
+  graphicCardStyle?: React.CSSProperties;
   eyebrow: string;
   title: string;
   body: string;
@@ -30,6 +31,7 @@ const CARD_STYLE: React.CSSProperties = {
 const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
   flip = false,
   graphic,
+  graphicCardStyle,
   eyebrow,
   title,
   body,
@@ -43,7 +45,7 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
       style={{
         display: 'flex',
         flexDirection: isMobile ? 'column' : flip ? 'row-reverse' : 'row',
-        alignItems: isMobile ? 'stretch' : 'center',
+        alignItems: 'stretch',
         padding: isMobile ? '28px 20px' : '44px 52px',
         gap: isMobile ? 20 : 40,
         background: 'var(--cream)',
@@ -57,13 +59,14 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
           flex: isMobile ? '0 0 auto' : '0 0 46%',
           minHeight: isMobile ? 180 : 190,
           width: isMobile ? '100%' : undefined,
+          ...graphicCardStyle,
         }}
       >
         {graphic}
       </div>
 
       {/* Text block */}
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <p
           style={{
             fontSize: '0.65rem',
