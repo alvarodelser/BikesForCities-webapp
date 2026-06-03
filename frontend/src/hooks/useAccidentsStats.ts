@@ -91,10 +91,11 @@ const PEDESTRIAN_VEHICLE_ROWS = [
   'Bus',
   'Camión/Maq',
   'Moto',
-  'Bicicleta',
+  'Bici/EPAC',
+  'Patinete/VMU',
 ] as const;
 
-export const COLLISION_VEHICLE_KEYS = ['bike_vmu', 'pedestrian', 'moto', 'car', 'bus', 'truck'] as const;
+export const COLLISION_VEHICLE_KEYS = ['bike_vmu', 'scooter', 'pedestrian', 'moto', 'car', 'bus', 'truck'] as const;
 export type CollisionVehicleKey = typeof COLLISION_VEHICLE_KEYS[number];
 
 function buildEmptySegments(): MatrixSegment[] {
@@ -139,7 +140,8 @@ function buildPedestrianMatrixFromPairStats(pairStats: VehiclePairStat[]): Matri
     bus: 'Bus',
     truck: 'Camión/Maq',
     moto: 'Moto',
-    bike_vmu: 'Bicicleta',
+    bike_vmu: 'Bici/EPAC',
+    scooter: 'Patinete/VMU',
   };
 
   for (const stat of pairStats) {
