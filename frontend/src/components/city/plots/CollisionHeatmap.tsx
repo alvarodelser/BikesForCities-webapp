@@ -2,22 +2,23 @@ import React, { useState, type ReactNode } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 import type { CollisionMatrixRow, CollisionVehicleKey, PairSev } from '../../../hooks/useAccidentsStats';
 import {
-  Bicycle, PersonSimpleWalk, Motorcycle, CarProfile, Van, Truck,
+  Bicycle, PersonSimpleWalk, Motorcycle, CarProfile, Van, Truck, Scooter,
 } from '@phosphor-icons/react';
 
 const ICON_COLOR = '#6b7280';
 
 const VEHICLE_META: Record<CollisionVehicleKey, { label: string; icon: React.ElementType; color: string }> = {
-  bike_vmu:   { label: 'Bicicleta', icon: Bicycle,          color: ICON_COLOR },
-  pedestrian: { label: 'Peatón',    icon: PersonSimpleWalk,  color: ICON_COLOR },
-  moto:       { label: 'Moto',      icon: Motorcycle,        color: ICON_COLOR },
-  car:        { label: 'Turismo',   icon: CarProfile,        color: ICON_COLOR },
-  bus:        { label: 'Autobús',   icon: Van,               color: ICON_COLOR },
-  truck:      { label: 'Camión',    icon: Truck,             color: ICON_COLOR },
+  bike_vmu:   { label: 'Bici/EPAC',    icon: Bicycle,          color: ICON_COLOR },
+  scooter:    { label: 'Patinete/VMU', icon: Scooter,          color: ICON_COLOR },
+  pedestrian: { label: 'Peatón',       icon: PersonSimpleWalk,  color: ICON_COLOR },
+  moto:       { label: 'Moto',         icon: Motorcycle,        color: ICON_COLOR },
+  car:        { label: 'Turismo',      icon: CarProfile,        color: ICON_COLOR },
+  bus:        { label: 'Autobús',      icon: Van,               color: ICON_COLOR },
+  truck:      { label: 'Camión',       icon: Truck,             color: ICON_COLOR },
 };
 
 // Pedestrian first so the most-vulnerable participant anchors row 0 (longest row)
-const DISPLAY_ORDER: CollisionVehicleKey[] = ['pedestrian', 'bike_vmu', 'moto', 'car', 'bus', 'truck'];
+const DISPLAY_ORDER: CollisionVehicleKey[] = ['pedestrian', 'bike_vmu', 'scooter', 'moto', 'car', 'bus', 'truck'];
 
 const SEV_ROWS = [
   { label: 'Fatal', color: '#7f1d1d', key: 'fatal'     as const },
