@@ -258,7 +258,7 @@ CREATE INDEX IF NOT EXISTS idx_path_nodes_node_id ON path_nodes(node_id);
 -- The routing algorithm is determined by paths.algorithm (not stored here).
 -- UNIQUE(trip_id, path_id) prevents routing the same trip to the same path twice.
 CREATE TABLE IF NOT EXISTS routes (
-    id         SERIAL PRIMARY KEY,
+    id         BIGSERIAL PRIMARY KEY,
     city_id    INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     trip_id    INTEGER REFERENCES trips(id) ON DELETE CASCADE,
     path_id    INTEGER REFERENCES paths(id) ON DELETE SET NULL,
