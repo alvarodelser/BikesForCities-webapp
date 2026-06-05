@@ -189,6 +189,11 @@ class PaginatedEdgesResponse(PaginatedResponse):
     data: List[EdgeResponse]
 
 
+class EdgeSearchResponse(BaseResponse):
+    """Response for street name search — all matching edges."""
+    data: List[EdgeResponse]
+
+
 class PaginatedTripsResponse(PaginatedResponse):
     """Paginated trips response."""
     data: List[TripResponse]

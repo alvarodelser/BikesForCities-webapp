@@ -11,7 +11,7 @@ from shapely.geometry import mapping
 
 from .models import (
     CityListResponse, CityDetailResponse, CityStatsResponse,
-    PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedTripsResponse,
+    PaginatedNodesResponse, PaginatedEdgesResponse, EdgeSearchResponse, PaginatedTripsResponse,
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, TripResponse, FeatureResponse,
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
@@ -34,8 +34,8 @@ from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
     count_trips, count_features, get_nodes, get_edges, get_features, get_od_hex_flows,
     get_stations, get_edge_traffic, get_traffic_stats, get_traffic_modes, get_max_traffic_edge,
-    get_city_details, get_city_bounds,
-    get_paginated_nodes, get_paginated_edges, get_paginated_trips,
+    get_city_details, get_city_bounds, search_cities_by_name,
+    get_paginated_nodes, get_paginated_edges, search_edges_by_name, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_city_median_max_hourly_bikes, get_station_hourly_demand, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
@@ -119,6 +119,26 @@ def list_networks(conn=Depends(get_db_connection)):
     except Exception as e:
         logger.error(f"Error listing cities: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener las ciudades")
+
+
+@router.get("/cities/search", response_model=CityListResponse)
+def search_cities(
+    q: str = Query(..., min_length=1, description="City name to search for"),
+    conn=Depends(get_db_connection)
+):
+    """Search cities by name using fuzzy matching."""
+    try:
+        cities_data = search_cities_by_name(conn, q)
+        cities = [CityResponse(
+            id=row["id"], name=row["name"], alt_name=row.get("alt_name"),
+            slug=row["slug"], description=row.get("description"),
+            center_lat=row.get("center_lat"), center_lon=row.get("center_lon"),
+            radius=row.get("radius"),
+        ) for row in cities_data]
+        return CityListResponse(data=cities, message=f"Found {len(cities)} city/cities matching '{q}'")
+    except Exception as e:
+        logger.error(f"Error searching cities for '{q}': {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar ciudades")
 
 
 @router.get("/cities/{city_id}", response_model=CityDetailResponse)
@@ -455,6 +475,28 @@ def get_network_edges_geojson(
     except Exception as e:
         logger.error(f"Error getting GeoJSON edges for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener la geometría de los tramos")
+
+
+@router.get("/cities/{city_id}/edges/search", response_model=EdgeSearchResponse)
+def search_network_edges(
+    city_id: int,
+    q: str = Query(..., min_length=1, description="Street name to search for"),
+    conn=Depends(get_db_connection)
+):
+    """Search edges by street name using fuzzy matching (pg_trgm if available, ILIKE fallback)."""
+    try:
+        validate_network_exists(conn, city_id)
+        rows = search_edges_by_name(conn, city_id, q)
+        edges = [EdgeResponse(**row) for row in rows]
+        return EdgeSearchResponse(
+            data=edges,
+            message=f"Found {len(edges)} edge(s) matching '{q}'"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching edges for city {city_id} query '{q}': {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar tramos por nombre")
 
 
 @router.get("/cities/{city_id}/features/geojson", response_model=GeoJSONResponse)

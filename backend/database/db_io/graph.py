@@ -174,6 +174,35 @@ def get_paginated_edges(conn, city_id: int, highway: Optional[str] = None,
         return cur.fetchall(), total
 
 
+def search_edges_by_name(conn, city_id: int, query: str) -> List[dict]:
+    """Return all edges whose name fuzzy-matches query (pg_trgm similarity, fallback ILIKE)."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        try:
+            cur.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
+            use_trgm = cur.fetchone() is not None
+        except Exception:
+            use_trgm = False
+
+        select = """
+            SELECT id, osmid, u, v, k, ST_AsText(geom) AS geometry,
+                   highway, name, length, width,
+                   maxspeed, lanes, oneway, tunnel, bridge
+            FROM edges
+            WHERE city_id = %s AND name IS NOT NULL
+        """
+        if use_trgm:
+            cur.execute(
+                select + " AND name %% %s ORDER BY similarity(name, %s) DESC",
+                (city_id, query, query),
+            )
+        else:
+            cur.execute(
+                select + " AND name ILIKE %s ORDER BY name",
+                (city_id, f"%{query}%"),
+            )
+        return cur.fetchall()
+
+
 def get_highway_distribution(conn, city_id: int, limit: int = 15) -> List[Tuple[str, int]]:
     """Get count of edges per highway type for analysis."""
     with conn.cursor() as cur:

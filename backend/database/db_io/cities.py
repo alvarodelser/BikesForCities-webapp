@@ -213,6 +213,29 @@ def get_city_id_by_name(conn, name: str) -> Optional[int]:
         return result[0] if result else None
 
 
+def search_cities_by_name(conn, query: str) -> list:
+    """Return cities whose name fuzzy-matches query (pg_trgm similarity, fallback ILIKE)."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        try:
+            cur.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
+            use_trgm = cur.fetchone() is not None
+        except Exception:
+            use_trgm = False
+
+        select = "SELECT id, name, alt_name, slug, description, center_lat, center_lon, radius FROM cities"
+        if use_trgm:
+            cur.execute(
+                select + " WHERE name %% %s ORDER BY similarity(name, %s) DESC",
+                (query, query),
+            )
+        else:
+            cur.execute(
+                select + " WHERE name ILIKE %s ORDER BY name",
+                (f"%{query}%",),
+            )
+        return cur.fetchall()
+
+
 def get_city_details(conn, city_id: int) -> Optional[dict]:
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
