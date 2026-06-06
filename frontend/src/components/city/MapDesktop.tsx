@@ -11,8 +11,11 @@ import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
-import { fetchInfraStats } from '../../services/api';
-import type { InfraStats } from '../../services/api';
+import { fetchInfraStats, fetchCityBudgets, fetchCityContext } from '../../services/api';
+import type { InfraStats, BudgetYear, MayorTerm } from '../../services/api';
+import BudgetSunburst from './plots/BudgetSunburst';
+import TransparencyStats from './map/modes/transparency/TransparencyStats';
+import { buildSunburstTree } from '../../utils/budget';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
@@ -21,6 +24,7 @@ const modeNames: Record<string, string> = {
     [MAP_MODES.TRAFFIC]: 'Modelo de Movilidad',
     [MAP_MODES.STATIONS]: 'Servicio Bici',
     [MAP_MODES.ACCIDENTS]: 'Accidentes',
+    [MAP_MODES.TRANSPARENCY]: 'Transparencia',
 };
 
 const modeColors: Record<string, string> = {
@@ -28,12 +32,14 @@ const modeColors: Record<string, string> = {
     [MAP_MODES.TRAFFIC]: '#3A6C7F',
     [MAP_MODES.STATIONS]: '#ffa585',
     [MAP_MODES.ACCIDENTS]: 'var(--red)',
+    [MAP_MODES.TRANSPARENCY]: '#3A6C7F',
 };
 
 const modeGradients: Partial<Record<string, { bg: string; wave: string }>> = {
     [MAP_MODES.INFRASTRUCTURE]: { bg: 'linear-gradient(160deg, #027A76 0%, #3A6C7F 100%)', wave: '#027A76' },
     [MAP_MODES.STATIONS]:       { bg: 'linear-gradient(160deg, #ffa585 0%, #bc556f 100%)', wave: '#ffa585' },
     [MAP_MODES.TRAFFIC]:        { bg: 'linear-gradient(160deg, #003849 0%, #4b749f 100%)', wave: '#003849' },
+    [MAP_MODES.TRANSPARENCY]:   { bg: 'linear-gradient(160deg, #1e2d5a 0%, #3A6C7F 100%)', wave: '#1e2d5a' },
 };
 
 interface MapDesktopProps {
@@ -122,17 +128,31 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const [, setSearchParams] = useSearchParams();
     const [selectedEdgeId, setSelectedEdgeId] = useState<number | null>(null);
     const [infraStats, setInfraStats] = useState<InfraStats | null>(null);
+    const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
+    const [selectedYear, setSelectedYear] = useState<number>(0);
+    const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
+    const [mayors, setMayors] = useState<MayorTerm[]>([]);
 
     useEffect(() => {
         if (!city.id) return;
-        fetchInfraStats(city.id)
-            .then(setInfraStats)
-            .catch(() => setInfraStats(null));
+        Promise.all([
+            fetchInfraStats(city.id).catch(() => null),
+            fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
+            fetchCityContext(city.id).catch(() => ({ mayors: [] as MayorTerm[], budget_year: null, budget_categories: {} })),
+        ]).then(([infraResult, budgetsResult, contextResult]) => {
+            setInfraStats(infraResult);
+            setBudgetYears(budgetsResult);
+            if (budgetsResult.length > 0) {
+                setSelectedYear(budgetsResult[budgetsResult.length - 1].year);
+            }
+            setMayors(contextResult.mayors);
+        });
     }, [city.id]);
 
     const isModeAvailable = (m: MapMode | string | null): boolean => {
         if (!m) return false;
         if (!modeNames[m]) return false;
+        if (m === MAP_MODES.TRANSPARENCY) return budgetYears.length > 0;
         if (city.available_modes) return city.available_modes[m] === true;
         if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
         return false;
@@ -155,6 +175,19 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
 
+    const sunburstOverlay = mode === MAP_MODES.TRANSPARENCY && budgetYears.length > 0 && selectedYear > 0 ? (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="pointer-events-auto w-[min(480px,90%)]">
+                <BudgetSunburst
+                    data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
+                    year={selectedYear}
+                    budgetType={budgetType}
+                    onBudgetTypeChange={setBudgetType}
+                />
+            </div>
+        </div>
+    ) : null;
+
     const filtersEl = (
         <MapFilters
             city={city}
@@ -165,15 +198,33 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
         />
     );
     const mapEl = (
-        <div className="h-[78vh] min-h-[560px] px-[var(--space-gutter)]">
-            <CityMap city={city} selectedColor={selectedColor} onEdgeSelect={setSelectedEdgeId} />
+        <div className="h-[78vh] min-h-[560px] px-[var(--space-gutter)] relative">
+            <CityMap
+                city={city}
+                selectedColor={selectedColor}
+                onEdgeSelect={setSelectedEdgeId}
+                locked={mode === MAP_MODES.TRANSPARENCY}
+            />
+            {sunburstOverlay}
         </div>
     );
-    const statsEl = (
-        <div className="px-[var(--space-gutter)] py-10">
-            <ModeStatsRouter city={city} />
-        </div>
-    );
+    const statsEl = mode === MAP_MODES.TRANSPARENCY
+        ? (
+            <div className="px-[var(--space-gutter)] py-10">
+                <TransparencyStats
+                    city={city}
+                    budgetYears={budgetYears}
+                    selectedYear={selectedYear}
+                    onYearChange={setSelectedYear}
+                    mayors={mayors}
+                />
+            </div>
+        )
+        : (
+            <div className="px-[var(--space-gutter)] py-10">
+                <ModeStatsRouter city={city} />
+            </div>
+        );
 
     const gradient = modeGradients[mode];
     const backgroundStyle = gradient
@@ -190,16 +241,33 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 /* Ultrawide C1: map 50% left, scrollable stats 50% right */
                 <DualPanel leftRatio={0.5}>
                     <DualPanel.Left>
-                        <div className="sticky top-0 h-screen px-[var(--space-gutter)] pb-6">
-                            <CityMap city={city} selectedColor={selectedColor} onEdgeSelect={setSelectedEdgeId} />
+                        <div className="sticky top-0 h-screen px-[var(--space-gutter)] pt-8 pb-6 relative">
+                            <CityMap
+                                city={city}
+                                selectedColor={selectedColor}
+                                onEdgeSelect={setSelectedEdgeId}
+                                locked={mode === MAP_MODES.TRANSPARENCY}
+                            />
+                            {sunburstOverlay}
                         </div>
                     </DualPanel.Left>
                     <DualPanel.Right>
-                        <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] py-6">
+                        <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] pt-8 pb-6">
                             <div className="mb-8">
                                 {filtersEl}
                             </div>
-                            <ModeStatsRouter city={city} />
+                            {mode === MAP_MODES.TRANSPARENCY
+                                ? (
+                                    <TransparencyStats
+                                        city={city}
+                                        budgetYears={budgetYears}
+                                        selectedYear={selectedYear}
+                                        onYearChange={setSelectedYear}
+                                        mayors={mayors}
+                                    />
+                                )
+                                : <ModeStatsRouter city={city} />
+                            }
                         </div>
                     </DualPanel.Right>
                 </DualPanel>
