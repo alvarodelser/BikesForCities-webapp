@@ -119,30 +119,14 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         }
     }, [mapInstance]);
 
-    // When locked (transparency mode): hide base tiles, zoom in, restyle features for visibility
+    // When locked (transparency mode): hide base tiles and zoom in; restore when unlocked
     React.useEffect(() => {
         if (!mapInstance) return;
         if (locked) {
             toggleBackground(false);
-            mapInstance.easeTo({ zoom: 14.5, duration: 800 });
-            if (mapInstance.getLayer('buildings-layer')) {
-                mapInstance.setPaintProperty('buildings-layer', 'fill-color', '#b0a89a');
-                mapInstance.setPaintProperty('buildings-layer', 'fill-opacity', 1);
-            }
-            if (mapInstance.getLayer('bike-path-buildings-layer')) {
-                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-color', '#9ab8a4');
-                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-opacity', 1);
-            }
+            mapInstance.easeTo({ zoom: 13, duration: 800 });
         } else {
             toggleBackground(true);
-            if (mapInstance.getLayer('buildings-layer')) {
-                mapInstance.setPaintProperty('buildings-layer', 'fill-color', '#ead5c5');
-                mapInstance.setPaintProperty('buildings-layer', 'fill-opacity', 1);
-            }
-            if (mapInstance.getLayer('bike-path-buildings-layer')) {
-                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-color', '#ead5c5');
-                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-opacity', 1);
-            }
         }
     }, [locked, mapInstance, toggleBackground]);
 
@@ -176,7 +160,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     } as React.CSSProperties}
                 >
                     {/* Separated header — hidden on mobile */}
-                    {!isMobile && !locked && (
+                    {!isMobile && (
                         <div className="z-20 pb-4 shrink-0">
                             <div
                                 className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
@@ -188,42 +172,19 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                     boxShadow: '0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.3)',
                                 }}
                             >
-                                <div>
-                                    <h1
-                                        className="text-xl font-bold leading-tight"
-                                        style={{ color: '#ffffffee', fontFamily: "'Archivo Narrow', sans-serif" }}
-                                    >
-                                        {titleText}
-                                    </h1>
-                                </div>
-
-                                <MapControls
-                                    colorScheme={colorScheme}
-                                    onHelpClick={() => helpOpen ? closeMapHelp() : openMapHelp()}
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Locked mode header (transparency) — shows mode name, no controls */}
-                    {!isMobile && locked && (
-                        <div className="z-20 pb-4 shrink-0">
-                            <div
-                                className="mx-auto rounded-2xl px-6 py-3 flex items-center"
-                                style={{
-                                    background: 'rgba(0,0,0,0.25)',
-                                    backdropFilter: 'blur(20px)',
-                                    WebkitBackdropFilter: 'blur(20px)',
-                                    border: '1px solid rgba(255,255,255,0.12)',
-                                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-                                }}
-                            >
                                 <h1
-                                    className="text-xl font-bold leading-tight tracking-wide"
-                                    style={{ color: 'rgba(255,255,255,0.85)', fontFamily: "'Archivo Narrow', sans-serif", textShadow: '0 1px 6px rgba(0,0,0,0.4)' }}
+                                    className="text-xl font-bold leading-tight"
+                                    style={{ color: '#ffffffee', fontFamily: "'Archivo Narrow', sans-serif" }}
                                 >
-                                    {city.name} — {modeLabels[mode] ?? mode}
+                                    {titleText}
                                 </h1>
+
+                                {!locked && (
+                                    <MapControls
+                                        colorScheme={colorScheme}
+                                        onHelpClick={() => helpOpen ? closeMapHelp() : openMapHelp()}
+                                    />
+                                )}
                             </div>
                         </div>
                     )}

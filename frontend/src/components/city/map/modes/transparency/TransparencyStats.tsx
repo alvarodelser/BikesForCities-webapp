@@ -3,8 +3,6 @@ import { TrendUp, CurrencyEur, Bank } from '@phosphor-icons/react';
 import PeriodRangeTimeline from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
-import { BudgetSunburst } from '../../../plots/BudgetSunburst';
-import { buildSunburstTree } from '../../../../../utils/budget';
 import type { BudgetYear, MayorTerm } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
 import { formatCurrency } from '../../../../../utils/formatters';
@@ -82,11 +80,6 @@ export default function TransparencyStats({
     [mayors],
   );
 
-  const sunburstData = useMemo(
-    () => buildSunburstTree(budgetYears, selectedYear, budgetType),
-    [budgetYears, selectedYear, budgetType],
-  );
-
   const handleChange = (from: string, _to: string) => {
     onYearChange(Number(from));
   };
@@ -95,19 +88,40 @@ export default function TransparencyStats({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Year selector ───────────────────────────────────────────── */}
-      {yearItems.length > 1 ? (
-        <PeriodRangeTimeline
-          items={yearItems}
-          from={selectedYearStr}
-          to={selectedYearStr}
-          onChange={handleChange}
-          accent={ACCENT}
-          unit="año"
-        />
-      ) : yearItems.length === 1 ? (
-        <p className="text-sm font-bold opacity-70" style={{ color: ACCENT }}>{yearItems[0]}</p>
-      ) : null}
+      {/* ── Year selector + budget type toggle ──────────────────────── */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex-1 min-w-0">
+          {yearItems.length > 1 ? (
+            <PeriodRangeTimeline
+              items={yearItems}
+              from={selectedYearStr}
+              to={selectedYearStr}
+              onChange={handleChange}
+              accent={ACCENT}
+              unit="año"
+            />
+          ) : yearItems.length === 1 ? (
+            <p className="text-sm font-bold opacity-70" style={{ color: ACCENT }}>{yearItems[0]}</p>
+          ) : null}
+        </div>
+
+        {/* Planned / Executed toggle */}
+        <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-black/10 flex-shrink-0">
+          {(['planned', 'executed'] as const).map(t => (
+            <button
+              key={t}
+              onClick={() => onBudgetTypeChange(t)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-widest transition-all ${
+                budgetType === t
+                  ? 'bg-white text-gray-800 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* ── Summary metric cards ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -130,17 +144,6 @@ export default function TransparencyStats({
           accent={ACCENT}
         />
       </div>
-
-      {/* ── Budget sunburst ──────────────────────────────────────────── */}
-      {selectedYear > 0 && budgetYears.length > 0 && (
-        <BudgetSunburst
-          data={sunburstData}
-          year={selectedYear}
-          budgetType={budgetType}
-          onBudgetTypeChange={onBudgetTypeChange}
-          variant="panel"
-        />
-      )}
 
       {/* ── Budget delta chart ───────────────────────────────────────── */}
       {yearData && (

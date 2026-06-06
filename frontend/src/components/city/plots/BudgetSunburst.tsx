@@ -18,6 +18,8 @@ interface BudgetSunburstProps {
   subtitle?: string;
   /** 'overlay' = transparent/on-map (default), 'panel' = white card in stats panel */
   variant?: 'overlay' | 'panel';
+  /** Hide the built-in planificado/ejecutado toggle (when parent owns the state) */
+  showToggle?: boolean;
 }
 
 const SUNBURST_COLORS = [
@@ -72,6 +74,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   title = 'Desglose presupuestario',
   subtitle,
   variant = 'overlay',
+  showToggle = true,
 }) => {
   const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
@@ -209,25 +212,27 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           </p>
         </div>
 
-        <div className={`flex items-center gap-1 p-1 rounded-xl ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
-          {(['planned', 'executed'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => onBudgetTypeChange(t)}
-              className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                budgetType === t
-                  ? isPanel
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'bg-white/20 text-white shadow-sm'
-                  : isPanel
-                    ? 'text-gray-400 hover:text-gray-600'
-                    : 'text-white/50 hover:text-white/80'
-              }`}
-            >
-              {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
-            </button>
-          ))}
-        </div>
+        {showToggle && (
+          <div className={`flex items-center gap-1 p-1 rounded-xl ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
+            {(['planned', 'executed'] as const).map(t => (
+              <button
+                key={t}
+                onClick={() => onBudgetTypeChange(t)}
+                className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                  budgetType === t
+                    ? isPanel
+                      ? 'bg-white text-gray-800 shadow-sm'
+                      : 'bg-white/20 text-white shadow-sm'
+                    : isPanel
+                      ? 'text-gray-400 hover:text-gray-600'
+                      : 'text-white/50 hover:text-white/80'
+                }`}
+              >
+                {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div ref={containerRef} className="flex-1 relative min-h-[350px]">
