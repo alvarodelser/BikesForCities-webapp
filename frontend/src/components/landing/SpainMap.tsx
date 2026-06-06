@@ -461,17 +461,30 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const gap = 40;
     const margin = 16;
 
+    // Half-extents + margin: the minimum distance from an SVG edge to the card's centre
+    const mx = cardW / 2 + margin;  // 151 px
+    const my = cardH / 2 + margin;  // 171 px
+    const W = size.width;
+    const H = size.height;
+    // py clamped so sea-edge candidates always stay within the viewport
+    const safePy = Math.max(my, Math.min(H - my, py));
+
     const candidateCards = [
+      // Pin-relative first (fast wins for coastal / peripheral cities)
       { cardX: px + gap + cardW / 2, cardY: py },
       { cardX: px - gap - cardW / 2, cardY: py },
       { cardX: px + gap + cardW / 2, cardY: py - cardH / 2 },
       { cardX: px - gap - cardW / 2, cardY: py - cardH / 2 },
       { cardX: px + gap + cardW / 2, cardY: py + cardH / 2 },
       { cardX: px - gap - cardW / 2, cardY: py + cardH / 2 },
-      { cardX: size.width * 0.82, cardY: size.height * 0.28 },
-      { cardX: size.width * 0.18, cardY: size.height * 0.28 },
-      { cardX: size.width * 0.82, cardY: size.height * 0.72 },
-      { cardX: size.width * 0.18, cardY: size.height * 0.72 },
+      // Sea-edge positions — pre-clamped so they always pass the OOB check.
+      // Tried when all pin-relative candidates land on Spain (e.g. inland cities).
+      { cardX: W - mx, cardY: safePy },  // right sea edge (Mediterranean)
+      { cardX: mx,     cardY: safePy },  // left sea edge (Atlantic)
+      { cardX: W - mx, cardY: my },      // top-right
+      { cardX: mx,     cardY: my },      // top-left
+      { cardX: W - mx, cardY: H - my },  // bottom-right
+      { cardX: mx,     cardY: H - my },  // bottom-left
     ];
 
     let chosen: { cardX: number; cardY: number } | null = null;
@@ -484,7 +497,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       const right = cardX + cardW / 2;
       const bottom = cardY + cardH / 2;
 
-      if (left < margin || top < margin || right > size.width - margin || bottom > size.height - margin) {
+      if (left < margin || top < margin || right > W - margin || bottom > H - margin) {
         continue;
       }
 
@@ -509,9 +522,9 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       }
     }
 
-    // Fallback: use bottom-right sea corner if all candidates were OOB
+    // Fallback: right sea edge (never null because sea-edge candidates are pre-clamped)
     if (!chosen) {
-      chosen = { cardX: size.width * 0.82, cardY: size.height * 0.72 };
+      chosen = { cardX: W - mx, cardY: safePy };
     }
 
     const { cardX, cardY } = chosen;
