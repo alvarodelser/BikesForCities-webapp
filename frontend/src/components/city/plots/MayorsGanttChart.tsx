@@ -246,10 +246,10 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
           </svg>
         )}
 
-        {/* Premium Tooltip */}
+        {/* Tooltip */}
         {tooltip.visible && (
           <div
-            className="fixed z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[200px]"
+            className="absolute z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[200px]"
             style={{
               left: tooltip.x + 15,
               top: tooltip.y - 15,

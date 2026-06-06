@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { hierarchy, partition, type HierarchyRectangularNode } from 'd3-hierarchy';
 import { arc } from 'd3-shape';
 
@@ -30,15 +30,9 @@ const SUNBURST_COLORS = [
 ];
 
 function formatEur(amount: number): string {
-  if (Math.abs(amount) >= 1_000_000_000) {
-    return `€${(amount / 1_000_000_000).toFixed(2)}B`;
-  }
-  if (Math.abs(amount) >= 1_000_000) {
-    return `€${(amount / 1_000_000).toFixed(2)}M`;
-  }
-  if (Math.abs(amount) >= 1_000) {
-    return `€${(amount / 1_000).toFixed(1)}K`;
-  }
+  if (Math.abs(amount) >= 1_000_000_000) return `€${(amount / 1_000_000_000).toFixed(2)}B`;
+  if (Math.abs(amount) >= 1_000_000) return `€${(amount / 1_000_000).toFixed(2)}M`;
+  if (Math.abs(amount) >= 1_000) return `€${(amount / 1_000).toFixed(1)}K`;
   return `€${amount.toFixed(0)}`;
 }
 
@@ -49,6 +43,15 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r},${g},${b},${opacity})`;
 }
 
+function findNode(node: BudgetNode, code: string): BudgetNode | null {
+  if (node.code === code) return node;
+  for (const child of node.children ?? []) {
+    const found = findNode(child, code);
+    if (found) return found;
+  }
+  return null;
+}
+
 interface TooltipState {
   visible: boolean;
   x: number;
@@ -56,6 +59,7 @@ interface TooltipState {
   name: string;
   amount: number;
   pct: number;
+  hasChildren: boolean;
 }
 
 export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
@@ -68,37 +72,45 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  const [focusCode, setFocusCode] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    name: '',
-    amount: 0,
-    pct: 0,
+    visible: false, x: 0, y: 0, name: '', amount: 0, pct: 0, hasChildren: false,
   });
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      if (entries[0]) {
-        setWidth(entries[0].contentRect.width);
-      }
+    const ro = new ResizeObserver(entries => {
+      if (entries[0]) setWidth(entries[0].contentRect.width);
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
+  // Reset drill-down when data changes (year/type change)
+  useEffect(() => setFocusCode(null), [data]);
+
   const HEIGHT = 400;
   const RADIUS = Math.min(width, HEIGHT) / 2 - 20;
 
+  // Focused subtree: re-root at the clicked node
+  const focusedData = useMemo((): BudgetNode => {
+    if (!focusCode) return data;
+    return findNode(data, focusCode) ?? data;
+  }, [data, focusCode]);
+
+  const focusedName = useMemo((): string | null => {
+    if (!focusCode) return null;
+    return findNode(data, focusCode)?.name ?? null;
+  }, [data, focusCode]);
+
   const root = useMemo(() => {
-    if (!data) return null;
-    const h = hierarchy<BudgetNode>(data)
+    if (!focusedData) return null;
+    const h = hierarchy<BudgetNode>(focusedData)
       .sum(d => (d.children && d.children.length > 0 ? 0 : d.amount))
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
     return partition<BudgetNode>().size([2 * Math.PI, RADIUS])(h);
-  }, [data, RADIUS]);
+  }, [focusedData, RADIUS]);
 
   const totalValue = root?.value ?? 1;
 
@@ -118,17 +130,15 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   }, [topChildren]);
 
   function getNodeColor(node: HierarchyRectangularNode<BudgetNode>): string {
-    if (node.depth === 0) return '#f3f4f6';
+    if (node.depth === 0) return 'transparent';
     let cur: typeof node = node;
-    while (cur.depth > 1 && cur.parent) {
-      cur = cur.parent;
-    }
+    while (cur.depth > 1 && cur.parent) cur = cur.parent;
     const baseColor = colorMap.get(cur.data.code) ?? '#9ca3af';
-    const opacity = node.depth === 1 ? 0.9 : node.depth === 2 ? 0.65 : 0.45;
+    const opacity = node.depth === 1 ? 0.88 : node.depth === 2 ? 0.6 : 0.4;
     return hexToRgba(baseColor, opacity);
   }
 
-  const handleMouseEnter = (
+  const handleMouseEnter = useCallback((
     e: React.MouseEvent<SVGPathElement>,
     node: HierarchyRectangularNode<BudgetNode>,
   ) => {
@@ -142,50 +152,60 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
       name: node.data.name,
       amount: node.value ?? 0,
       pct,
+      hasChildren: (node.data.children?.length ?? 0) > 0,
     });
-  };
+  }, [totalValue]);
 
-  const handleMouseMove = (e: React.MouseEvent<SVGPathElement>) => {
+  const handleMouseMove = useCallback((e: React.MouseEvent<SVGPathElement>) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    setTooltip(prev => ({
-      ...prev,
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    }));
-  };
+    setTooltip(prev => ({ ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top }));
+  }, []);
+
+  const handleClick = useCallback((node: HierarchyRectangularNode<BudgetNode>) => {
+    if (node.depth === 0) return;
+    if ((node.data.children?.length ?? 0) > 0) {
+      setFocusCode(node.data.code);
+      setTooltip(prev => ({ ...prev, visible: false }));
+    }
+  }, []);
 
   const nodes: HierarchyRectangularNode<BudgetNode>[] = useMemo(() => {
     if (!root) return [];
     const res: HierarchyRectangularNode<BudgetNode>[] = [];
-    root.each(node => {
-      if (node.depth <= 3) res.push(node);
-    });
+    root.each(node => { if (node.depth <= 3) res.push(node); });
     return res;
   }, [root]);
 
+  const innerRadius = RADIUS * 0.18;
+
   return (
-    <div
-      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 flex flex-col h-full transition-all hover:bg-white/90"
-      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
-    >
-      <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col h-full">
+      <div className="flex items-center justify-between mb-3 px-1">
         <div>
-          <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">
+          <h3
+            className="text-sm font-black uppercase tracking-widest"
+            style={{ color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}
+          >
+            {title}
+          </h3>
+          <p
+            className="text-[10px] font-bold uppercase tracking-tight mt-0.5"
+            style={{ color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}
+          >
             {subtitle || `Año ${year}`}
           </p>
         </div>
 
-        <div className="flex items-center gap-1 bg-gray-100/50 p-1 rounded-xl border border-black/5">
+        <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm p-1 rounded-xl border border-white/10">
           {(['planned', 'executed'] as const).map(t => (
             <button
               key={t}
               onClick={() => onBudgetTypeChange(t)}
               className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
                 budgetType === t
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
+                  ? 'bg-white/20 text-white shadow-sm'
+                  : 'text-white/50 hover:text-white/80'
               }`}
             >
               {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
@@ -196,44 +216,88 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
 
       <div ref={containerRef} className="flex-1 relative min-h-[350px]">
         {width > 0 && (
-          <svg
-            width={width}
-            height={HEIGHT}
-            style={{ display: 'block', overflow: 'visible' }}
-          >
+          <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>
               {nodes.map((node, i) => {
                 if (node.depth === 0) return null;
                 const d = arcGenerator(node);
                 if (!d) return null;
+                const hasChildren = (node.data.children?.length ?? 0) > 0;
                 return (
                   <path
                     key={i}
                     d={d}
                     fill={getNodeColor(node)}
-                    stroke="#fff"
+                    stroke="rgba(255,255,255,0.15)"
                     strokeWidth={1}
                     onMouseEnter={e => handleMouseEnter(e, node)}
                     onMouseMove={handleMouseMove}
                     onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
-                    className="transition-opacity hover:opacity-80"
-                    style={{ cursor: 'pointer' }}
+                    onClick={() => handleClick(node)}
+                    className="transition-opacity hover:opacity-90"
+                    style={{ cursor: hasChildren ? 'zoom-in' : 'default' }}
                   />
                 );
               })}
+
+              {/* Center back button when drilled in */}
+              {focusCode && (
+                <g
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setFocusCode(null)}
+                >
+                  <circle
+                    r={innerRadius}
+                    fill="rgba(0,0,0,0.35)"
+                    stroke="rgba(255,255,255,0.25)"
+                    strokeWidth={1}
+                  />
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    y={-6}
+                    fontSize={18}
+                    fill="rgba(255,255,255,0.8)"
+                  >
+                    ←
+                  </text>
+                  <text
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    y={10}
+                    fontSize={7}
+                    fontWeight="bold"
+                    fill="rgba(255,255,255,0.5)"
+                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                  >
+                    VOLVER
+                  </text>
+                </g>
+              )}
+
+              {/* Center label — focused node name */}
+              {focusCode && focusedName && (
+                <text
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  y={innerRadius + 14}
+                  fontSize={9}
+                  fontWeight="bold"
+                  fill="rgba(255,255,255,0.6)"
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.06em', pointerEvents: 'none' }}
+                >
+                  {focusedName.length > 18 ? focusedName.slice(0, 17) + '…' : focusedName}
+                </text>
+              )}
             </g>
           </svg>
         )}
 
-        {/* Premium Tooltip */}
+        {/* Tooltip */}
         {tooltip.visible && (
           <div
-            className="fixed z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[180px]"
-            style={{
-              left: tooltip.x + 15,
-              top: tooltip.y - 15,
-              transform: 'translateY(-50%)',
-            }}
+            className="absolute z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[180px]"
+            style={{ left: tooltip.x + 15, top: tooltip.y - 15, transform: 'translateY(-50%)' }}
           >
             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
               Partida Presupuestaria
@@ -241,11 +305,12 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
             <div className="text-xs font-bold text-gray-800 leading-tight">
               {tooltip.name}
             </div>
+            {tooltip.hasChildren && (
+              <div className="text-[9px] text-blue-500 font-bold mt-0.5">Click para desglosar →</div>
+            )}
             <div className="h-px bg-black/5 my-1" />
             <div className="flex justify-between items-end">
-              <span className="text-sm font-black text-gray-900">
-                {formatEur(tooltip.amount)}
-              </span>
+              <span className="text-sm font-black text-gray-900">{formatEur(tooltip.amount)}</span>
               <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                 {tooltip.pct.toFixed(1)}%
               </span>

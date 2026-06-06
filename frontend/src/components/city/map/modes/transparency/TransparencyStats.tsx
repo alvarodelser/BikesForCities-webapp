@@ -71,6 +71,11 @@ export default function TransparencyStats({
     [budgetYears, selectedYear],
   );
 
+  const democraticMayors = useMemo(
+    () => mayors.filter(m => !m.start_date || new Date(m.start_date).getFullYear() >= 1975),
+    [mayors],
+  );
+
   const handleChange = (from: string, _to: string) => {
     onYearChange(Number(from));
   };
@@ -125,9 +130,9 @@ export default function TransparencyStats({
       )}
 
       {/* ── Mayors Gantt chart ───────────────────────────────────────── */}
-      {mayors.length > 0 && (
+      {democraticMayors.length > 0 && (
         <MayorsGanttChart
-          terms={mayors}
+          terms={democraticMayors}
           title="Historial de Alcaldía"
         />
       )}

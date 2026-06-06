@@ -75,6 +75,17 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         if (layerRetryRef.current) layerRetryRef.current();
     }, []);
 
+    // When locked, hide base tiles and zoom in; restore when unlocked
+    React.useEffect(() => {
+        if (!mapInstance) return;
+        if (locked) {
+            toggleBackground(false);
+            mapInstance.easeTo({ zoom: 14.5, duration: 800 });
+        } else {
+            toggleBackground(true);
+        }
+    }, [locked, mapInstance, toggleBackground]);
+
     const colorScheme = getColorScheme(selectedColor);
     const modeLabel = modeLabels[mode] || mode;
     const submodeLabel = submode ? submodeLabels[submode] : undefined;

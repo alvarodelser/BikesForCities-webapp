@@ -39,7 +39,7 @@ const modeGradients: Partial<Record<string, { bg: string; wave: string }>> = {
     [MAP_MODES.INFRASTRUCTURE]: { bg: 'linear-gradient(160deg, #027A76 0%, #3A6C7F 100%)', wave: '#027A76' },
     [MAP_MODES.STATIONS]:       { bg: 'linear-gradient(160deg, #ffa585 0%, #bc556f 100%)', wave: '#ffa585' },
     [MAP_MODES.TRAFFIC]:        { bg: 'linear-gradient(160deg, #003849 0%, #4b749f 100%)', wave: '#003849' },
-    [MAP_MODES.TRANSPARENCY]:   { bg: 'linear-gradient(160deg, #1e2d5a 0%, #3A6C7F 100%)', wave: '#1e2d5a' },
+    [MAP_MODES.TRANSPARENCY]:   { bg: 'linear-gradient(160deg, #111827 0%, #374151 100%)', wave: '#111827' },
 };
 
 interface MapDesktopProps {
