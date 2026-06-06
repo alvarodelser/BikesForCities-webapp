@@ -1,0 +1,134 @@
+import React, { useMemo } from 'react';
+import { TrendUp, CurrencyEur, Bank } from '@phosphor-icons/react';
+import PeriodRangeTimeline from '../PeriodRangeTimeline';
+import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
+import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
+import type { BudgetYear, MayorTerm } from '../../../../../services/api';
+import type { CityData } from '../../../../../constants/cities';
+import { formatCurrency } from '../../../../../utils/formatters';
+
+interface TransparencyStatsProps {
+  city: CityData;
+  budgetYears: BudgetYear[];
+  selectedYear: number;
+  onYearChange: (year: number) => void;
+  mayors: MayorTerm[];
+}
+
+interface MetricCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  accent?: string;
+}
+
+function MetricCard({ icon, label, value, accent = '#3A6C7F' }: MetricCardProps) {
+  return (
+    <div
+      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-4 flex items-center gap-3"
+      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+    >
+      <div
+        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{
+          background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
+          boxShadow: `0 4px 12px ${accent}55`,
+        }}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
+          {label}
+        </div>
+        <div className="text-sm font-bold text-gray-800 leading-tight truncate">
+          {value}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const ACCENT = '#3A6C7F';
+
+export default function TransparencyStats({
+  city: _city,
+  budgetYears,
+  selectedYear,
+  onYearChange,
+  mayors,
+}: TransparencyStatsProps) {
+  const yearItems = useMemo(
+    () =>
+      [...budgetYears]
+        .sort((a, b) => a.year - b.year)
+        .map(by => String(by.year)),
+    [budgetYears],
+  );
+
+  const yearData = useMemo(
+    () => budgetYears.find(by => by.year === selectedYear) ?? null,
+    [budgetYears, selectedYear],
+  );
+
+  const handleChange = (from: string, _to: string) => {
+    onYearChange(Number(from));
+  };
+
+  const selectedYearStr = String(selectedYear);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* ── Year selector ───────────────────────────────────────────── */}
+      {yearItems.length > 1 && (
+        <PeriodRangeTimeline
+          items={yearItems}
+          from={selectedYearStr}
+          to={selectedYearStr}
+          onChange={handleChange}
+          accent={ACCENT}
+          unit="año"
+        />
+      )}
+
+      {/* ── Summary metric cards ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <MetricCard
+          icon={<TrendUp size={18} color="white" weight="bold" />}
+          label="Ingresos totales"
+          value={yearData?.total_income != null ? formatCurrency(yearData.total_income) : '—'}
+          accent={ACCENT}
+        />
+        <MetricCard
+          icon={<CurrencyEur size={18} color="white" weight="bold" />}
+          label="Gastos totales"
+          value={yearData?.total_expenses != null ? formatCurrency(yearData.total_expenses) : '—'}
+          accent={ACCENT}
+        />
+        <MetricCard
+          icon={<Bank size={18} color="white" weight="bold" />}
+          label="Deuda pública"
+          value={yearData?.public_debt != null ? formatCurrency(yearData.public_debt) : '—'}
+          accent={ACCENT}
+        />
+      </div>
+
+      {/* ── Budget delta chart ───────────────────────────────────────── */}
+      {yearData && (
+        <BudgetDeltaChart
+          budgetYear={yearData}
+          title="Ejecución presupuestaria"
+          subtitle={`Ejecutado − Planificado · ${selectedYear}`}
+        />
+      )}
+
+      {/* ── Mayors Gantt chart ───────────────────────────────────────── */}
+      {mayors.length > 0 && (
+        <MayorsGanttChart
+          terms={mayors}
+          title="Historial de Alcaldía"
+        />
+      )}
+    </div>
+  );
+}
