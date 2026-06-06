@@ -151,16 +151,19 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
             <defs>
               {terms.map((term, i) => {
                 const x = xScale(parseDate(term.start_date));
-                const barEndX = xScale(parseDate(term.end_date));
-                const barWidth = Math.max(barEndX - x, SLANT + 4);
                 const row = i % 2;
                 const barY = PADDING_TOP + row * (ROW_UNIT + ROW_GAP) + LABEL_HEIGHT;
+                const nextSameRow = terms.find((_, j) => j > i && j % 2 === row);
+                const clipRight = nextSameRow
+                  ? xScale(parseDate(nextSameRow.start_date)) - 4
+                  : width - 8;
+                const labelX = x + SLANT;
                 return (
                   <clipPath key={`clip-${i}`} id={`mayor-label-clip-${i}`}>
                     <rect
-                      x={x + SLANT}
+                      x={labelX}
                       y={barY - LABEL_HEIGHT}
-                      width={Math.max(barWidth - SLANT - 2, 0)}
+                      width={Math.max(clipRight - labelX, 0)}
                       height={LABEL_HEIGHT}
                     />
                   </clipPath>
@@ -201,6 +204,21 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
 
               const color = getPartyColor(term.party);
 
+              // Available label width: to next same-row term or SVG right edge
+              const nextSameRow = terms.find((_, j) => j > i && j % 2 === row);
+              const clipRight = nextSameRow
+                ? xScale(parseDate(nextSameRow.start_date)) - 4
+                : width - 8;
+              const availWidth = Math.max(clipRight - (x + SLANT), 0);
+
+              // Truncate with ellipsis based on approximate char widths
+              const truncate = (text: string, pxPerChar: number) => {
+                const max = Math.floor(availWidth / pxPerChar);
+                return text.length > max && max > 3 ? text.slice(0, max - 2) + '…' : text;
+              };
+              const displayName = truncate(term.name, 6.5);
+              const displayParty = truncate(term.party ?? '—', 5.5);
+
               // Parallelogram: top edge offset right by SLANT, bottom edge aligned left
               const poly = [
                 `${x + SLANT},${barY}`,
@@ -221,7 +239,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
                       fill="#1f2937"
                       style={{ pointerEvents: 'none', userSelect: 'none' }}
                     >
-                      {term.name}
+                      {displayName}
                     </text>
                     <text
                       x={x + SLANT}
@@ -231,7 +249,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
                       fill={color}
                       style={{ pointerEvents: 'none', userSelect: 'none' }}
                     >
-                      {term.party ?? '—'}
+                      {displayParty}
                     </text>
                   </g>
 
