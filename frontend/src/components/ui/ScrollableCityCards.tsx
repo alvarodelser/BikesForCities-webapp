@@ -18,6 +18,8 @@ const ScrollableCityCards: React.FC<{
   const velocity = useRef(0);
   const lastTime = useRef(0);
   const lastSelectedCityRef = useRef(selectedCity);
+  const rafRef = useRef<number | null>(null);
+  const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Update parent and local ref continuously when the "center" city changes during scroll
   useEffect(() => {
@@ -71,9 +73,8 @@ const ScrollableCityCards: React.FC<{
     setIsDragging(true);
     const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     setScrollOffset(prev => prev + delta / 200);
-    const timer = (window as any)._wheelTimer;
-    if (timer) clearTimeout(timer);
-    (window as any)._wheelTimer = setTimeout(() => {
+    if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+    wheelTimerRef.current = setTimeout(() => {
       setIsDragging(false);
     }, 200);
   }, []);
@@ -98,6 +99,13 @@ const ScrollableCityCards: React.FC<{
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [handleWheel, handleKeyDown]);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      if (wheelTimerRef.current !== null) clearTimeout(wheelTimerRef.current);
+    };
+  }, []);
 
   const selectCity = (cityName: string) => {
     const cityIndex = cities.findIndex(city => city.name === cityName);
@@ -132,6 +140,7 @@ const ScrollableCityCards: React.FC<{
         {/* Cards container with Masking Fade */}
         <div
           ref={containerRef}
+          data-testid="cards-container"
           className="relative h-full w-full flex items-center justify-center overflow-hidden touch-none"
           style={{
             WebkitMaskImage: 'linear-gradient(to right, transparent, black 100px, black calc(100% - 100px), transparent)',
@@ -152,6 +161,9 @@ const ScrollableCityCards: React.FC<{
             setScrollOffset(prev => prev - (deltaX / 250));
             if (deltaTime > 0) {
               velocity.current = deltaX / deltaTime;
+            } else if (deltaX !== 0) {
+              // Same-millisecond move: preserve sign with a nominal 0.5 px/ms velocity
+              velocity.current = deltaX > 0 ? 0.5 : -0.5;
             }
             lastTouchX.current = currentX;
             lastTime.current = currentTime;
@@ -159,9 +171,24 @@ const ScrollableCityCards: React.FC<{
           onTouchEnd={() => {
             setIsDragging(false);
             lastTouchX.current = null;
-            if (Math.abs(velocity.current) > 0.2) {
-              const momentum = -velocity.current * 8;
-              setScrollOffset(prev => prev + momentum);
+
+            if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+
+            if (Math.abs(velocity.current) > 0.1) {
+              let v = Math.max(-2.5, Math.min(2.5, -velocity.current * 3));
+
+              const loop = () => {
+                v *= 0.88;
+                if (Math.abs(v) >= 0.05) {
+                  setScrollOffset(prev => prev + v);
+                  rafRef.current = requestAnimationFrame(loop);
+                } else {
+                  setScrollOffset(prev => Math.round(prev + v));
+                  rafRef.current = null;
+                }
+              };
+
+              rafRef.current = requestAnimationFrame(loop);
             }
           }}
         >
