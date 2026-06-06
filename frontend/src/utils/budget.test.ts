@@ -33,6 +33,15 @@ describe('buildSunburstTree', () => {
     expect(executed.children).toHaveLength(2);
   });
 
+  it('returns empty tree when requested budgetType has no lines', () => {
+    const onlyPlanned: BudgetYear = {
+      ...sampleYear,
+      lines: sampleYear.lines.filter(l => l.budget_type === 'planned'),
+    };
+    const tree = buildSunburstTree([onlyPlanned], 2023, 'executed');
+    expect(tree.children).toHaveLength(0);
+  });
+
   it('nests children under top-level codes', () => {
     const tree = buildSunburstTree([sampleYear], 2023, 'planned');
     const personal = tree.children!.find(c => c.code === '1');
