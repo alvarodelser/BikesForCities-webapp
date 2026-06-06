@@ -488,19 +488,23 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         continue;
       }
 
-      const corners: [number, number][] = [
+      // Sample 9 points (corners + edge midpoints + center) for thorough overlap detection
+      const samplePoints: [number, number][] = [
         [left, top], [right, top], [left, bottom], [right, bottom],
+        [(left + right) / 2, top], [(left + right) / 2, bottom],
+        [left, (top + bottom) / 2], [right, (top + bottom) / 2],
+        [(left + right) / 2, (top + bottom) / 2],
       ];
-      const landCorners = corners.filter(([x, y]) =>
+      const landPoints = samplePoints.filter(([x, y]) =>
         spainEl.isPointInFill(new DOMPoint(x, y)),
       ).length;
 
-      if (landCorners === 0) {
+      if (landPoints === 0) {
         chosen = candidate;
         break;
       }
-      if (landCorners < minLandCorners) {
-        minLandCorners = landCorners;
+      if (landPoints < minLandCorners) {
+        minLandCorners = landPoints;
         chosen = candidate;
       }
     }
@@ -511,19 +515,24 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     }
 
     const { cardX, cardY } = chosen;
-    const toRight = cardX > px;
-    const diagSize = 30;
-    const p2x = toRight ? px + diagSize : px - diagSize;
-    const p2y = cardY <= py ? py - diagSize : py + diagSize;
-    const p3x = toRight ? cardX - cardW / 2 : cardX + cardW / 2;
-    const p3y = p2y;
-    const p4x = p3x;
-    const p4y = cardY <= py ? cardY + cardH / 2 : cardY - cardH / 2;
+    const cardLeft = cardX - cardW / 2;
+    const cardRight = cardX + cardW / 2;
+    const cardTop = cardY - cardH / 2;
+    const cardBottom = cardY + cardH / 2;
+
+    // Connector terminates at the nearest point on the card's border
+    const clampedY = Math.max(cardTop, Math.min(cardBottom, py));
+    const clampedX = Math.max(cardLeft, Math.min(cardRight, px));
+    let edgeX: number, edgeY: number;
+    if (px < cardLeft)       { edgeX = cardLeft;  edgeY = clampedY; }
+    else if (px > cardRight) { edgeX = cardRight; edgeY = clampedY; }
+    else if (py < cardTop)   { edgeX = clampedX;  edgeY = cardTop;  }
+    else                     { edgeX = clampedX;  edgeY = cardBottom; }
 
     setCardLayout({
       cityName: selectedCityData.name,
       px, py, cardX, cardY, cardW, cardH,
-      connectorPath: `M ${px} ${py} L ${p2x} ${p2y} L ${p3x} ${p3y} L ${p4x} ${p4y}`,
+      connectorPath: `M ${px} ${py} L ${edgeX} ${edgeY}`,
     });
   }, [selectedCityData, projection, isMobile, size, geoData]);
 
@@ -602,15 +611,15 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
             d={cardLayout.connectorPath}
             pathLength={1}
             fill="none"
-            stroke="#003849"
-            strokeWidth={2}
+            stroke="white"
+            strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
             style={{
               strokeDasharray: 1,
               strokeDashoffset: 1,
               animation: 'draw-connector 0.4s ease-out forwards',
-              filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.8))',
+              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.7))',
             }}
           />
         )}
