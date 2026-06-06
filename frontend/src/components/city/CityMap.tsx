@@ -19,6 +19,7 @@ interface CityMapProps {
     selectedColor?: string;
     bottomOffset?: number;
     onEdgeSelect?: (id: number | null) => void;
+    locked?: boolean;
 }
 
 const modeLabels: Record<string, string> = {
@@ -52,7 +53,7 @@ const getColorScheme = (colorVar: string) => {
     return schemes[colorVar] || schemes['var(--blue)'];
 };
 
-const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0, onEdgeSelect }) => {
+const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', bottomOffset = 0, onEdgeSelect, locked = false }) => {
     const { mode, submode } = useMapState();
     const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
     const [thresholds, setThresholds] = useState<Thresholds | null>(null);
@@ -147,7 +148,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     } as React.CSSProperties}
                 >
                     {/* Separated header — hidden on mobile */}
-                    {!isMobile && (
+                    {!isMobile && !locked && (
                         <div className="z-20 pb-4 shrink-0">
                             <div
                                 className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
@@ -177,7 +178,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     )}
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT */}
-                    {isMobile && (
+                    {isMobile && !locked && (
                         <div
                             className="absolute right-4 z-20 transition-all duration-300"
                             style={{ bottom: `${bottomOffset + 12}px` }}
@@ -191,7 +192,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     )}
 
                     {/* Map canvas */}
-                    <div className={`z-10 ${isMobile ? 'absolute inset-0' : 'relative flex-1 min-h-0 pb-4'}`}>
+                    <div className={`z-10 ${isMobile ? 'absolute inset-0' : 'relative flex-1 min-h-0 pb-4'}`} style={locked ? { pointerEvents: 'none' } : undefined}>
                         <div
                             className={`w-full h-full overflow-hidden transition-all duration-500 ${isMobile ? '' : 'rounded-2xl'}`}
                             style={isMobile ? {} : { border: '1px solid rgba(0, 0, 0, 0.25)' }}
@@ -210,7 +211,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     <MapHelpPanel />
 
                     {/* Legend — floats over canvas */}
-                    <CityLegend colorScheme={colorScheme} bottomOffset={bottomOffset} defaultOpen={!isMobile} />
+                    {!locked && <CityLegend colorScheme={colorScheme} bottomOffset={bottomOffset} defaultOpen={!isMobile} />}
                 </div>
             </ThresholdsContext.Provider>
         </MapContext.Provider>
