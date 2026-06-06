@@ -25,6 +25,16 @@ interface CityCoordinates {
   cityData: CityData;
 }
 
+interface CardLayout {
+  px: number;
+  py: number;
+  cardX: number;
+  cardY: number;
+  cardW: number;
+  cardH: number;
+  connectorPath: string;
+}
+
 // Convert city data to coordinate format for D3
 const getCityCoordinates = (cities: CityData[]): CityCoordinates[] => {
   return cities.map(city => ({
@@ -251,16 +261,6 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
   });
   const [labelConfigs, setLabelConfigs] = useState<Record<string, LabelConfig>>({});
 
-  interface CardLayout {
-    px: number;
-    py: number;
-    cardX: number;
-    cardY: number;
-    cardW: number;
-    cardH: number;
-    connectorPath: string;
-  }
-
   const [cardLayout, setCardLayout] = useState<CardLayout | null>(null);
 
   const selectedCityData = useMemo(() => {
@@ -440,7 +440,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       isMobile,
     );
     const p = projection([lon, lat]);
-    if (!p) return;
+    if (!p) { setCardLayout(null); return; }
     const [px, py] = p;
 
     const cardW = 270;
@@ -461,7 +461,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       { cardX: size.width * 0.18, cardY: size.height * 0.72 },
     ];
 
-    let chosen = candidateCards[0];
+    let chosen: { cardX: number; cardY: number } | null = null;
     let minLandCorners = Infinity;
 
     for (const candidate of candidateCards) {
@@ -490,6 +490,11 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         minLandCorners = landCorners;
         chosen = candidate;
       }
+    }
+
+    // Fallback: use bottom-right sea corner if all candidates were OOB
+    if (!chosen) {
+      chosen = { cardX: size.width * 0.82, cardY: size.height * 0.72 };
     }
 
     const { cardX, cardY } = chosen;
