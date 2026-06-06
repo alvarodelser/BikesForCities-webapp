@@ -82,7 +82,9 @@ export default function InfrastructureLegend() {
     // Buildings layer — controlled only by showBikePathBuildings
     useEffect(() => {
         if (!map || !map.getLayer(BUILDINGS_LAYER_ID)) return;
-        map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
+        try {
+            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
+        } catch { /* ignore if layer not ready */ }
 
         // Auto-close coverage when buildings are disabled
         if (!showBikePathBuildings && showCoverage) {
@@ -101,16 +103,24 @@ export default function InfrastructureLegend() {
     // Toggle building appearance between solid color and component-based coverage
     useEffect(() => {
         if (!map || !map.getLayer(BUILDINGS_LAYER_ID)) return;
+        try {
+            if (showCoverage && showBikePathBuildings) {
+                map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', buildColorExpression() as any);
+                map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
+            } else {
+                map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
+                map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
+            }
+        } catch { /* ignore if layer not ready or expression invalid */ }
 
-        if (showCoverage && showBikePathBuildings) {
-            // Apply component-based coloring
-            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', buildColorExpression() as any);
-            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
-        } else {
-            // Restore default appearance
-            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', showBikePathBuildings ? '#027A76' : '#ead5c5');
-            map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
-        }
+        return () => {
+            try {
+                if (map.getLayer(BUILDINGS_LAYER_ID)) {
+                    map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-color', '#ead5c5');
+                    map.setPaintProperty(BUILDINGS_LAYER_ID, 'fill-opacity', 1);
+                }
+            } catch { /* map may have been removed */ }
+        };
     }, [map, showCoverage, showBikePathBuildings]);
 
     const coverageDisabled = !showBikePathBuildings;
