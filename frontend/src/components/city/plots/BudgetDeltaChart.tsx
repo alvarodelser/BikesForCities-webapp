@@ -8,7 +8,7 @@ export interface DeltaDatum {
   planned: number;
   executed: number;
   delta: number;
-  deltaPct: number;
+  deltaPct: number | null;
 }
 
 export function buildDeltaData(budgetYear: BudgetYear): DeltaDatum[] {
@@ -42,7 +42,7 @@ export function buildDeltaData(budgetYear: BudgetYear): DeltaDatum[] {
       const p = planned.get(code)?.amount ?? 0;
       const e = executed.get(code)?.amount ?? 0;
       const delta = e - p;
-      const deltaPct = p !== 0 ? (delta / p) * 100 : 0;
+      const deltaPct = p !== 0 ? (delta / p) * 100 : null;
       const name = planned.get(code)?.name ?? executed.get(code)?.name ?? code;
       return { code, name, planned: p, executed: e, delta, deltaPct };
     })
@@ -190,7 +190,7 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
                     onMouseEnter={e => handleMouseEnter(e, d)}
                     onMouseMove={handleMouseMove}
                     onMouseLeave={handleMouseLeave}
-                    style={{ cursor: 'pointer', opacity: 0.85 }}
+                    style={{ cursor: 'pointer' }}
                   />
                 );
               })}
@@ -222,7 +222,7 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
 
         {tooltip.visible && tooltip.datum && (
           <div
-            className="fixed z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[200px]"
+            className="absolute z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[200px]"
             style={{ left: tooltip.x + 15, top: tooltip.y - 15, transform: 'translateY(-50%)' }}
           >
             <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">Ejecución</div>
@@ -237,7 +237,10 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
             <div className="flex justify-between text-[11px] font-bold mt-0.5"
               style={{ color: tooltip.datum.delta >= 0 ? 'var(--red, #e74c3c)' : '#3A6C7F' }}>
               <span>Desviación</span>
-              <span>{formatDelta(tooltip.datum.delta)} ({tooltip.datum.deltaPct.toFixed(1)}%)</span>
+              <span>
+                {formatDelta(tooltip.datum.delta)}
+                {tooltip.datum.deltaPct !== null ? ` (${tooltip.datum.deltaPct.toFixed(1)}%)` : ''}
+              </span>
             </div>
           </div>
         )}

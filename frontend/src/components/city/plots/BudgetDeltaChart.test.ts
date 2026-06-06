@@ -47,4 +47,18 @@ describe('buildDeltaData', () => {
     };
     expect(buildDeltaData(onlyPlanned)).toHaveLength(0);
   });
+
+  it('sets deltaPct to null when planned amount is zero for a category', () => {
+    const mixedYear: BudgetYear = {
+      ...sampleYear,
+      lines: [
+        ...sampleYear.lines,
+        { category_code: '3', category_name: 'Extra', amount: 50_000, budget_type: 'executed' },
+        // No planned entry for code '3'
+      ],
+    };
+    const data = buildDeltaData(mixedYear);
+    const extra = data.find(d => d.code === '3');
+    expect(extra?.deltaPct).toBeNull();
+  });
 });
