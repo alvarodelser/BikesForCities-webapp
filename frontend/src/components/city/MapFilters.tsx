@@ -2,7 +2,7 @@ import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { useViewport } from '../../hooks/useViewport';
 import { useMapState } from '../../hooks/useMapState';
-import { RoadHorizon, Graph, Bicycle, Warning } from '@phosphor-icons/react';
+import { RoadHorizon, Graph, Bicycle, Warning, Scales } from '@phosphor-icons/react';
 import { MAP_MODES } from '../../constants/mapModes';
 import type { MapMode } from '../../constants/mapModes';
 
@@ -42,6 +42,7 @@ const MODE_META = [
   { id: MAP_MODES.TRAFFIC,        name: 'Modelo de Movilidad', color: '#3A6C7F',      icon: Graph       },
   { id: MAP_MODES.STATIONS,       name: 'Servicio Bici',       color: '#ffa585',      icon: Bicycle     },
   { id: MAP_MODES.ACCIDENTS,      name: 'Accidentes',          color: 'var(--red)',   icon: Warning     },
+  { id: MAP_MODES.TRANSPARENCY,   name: 'Transparencia',       color: '#3A6C7F',      icon: Scales      },
 ] as const;
 
 // Context copy keyed by mode or mode/submode
@@ -81,6 +82,10 @@ const CONTEXT_COPY: Partial<Record<string, { title: string; body: string }>> = {
   [MAP_MODES.ACCIDENTS]: {
     title: 'Dónde ocurren los accidentes y por qué',
     body:  'Localiza los puntos de mayor siniestralidad ciclista en la ciudad. Cada incidente muestra el tipo de vehículo implicado, la gravedad y el tipo de vía. Los tramos sin infraestructura ciclista concentran accidentes graves. La severidad repercute en los usuarios vulnerables de la vía.',
+  },
+  [MAP_MODES.TRANSPARENCY]: {
+    title: 'Presupuesto y gobierno municipal',
+    body:  'Explora cómo el ayuntamiento gestiona sus recursos. Compara lo presupuestado con lo ejecutado por área de gasto, y consulta el historial de mandatos municipales. Los datos provienen de los presupuestos municipales publicados.',
   },
 };
 
