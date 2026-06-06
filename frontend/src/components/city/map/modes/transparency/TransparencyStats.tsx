@@ -75,10 +75,14 @@ export default function TransparencyStats({
     [budgetYears, selectedYear],
   );
 
-  const democraticMayors = useMemo(
-    () => mayors.filter(m => !m.start_date || new Date(m.start_date).getFullYear() >= 1975),
-    [mayors],
-  );
+  const democraticMayors = useMemo(() => {
+    const today = new Date();
+    return mayors.filter(m => {
+      if (!m.start_date) return false;
+      const start = new Date(m.start_date);
+      return start.getFullYear() >= 1975 && start <= today;
+    });
+  }, [mayors]);
 
   const handleChange = (from: string, _to: string) => {
     onYearChange(Number(from));
