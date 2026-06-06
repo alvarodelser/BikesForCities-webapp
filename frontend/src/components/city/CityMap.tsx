@@ -208,7 +208,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     </div>
 
                     {/* Map help panel */}
-                    <MapHelpPanel />
+                    {!locked && <MapHelpPanel />}
 
                     {/* Legend — floats over canvas */}
                     {!locked && <CityLegend colorScheme={colorScheme} bottomOffset={bottomOffset} defaultOpen={!isMobile} />}
