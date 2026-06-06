@@ -39,4 +39,12 @@ describe('buildDeltaData', () => {
     const data = buildDeltaData(sampleYear);
     expect(Math.abs(data[0].delta)).toBeGreaterThanOrEqual(Math.abs(data[1].delta));
   });
+
+  it('returns empty array when only one budget type is present', () => {
+    const onlyPlanned: BudgetYear = {
+      ...sampleYear,
+      lines: sampleYear.lines.filter(l => l.budget_type === 'planned'),
+    };
+    expect(buildDeltaData(onlyPlanned)).toHaveLength(0);
+  });
 });

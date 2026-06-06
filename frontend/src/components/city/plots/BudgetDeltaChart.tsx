@@ -15,6 +15,11 @@ export function buildDeltaData(budgetYear: BudgetYear): DeltaDatum[] {
   const { lines } = budgetYear;
   if (lines.length === 0) return [];
 
+  // Guard: need BOTH planned and executed to show a meaningful comparison
+  const hasPlanned = lines.some(l => l.budget_type === 'planned');
+  const hasExecuted = lines.some(l => l.budget_type === 'executed');
+  if (!hasPlanned || !hasExecuted) return [];
+
   const minLen = Math.min(...lines.map(l => l.category_code.length));
   const topLines = lines.filter(l => l.category_code.length === minLen);
 
