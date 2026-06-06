@@ -58,7 +58,7 @@ const CityCard: React.FC<CityCardProps> = ({
         tint="rgba(255, 255, 255, 0.18)"
         blurStrength="lg"
         shadow="lg"
-        className="w-full flex flex-col border-white/30"
+        className="w-full h-full flex flex-col border-white/30"
         onClick={onClick}
       >
         {/* City name */}

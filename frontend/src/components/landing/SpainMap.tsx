@@ -27,6 +27,7 @@ interface CityCoordinates {
 
 interface CardLayout {
   px: number;
+  cityName: string;
   py: number;
   cardX: number;
   cardY: number;
@@ -373,8 +374,18 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       let chosen: ReturnType<typeof computeLabelCandidates>[0] | null = null;
       let chosenIsLand = false;
 
+      const edgeMargin = 10;
       for (const candidate of candidates) {
         const { rect } = candidate;
+
+        // Reject labels that would render outside the SVG viewport
+        if (
+          rect.x < edgeMargin ||
+          rect.y < edgeMargin ||
+          rect.x + rect.width > size.width - edgeMargin ||
+          rect.y + rect.height > size.height - edgeMargin
+        ) continue;
+
         const samplePoints: [number, number][] = [
           [rect.x, rect.y],
           [rect.x + rect.width, rect.y],
@@ -389,7 +400,9 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         const allLand = onLand.every(Boolean);
         const allSea = onLand.every(v => !v);
 
-        if ((allLand || allSea) && !placedRects.some(r => rectsOverlap(r, rect))) {
+        // Add 3px padding around placed rect to prevent labels from touching
+        const padded = { x: rect.x - 3, y: rect.y - 3, width: rect.width + 6, height: rect.height + 6 };
+        if ((allLand || allSea) && !placedRects.some(r => rectsOverlap(r, padded))) {
           chosen = candidate;
           chosenIsLand = allLand;
           break;
@@ -508,6 +521,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const p4y = cardY <= py ? cardY + cardH / 2 : cardY - cardH / 2;
 
     setCardLayout({
+      cityName: selectedCityData.name,
       px, py, cardX, cardY, cardW, cardH,
       connectorPath: `M ${px} ${py} L ${p2x} ${p2y} L ${p3x} ${p3y} L ${p4x} ${p4y}`,
     });
@@ -581,20 +595,22 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         {/* g.map-base is managed by D3 (see useEffect above) */}
         <g className="map-base" />
 
-        {/* Connector Line */}
-        {cardLayout && (
+        {/* Connector Line — only renders when layout matches current city to ensure animation fires at the correct position */}
+        {cardLayout && cardLayout.cityName === selectedCity && (
           <path
             key={`connector-${selectedCity}`}
             d={cardLayout.connectorPath}
+            pathLength={1}
             fill="none"
-            stroke="white"
-            strokeWidth={1.5}
+            stroke="#003849"
+            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
             style={{
-              strokeDasharray: 1000,
-              strokeDashoffset: 1000,
+              strokeDasharray: 1,
+              strokeDashoffset: 1,
               animation: 'draw-connector 0.4s ease-out forwards',
+              filter: 'drop-shadow(0 0 3px rgba(255,255,255,0.8))',
             }}
           />
         )}
@@ -630,8 +646,8 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
           })}
       </svg>
 
-      {/* Floating City Card for Desktop */}
-      {!isMobile && selectedCityData && cardLayout && (
+      {/* Floating City Card for Desktop — only renders when layout matches current city */}
+      {!isMobile && selectedCityData && cardLayout && cardLayout.cityName === selectedCity && (
         <div
           key={`card-${selectedCity}`}
           className="absolute z-50"
@@ -641,7 +657,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
             width: cardLayout.cardW,
             height: cardLayout.cardH,
             pointerEvents: 'auto',
-            animation: 'card-appear 0.3s ease-out 0.05s both',
+            animation: 'card-appear 0.3s ease-out 0.4s both',
           }}
         >
           <CityCard

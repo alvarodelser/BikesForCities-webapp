@@ -15,7 +15,7 @@ export interface LabelCandidate {
 }
 
 const LABEL_HEIGHT = 13;
-const PIN_GAP = 4;
+const PIN_GAP = 7;
 
 export function computeLabelCandidates(
   px: number,
