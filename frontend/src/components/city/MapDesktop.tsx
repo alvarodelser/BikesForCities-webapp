@@ -145,7 +145,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
             if (budgetsResult.length > 0) {
                 setSelectedYear(budgetsResult[budgetsResult.length - 1].year);
             }
-            setMayors(contextResult.mayors);
+            setMayors(contextResult.mayors ?? []);
         });
     }, [city.id]);
 
@@ -171,7 +171,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 { replace: true }
             );
         }
-    }, [mode, city.id]);
+    }, [mode, city.id, budgetYears]);
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
 
