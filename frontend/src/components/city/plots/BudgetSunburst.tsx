@@ -234,8 +234,11 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                     onMouseMove={handleMouseMove}
                     onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
                     onClick={() => handleClick(node)}
-                    className="transition-opacity hover:opacity-90"
-                    style={{ cursor: hasChildren ? 'zoom-in' : 'default' }}
+                    style={{
+                      cursor: hasChildren ? 'zoom-in' : 'default',
+                      transition: 'd 0.4s ease, fill 0.3s ease, opacity 0.2s ease',
+                    }}
+                    className="hover:opacity-90"
                   />
                 );
               })}
@@ -245,30 +248,38 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                 <g
                   style={{ cursor: 'pointer' }}
                   onClick={() => setFocusCode(null)}
+                  className="group"
                 >
                   <circle
                     r={innerRadius}
-                    fill="rgba(0,0,0,0.35)"
-                    stroke="rgba(255,255,255,0.25)"
-                    strokeWidth={1}
+                    fill="rgba(255,255,255,0.08)"
+                    stroke="rgba(255,255,255,0.3)"
+                    strokeWidth={1.5}
+                    strokeDasharray="4 3"
+                  />
+                  <circle
+                    r={innerRadius - 6}
+                    fill="rgba(255,255,255,0.12)"
+                    stroke="none"
                   />
                   <text
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    y={-6}
-                    fontSize={18}
-                    fill="rgba(255,255,255,0.8)"
+                    y={-8}
+                    fontSize={20}
+                    fill="rgba(255,255,255,0.9)"
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}
                   >
-                    ←
+                    ↩
                   </text>
                   <text
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    y={10}
-                    fontSize={7}
-                    fontWeight="bold"
-                    fill="rgba(255,255,255,0.5)"
-                    style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                    y={9}
+                    fontSize={8}
+                    fontWeight="800"
+                    letterSpacing="0.12em"
+                    fill="rgba(255,255,255,0.65)"
                   >
                     VOLVER
                   </text>

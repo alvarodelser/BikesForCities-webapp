@@ -27,6 +27,7 @@ const modeLabels: Record<string, string> = {
     [MAP_MODES.STATIONS]:       'Servicio Bici',
     [MAP_MODES.TRAFFIC]:        'Modelo de Movilidad',
     [MAP_MODES.ACCIDENTS]:      'Accidentalidad',
+    [MAP_MODES.TRANSPARENCY]:   'Transparencia',
 };
 
 const submodeLabels: Partial<Record<string, string>> = {
@@ -184,6 +185,29 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                     colorScheme={colorScheme}
                                     onHelpClick={() => helpOpen ? closeMapHelp() : openMapHelp()}
                                 />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Locked mode header (transparency) — shows mode name, no controls */}
+                    {!isMobile && locked && (
+                        <div className="z-20 pb-4 shrink-0">
+                            <div
+                                className="mx-auto rounded-2xl px-6 py-3 flex items-center"
+                                style={{
+                                    background: 'rgba(0,0,0,0.25)',
+                                    backdropFilter: 'blur(20px)',
+                                    WebkitBackdropFilter: 'blur(20px)',
+                                    border: '1px solid rgba(255,255,255,0.12)',
+                                    boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                                }}
+                            >
+                                <h1
+                                    className="text-xl font-bold leading-tight tracking-wide"
+                                    style={{ color: 'rgba(255,255,255,0.85)', fontFamily: "'Archivo Narrow', sans-serif", textShadow: '0 1px 6px rgba(0,0,0,0.4)' }}
+                                >
+                                    {city.name} — {modeLabels[mode] ?? mode}
+                                </h1>
                             </div>
                         </div>
                     )}

@@ -17,36 +17,37 @@ export function buildSunburstTree(
     return { code: 'root', name: 'Presupuesto', amount: 0, children: [] };
   }
 
-  const minLen = Math.min(...lines.map(l => l.category_code.length));
-  const topLines = lines.filter(l => l.category_code.length === minLen);
-  const subLines = lines.filter(l => l.category_code.length > minLen);
+  const codeMap = new Map(lines.map(l => [l.category_code, { name: l.category_name ?? l.category_code, amount: l.amount }]));
+  const allCodes = [...codeMap.keys()].sort();
 
-  const topCodes = topLines.map(t => t.category_code);
-
-  const children: BudgetNode[] = topLines.map(topLine => {
-    const topCode = topLine.category_code;
-    const subs = subLines.filter(l => {
-      const longestMatch = topCodes
-        .filter(tc => l.category_code.startsWith(tc))
-        .reduce((a, b) => (a.length >= b.length ? a : b), '');
-      return longestMatch === topCode;
-    });
-
-    if (subs.length === 0) {
-      return { code: topCode, name: topLine.category_name ?? topCode, amount: topLine.amount };
+  // For each code, find the closest ancestor: longest code in the set that is a proper prefix
+  function findParent(code: string): string | null {
+    let best: string | null = null;
+    for (const c of allCodes) {
+      if (c.length < code.length && code.startsWith(c)) {
+        if (best === null || c.length > best.length) best = c;
+      }
     }
+    return best;
+  }
 
-    return {
-      code: topCode,
-      name: topLine.category_name ?? topCode,
-      amount: 0,
-      children: subs.map(s => ({
-        code: s.category_code,
-        name: s.category_name ?? s.category_code,
-        amount: s.amount,
-      })),
-    };
-  });
+  // Group direct children by parent code (null = top-level)
+  const childrenOf = new Map<string | null, string[]>();
+  for (const code of allCodes) {
+    const parent = findParent(code);
+    if (!childrenOf.has(parent)) childrenOf.set(parent, []);
+    childrenOf.get(parent)!.push(code);
+  }
 
-  return { code: 'root', name: 'Presupuesto', amount: 0, children };
+  function buildNode(code: string): BudgetNode {
+    const info = codeMap.get(code)!;
+    const kids = childrenOf.get(code) ?? [];
+    if (kids.length === 0) {
+      return { code, name: info.name, amount: info.amount };
+    }
+    return { code, name: info.name, amount: 0, children: kids.map(buildNode) };
+  }
+
+  const topCodes = childrenOf.get(null) ?? [];
+  return { code: 'root', name: 'Presupuesto', amount: 0, children: topCodes.map(buildNode) };
 }

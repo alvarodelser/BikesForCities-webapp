@@ -39,7 +39,7 @@ const modeGradients: Partial<Record<string, { bg: string; wave: string }>> = {
     [MAP_MODES.INFRASTRUCTURE]: { bg: 'linear-gradient(160deg, #027A76 0%, #3A6C7F 100%)', wave: '#027A76' },
     [MAP_MODES.STATIONS]:       { bg: 'linear-gradient(160deg, #ffa585 0%, #bc556f 100%)', wave: '#ffa585' },
     [MAP_MODES.TRAFFIC]:        { bg: 'linear-gradient(160deg, #003849 0%, #4b749f 100%)', wave: '#003849' },
-    [MAP_MODES.TRANSPARENCY]:   { bg: 'linear-gradient(160deg, #111827 0%, #374151 100%)', wave: '#111827' },
+    [MAP_MODES.TRANSPARENCY]:   { bg: 'linear-gradient(160deg, #475569 0%, #64748b 100%)', wave: '#475569' },
 };
 
 interface MapDesktopProps {
@@ -132,9 +132,11 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const [selectedYear, setSelectedYear] = useState<number>(0);
     const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
     const [mayors, setMayors] = useState<MayorTerm[]>([]);
+    const [dataLoaded, setDataLoaded] = useState(false);
 
     useEffect(() => {
         if (!city.id) return;
+        setDataLoaded(false);
         Promise.all([
             fetchInfraStats(city.id).catch(() => null),
             fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
@@ -146,6 +148,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 setSelectedYear(budgetsResult[0].year);
             }
             setMayors(contextResult.mayors ?? []);
+            setDataLoaded(true);
         });
     }, [city.id]);
 
@@ -158,8 +161,10 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
         return false;
     }, [budgetYears, city.available_modes, city.stations_count]);
 
-    // Redirect to infrastructure if the mode param is invalid for this city
+    // Redirect to infrastructure if the mode param is invalid for this city.
+    // Wait until data is loaded to avoid redirecting transparency mode prematurely.
     useEffect(() => {
+        if (!dataLoaded) return;
         if (!isModeAvailable(mode)) {
             setSearchParams(
                 prev => {
@@ -171,7 +176,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 { replace: true }
             );
         }
-    }, [mode, city.id, isModeAvailable]);
+    }, [mode, city.id, isModeAvailable, dataLoaded]);
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
 
