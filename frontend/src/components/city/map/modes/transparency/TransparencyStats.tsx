@@ -80,7 +80,7 @@ export default function TransparencyStats({
   return (
     <div className="flex flex-col gap-4">
       {/* ── Year selector ───────────────────────────────────────────── */}
-      {yearItems.length > 1 && (
+      {yearItems.length > 1 ? (
         <PeriodRangeTimeline
           items={yearItems}
           from={selectedYearStr}
@@ -89,7 +89,9 @@ export default function TransparencyStats({
           accent={ACCENT}
           unit="año"
         />
-      )}
+      ) : yearItems.length === 1 ? (
+        <p className="text-sm font-bold opacity-70" style={{ color: ACCENT }}>{yearItems[0]}</p>
+      ) : null}
 
       {/* ── Summary metric cards ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

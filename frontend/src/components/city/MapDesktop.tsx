@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { useMapState } from '../../hooks/useMapState';
@@ -143,20 +143,20 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
             setInfraStats(infraResult);
             setBudgetYears(budgetsResult);
             if (budgetsResult.length > 0) {
-                setSelectedYear(budgetsResult[budgetsResult.length - 1].year);
+                setSelectedYear(budgetsResult[0].year);
             }
             setMayors(contextResult.mayors ?? []);
         });
     }, [city.id]);
 
-    const isModeAvailable = (m: MapMode | string | null): boolean => {
+    const isModeAvailable = useCallback((m: MapMode | string | null): boolean => {
         if (!m) return false;
         if (!modeNames[m]) return false;
         if (m === MAP_MODES.TRANSPARENCY) return budgetYears.length > 0;
         if (city.available_modes) return city.available_modes[m] === true;
         if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
         return false;
-    };
+    }, [budgetYears, city.available_modes, city.stations_count]);
 
     // Redirect to infrastructure if the mode param is invalid for this city
     useEffect(() => {
@@ -171,7 +171,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 { replace: true }
             );
         }
-    }, [mode, city.id, budgetYears]);
+    }, [mode, city.id, isModeAvailable]);
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
 
