@@ -13,9 +13,7 @@ import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
 import { fetchInfraStats, fetchCityBudgets, fetchCityContext } from '../../services/api';
 import type { InfraStats, BudgetYear, MayorTerm } from '../../services/api';
-import BudgetSunburst from './plots/BudgetSunburst';
 import TransparencyStats from './map/modes/transparency/TransparencyStats';
-import { buildSunburstTree } from '../../utils/budget';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
@@ -180,19 +178,6 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
 
-    const sunburstOverlay = mode === MAP_MODES.TRANSPARENCY && budgetYears.length > 0 && selectedYear > 0 ? (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="pointer-events-auto w-[min(480px,90%)]">
-                <BudgetSunburst
-                    data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
-                    year={selectedYear}
-                    budgetType={budgetType}
-                    onBudgetTypeChange={setBudgetType}
-                />
-            </div>
-        </div>
-    ) : null;
-
     const filtersEl = (
         <MapFilters
             city={city}
@@ -210,7 +195,6 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 onEdgeSelect={setSelectedEdgeId}
                 locked={mode === MAP_MODES.TRANSPARENCY}
             />
-            {sunburstOverlay}
         </div>
     );
     const statsEl = mode === MAP_MODES.TRANSPARENCY
@@ -221,6 +205,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     budgetYears={budgetYears}
                     selectedYear={selectedYear}
                     onYearChange={setSelectedYear}
+                    budgetType={budgetType}
+                    onBudgetTypeChange={setBudgetType}
                     mayors={mayors}
                 />
             </div>
@@ -253,7 +239,6 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                                 onEdgeSelect={setSelectedEdgeId}
                                 locked={mode === MAP_MODES.TRANSPARENCY}
                             />
-                            {sunburstOverlay}
                         </div>
                     </DualPanel.Left>
                     <DualPanel.Right>
@@ -268,6 +253,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                                         budgetYears={budgetYears}
                                         selectedYear={selectedYear}
                                         onYearChange={setSelectedYear}
+                                        budgetType={budgetType}
+                                        onBudgetTypeChange={setBudgetType}
                                         mayors={mayors}
                                     />
                                 )

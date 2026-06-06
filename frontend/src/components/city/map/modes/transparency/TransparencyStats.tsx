@@ -3,6 +3,8 @@ import { TrendUp, CurrencyEur, Bank } from '@phosphor-icons/react';
 import PeriodRangeTimeline from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
+import { BudgetSunburst } from '../../../plots/BudgetSunburst';
+import { buildSunburstTree } from '../../../../../utils/budget';
 import type { BudgetYear, MayorTerm } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
 import { formatCurrency } from '../../../../../utils/formatters';
@@ -12,6 +14,8 @@ interface TransparencyStatsProps {
   budgetYears: BudgetYear[];
   selectedYear: number;
   onYearChange: (year: number) => void;
+  budgetType: 'planned' | 'executed';
+  onBudgetTypeChange: (t: 'planned' | 'executed') => void;
   mayors: MayorTerm[];
 }
 
@@ -56,6 +60,8 @@ export default function TransparencyStats({
   budgetYears,
   selectedYear,
   onYearChange,
+  budgetType,
+  onBudgetTypeChange,
   mayors,
 }: TransparencyStatsProps) {
   const yearItems = useMemo(
@@ -74,6 +80,11 @@ export default function TransparencyStats({
   const democraticMayors = useMemo(
     () => mayors.filter(m => !m.start_date || new Date(m.start_date).getFullYear() >= 1975),
     [mayors],
+  );
+
+  const sunburstData = useMemo(
+    () => buildSunburstTree(budgetYears, selectedYear, budgetType),
+    [budgetYears, selectedYear, budgetType],
   );
 
   const handleChange = (from: string, _to: string) => {
@@ -119,6 +130,17 @@ export default function TransparencyStats({
           accent={ACCENT}
         />
       </div>
+
+      {/* ── Budget sunburst ──────────────────────────────────────────── */}
+      {selectedYear > 0 && budgetYears.length > 0 && (
+        <BudgetSunburst
+          data={sunburstData}
+          year={selectedYear}
+          budgetType={budgetType}
+          onBudgetTypeChange={onBudgetTypeChange}
+          variant="panel"
+        />
+      )}
 
       {/* ── Budget delta chart ───────────────────────────────────────── */}
       {yearData && (

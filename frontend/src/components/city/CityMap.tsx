@@ -119,14 +119,30 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         }
     }, [mapInstance]);
 
-    // When locked, hide base tiles and zoom in; restore when unlocked
+    // When locked (transparency mode): hide base tiles, zoom in, restyle features for visibility
     React.useEffect(() => {
         if (!mapInstance) return;
         if (locked) {
             toggleBackground(false);
             mapInstance.easeTo({ zoom: 14.5, duration: 800 });
+            if (mapInstance.getLayer('buildings-layer')) {
+                mapInstance.setPaintProperty('buildings-layer', 'fill-color', '#b0a89a');
+                mapInstance.setPaintProperty('buildings-layer', 'fill-opacity', 1);
+            }
+            if (mapInstance.getLayer('bike-path-buildings-layer')) {
+                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-color', '#9ab8a4');
+                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-opacity', 1);
+            }
         } else {
             toggleBackground(true);
+            if (mapInstance.getLayer('buildings-layer')) {
+                mapInstance.setPaintProperty('buildings-layer', 'fill-color', '#ead5c5');
+                mapInstance.setPaintProperty('buildings-layer', 'fill-opacity', 1);
+            }
+            if (mapInstance.getLayer('bike-path-buildings-layer')) {
+                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-color', '#ead5c5');
+                mapInstance.setPaintProperty('bike-path-buildings-layer', 'fill-opacity', 1);
+            }
         }
     }, [locked, mapInstance, toggleBackground]);
 

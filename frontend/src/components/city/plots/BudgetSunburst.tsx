@@ -16,6 +16,8 @@ interface BudgetSunburstProps {
   onBudgetTypeChange: (t: 'planned' | 'executed') => void;
   title?: string;
   subtitle?: string;
+  /** 'overlay' = transparent/on-map (default), 'panel' = white card in stats panel */
+  variant?: 'overlay' | 'panel';
 }
 
 const SUNBURST_COLORS = [
@@ -69,7 +71,9 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   onBudgetTypeChange,
   title = 'Desglose presupuestario',
   subtitle,
+  variant = 'overlay',
 }) => {
+  const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [focusCode, setFocusCode] = useState<string | null>(null);
@@ -180,32 +184,44 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   const innerRadius = RADIUS * 0.18;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={`flex flex-col h-full ${isPanel ? 'rounded-2xl border bg-white/80 backdrop-blur-sm p-5' : ''}`}
+      style={isPanel ? { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' } : undefined}
+    >
       <div className="flex items-center justify-between mb-3 px-1">
         <div>
           <h3
             className="text-sm font-black uppercase tracking-widest"
-            style={{ color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }}
+            style={isPanel
+              ? { color: '#1f2937' }
+              : { color: '#fff', textShadow: '0 1px 6px rgba(0,0,0,0.5)' }
+            }
           >
             {title}
           </h3>
           <p
             className="text-[10px] font-bold uppercase tracking-tight mt-0.5"
-            style={{ color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}
+            style={isPanel
+              ? { color: '#6b7280' }
+              : { color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }
+            }
           >
             {subtitle || `Año ${year}`}
           </p>
         </div>
 
-        <div className="flex items-center gap-1 bg-black/30 backdrop-blur-sm p-1 rounded-xl border border-white/10">
+        <div className={`flex items-center gap-1 p-1 rounded-xl ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
           {(['planned', 'executed'] as const).map(t => (
             <button
               key={t}
               onClick={() => onBudgetTypeChange(t)}
               className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
                 budgetType === t
-                  ? 'bg-white/20 text-white shadow-sm'
-                  : 'text-white/50 hover:text-white/80'
+                  ? isPanel
+                    ? 'bg-white text-gray-800 shadow-sm'
+                    : 'bg-white/20 text-white shadow-sm'
+                  : isPanel
+                    ? 'text-gray-400 hover:text-gray-600'
+                    : 'text-white/50 hover:text-white/80'
               }`}
             >
               {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
@@ -252,14 +268,14 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                 >
                   <circle
                     r={innerRadius}
-                    fill="rgba(255,255,255,0.08)"
-                    stroke="rgba(255,255,255,0.3)"
+                    fill={isPanel ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.08)'}
+                    stroke={isPanel ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)'}
                     strokeWidth={1.5}
                     strokeDasharray="4 3"
                   />
                   <circle
                     r={innerRadius - 6}
-                    fill="rgba(255,255,255,0.12)"
+                    fill={isPanel ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.12)'}
                     stroke="none"
                   />
                   <text
@@ -267,8 +283,8 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                     dominantBaseline="middle"
                     y={-8}
                     fontSize={20}
-                    fill="rgba(255,255,255,0.9)"
-                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }}
+                    fill={isPanel ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)'}
+                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' }}
                   >
                     ↩
                   </text>
@@ -279,7 +295,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                     fontSize={8}
                     fontWeight="800"
                     letterSpacing="0.12em"
-                    fill="rgba(255,255,255,0.65)"
+                    fill={isPanel ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.65)'}
                   >
                     VOLVER
                   </text>
@@ -294,12 +310,13 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                   y={innerRadius + 14}
                   fontSize={9}
                   fontWeight="bold"
-                  fill="rgba(255,255,255,0.6)"
+                  fill={isPanel ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.6)'}
                   style={{ textTransform: 'uppercase', letterSpacing: '0.06em', pointerEvents: 'none' }}
                 >
                   {focusedName.length > 18 ? focusedName.slice(0, 17) + '…' : focusedName}
                 </text>
               )}
+
             </g>
           </svg>
         )}
