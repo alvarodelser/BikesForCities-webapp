@@ -20,10 +20,16 @@ interface TooltipState {
   end: string | null;
 }
 
-const BAR_HEIGHT = 40;
-const BAR_GAP = 12;
-const AXIS_HEIGHT = 30;
-const PADDING_TOP = 10;
+const BAR_HEIGHT = 16;
+const LABEL_HEIGHT = 34;
+const ROW_GAP = 12;
+const AXIS_HEIGHT = 28;
+const PADDING_TOP = 8;
+const SLANT = 10;
+
+const ROW_UNIT = LABEL_HEIGHT + BAR_HEIGHT;
+const TOTAL_ROWS_HEIGHT = ROW_UNIT * 2 + ROW_GAP;
+const CHART_HEIGHT = PADDING_TOP + TOTAL_ROWS_HEIGHT + AXIS_HEIGHT;
 
 function parseDate(s: string | null): Date {
   if (!s) return new Date();
@@ -62,9 +68,9 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
     return () => ro.disconnect();
   }, []);
 
-  const { minDate, maxDate, chartHeight, xScale } = useMemo(() => {
+  const { minDate, maxDate, xScale } = useMemo(() => {
     if (terms.length === 0 || width === 0) {
-      return { minDate: new Date(), maxDate: new Date(), chartHeight: 0, xScale: null };
+      return { minDate: new Date(), maxDate: new Date(), xScale: null };
     }
 
     const allStarts = terms.map(t => parseDate(t.start_date));
@@ -73,10 +79,9 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
     const min = allStarts.reduce((a, b) => (a < b ? a : b));
     const max = allEnds.reduce((a, b) => (a > b ? a : b));
 
-    const h = terms.length * (BAR_HEIGHT + BAR_GAP) + AXIS_HEIGHT + PADDING_TOP;
     const scale = scaleTime().domain([min, max]).range([0, width]);
 
-    return { minDate: min, maxDate: max, chartHeight: h, xScale: scale };
+    return { minDate: min, maxDate: max, xScale: scale };
   }, [terms, width]);
 
   const yearTicks = useMemo(() => {
@@ -91,7 +96,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
   }, [minDate, maxDate, xScale]);
 
   const handleMouseEnter = (
-    e: React.MouseEvent<SVGRectElement>,
+    e: React.MouseEvent<SVGPolygonElement>,
     term: MayorTerm,
   ) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -107,7 +112,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
     });
   };
 
-  const handleMouseMove = (e: React.MouseEvent<SVGRectElement>) => {
+  const handleMouseMove = (e: React.MouseEvent<SVGPolygonElement>) => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     setTooltip(prev => ({
@@ -131,7 +136,7 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
 
   return (
     <div className={`${cardClass} flex flex-col h-full`} style={cardStyle}>
-      <div className="mb-6">
+      <div className="mb-4">
         <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
         {subtitle && (
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">
@@ -140,108 +145,143 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
         )}
       </div>
 
-      <div ref={containerRef} className="flex-1 relative min-h-[300px]">
+      <div ref={containerRef} className="flex-1 relative" style={{ minHeight: CHART_HEIGHT }}>
         {width > 0 && xScale && (
-          <svg width={width} height={chartHeight} style={{ display: 'block', overflow: 'visible' }}>
-            <g transform={`translate(0, ${PADDING_TOP})`}>
-              {/* Year Grid Lines */}
+          <svg width={width} height={CHART_HEIGHT} style={{ display: 'block', overflow: 'hidden' }}>
+            <defs>
+              {terms.map((term, i) => {
+                const x = xScale(parseDate(term.start_date));
+                const barEndX = xScale(parseDate(term.end_date));
+                const barWidth = Math.max(barEndX - x, SLANT + 4);
+                const row = i % 2;
+                const barY = PADDING_TOP + row * (ROW_UNIT + ROW_GAP) + LABEL_HEIGHT;
+                return (
+                  <clipPath key={`clip-${i}`} id={`mayor-label-clip-${i}`}>
+                    <rect
+                      x={x + SLANT}
+                      y={barY - LABEL_HEIGHT}
+                      width={Math.max(barWidth - SLANT - 2, 0)}
+                      height={LABEL_HEIGHT}
+                    />
+                  </clipPath>
+                );
+              })}
+            </defs>
+
+            {/* Year Grid Lines */}
+            {yearTicks.map((tick, i) => {
+              const x = xScale(tick);
+              return (
+                <line
+                  key={`grid-${i}`}
+                  x1={x}
+                  y1={PADDING_TOP}
+                  x2={x}
+                  y2={PADDING_TOP + TOTAL_ROWS_HEIGHT}
+                  stroke="#f3f4f6"
+                  strokeWidth={1}
+                />
+              );
+            })}
+
+            {/* Bars and Labels */}
+            {terms.map((term, i) => {
+              const startDate = parseDate(term.start_date);
+              const endDate = parseDate(term.end_date);
+              const isCurrent = term.end_date === null;
+
+              const x = xScale(startDate);
+              const barEndX = xScale(endDate);
+              const barWidth = Math.max(barEndX - x, SLANT + 4);
+
+              const row = i % 2;
+              const barY = PADDING_TOP + row * (ROW_UNIT + ROW_GAP) + LABEL_HEIGHT;
+              const labelNameY = barY - LABEL_HEIGHT + 14;
+              const labelPartyY = barY - LABEL_HEIGHT + 26;
+
+              const color = getPartyColor(term.party);
+
+              // Parallelogram: top edge offset right by SLANT, bottom edge aligned left
+              const poly = [
+                `${x + SLANT},${barY}`,
+                `${x + barWidth},${barY}`,
+                `${x + barWidth - SLANT},${barY + BAR_HEIGHT}`,
+                `${x},${barY + BAR_HEIGHT}`,
+              ].join(' ');
+
+              return (
+                <g key={`${term.name}-${i}`}>
+                  {/* Labels clipped to bar width */}
+                  <g clipPath={`url(#mayor-label-clip-${i})`}>
+                    <text
+                      x={x + SLANT}
+                      y={labelNameY}
+                      fontSize={10}
+                      fontWeight="800"
+                      fill="#1f2937"
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    >
+                      {term.name}
+                    </text>
+                    <text
+                      x={x + SLANT}
+                      y={labelPartyY}
+                      fontSize={9}
+                      fontWeight="700"
+                      fill={color}
+                      style={{ pointerEvents: 'none', userSelect: 'none' }}
+                    >
+                      {term.party ?? '—'}
+                    </text>
+                  </g>
+
+                  {/* Parallelogram bar */}
+                  <polygon
+                    points={poly}
+                    fill={color}
+                    fillOpacity={0.82}
+                    onMouseEnter={e => handleMouseEnter(e, term)}
+                    onMouseMove={handleMouseMove}
+                    onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
+                    className="transition-all hover:fill-opacity-100"
+                    style={{ cursor: 'pointer' }}
+                  />
+
+                  {isCurrent && (
+                    <rect
+                      x={x + barWidth - SLANT - 5}
+                      y={barY + 2}
+                      width={3}
+                      height={BAR_HEIGHT - 4}
+                      fill="#fff"
+                      fillOpacity={0.6}
+                      rx={1}
+                      className="animate-pulse"
+                    />
+                  )}
+                </g>
+              );
+            })}
+
+            {/* X-axis year ticks */}
+            <g transform={`translate(0, ${PADDING_TOP + TOTAL_ROWS_HEIGHT + 8})`}>
               {yearTicks.map((tick, i) => {
                 const x = xScale(tick);
                 return (
-                  <line
-                    key={`grid-${i}`}
-                    x1={x}
-                    y1={0}
-                    x2={x}
-                    y2={terms.length * (BAR_HEIGHT + BAR_GAP)}
-                    stroke="#f3f4f6"
-                    strokeWidth={1}
-                  />
-                );
-              })}
-
-              {/* Bars */}
-              {terms.map((term, i) => {
-                const startDate = parseDate(term.start_date);
-                const endDate = parseDate(term.end_date);
-                const isCurrent = term.end_date === null;
-
-                const x = xScale(startDate);
-                const barEndX = xScale(endDate);
-                const barWidth = Math.max(barEndX - x, 4);
-                const y = i * (BAR_HEIGHT + BAR_GAP);
-
-                const color = getPartyColor(term.party);
-                const label = `${term.name}${term.party ? ` (${term.party})` : ''}`;
-
-                return (
-                  <g key={`${term.name}-${i}`}>
-                    <rect
-                      x={x}
-                      y={y}
-                      width={barWidth}
-                      height={BAR_HEIGHT}
-                      fill={color}
-                      fillOpacity={0.8}
-                      rx={8}
-                      onMouseEnter={e => handleMouseEnter(e, term)}
-                      onMouseMove={handleMouseMove}
-                      onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
-                      className="transition-all hover:fill-opacity-100"
-                      style={{ cursor: 'pointer' }}
-                    />
-
-                    {isCurrent && (
-                      <rect
-                        x={x + barWidth - 4}
-                        y={y}
-                        width={4}
-                        height={BAR_HEIGHT}
-                        fill={color}
-                        rx={2}
-                        className="animate-pulse"
-                      />
-                    )}
-
-                    {barWidth > 100 && (
-                      <text
-                        x={x + 12}
-                        y={y + BAR_HEIGHT / 2 + 1}
-                        dominantBaseline="middle"
-                        fontSize={11}
-                        fontWeight="bold"
-                        fill="#fff"
-                        style={{ pointerEvents: 'none', userSelect: 'none' }}
-                      >
-                        {label.length > Math.floor(barWidth / 8)
-                          ? label.slice(0, Math.floor(barWidth / 8) - 1) + '…'
-                          : label}
-                      </text>
-                    )}
+                  <g key={`axis-${i}`} transform={`translate(${x}, 0)`}>
+                    <text
+                      y={14}
+                      textAnchor="middle"
+                      fontSize={10}
+                      fontWeight="900"
+                      fill="#9ca3af"
+                      className="uppercase tracking-tighter"
+                    >
+                      {formatYear(tick)}
+                    </text>
                   </g>
                 );
               })}
-
-              {/* X-axis ticks */}
-              <g transform={`translate(0, ${terms.length * (BAR_HEIGHT + BAR_GAP) + 8})`}>
-                {yearTicks.map((tick, i) => {
-                  const x = xScale(tick);
-                  return (
-                    <g key={`axis-${i}`} transform={`translate(${x}, 0)`}>
-                      <text
-                        y={14}
-                        textAnchor="middle"
-                        fontSize={10}
-                        fontWeight="black"
-                        fill="#9ca3af"
-                        className="uppercase tracking-tighter"
-                      >
-                        {formatYear(tick)}
-                      </text>
-                    </g>
-                  );
-                })}
-              </g>
             </g>
           </svg>
         )}
@@ -264,8 +304,8 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
             </div>
             {tooltip.party && (
               <div className="flex items-center gap-1.5 mt-0.5">
-                <div 
-                  className="w-2 h-2 rounded-full" 
+                <div
+                  className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: getPartyColor(tooltip.party) }}
                 />
                 <span className="text-[10px] font-bold text-gray-500">
