@@ -251,6 +251,18 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
   });
   const [labelConfigs, setLabelConfigs] = useState<Record<string, LabelConfig>>({});
 
+  interface CardLayout {
+    px: number;
+    py: number;
+    cardX: number;
+    cardY: number;
+    cardW: number;
+    cardH: number;
+    connectorPath: string;
+  }
+
+  const [cardLayout, setCardLayout] = useState<CardLayout | null>(null);
+
   const selectedCityData = useMemo(() => {
     if (!selectedCity) return null;
     return cities.find(c => c.name === selectedCity);
@@ -409,45 +421,92 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     setLabelConfigs(result);
   }, [geoData, projection, size, cities, isMobile]);
 
-  // Calculate connector layout for desktop
-  const connector = useMemo(() => {
-    if (!selectedCityData || !projection || isMobile) return null;
-    
-    const [shiftedLon, shiftedLat] = transformCanaryCoords(
+  // Calculate connector layout for desktop using smart card placement
+  useEffect(() => {
+    if (!selectedCityData || !projection || isMobile || !svgRef.current) {
+      setCardLayout(null);
+      return;
+    }
+    const svgEl = svgRef.current;
+    const spainEl = svgEl.querySelector<SVGGeometryElement>('.spain-shape');
+    if (!spainEl) {
+      setCardLayout(null);
+      return;
+    }
+
+    const [lon, lat] = transformCanaryCoords(
       selectedCityData.geoCoords.longitude,
       selectedCityData.geoCoords.latitude,
       isMobile,
     );
-    const p = projection([shiftedLon, shiftedLat]);
-    if (!p) return null;
+    const p = projection([lon, lat]);
+    if (!p) return;
     const [px, py] = p;
-
-    // Logic for sea sections: East/West split by Madrid longitude
-    const isRight = selectedCityData.geoCoords.longitude > -3.7;
-    const isTop = selectedCityData.geoCoords.latitude > 40;
 
     const cardW = 270;
     const cardH = 310;
-    
-    // Position cards in the "sea" areas
-    const cardX = isRight ? size.width * 0.82 : size.width * 0.18;
-    const cardY = isTop ? size.height * 0.28 : size.height * 0.72;
-    
-    // Connector line points
-    const diagSize = 30;
-    const p2x = isRight ? px + diagSize : px - diagSize;
-    const p2y = py - diagSize;
-    
-    // Horizontal segment hits the card edge
-    const p3x = isRight ? cardX - cardW/2 : cardX + cardW/2;
-    const p3y = p2y;
-    
-    // Vertical segment up to the card top
-    const p4x = p3x;
-    const p4y = cardY - cardH/2;
+    const gap = 40;
+    const margin = 16;
 
-    return { px, py, p2x, p2y, p3x, p3y, p4x, p4y, cardX, cardY, cardW, cardH, isRight };
-  }, [selectedCityData, projection, isMobile, size]);
+    const candidateCards = [
+      { cardX: px + gap + cardW / 2, cardY: py },
+      { cardX: px - gap - cardW / 2, cardY: py },
+      { cardX: px + gap + cardW / 2, cardY: py - cardH / 2 },
+      { cardX: px - gap - cardW / 2, cardY: py - cardH / 2 },
+      { cardX: px + gap + cardW / 2, cardY: py + cardH / 2 },
+      { cardX: px - gap - cardW / 2, cardY: py + cardH / 2 },
+      { cardX: size.width * 0.82, cardY: size.height * 0.28 },
+      { cardX: size.width * 0.18, cardY: size.height * 0.28 },
+      { cardX: size.width * 0.82, cardY: size.height * 0.72 },
+      { cardX: size.width * 0.18, cardY: size.height * 0.72 },
+    ];
+
+    let chosen = candidateCards[0];
+    let minLandCorners = Infinity;
+
+    for (const candidate of candidateCards) {
+      const { cardX, cardY } = candidate;
+      const left = cardX - cardW / 2;
+      const top = cardY - cardH / 2;
+      const right = cardX + cardW / 2;
+      const bottom = cardY + cardH / 2;
+
+      if (left < margin || top < margin || right > size.width - margin || bottom > size.height - margin) {
+        continue;
+      }
+
+      const corners: [number, number][] = [
+        [left, top], [right, top], [left, bottom], [right, bottom],
+      ];
+      const landCorners = corners.filter(([x, y]) =>
+        spainEl.isPointInFill(new DOMPoint(x, y)),
+      ).length;
+
+      if (landCorners === 0) {
+        chosen = candidate;
+        break;
+      }
+      if (landCorners < minLandCorners) {
+        minLandCorners = landCorners;
+        chosen = candidate;
+      }
+    }
+
+    const { cardX, cardY } = chosen;
+    const toRight = cardX > px;
+    const diagSize = 30;
+    const p2x = toRight ? px + diagSize : px - diagSize;
+    const p2y = cardY < py ? py - diagSize : py + diagSize;
+    const p3x = toRight ? cardX - cardW / 2 : cardX + cardW / 2;
+    const p3y = p2y;
+    const p4x = p3x;
+    const p4y = cardY < py ? cardY + cardH / 2 : cardY - cardH / 2;
+
+    setCardLayout({
+      px, py, cardX, cardY, cardW, cardH,
+      connectorPath: `M ${px} ${py} L ${p2x} ${p2y} L ${p3x} ${p3y} L ${p4x} ${p4y}`,
+    });
+  }, [selectedCityData, projection, isMobile, size, geoData]);
 
   // Stable per-component handlers so React.memo on Pin can bail out for non-hovered pins
   const handlePinClick = useCallback((cityName: string) => {
@@ -518,16 +577,20 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         <g className="map-base" />
 
         {/* Connector Line */}
-        {connector && (
+        {cardLayout && (
           <path
-            d={`M ${connector.px} ${connector.py} L ${connector.p2x} ${connector.p2y} L ${connector.p3x} ${connector.p3y} L ${connector.p4x} ${connector.p4y}`}
+            key={`connector-${selectedCity}`}
+            d={cardLayout.connectorPath}
             fill="none"
             stroke="white"
             strokeWidth={1.5}
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity={0.8}
-            className="transition-all duration-500"
+            style={{
+              strokeDasharray: 1000,
+              strokeDashoffset: 1000,
+              animation: 'draw-connector 0.4s ease-out forwards',
+            }}
           />
         )}
 
@@ -563,21 +626,23 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       </svg>
 
       {/* Floating City Card for Desktop */}
-      {!isMobile && selectedCityData && connector && (
-        <div 
-          className="absolute z-50 transition-all duration-500"
-          style={{ 
-            left: connector.cardX - connector.cardW / 2, 
-            top: connector.cardY - connector.cardH / 2,
-            width: connector.cardW,
-            height: connector.cardH,
-            pointerEvents: 'auto'
+      {!isMobile && selectedCityData && cardLayout && (
+        <div
+          key={`card-${selectedCity}`}
+          className="absolute z-50"
+          style={{
+            left: cardLayout.cardX - cardLayout.cardW / 2,
+            top: cardLayout.cardY - cardLayout.cardH / 2,
+            width: cardLayout.cardW,
+            height: cardLayout.cardH,
+            pointerEvents: 'auto',
+            animation: 'card-appear 0.3s ease-out 0.05s both',
           }}
         >
-          <CityCard 
-            city={selectedCityData} 
-            position={0} 
-            panel={true} 
+          <CityCard
+            city={selectedCityData}
+            position={0}
+            panel={true}
             onCityNavigate={onCityNavigate}
           />
         </div>
