@@ -13,7 +13,6 @@ interface SpainMapProps {
   onCityClick?: (cityName: string) => void;
   onCityNavigate?: (cityName: string) => void;
   selectedCity?: string | null;
-  expandedCity?: string | null; 
   cities: CityData[];
   className?: string;
 }
