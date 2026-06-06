@@ -501,11 +501,11 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const toRight = cardX > px;
     const diagSize = 30;
     const p2x = toRight ? px + diagSize : px - diagSize;
-    const p2y = cardY < py ? py - diagSize : py + diagSize;
+    const p2y = cardY <= py ? py - diagSize : py + diagSize;
     const p3x = toRight ? cardX - cardW / 2 : cardX + cardW / 2;
     const p3y = p2y;
     const p4x = p3x;
-    const p4y = cardY < py ? cardY + cardH / 2 : cardY - cardH / 2;
+    const p4y = cardY <= py ? cardY + cardH / 2 : cardY - cardH / 2;
 
     setCardLayout({
       px, py, cardX, cardY, cardW, cardH,

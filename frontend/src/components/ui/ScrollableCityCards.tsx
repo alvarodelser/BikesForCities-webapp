@@ -147,6 +147,10 @@ const ScrollableCityCards: React.FC<{
             maskImage: 'linear-gradient(to right, transparent, black 100px, black calc(100% - 100px), transparent)'
           }}
           onTouchStart={(e) => {
+            if (rafRef.current !== null) {
+              cancelAnimationFrame(rafRef.current);
+              rafRef.current = null;
+            }
             setIsDragging(true);
             lastTouchX.current = e.targetTouches[0].clientX;
             lastTime.current = Date.now();
