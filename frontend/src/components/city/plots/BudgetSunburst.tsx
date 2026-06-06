@@ -269,38 +269,32 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                 <g
                   style={{ cursor: 'pointer' }}
                   onClick={() => setFocusCode(null)}
-                  className="group"
                 >
+                  {/* Solid backdrop for visibility */}
                   <circle
                     r={innerRadius}
-                    fill={isPanel ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.08)'}
-                    stroke={isPanel ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)'}
-                    strokeWidth={1.5}
-                    strokeDasharray="4 3"
-                  />
-                  <circle
-                    r={innerRadius - 6}
-                    fill={isPanel ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.12)'}
-                    stroke="none"
+                    fill={isPanel ? 'rgba(30,30,30,0.08)' : 'rgba(15,15,15,0.55)'}
+                    stroke={isPanel ? 'rgba(0,0,0,0.25)' : 'rgba(255,255,255,0.5)'}
+                    strokeWidth={2}
                   />
                   <text
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    y={-8}
-                    fontSize={20}
-                    fill={isPanel ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)'}
-                    style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.2))' }}
+                    y={-7}
+                    fontSize={22}
+                    fill={isPanel ? '#1f2937' : '#ffffff'}
+                    style={{ filter: isPanel ? 'none' : 'drop-shadow(0 1px 4px rgba(0,0,0,0.6))' }}
                   >
                     ↩
                   </text>
                   <text
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    y={9}
-                    fontSize={8}
+                    y={10}
+                    fontSize={9}
                     fontWeight="800"
-                    letterSpacing="0.12em"
-                    fill={isPanel ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.65)'}
+                    letterSpacing="0.1em"
+                    fill={isPanel ? '#6b7280' : 'rgba(255,255,255,0.85)'}
                   >
                     VOLVER
                   </text>
