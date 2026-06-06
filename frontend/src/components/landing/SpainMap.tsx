@@ -6,6 +6,8 @@ import ErrorContainer from '../ui/ErrorContainer';
 
 import spainGeoJSON from '../../assets/spain-provinces.geojson?url';
 import { useViewport } from '../../hooks/useViewport';
+import { computeLabelCandidates, rectsOverlap } from './spainMapLabels';
+import type { LabelRect } from './spainMapLabels';
 
 interface SpainMapProps {
   width?: number;
@@ -109,6 +111,14 @@ const loadSpainGeoJSON = async (isMobile: boolean) => {
 
 // ─── Pin Component ────────────────────────────────────────────────────────────
 
+interface LabelConfig {
+  anchorX: number;
+  anchorY: number;
+  fill: string;
+  textShadow: string;
+  hidden: boolean;
+}
+
 interface PinProps {
   cityName: string;
   city: CityData;
@@ -117,18 +127,18 @@ interface PinProps {
   isActive: boolean;
   isHovered: boolean;
   isMobile: boolean;
+  labelConfig?: LabelConfig;
   onClick: (cityName: string) => void;
   onHover: (cityName: string, hovered: boolean) => void;
 }
 
-const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, onClick, onHover }: PinProps) {
+const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered, isMobile, labelConfig, onClick, onHover }: PinProps) {
   const width = isMobile ? 12 : 14;
   const height = isMobile ? 10 : 12;
   const rx = 5; // Fixed small radius for pill shape
 
-  // Navy blue border and label color
-  const strokeColor = '#003849'; 
-  const labelColor = '#003849';
+  // Navy blue border color
+  const strokeColor = '#003849';
 
   return (
     <g
@@ -175,18 +185,36 @@ const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered,
         className="transition-all duration-500 shadow-sm"
       />
 
-      {!isMobile && (
+      {!isMobile && labelConfig && !labelConfig.hidden && (
         <text
-          y={height / 2 + 14}
+          x={labelConfig.anchorX - x}
+          y={labelConfig.anchorY - y}
           textAnchor="middle"
           className="transition-all duration-300 pointer-events-none"
           style={{
             fontSize: 11,
             letterSpacing: 0.5,
-            textTransform: 'uppercase',
-            fill: labelColor,
+            textTransform: 'uppercase' as const,
+            fill: labelConfig.fill,
             fontWeight: 700,
-            textShadow: '0 0 2px rgba(255,255,255,0.8)',
+            filter: `drop-shadow(${labelConfig.textShadow})`,
+          }}
+        >
+          {city.name}
+        </text>
+      )}
+      {!isMobile && labelConfig?.hidden && (isActive || isHovered) && (
+        <text
+          y={12 / 2 + 14}
+          textAnchor="middle"
+          className="transition-all duration-300 pointer-events-none"
+          style={{
+            fontSize: 11,
+            letterSpacing: 0.5,
+            textTransform: 'uppercase' as const,
+            fill: '#003849',
+            fontWeight: 700,
+            filter: 'drop-shadow(0 0 2px rgba(255,255,255,0.8))',
           }}
         >
           {city.name}
@@ -221,6 +249,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     width: widthProp ?? 900,
     height: heightProp ?? 700,
   });
+  const [labelConfigs, setLabelConfigs] = useState<Record<string, LabelConfig>>({});
 
   const selectedCityData = useMemo(() => {
     if (!selectedCity) return null;
@@ -300,6 +329,85 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .style('stroke', 'none')
       .style('opacity', 1.0);
   }, [geoData, projection]);
+
+  // Label placement: run after D3 has drawn .spain-shape so isPointInFill works
+  useEffect(() => {
+    if (!svgRef.current || !geoData || !projection) return;
+    const svgEl = svgRef.current;
+    const spainEl = svgEl.querySelector<SVGGeometryElement>('.spain-shape');
+    if (!spainEl) return;
+
+    // Sort cities by population descending — higher priority gets label first
+    const sorted = [...cities].sort((a, b) => (b.population ?? 0) - (a.population ?? 0));
+
+    const placedRects: LabelRect[] = [];
+    const result: Record<string, LabelConfig> = {};
+
+    for (const city of sorted) {
+      const [lon, lat] = transformCanaryCoords(
+        city.geoCoords.longitude,
+        city.geoCoords.latitude,
+        isMobile,
+      );
+      const p = projection([lon, lat]);
+      if (!p) continue;
+      const [px, py] = p;
+
+      const pinW = isMobile ? 12 : 14;
+      const pinH = isMobile ? 10 : 12;
+      const textWidth = city.name.length * 7;
+      const candidates = computeLabelCandidates(px, py, pinW, pinH, textWidth);
+
+      let chosen: ReturnType<typeof computeLabelCandidates>[0] | null = null;
+      let chosenIsLand = false;
+
+      for (const candidate of candidates) {
+        const { rect } = candidate;
+        const samplePoints: [number, number][] = [
+          [rect.x, rect.y],
+          [rect.x + rect.width, rect.y],
+          [rect.x, rect.y + rect.height],
+          [rect.x + rect.width, rect.y + rect.height],
+          [rect.x + rect.width / 2, rect.y + rect.height / 2],
+        ];
+
+        const onLand = samplePoints.map(([x, y]) =>
+          spainEl.isPointInFill(new DOMPoint(x, y)),
+        );
+        const allLand = onLand.every(Boolean);
+        const allSea = onLand.every(v => !v);
+
+        if ((allLand || allSea) && !placedRects.some(r => rectsOverlap(r, rect))) {
+          chosen = candidate;
+          chosenIsLand = allLand;
+          break;
+        }
+      }
+
+      if (chosen) {
+        placedRects.push(chosen.rect);
+        result[city.name] = {
+          anchorX: chosen.anchorX,
+          anchorY: chosen.anchorY,
+          fill: chosenIsLand ? '#1a2a1a' : 'rgba(255,255,255,0.9)',
+          textShadow: chosenIsLand
+            ? '0 0 4px rgba(255,255,255,0.6)'
+            : '0 1px 3px rgba(0,0,0,0.8)',
+          hidden: false,
+        };
+      } else {
+        result[city.name] = {
+          anchorX: px,
+          anchorY: py + pinH / 2 + 17,
+          fill: '#003849',
+          textShadow: '0 0 2px rgba(255,255,255,0.8)',
+          hidden: true,
+        };
+      }
+    }
+
+    setLabelConfigs(result);
+  }, [geoData, projection, size, cities, isMobile]);
 
   // Calculate connector layout for desktop
   const connector = useMemo(() => {
@@ -446,6 +554,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
                 isActive={isActive}
                 isHovered={isHovered}
                 isMobile={isMobile}
+                labelConfig={labelConfigs[city.name]}
                 onClick={handlePinClick}
                 onHover={handlePinHover}
               />
