@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities, put_city_budgets, put_city_budget_categories,
-    upsert_ingestion_status, get_ingestion_status, check_prerequisites
+    upsert_ingestion_status, get_ingestion_status, check_prerequisites, refresh_city_modes
 )
 
 # Configuration
@@ -174,6 +174,9 @@ def main():
     try:
         for year in years:
             process_year(conn, year, db_cities)
+        ingested_city_ids = {c[0] for c in db_cities}
+        for cid in ingested_city_ids:
+            refresh_city_modes(conn, cid)
         print("\n🏁 Budget ingestion complete.")
     except Exception as e:
         print(f"❌ Error during budget ingestion: {e}")

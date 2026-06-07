@@ -9,10 +9,12 @@ import AccidentsStats from './map/modes/accidents/AccidentsStats';
 import TransparencyStats from './map/modes/transparency/TransparencyStats';
 import { fetchCityBudgets, fetchCityContext } from '../../services/api';
 import type { BudgetYear, MayorTerm } from '../../services/api';
+import type { TransparencyDataProps } from './MapSheetContent';
 
 interface ModeStatsRouterProps {
   city: CityData;
   variant?: 'light' | 'darkTint';
+  transparencyData?: TransparencyDataProps;
 }
 
 const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
@@ -33,7 +35,7 @@ const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
     });
   }, [city.id]);
 
-  if (budgetYears.length === 0) return null;
+  if (budgetYears.length === 0 && mayors.length === 0) return null;
 
   return (
     <TransparencyStats
@@ -48,7 +50,7 @@ const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
   );
 };
 
-const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant }) => {
+const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant, transparencyData }) => {
   const { mode } = useMapState();
 
   switch (mode) {
@@ -61,6 +63,19 @@ const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant }) => {
     case MAP_MODES.ACCIDENTS:
       return <AccidentsStats city={city} variant={variant} />;
     case MAP_MODES.TRANSPARENCY:
+      if (transparencyData && transparencyData.budgetYears.length > 0) {
+        return (
+          <TransparencyStats
+            city={city}
+            budgetYears={transparencyData.budgetYears}
+            selectedYear={transparencyData.selectedYear}
+            onYearChange={transparencyData.onYearChange}
+            budgetType={transparencyData.budgetType}
+            onBudgetTypeChange={transparencyData.onBudgetTypeChange}
+            mayors={transparencyData.mayors}
+          />
+        );
+      }
       return <TransparencyContainer city={city} />;
     default:
       return null;

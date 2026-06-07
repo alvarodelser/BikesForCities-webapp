@@ -272,7 +272,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                     {(loading || layerState === 'loading') && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-[2px] z-10 transition-all duration-500">
                             <LoadingContainer 
-                                className="w-52 h-52" 
+                                className="w-52"
                                 color={mode === MAP_MODES.STATIONS ? '#AF4749' : primaryColor} 
                             />
                         </div>
