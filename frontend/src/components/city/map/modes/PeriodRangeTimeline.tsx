@@ -11,7 +11,7 @@ interface Props {
 }
 
 type DragMode = 'from' | 'to' | 'shift';
-type HoverZone = 'from' | 'to' | 'range' | null;
+type HoverZone = 'from' | 'to' | 'range' | 'unselected' | null;
 
 interface DragState {
   mode: DragMode;
@@ -119,6 +119,7 @@ export default function PeriodRangeTimeline({
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fromIdxRef   = useRef(0);
   const toIdxRef     = useRef(0);
+  const snapCandidateRef = useRef<number | null>(null);
 
   const [activeDrag,    setActiveDrag]    = useState<DragMode | null>(null);
   const [displayFromIdx, setDisplayFromIdx] = useState(0);
@@ -158,6 +159,7 @@ export default function PeriodRangeTimeline({
     if (Math.abs(x - fromPx) <= 14) return 'from';
     if (Math.abs(x - toPx)   <= 14) return 'to';
     if (x > fromPx + 14 && x < toPx - 14) return 'range';
+    if (x >= 0 && x <= width) return 'unselected';
     return null;
   };
 
@@ -178,11 +180,19 @@ export default function PeriodRangeTimeline({
     const distTo     = Math.abs(x - toPx);
 
     let mode: DragMode;
-    if      (distFrom <= 16 && distFrom <= distTo) mode = 'from';
-    else if (distTo   <= 16)                        mode = 'to';
-    else if (clickedIdx < fi)                        mode = 'from';
-    else if (clickedIdx > ti)                        mode = 'to';
-    else                                             mode = 'shift';
+    if (distFrom <= 16 && distFrom <= distTo) {
+      mode = 'from';
+      snapCandidateRef.current = null;
+    } else if (distTo <= 16) {
+      mode = 'to';
+      snapCandidateRef.current = null;
+    } else if (clickedIdx < fi || clickedIdx > ti) {
+      mode = clickedIdx < fi ? 'from' : 'to';
+      snapCandidateRef.current = clickedIdx;
+    } else {
+      mode = 'shift';
+      snapCandidateRef.current = null;
+    }
 
     dragRef.current = { mode, startX: e.clientX, startFromIdx: fi, startToIdx: ti };
     setActiveDrag(mode);
@@ -192,6 +202,9 @@ export default function PeriodRangeTimeline({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag) { setHoverZone(getHoverZone(e.clientX)); return; }
+    if (snapCandidateRef.current !== null && Math.abs(e.clientX - drag.startX) > 5) {
+      snapCandidateRef.current = null;
+    }
     if (n < 2) return;
     const track = trackRef.current;
     if (!track) return;
@@ -223,9 +236,19 @@ export default function PeriodRangeTimeline({
 
   const onPointerUp = () => {
     if (!dragRef.current) return;
+    const snapIdx = snapCandidateRef.current;
+    snapCandidateRef.current = null;
     dragRef.current = null;
     setActiveDrag(null);
-    fireChange(fromIdxRef.current, toIdxRef.current);
+    if (snapIdx !== null) {
+      fromIdxRef.current = snapIdx;
+      toIdxRef.current = snapIdx;
+      setDisplayFromIdx(snapIdx);
+      setDisplayToIdx(snapIdx);
+      fireChange(snapIdx, snapIdx);
+    } else {
+      fireChange(fromIdxRef.current, toIdxRef.current);
+    }
   };
 
   if (n === 0) return null;
@@ -245,10 +268,11 @@ export default function PeriodRangeTimeline({
   // For non-month items: stride-based label density
   const stride = isMonthFmt ? 1 : (n <= 7 ? 1 : Math.ceil(n / 7));
 
-  const cursor = activeDrag === 'shift' ? 'grabbing'
-    : activeDrag            ? 'ew-resize'
-    : hoverZone === 'range' ? 'grab'
-    : hoverZone             ? 'ew-resize'
+  const cursor = activeDrag === 'shift'        ? 'grabbing'
+    : activeDrag                               ? 'ew-resize'
+    : hoverZone === 'range'                    ? 'grab'
+    : hoverZone === 'unselected'               ? 'pointer'
+    : hoverZone                                ? 'ew-resize'
     : 'default';
 
   // Divot at every interior boundary (i = 1 .. n-1)
