@@ -4,7 +4,7 @@ import { useMapState } from '../../hooks/useMapState';
 import CityMap from './CityMap';
 import MapSheetContent from './MapSheetContent';
 
-import { RoadHorizon, Graph, Bicycle, Warning } from '@phosphor-icons/react';
+import { RoadHorizon, Graph, Bicycle, Warning, Scales } from '@phosphor-icons/react';
 
 import { MAP_MODES } from '../../constants/mapModes';
 
@@ -19,6 +19,7 @@ const modeColors: Record<string, string> = {
   [MAP_MODES.TRAFFIC]: '#3A6C7F',
   [MAP_MODES.STATIONS]: '#ffa585',
   [MAP_MODES.ACCIDENTS]: 'var(--red)',
+  [MAP_MODES.TRANSPARENCY]: '#3A6C7F',
 };
 
 const modeShortNames: Record<string, string> = {
@@ -26,6 +27,7 @@ const modeShortNames: Record<string, string> = {
   [MAP_MODES.TRAFFIC]: 'Movilidad',
   [MAP_MODES.STATIONS]: 'Est.',
   [MAP_MODES.ACCIDENTS]: 'Accid.',
+  [MAP_MODES.TRANSPARENCY]: 'Transp.',
 };
 
 const modeNames: Record<string, string> = {
@@ -33,6 +35,7 @@ const modeNames: Record<string, string> = {
   [MAP_MODES.TRAFFIC]: 'Modelo de Movilidad',
   [MAP_MODES.STATIONS]: 'Servicio Bici',
   [MAP_MODES.ACCIDENTS]: 'Accidentes',
+  [MAP_MODES.TRANSPARENCY]: 'Transparencia',
 };
 
 const modeIcons: Record<string, React.ComponentType<{ className?: string; size?: number }>> = {
@@ -40,6 +43,7 @@ const modeIcons: Record<string, React.ComponentType<{ className?: string; size?:
   [MAP_MODES.TRAFFIC]: Graph,
   [MAP_MODES.STATIONS]: Bicycle,
   [MAP_MODES.ACCIDENTS]: Warning,
+  [MAP_MODES.TRANSPARENCY]: Scales,
 };
 
 export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
@@ -102,6 +106,11 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const isModeAvailable = (m: string | null): boolean => {
     if (!m) return false;
     if (!modeNames[m]) return false;
+    if (m === MAP_MODES.TRANSPARENCY) {
+      // available_modes.transparency is set by backend when budget data exists;
+      // fall back to checking city.budget for older API responses.
+      return city.available_modes?.transparency === true || city.budget != null;
+    }
     if (city.available_modes) return city.available_modes[m] === true;
     if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
     return false;

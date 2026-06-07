@@ -84,6 +84,7 @@ def list_networks(conn=Depends(get_db_connection)):
                 "traffic_combinations": traffic_combos or [],
                 "accidents": bool(accidents),
                 "stations": bool(stations),
+                "transparency": budget is not None,
             }
 
             city_obj = CityResponse(
@@ -159,6 +160,7 @@ def get_city(city_id: int, conn=Depends(get_db_connection)):
             "traffic_combinations": city_dict.get("traffic_combinations") or [],
             "accidents": bool(city_dict.get("accidents")),
             "stations": bool(city_dict.get("stations")),
+            "transparency": city_dict.get("budget") is not None,
         }
 
         city = CityResponse(

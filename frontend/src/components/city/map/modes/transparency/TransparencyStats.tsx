@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { TrendUp, CurrencyEur, Bank } from '@phosphor-icons/react';
+import { TrendUp, CurrencyEur, Bank, ChartBar } from '@phosphor-icons/react';
 import PeriodRangeTimeline from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
@@ -92,9 +92,9 @@ export default function TransparencyStats({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* ── Year selector + budget type toggle ──────────────────────── */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex-1 min-w-0">
+      {/* ── Year selector + budget type card (side by side) ─────────── */}
+      <div className="flex items-stretch gap-4">
+        <div className="w-2/3 min-w-0">
           {yearItems.length > 1 ? (
             <PeriodRangeTimeline
               items={yearItems}
@@ -109,21 +109,43 @@ export default function TransparencyStats({
           ) : null}
         </div>
 
-        {/* Planned / Executed toggle */}
-        <div className="flex items-center gap-1 bg-white/60 backdrop-blur-sm p-1 rounded-xl border border-black/10 flex-shrink-0">
-          {(['planned', 'executed'] as const).map(t => (
-            <button
-              key={t}
-              onClick={() => onBudgetTypeChange(t)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold tracking-widest transition-all ${
-                budgetType === t
-                  ? 'bg-white text-gray-800 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
-            </button>
-          ))}
+        {/* ── Budget type card ──────────────────────────────────────── */}
+        <div
+          className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden w-1/3"
+          style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
+        >
+        <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
+          >
+            <ChartBar size={16} color="white" weight="bold" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-bold text-[var(--blue-dark)]">Tipo de presupuesto</h3>
+            <p className="text-[10px] text-[var(--blue)] opacity-70 leading-snug">Alterna entre el presupuesto aprobado y el gasto realmente ejecutado.</p>
+          </div>
+        </div>
+        <div className="px-4 pb-4 flex flex-wrap gap-1.5">
+          {(['planned', 'executed'] as const).map(t => {
+            const isActive = budgetType === t;
+            return (
+              <button
+                key={t}
+                onClick={() => onBudgetTypeChange(t)}
+                className="px-3 py-1 rounded-xl text-xs font-bold transition-all border"
+                style={{
+                  backgroundColor: isActive ? ACCENT : 'white',
+                  borderColor: isActive ? ACCENT : 'rgba(0,0,0,0.08)',
+                  color: isActive ? 'white' : 'var(--blue-dark)',
+                  boxShadow: isActive ? `0 4px 12px ${ACCENT}40` : undefined,
+                }}
+              >
+                {t === 'planned' ? 'Planificado' : 'Ejecutado'}
+              </button>
+            );
+          })}
+        </div>
         </div>
       </div>
 

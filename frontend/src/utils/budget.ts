@@ -45,7 +45,16 @@ export function buildSunburstTree(
     if (kids.length === 0) {
       return { code, name: info.name, amount: info.amount };
     }
-    return { code, name: info.name, amount: 0, children: kids.map(buildNode) };
+    const childNodes = kids.map(buildNode);
+    // If parent has an amount larger than the sum of its direct children's amounts,
+    // the difference is budget that stays at this level without further breakdown.
+    // Represent it as a synthetic "Sin desglosar" leaf so no euros disappear.
+    const directChildTotal = kids.reduce((s, k) => s + (codeMap.get(k)?.amount ?? 0), 0);
+    const remainder = info.amount - directChildTotal;
+    if (remainder > 1) {
+      childNodes.push({ code: `${code}__rest`, name: 'Sin desglosar', amount: remainder });
+    }
+    return { code, name: info.name, amount: 0, children: childNodes };
   }
 
   const topCodes = childrenOf.get(null) ?? [];
