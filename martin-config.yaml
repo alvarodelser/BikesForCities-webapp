@@ -11,7 +11,7 @@ postgres:
       from_schemas: [public]
 
   tables:
-    public.features:
+    features:
       schema: public
       table: features
       srid: 4326
