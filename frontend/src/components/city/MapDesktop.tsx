@@ -132,11 +132,9 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const [selectedYear, setSelectedYear] = useState<number>(0);
     const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
     const [mayors, setMayors] = useState<MayorTerm[]>([]);
-    const [dataLoaded, setDataLoaded] = useState(false);
 
     useEffect(() => {
         if (!city.id) return;
-        setDataLoaded(false);
         Promise.all([
             fetchInfraStats(city.id).catch(() => null),
             fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
@@ -148,23 +146,19 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 setSelectedYear(budgetsResult[0].year);
             }
             setMayors(contextResult.mayors ?? []);
-            setDataLoaded(true);
         });
     }, [city.id]);
 
     const isModeAvailable = useCallback((m: MapMode | string | null): boolean => {
         if (!m) return false;
         if (!modeNames[m]) return false;
-        if (m === MAP_MODES.TRANSPARENCY) return budgetYears.length > 0;
         if (city.available_modes) return city.available_modes[m] === true;
         if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
         return false;
-    }, [budgetYears, city.available_modes, city.stations_count]);
+    }, [city.available_modes, city.stations_count]);
 
     // Redirect to infrastructure if the mode param is invalid for this city.
-    // Wait until data is loaded to avoid redirecting transparency mode prematurely.
     useEffect(() => {
-        if (!dataLoaded) return;
         if (!isModeAvailable(mode)) {
             setSearchParams(
                 prev => {
@@ -176,11 +170,14 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 { replace: true }
             );
         }
-    }, [mode, city.id, isModeAvailable, dataLoaded]);
+    }, [mode, city.id, isModeAvailable]);
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
 
-    const sunburstOverlay = mode === MAP_MODES.TRANSPARENCY && budgetYears.length > 0 && selectedYear > 0 ? (
+    const transparencySubmodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
+    const hasBudgetSubmode = transparencySubmodes.length === 0 || transparencySubmodes.includes('budget');
+
+    const sunburstOverlay = mode === MAP_MODES.TRANSPARENCY && hasBudgetSubmode && budgetYears.length > 0 && selectedYear > 0 ? (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
             <div className="pointer-events-auto w-[min(480px,90%)]">
                 <BudgetSunburst

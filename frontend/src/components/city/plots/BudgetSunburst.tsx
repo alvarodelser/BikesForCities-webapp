@@ -114,6 +114,34 @@ function a2xy(angle: number, r: number): [number, number] {
   return [Math.sin(angle) * r, -Math.cos(angle) * r];
 }
 
+// ── Label / callout constants ─────────────────────────────────────────────
+const CHAR_W = 6.4;           // px per uppercase char at font-size 10
+const PILL_PAD_X = 9;
+const LABEL_GAP = 5;
+const BOUNDS_MARGIN = 8;
+const PILL_H_1 = 34;          // single-line pill height
+const PILL_H_2 = 48;          // two-line pill height
+const MIN_LABEL_AREA_W = 65;  // px reserved per side for callout labels
+
+function wrapText(name: string, maxChars: number): string[] {
+  const upper = name.toUpperCase();
+  const words = upper.split(' ');
+  const lines: string[] = [];
+  let current = '';
+  for (const word of words) {
+    if (!current) {
+      current = word;
+    } else if ((current + ' ' + word).length <= maxChars) {
+      current += ' ' + word;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+  if (current) lines.push(current);
+  return lines.length > 0 ? lines : [upper];
+}
+
 interface TooltipState {
   visible: boolean; x: number; y: number;
   name: string; amount: number; pct: number; hasChildren: boolean;
@@ -155,9 +183,11 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
   const HEIGHT = 480;
-  // Reserve LABEL_H_SPACE px per side so callout labels stay inside the container
-  const RADIUS  = Math.min(width / 2 - 14, HEIGHT / 2 - 14);
+  // Label area scales with viewport: 20% of width, floor at MIN_LABEL_AREA_W
+  const labelAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.2);
+  const RADIUS  = Math.max(50, Math.min(width / 2 - labelAreaW - 14 - BOUNDS_MARGIN, HEIGHT / 2 - 14));
   const LABEL_R = RADIUS + 14;
+  const maxCharsPerLine = Math.max(8, Math.floor((labelAreaW - PILL_PAD_X * 2) / CHAR_W));
 
   const focusedData = useMemo((): BudgetNode => {
     if (!focusCode) return data;
@@ -285,28 +315,22 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   const labelColorMuted = isPanel ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.5)';
 
   // ── Depth-1 callout labels ────────────────────────────────────────────────
-  const CHAR_W = 6.2; // estimated px per uppercase char at fontSize 10
-  const PILL_PAD_X = 9, PILL_PAD_Y = 5;
-  const PILL_H = 34;
-  const LABEL_GAP = 5; // min vertical gap between stacked pills
-  const BOUNDS_MARGIN = 6; // px clearance from SVG edge
   const pillBg = isPanel ? 'rgba(251,246,239,0.92)' : 'rgba(251,246,239,0.88)';
 
   function renderCallouts(): React.ReactNode {
     if (!root || animProgress < 1 || width === 0) return null;
 
-    const svgHalfW = width / 2;
     const svgHalfH = HEIGHT / 2;
 
     type LabelDatum = {
       code: string; baseColor: string;
       pax: number; pay: number;
-      lx: number; // ideal anchor x (for connector waypoint)
+      lx: number; ly: number;
       onRight: boolean;
-      name: string; pct: string;
-      pillW: number;
-      pillX: number; // final clamped x
-      pillY: number; // mutable — resolved for overlap
+      lines: string[]; pct: string;
+      pillW: number; pillH: number;
+      pillX: number;
+      pillY: number;
     };
 
     const children = root.children ?? [];
@@ -317,69 +341,70 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
       const [pax, pay] = a2xy(mid, parent.y1 + 2);
       const [lx, ly]   = a2xy(mid, LABEL_R);
       const onRight = lx >= 0;
-      const pct  = totalValue > 0 ? ((parent.value ?? 0) / totalValue * 100).toFixed(1) : '0';
-      const name = parent.data.name;
-      const nameW = name.length * CHAR_W;
+      const pct   = totalValue > 0 ? ((parent.value ?? 0) / totalValue * 100).toFixed(1) : '0';
+      const lines = wrapText(parent.data.name, maxCharsPerLine);
       const pctW  = (pct.length + 2) * 7.5;
-      // cap pill width so it always fits inside the SVG
-      const pillW = Math.min(Math.max(nameW, pctW) + PILL_PAD_X * 2, svgHalfW - BOUNDS_MARGIN * 2);
-
-      // Ideal pill x: right-aligned on right side, left-aligned on left side
-      const idealPillX = onRight
-        ? lx + 4 - PILL_PAD_X
-        : lx - 4 - pillW + PILL_PAD_X;
-      const pillX = Math.max(-svgHalfW + BOUNDS_MARGIN, Math.min(svgHalfW - BOUNDS_MARGIN - pillW, idealPillX));
-      // Ideal pill y: vertically centered on ly
-      const pillY = ly - PILL_H / 2;
-
-      return { code: parent.data.code, baseColor, pax, pay, lx, onRight, name, pct, pillW, pillX, pillY };
+      const pillW = Math.max(...lines.map(l => l.length * CHAR_W), pctW) + PILL_PAD_X * 2;
+      const pillH = lines.length === 1 ? PILL_H_1 : PILL_H_1 + (lines.length - 1) * 12;
+      const pillX = onRight ? lx : lx - pillW;
+      const pillY = ly - pillH / 2;
+      return { code: parent.data.code, baseColor, pax, pay, lx, ly, onRight, lines, pct, pillW, pillH, pillX, pillY };
     });
 
-    // Resolve vertical overlaps per side (forward then backward pass)
+    // Resolve vertical overlaps per side — clamp to SVG y bounds
     const resolve = (group: LabelDatum[]) => {
       group.sort((a, b) => a.pillY - b.pillY);
       for (let i = 1; i < group.length; i++) {
-        const minY = group[i - 1].pillY + PILL_H + LABEL_GAP;
+        const minY = group[i - 1].pillY + group[i - 1].pillH + LABEL_GAP;
         if (group[i].pillY < minY) group[i].pillY = minY;
       }
       for (let i = group.length - 2; i >= 0; i--) {
-        const maxY = group[i + 1].pillY - PILL_H - LABEL_GAP;
+        const maxY = group[i + 1].pillY - group[i].pillH - LABEL_GAP;
         if (group[i].pillY > maxY) group[i].pillY = maxY;
       }
-      // Final hard clamp to SVG bounds
       for (const l of group) {
-        l.pillY = Math.max(-svgHalfH + BOUNDS_MARGIN, Math.min(svgHalfH - BOUNDS_MARGIN - PILL_H, l.pillY));
+        l.pillY = Math.max(-svgHalfH + BOUNDS_MARGIN, Math.min(svgHalfH - BOUNDS_MARGIN - l.pillH, l.pillY));
       }
     };
 
     resolve(items.filter(l => l.onRight));
     resolve(items.filter(l => !l.onRight));
 
+    // Push pills outward to clear the sunburst circle — no re-clamp (SVG overflow:visible)
+    for (const l of items) {
+      const connY = l.pillY + l.pillH / 2;
+      const circleX = Math.sqrt(Math.max(0, RADIUS * RADIUS - connY * connY)) + BOUNDS_MARGIN;
+      if (l.onRight) {
+        if (l.pillX < circleX) l.pillX = circleX;
+      } else {
+        const maxRight = -circleX;
+        if (l.pillX + l.pillW > maxRight) l.pillX = maxRight - l.pillW;
+      }
+    }
+
     return items.map(l => {
-      // Connector: straight line from arc midpoint to near edge of pill
       const connX = l.onRight ? l.pillX : l.pillX + l.pillW;
-      const connY = l.pillY + PILL_H / 2;
-      // Text positions within pill
-      const textX   = l.onRight ? l.pillX + PILL_PAD_X : l.pillX + l.pillW - PILL_PAD_X;
-      const anchor  = l.onRight ? 'start' : 'end';
-      const nameY   = l.pillY + Math.round(PILL_H * 0.34);
-      const pctY    = l.pillY + Math.round(PILL_H * 0.73);
+      const connY = l.pillY + l.pillH / 2;
+      const textX = l.pillX + PILL_PAD_X;
+      const multi = l.lines.length > 1;
+      // For 1 line: name at +12, pct at +25 (compact layout)
+      // For N lines: lines start at +9 spaced 12px, pct after last line + gap
+      const lineBaseY = multi ? l.pillY + 9 : l.pillY + 12;
+      const pctY = multi ? l.pillY + 9 + l.lines.length * 12 + 4 : l.pillY + 25;
 
       return (
         <g key={l.code}>
           <circle cx={l.pax} cy={l.pay} r={2} fill={l.baseColor} opacity={0.7} />
-          {/* Kinked connector: arc → ideal x column → pill edge */}
-          <polyline
-            points={`${l.pax},${l.pay} ${l.lx},${connY} ${connX},${connY}`}
-            fill="none" stroke={l.baseColor} strokeWidth={1.2} opacity={0.6}
-            strokeLinejoin="round"
-          />
-          <rect x={l.pillX} y={l.pillY} width={l.pillW} height={PILL_H} rx={7} ry={7} fill={pillBg} />
-          <text x={textX} y={nameY} textAnchor={anchor} dominantBaseline="middle"
-            fontSize={10} fontWeight={700} fill={l.baseColor} style={{ letterSpacing: '0.03em' }}>
-            {l.name.toUpperCase()}
-          </text>
-          <text x={textX} y={pctY} textAnchor={anchor} dominantBaseline="middle"
+          <line x1={l.pax} y1={l.pay} x2={connX} y2={connY}
+            stroke={l.baseColor} strokeWidth={1.2} opacity={0.6} />
+          <rect x={l.pillX} y={l.pillY} width={l.pillW} height={l.pillH} rx={7} ry={7} fill={pillBg} />
+          {l.lines.map((ln, i) => (
+            <text key={i} x={textX} y={lineBaseY + i * 12} textAnchor="start" dominantBaseline="middle"
+              fontSize={10} fontWeight={700} fill={l.baseColor} style={{ letterSpacing: '0.03em' }}>
+              {ln}
+            </text>
+          ))}
+          <text x={textX} y={pctY} textAnchor="start" dominantBaseline="middle"
             fontSize={12} fontWeight={800} fill={l.baseColor} opacity={0.85}>
             {l.pct}%
           </text>
@@ -413,7 +438,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
         )}
       </div>
 
-      <div ref={containerRef} className="flex-1 relative" style={{ minHeight: HEIGHT }}>
+      <div ref={containerRef} className="flex-1 relative" style={{ minHeight: HEIGHT, overflowY: 'clip' }}>
         {/* Top-right label: category name when drilled in, "Presupuesto" at root */}
         <div className="absolute top-2 right-2 pointer-events-none z-10 text-right"
           style={{ fontSize: 11, fontWeight: 700, color: labelColor,
@@ -421,7 +446,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           {focusCode && focusedName ? focusedName : 'Presupuesto'}
         </div>
         {width > 0 && RADIUS > 0 && (
-          <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'hidden' }}>
+          <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>
 
               {/* ── Arcs ── */}

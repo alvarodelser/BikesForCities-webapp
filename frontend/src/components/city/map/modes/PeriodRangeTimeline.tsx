@@ -337,7 +337,7 @@ export default function PeriodRangeTimeline({
               zIndex: 2,
             };
             return (
-              <React.Fragment key={i}>
+              <React.Fragment key={`d${i}`}>
                 {/* Top notch — ∨ pointing into bar from above */}
                 <div style={{
                   ...sharedStyle,
@@ -386,7 +386,7 @@ export default function PeriodRangeTimeline({
             const inRange = i >= fi && i <= ti;
             return (
               <div
-                key={i}
+                key={item}
                 className="absolute"
                 style={{
                   left: `${pct}%`,

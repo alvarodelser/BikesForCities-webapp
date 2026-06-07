@@ -131,7 +131,9 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
 
   const selectedColor = modeColors[mode] || 'var(--blue)';
   const isTransparency = mode === MAP_MODES.TRANSPARENCY;
-  const showSunburst = isTransparency && budgetYears.length > 0 && selectedYear > 0;
+  const transparencySubmodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
+  const hasBudgetSubmode = transparencySubmodes.length === 0 || transparencySubmodes.includes('budget');
+  const showSunburst = isTransparency && hasBudgetSubmode && budgetYears.length > 0 && selectedYear > 0;
 
   const transparencyData = {
     budgetYears,

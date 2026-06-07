@@ -64,8 +64,8 @@ export default function TransparencyStats({
   mayors,
 }: TransparencyStatsProps) {
   const submodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
-  const hasBudget = submodes.length === 0 || submodes.includes('budget');
-  const hasMayors = submodes.length === 0 || submodes.includes('mayors');
+  const hasBudget = submodes.includes('budget');
+  const hasMayors = submodes.includes('mayors');
 
   const yearItems = useMemo(
     () =>
