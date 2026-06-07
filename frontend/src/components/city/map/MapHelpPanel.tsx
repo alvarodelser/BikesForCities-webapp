@@ -124,8 +124,12 @@ export default function MapHelpPanel() {
 
   return (
     <div
-      className="absolute top-20 left-4 z-30 w-80 rounded-2xl overflow-hidden"
+      className="absolute z-30 rounded-2xl overflow-hidden"
       style={{
+        left: 'calc(1.5rem + 240px + 1rem)',
+        right: '1rem',
+        top: '50%',
+        transform: 'translateY(-50%)',
         background: 'rgba(255,255,255,0.88)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
@@ -165,17 +169,19 @@ export default function MapHelpPanel() {
             {section.heading && (
               <p className="text-xs font-bold text-black/80 border-t border-black/10 pt-2 mt-1">{section.heading}</p>
             )}
-            <div>
-              <SectionLabel text="QUÉ VES" />
-              <p className="text-[10.5px] leading-relaxed text-black/65">{section.queVes}</p>
-            </div>
-            <div>
-              <SectionLabel text="POR QUÉ IMPORTA" />
-              <p className="text-[10.5px] leading-relaxed text-black/65">{section.porQueImporta}</p>
-            </div>
-            <div>
-              <SectionLabel text="METODOLOGÍA" />
-              <p className="text-[10.5px] leading-relaxed text-black/65">{section.metodologia}</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <SectionLabel text="QUÉ VES" />
+                <p className="text-[10.5px] leading-relaxed text-black/65">{section.queVes}</p>
+              </div>
+              <div>
+                <SectionLabel text="POR QUÉ IMPORTA" />
+                <p className="text-[10.5px] leading-relaxed text-black/65">{section.porQueImporta}</p>
+              </div>
+              <div>
+                <SectionLabel text="METODOLOGÍA" />
+                <p className="text-[10.5px] leading-relaxed text-black/65">{section.metodologia}</p>
+              </div>
             </div>
           </div>
         ))}
