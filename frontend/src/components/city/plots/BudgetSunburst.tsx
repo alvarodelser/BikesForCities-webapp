@@ -184,7 +184,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
 
   const HEIGHT = 480;
   // Label area scales with viewport: 20% of width, floor at MIN_LABEL_AREA_W
-  const labelAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.2);
+  const labelAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.25);
   const RADIUS  = Math.max(50, Math.min(width / 2 - labelAreaW - 14 - BOUNDS_MARGIN, HEIGHT / 2 - 14));
   const LABEL_R = RADIUS + 14;
   const maxCharsPerLine = Math.max(8, Math.floor((labelAreaW - PILL_PAD_X * 2) / CHAR_W));
