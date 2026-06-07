@@ -2,7 +2,7 @@ import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { useViewport } from '../../hooks/useViewport';
 import { useMapState } from '../../hooks/useMapState';
-import { RoadHorizon, Graph, Bicycle, Warning, Scales } from '@phosphor-icons/react';
+import { RoadHorizon, Graph, Bicycle, Warning, Eye } from '@phosphor-icons/react';
 import { MAP_MODES } from '../../constants/mapModes';
 import type { MapMode } from '../../constants/mapModes';
 
@@ -42,7 +42,7 @@ const MODE_META = [
   { id: MAP_MODES.TRAFFIC,        name: 'Modelo de Movilidad', color: '#3A6C7F',      icon: Graph       },
   { id: MAP_MODES.STATIONS,       name: 'Servicio Bici',       color: '#ffa585',      icon: Bicycle     },
   { id: MAP_MODES.ACCIDENTS,      name: 'Accidentes',          color: 'var(--red)',   icon: Warning     },
-  { id: MAP_MODES.TRANSPARENCY,   name: 'Transparencia',       color: '#3A6C7F',      icon: Scales      },
+  { id: MAP_MODES.TRANSPARENCY,   name: 'Transparencia',       color: '#3A6C7F',      icon: Eye         },
 ] as const;
 
 // Context copy keyed by mode or mode/submode
@@ -152,7 +152,7 @@ function ExpandingPill({
               <button
                 key={s.id}
                 onClick={() => onSubmodeClick(s.id)}
-                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
+                className="flex-1 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer"
                 style={{
                   backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
                   color:           isActive ? color : 'rgba(0,0,0,0.45)',

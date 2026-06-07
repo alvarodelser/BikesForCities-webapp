@@ -163,8 +163,9 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     {!isMobile && (
                         <div className="z-20 pb-4 shrink-0">
                             <div
-                                className="mx-auto rounded-2xl px-6 py-3 flex items-center justify-between"
+                                className="mx-auto rounded-2xl px-6 flex items-center justify-between"
                                 style={{
+                                    height: '68px',
                                     background: 'rgba(255,255,255,0.12)',
                                     backdropFilter: 'blur(20px)',
                                     WebkitBackdropFilter: 'blur(20px)',

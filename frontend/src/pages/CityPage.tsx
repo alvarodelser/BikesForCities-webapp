@@ -18,6 +18,8 @@ const CityPage: React.FC = () => {
 
   React.useEffect(() => {
     setError(null);
+    setCity(null);
+    setInitialLoading(true);
     fetchCities().then(cities => {
       if (!cities || cities.length === 0) {
         setError("No se han encontrado datos de las ciudades. Por favor, inténtelo de nuevo más tarde.");
