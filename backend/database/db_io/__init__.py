@@ -120,6 +120,7 @@ from .traffic import (
     has_traffic,
     get_traffic_infra_coverage,
     get_route_histogram,
+    get_traffic_evolution,
 )
 
 from .edge_routes import (
@@ -203,7 +204,7 @@ __all__ = [
     "get_traffic_modes", "get_best_traffic_mode",
     "get_edge_traffic", "get_traffic_stats", "get_max_traffic_edge",
     "get_latest_traffic_month", "resolve_traffic_params", "has_traffic",
-    "get_traffic_infra_coverage", "get_route_histogram",
+    "get_traffic_infra_coverage", "get_route_histogram", "get_traffic_evolution",
     # edge routes
     "get_edge_route_traces", "get_edge_route_od", "count_edge_routes",
     # accidents

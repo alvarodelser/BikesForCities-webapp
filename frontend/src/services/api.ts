@@ -266,6 +266,37 @@ export const fetchTrafficResolve = async (
 };
 
 
+export interface TrafficEvolutionPoint {
+  period: string;
+  edge_count: number;
+}
+
+export interface TrafficEvolutionResult {
+  generation_type: string | null;
+  algorithm: string | null;
+  data: TrafficEvolutionPoint[];
+}
+
+export const fetchTrafficEvolution = async (
+  cityId: number,
+  generationType?: string,
+  algorithm?: string,
+): Promise<TrafficEvolutionResult> => {
+  const params = new URLSearchParams();
+  if (generationType) params.set('generation_type', generationType);
+  if (algorithm) params.set('algorithm', algorithm);
+  const qs = params.toString();
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/evolution${qs ? `?${qs}` : ''}`);
+  if (!response.ok) throw new Error('Error al obtener la evolución del tráfico');
+  const result = await response.json();
+  return {
+    generation_type: result.generation_type ?? null,
+    algorithm: result.algorithm ?? null,
+    data: result.data ?? [],
+  };
+};
+
+
 export const fetchODFlows = async (
   cityId: number,
   generationType: string,

@@ -308,7 +308,7 @@ export default function TrafficRoutesLayer() {
                     tileParams.set('generation_type', result.generation_type);
                     tileParams.set('algorithm', result.algorithm);
                     tileParams.set('month', result.month);
-                    if (periodFrom) tileParams.set('month_from', periodFrom);
+                    if (periodFrom) tileParams.set('month_from', periodFrom + '-01');
 
                     const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
                     src.setTiles([newTileUrl]);

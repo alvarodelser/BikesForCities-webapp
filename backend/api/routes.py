@@ -17,6 +17,7 @@ from .models import (
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
     StationResponse, StationListResponse,
     TrafficResponse, TrafficResolveResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
+    TrafficEvolutionPoint, TrafficEvolutionResponse,
     EdgeRoutesResponse,
     InfraStatsResponse, InfraComponentsResponse, EdgeBuildingCoverageResponse,
     StationBuildingCoverageResponse,
@@ -47,6 +48,7 @@ from backend.database.db_io import (
     get_avg_station_building_count, get_city_station_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
     get_best_traffic_mode, get_latest_traffic_month, resolve_traffic_params,
+    get_traffic_evolution,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ def list_networks(conn=Depends(get_db_connection)):
              center_lat, center_lon, radius,
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, traffic_combos, accidents, stations,
+             infra, traffic, traffic_combos, accidents, stations, transparency_submodes,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count, station_coverage) = row
 
             bounds = None
@@ -78,13 +80,15 @@ def list_networks(conn=Depends(get_db_connection)):
                     "max_lon": max_lon
                 }
 
+            t_submodes = transparency_submodes or []
             available_modes = {
                 "infrastructure": bool(infra),
                 "traffic": bool(traffic),
                 "traffic_combinations": traffic_combos or [],
                 "accidents": bool(accidents),
                 "stations": bool(stations),
-                "transparency": budget is not None,
+                "transparency": len(t_submodes) > 0,
+                "transparency_submodes": t_submodes,
             }
 
             city_obj = CityResponse(
@@ -154,13 +158,15 @@ def get_city(city_id: int, conn=Depends(get_db_connection)):
         
         bounds_dict = get_city_bounds(conn, city_id)
 
+        t_submodes = city_dict.get("transparency_submodes") or []
         available_modes = {
             "infrastructure": bool(city_dict.get("infrastructure")),
             "traffic": bool(city_dict.get("traffic")),
             "traffic_combinations": city_dict.get("traffic_combinations") or [],
             "accidents": bool(city_dict.get("accidents")),
             "stations": bool(city_dict.get("stations")),
-            "transparency": city_dict.get("budget") is not None,
+            "transparency": len(t_submodes) > 0,
+            "transparency_submodes": t_submodes,
         }
 
         city = CityResponse(
@@ -891,6 +897,49 @@ def resolve_city_traffic(
         raise HTTPException(status_code=500, detail="Error al resolver los parámetros de tráfico")
 
 
+@router.get("/cities/{city_id}/traffic/evolution", response_model=TrafficEvolutionResponse)
+def get_city_traffic_evolution(
+    city_id: int,
+    generation_type: Optional[str] = Query(None),
+    algorithm: Optional[str] = Query(None),
+    conn=Depends(get_db_connection),
+):
+    """Return per-month active-edge counts for all available periods.
+
+    Replaces the frontend pattern of calling /traffic/resolve once per period
+    to build the evolution chart — returns all months in a single query.
+    """
+    try:
+        validate_network_exists(conn, city_id)
+
+        resolved_gen, resolved_algo, _ = resolve_traffic_params(
+            conn, city_id, generation_type=generation_type, algorithm=algorithm
+        )
+
+        if not resolved_gen or not resolved_algo:
+            return TrafficEvolutionResponse(
+                success=True,
+                message="No traffic data available",
+                generation_type=None,
+                algorithm=None,
+                data=[],
+            )
+
+        points = get_traffic_evolution(conn, city_id, resolved_gen, resolved_algo)
+
+        return TrafficEvolutionResponse(
+            message="Evolution data retrieved",
+            generation_type=resolved_gen,
+            algorithm=resolved_algo,
+            data=[TrafficEvolutionPoint(**p) for p in points],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting traffic evolution for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener la evolución del tráfico")
+
+
 @router.get("/cities/{city_id}/edges/{edge_id}/routes", response_model=EdgeRoutesResponse)
 def get_edge_routes(
     city_id: int,
@@ -1391,7 +1440,7 @@ def get_system_status(conn=Depends(get_db_connection)):
              center_lat, center_lon, radius,
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, traffic_combos, accidents, stations,
+             infra, traffic, traffic_combos, accidents, stations, transparency_submodes,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count, station_coverage) = row
 
             city_stats.append({

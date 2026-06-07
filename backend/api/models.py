@@ -417,6 +417,17 @@ class TrafficInfraCoverage(BaseResponse):
     data: TrafficInfraCoverageData
 
 
+class TrafficEvolutionPoint(BaseModel):
+    period: str
+    edge_count: int
+
+
+class TrafficEvolutionResponse(BaseResponse):
+    generation_type: Optional[str] = None
+    algorithm: Optional[str] = None
+    data: List[TrafficEvolutionPoint] = []
+
+
 class HistogramSeries(BaseModel):
     bin_edges: List[float]
     counts: List[int]

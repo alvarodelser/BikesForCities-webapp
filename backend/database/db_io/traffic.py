@@ -418,6 +418,31 @@ def get_max_traffic_edge(
         return {'trip_count': int(row[0]), 'edge_name': row[1]}
 
 
+def get_traffic_evolution(
+    conn,
+    city_id: int,
+    generation_type: str,
+    algorithm: str,
+) -> List[dict]:
+    """Return per-month active-edge counts for all available periods, sorted ascending."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                TO_CHAR(month, 'YYYY-MM') AS period,
+                COUNT(*) FILTER (WHERE trip_count > 0) AS edge_count
+            FROM edge_traffic
+            WHERE city_id        = %s
+              AND generation_type = %s
+              AND algorithm       = %s
+            GROUP BY month
+            ORDER BY month ASC
+            """,
+            (city_id, generation_type, algorithm),
+        )
+        return [{'period': row[0], 'edge_count': int(row[1])} for row in cur.fetchall()]
+
+
 def has_traffic(conn, city_id: int) -> bool:
     with conn.cursor() as cur:
         cur.execute(

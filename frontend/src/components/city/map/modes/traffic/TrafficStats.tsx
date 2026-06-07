@@ -3,7 +3,7 @@ import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X 
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
 import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
-import { fetchTrafficInfraCoverage, fetchTrafficResolve } from '../../../../../services/api';
+import { fetchTrafficInfraCoverage, fetchTrafficEvolution } from '../../../../../services/api';
 import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
 import LineAreaChart from '../../../plots/LineAreaChart';
@@ -191,26 +191,17 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
 
   const [evolutionData, setEvolutionData] = useState<Record<string, unknown>[]>([]);
   useEffect(() => {
-    if (!city.id || availablePeriods.length === 0) return;
+    if (!city.id) return;
     let cancelled = false;
-
-    async function loadEvolution() {
-      const points: { period: string; tripsPerMonth: number }[] = [];
-      for (const p of availablePeriods) {
-        if (cancelled) return;
-        try {
-          const t = await fetchTrafficResolve(city.id!, generation || undefined, routing || undefined, p);
-          points.push({ period: p, tripsPerMonth: t.edge_count ?? 0 });
-        } catch {
-          // skip failed periods
+    fetchTrafficEvolution(city.id, generation || undefined, routing || undefined)
+      .then(result => {
+        if (!cancelled) {
+          setEvolutionData(result.data.map(p => ({ period: p.period, tripsPerMonth: p.edge_count })));
         }
-      }
-      if (!cancelled) setEvolutionData([...points].sort((a, b) => a.period.localeCompare(b.period)));
-    }
-
-    loadEvolution();
+      })
+      .catch(() => { if (!cancelled) setEvolutionData([]); });
     return () => { cancelled = true; };
-  }, [city.id, availablePeriods, generation, routing]);
+  }, [city.id, generation, routing]);
 
   const tripsStr = loading ? '—' : fmt(tripsPerMonth, 0, '');
   const tphStr = loading ? '—' : fmt(tripsPerThousandHab, 1, '');
