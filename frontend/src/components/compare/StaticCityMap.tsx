@@ -190,7 +190,7 @@ export default function StaticCityMap({ city, mode = 'infrastructure' }: StaticC
             <div ref={containerRef} className="w-full h-full" />
             {!ready && (
                 <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: '#FBF6EF' }}>
-                    <LoadingContainer className="w-24 h-24" color={MODE_SPINNER_COLOR[mode]} text="" />
+                    <LoadingContainer className="w-24" color={MODE_SPINNER_COLOR[mode]} text="" />
                 </div>
             )}
         </div>
