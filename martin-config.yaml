@@ -23,6 +23,13 @@ postgres:
       # levels and neighbouring tiles have data. Setting buffer to 0 disables the
       # margin expansion and uses the exact tile envelope for the PostGIS query.
       buffer: 0
+      # Explicit properties required: Martin v0.20.0 omits all columns when a table
+      # is explicitly configured without a properties list (unlike auto-published tables
+      # which include all columns by default).
+      properties:
+        city_id: int4
+        feature_type: text
+        component_id: int4
 
   functions:
     # edges_with_traffic LEFT JOINs edge_traffic at tile-render time so trip_count
