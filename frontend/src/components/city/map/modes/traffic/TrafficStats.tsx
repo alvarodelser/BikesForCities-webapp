@@ -169,15 +169,8 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
   const { tripsPerMonth, tripsPerThousandHab, maxVolume, maxEdgeName, availablePeriods, loading } =
     useTrafficStats(city.id ?? null, options, city.population);
 
-  // Auto-init period range to the latest available period on first load
-  useEffect(() => {
-    if (!period && !periodFrom && availablePeriods.length > 0) {
-      const sorted = [...availablePeriods].sort();
-      const latest = sorted[sorted.length - 1];
-      setPeriod(latest);
-      setPeriodFrom(latest);
-    }
-  }, [availablePeriods, period, periodFrom, setPeriod, setPeriodFrom]);
+  // Period defaults are owned by TrafficRoutesLayer (which also corrects inverted ranges).
+  // No secondary initialisation here to avoid races.
 
   const [infraFraction, setInfraFraction] = useState<number | null>(null);
   useEffect(() => {

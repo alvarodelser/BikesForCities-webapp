@@ -872,9 +872,11 @@ def resolve_city_traffic(
                     SELECT DISTINCT TO_CHAR(month, 'YYYY-MM') AS period
                     FROM edge_traffic
                     WHERE city_id = %s
+                      AND generation_type = %s
+                      AND algorithm = %s
                     ORDER BY period DESC
                     """,
-                    (city_id,),
+                    (city_id, resolved_gen, resolved_algo),
                 )
                 available_periods = [r[0] for r in cur.fetchall()]
         except Exception as periods_err:

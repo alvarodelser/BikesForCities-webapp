@@ -256,9 +256,12 @@ export default function TrafficRoutesLayer() {
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Tracks whether we've written resolved generation/routing back to the URL already
-    const urlParamsSetRef = useRef(false);
-    useEffect(() => { urlParamsSetRef.current = false; }, [city?.id]);
+    // Key of the last params we actually applied to the tile source.
+    // When we call setGeneration/setPeriod etc. from within the resolve callback, React
+    // re-runs this effect. If the re-run's params match what we already applied, we skip
+    // the fetch — avoiding the 3-cycle chain that caused the loading bar to flash 4×.
+    const lastAppliedParamsRef = useRef('');
+    useEffect(() => { lastAppliedParamsRef.current = ''; }, [city?.id]);
 
     // --- Data fetch: resolve traffic params, then re-point the tile source ---
     useEffect(() => {
@@ -276,11 +279,14 @@ export default function TrafficRoutesLayer() {
             return;
         }
 
+        // Skip if this re-run was caused by our own setState calls (params already applied).
+        const currentKey = `${generation || ''}|${routing || ''}|${period || ''}|${periodFrom || ''}`;
+        if (currentKey === lastAppliedParamsRef.current) return;
+
         const loadData = () => {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            console.log(`[TrafficRoutesLayer] resolve → city=${city!.id} gen=${generation} routing=${routing} period=${period} periodFrom=${periodFrom}`);
             fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined, periodFrom || undefined).then(result => {
                 if (cancelled || !map) return;
 
@@ -288,27 +294,45 @@ export default function TrafficRoutesLayer() {
                     setLayerState?.('empty');
                     return;
                 }
+
+                // resolvedMonthStr is the latest month that actually has data for the
+                // selected generation_type/algorithm — use it as the default when
+                // period/periodFrom are not yet set in the URL.
+                const resolvedMonthStr = result.month.slice(0, 7);
+                const rawTo   = period     || resolvedMonthStr;
+                const rawFrom = periodFrom || resolvedMonthStr;
+
+                // Enforce chronological order — user or race-condition can produce periodFrom > period.
+                const effectivePeriodTo   = rawFrom <= rawTo ? rawTo   : rawFrom;
+                const effectivePeriodFrom = rawFrom <= rawTo ? rawFrom : rawTo;
+
+                // Record applied params BEFORE calling setState so the resulting re-run
+                // finds the key and skips without another fetch.
+                lastAppliedParamsRef.current =
+                    `${result.generation_type}|${result.algorithm}|${effectivePeriodTo}|${effectivePeriodFrom}`;
+
+                // Update URL params for navigation (triggers re-run, but ref prevents re-fetch).
+                // Also corrects any inverted range that was stored in the URL.
+                if (!generation) setGeneration(result.generation_type);
+                if (!routing) setRouting(result.algorithm);
+                if (period !== effectivePeriodTo) setPeriod(effectivePeriodTo);
+                if (periodFrom !== effectivePeriodFrom) setPeriodFrom(effectivePeriodFrom);
+
                 setLayerState?.('idle');
-
-                let urlChanged = false;
-                if (!generation && result.generation_type) { setGeneration(result.generation_type); urlChanged = true; }
-                if (!routing && result.algorithm) { setRouting(result.algorithm); urlChanged = true; }
-                if (!period && result.month) {
-                    const resolvedMonthStr = result.month.slice(0, 7);
-                    setPeriod(resolvedMonthStr);
-                    if (!periodFrom) setPeriodFrom(resolvedMonthStr);
-                    urlChanged = true;
-                }
-
-                if (urlChanged) return;
 
                 const src = map.getSource(SOURCE_ID) as maplibregl.VectorTileSource | undefined;
                 if (src) {
                     const tileParams = new URLSearchParams();
                     tileParams.set('generation_type', result.generation_type);
                     tileParams.set('algorithm', result.algorithm);
-                    tileParams.set('month', result.month);
-                    if (periodFrom) tileParams.set('month_from', periodFrom + '-01');
+                    // Use full-date string from resolve result only when it matches the effective end month;
+                    // otherwise append -01 so the tile function receives a valid DATE string.
+                    tileParams.set('month', effectivePeriodTo === resolvedMonthStr
+                        ? result.month
+                        : effectivePeriodTo + '-01');
+                    if (effectivePeriodFrom !== effectivePeriodTo) {
+                        tileParams.set('month_from', effectivePeriodFrom + '-01');
+                    }
 
                     const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
                     src.setTiles([newTileUrl]);
