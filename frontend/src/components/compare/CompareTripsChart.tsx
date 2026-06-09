@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { CityData } from '../../constants/cities';
 import { fetchCities, fetchStationMonthly } from '../../services/api';
+import { fmtMonth } from '../../utils/formatters';
 
 const COLORS = [
     '#00cac3', '#e1ac55', '#af4749', '#3b9ddd', '#84cc16',
@@ -17,12 +18,6 @@ const MB = 36;
 const CW = VW - ML - MR;
 const MIN_GAP = 22;
 const TOOLTIP_Y_THRESHOLD = 50; // viewBox units (~px) — how close the cursor must be to a line
-
-const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-function fmtMonth(m: string): string {
-    const [yr, mo] = m.split('-');
-    return `${MONTH_NAMES[parseInt(mo, 10) - 1]} ${yr}`;
-}
 
 interface Pt { month: string; trips: number }
 interface Series { city: CityData; color: string; points: Pt[] }

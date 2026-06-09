@@ -1,7 +1,8 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 
 interface Props {
   items: string[];
+  disabledItems?: Set<string>;
   from: string;
   to: string;
   onChange: (from: string, to: string) => void;
@@ -23,8 +24,6 @@ interface DragState {
 // Bar geometry constants
 const BAR_TOP    = 9;   // px from top of track container
 const BAR_HEIGHT = 10;  // px
-const DIVOT_H    = 4;   // px — notch depth from each edge
-const DIVOT_W    = 3;   // half-width of each notch triangle
 
 function CalendarIcon({ color }: { color: string }) {
   return (
@@ -48,27 +47,15 @@ function GripHandle({ accent, lit }: { accent: string; lit: boolean }) {
         boxShadow: lit
           ? `0 0 0 3px ${accent}30, 0 3px 10px ${accent}70`
           : `0 2px 6px ${accent}50`,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 2.5,
         flexShrink: 0,
         transition: 'box-shadow 0.15s',
         pointerEvents: 'none',
       }}
-    >
-      {[0, 1, 2].map(i => (
-        <div key={i} style={{ width: 3, height: 1.2, backgroundColor: 'rgba(255,255,255,0.85)', borderRadius: 1 }} />
-      ))}
-    </div>
+    />
   );
 }
 
 // ── Label strategy ────────────────────────────────────────────────────────────
-// For YYYY-MM items: always show first/last item; show Jan and Jun with 2-digit year.
-// For other items: show up to 7 evenly-spaced labels.
-
 const MONTH_NAMES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 function isMonthItem(s: string) { return /^\d{4}-\d{2}$/.test(s); }
@@ -90,7 +77,6 @@ function getTickLabel(
   return null;
 }
 
-// Header display — always returns a string for the selected from/to item.
 function getHeaderLabel(
   item: string,
   isMonthFmt: boolean,
@@ -103,10 +89,53 @@ function getHeaderLabel(
   return `${MONTH_NAMES_SHORT[m - 1] ?? month} ${year.slice(2)}`;
 }
 
+// ── Sequential fill utility ───────────────────────────────────────────────────
+// Given a (possibly sparse, possibly duplicate) list of period strings, returns
+// the full sequential range and a set marking which entries have no data.
+export function fillSequential(rawItems: string[]): { items: string[]; disabled: Set<string> } {
+  if (rawItems.length === 0) return { items: [], disabled: new Set() };
+  const sorted = [...new Set(rawItems)].sort();
+  const enabled = new Set(sorted);
+
+  if (isMonthItem(sorted[0])) {
+    const [fy, fm] = sorted[0].split('-').map(Number);
+    const [ly, lm] = sorted[sorted.length - 1].split('-').map(Number);
+    const all: string[] = [];
+    let y = fy, m = fm;
+    while (y < ly || (y === ly && m <= lm)) {
+      all.push(`${y}-${String(m).padStart(2, '0')}`);
+      if (++m > 12) { m = 1; y++; }
+    }
+    return { items: all, disabled: new Set(all.filter(i => !enabled.has(i))) };
+  } else {
+    const min = parseInt(sorted[0], 10);
+    const max = parseInt(sorted[sorted.length - 1], 10);
+    const all = Array.from({ length: max - min + 1 }, (_, i) => String(min + i));
+    return { items: all, disabled: new Set(all.filter(i => !enabled.has(i))) };
+  }
+}
+
+// ── Find nearest enabled index ────────────────────────────────────────────────
+function nearestEnabled(
+  idx: number,
+  n: number,
+  disabled: Set<string> | undefined,
+  items: string[],
+): number {
+  const i = Math.max(0, Math.min(n - 1, idx));
+  if (!disabled || disabled.size === 0 || !disabled.has(items[i])) return i;
+  for (let d = 1; d < n; d++) {
+    if (i - d >= 0 && !disabled.has(items[i - d])) return i - d;
+    if (i + d < n  && !disabled.has(items[i + d])) return i + d;
+  }
+  return i;
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function PeriodRangeTimeline({
   items,
+  disabledItems,
   from,
   to,
   onChange,
@@ -114,8 +143,9 @@ export default function PeriodRangeTimeline({
   unit = 'año',
   formatLabel,
 }: Props) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const dragRef  = useRef<DragState | null>(null);
+  const trackRef  = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const dragRef   = useRef<DragState | null>(null);
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fromIdxRef   = useRef(0);
   const toIdxRef     = useRef(0);
@@ -125,10 +155,30 @@ export default function PeriodRangeTimeline({
   const [displayFromIdx, setDisplayFromIdx] = useState(0);
   const [displayToIdx,   setDisplayToIdx]   = useState(0);
   const [hoverZone,     setHoverZone]     = useState<HoverZone>(null);
+  const [canScrollLeft,  setCanScrollLeft]  = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
-  const n            = items.length;
-  const isMonthFmt   = n > 0 && isMonthItem(items[0]);
-  const clampIdx     = (i: number) => Math.max(0, Math.min(n - 1, i));
+  const n          = items.length;
+  const isMonthFmt = n > 0 && isMonthItem(items[0]);
+  const stride     = isMonthFmt ? 1 : (n <= 7 ? 1 : Math.ceil(n / 7));
+  const clampIdx   = (i: number) => Math.max(0, Math.min(n - 1, i));
+  const snap       = (idx: number) => nearestEnabled(idx, n, disabledItems, items);
+
+  const visibleLabelIndices = useMemo(() => {
+    const candidates: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const label = getTickLabel(items[i], isMonthFmt, i === 0, i === n - 1, formatLabel);
+      if (!label) continue;
+      if (!isMonthFmt && i % stride !== 0 && i !== n - 1) continue;
+      candidates.push(i);
+    }
+    const visible = new Set<number>();
+    let lastIdx = -Infinity;
+    for (const i of candidates) {
+      if (i - lastIdx >= 2) { visible.add(i); lastIdx = i; }
+    }
+    return visible;
+  }, [items, n, isMonthFmt, stride, formatLabel]);
 
   const resolveIdx = useCallback((val: string) => {
     const idx = items.indexOf(val);
@@ -136,13 +186,33 @@ export default function PeriodRangeTimeline({
   }, [items, n]);
 
   useEffect(() => {
-    const fi = resolveIdx(from);
-    const ti = resolveIdx(to);
+    const fi = snap(resolveIdx(from));
+    const ti = snap(resolveIdx(to));
     fromIdxRef.current = fi;
     toIdxRef.current   = ti;
     setDisplayFromIdx(fi);
     setDisplayToIdx(ti);
-  }, [from, to, resolveIdx]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, resolveIdx, n]);
+
+  const updateScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 2);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScroll();
+    el.addEventListener('scroll', updateScroll);
+    window.addEventListener('resize', updateScroll);
+    return () => {
+      el.removeEventListener('scroll', updateScroll);
+      window.removeEventListener('resize', updateScroll);
+    };
+  }, [n, updateScroll]);
 
   const fireChange = useCallback((fi: number, ti: number) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -170,7 +240,7 @@ export default function PeriodRangeTimeline({
     if (!track) return;
     const { left, width } = track.getBoundingClientRect();
     const frac       = Math.max(0, Math.min(1 - 1e-9, (e.clientX - left) / width));
-    const clickedIdx = clampIdx(Math.floor(frac * n));
+    const clickedIdx = snap(clampIdx(Math.floor(frac * n)));
     const x          = e.clientX - left;
     const fi         = fromIdxRef.current;
     const ti         = toIdxRef.current;
@@ -202,9 +272,6 @@ export default function PeriodRangeTimeline({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag) { setHoverZone(getHoverZone(e.clientX)); return; }
-    if (snapCandidateRef.current !== null && Math.abs(e.clientX - drag.startX) > 5) {
-      snapCandidateRef.current = null;
-    }
     if (n < 2) return;
     const track = trackRef.current;
     if (!track) return;
@@ -216,14 +283,16 @@ export default function PeriodRangeTimeline({
     let ti = toIdxRef.current;
 
     if (drag.mode === 'from') {
-      fi = Math.min(clampIdx(drag.startFromIdx + deltaSteps), drag.startToIdx - 1);
+      fi = snap(Math.min(clampIdx(drag.startFromIdx + deltaSteps), drag.startToIdx - 1));
+      fi = Math.min(fi, toIdxRef.current - 1);
       fromIdxRef.current = fi;
     } else if (drag.mode === 'to') {
-      ti = Math.max(clampIdx(drag.startToIdx + deltaSteps), drag.startFromIdx + 1);
+      ti = snap(Math.max(clampIdx(drag.startToIdx + deltaSteps), drag.startFromIdx + 1));
+      ti = Math.max(ti, fromIdxRef.current + 1);
       toIdxRef.current = ti;
     } else {
       const span = drag.startToIdx - drag.startFromIdx;
-      fi = clampIdx(drag.startFromIdx + deltaSteps);
+      fi = snap(clampIdx(drag.startFromIdx + deltaSteps));
       ti = fi + span;
       if (ti > n - 1) { ti = n - 1; fi = ti - span; }
       if (fi < 0)     { fi = 0;     ti = fi + span; }
@@ -234,21 +303,31 @@ export default function PeriodRangeTimeline({
     setDisplayToIdx(toIdxRef.current);
   };
 
-  const onPointerUp = () => {
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
-    const snapIdx = snapCandidateRef.current;
+    const snapIdx      = snapCandidateRef.current;
+    const displacement = Math.abs(e.clientX - dragRef.current.startX);
     snapCandidateRef.current = null;
     dragRef.current = null;
     setActiveDrag(null);
-    if (snapIdx !== null) {
-      fromIdxRef.current = snapIdx;
-      toIdxRef.current = snapIdx;
-      setDisplayFromIdx(snapIdx);
-      setDisplayToIdx(snapIdx);
-      fireChange(snapIdx, snapIdx);
+    if (snapIdx !== null && displacement <= 12) {
+      const enabledIdx = snap(snapIdx);
+      fromIdxRef.current = enabledIdx;
+      toIdxRef.current   = enabledIdx;
+      setDisplayFromIdx(enabledIdx);
+      setDisplayToIdx(enabledIdx);
+      fireChange(enabledIdx, enabledIdx);
     } else {
       fireChange(fromIdxRef.current, toIdxRef.current);
     }
+  };
+
+  const onPointerCancel = () => {
+    if (!dragRef.current) return;
+    snapCandidateRef.current = null;
+    dragRef.current = null;
+    setActiveDrag(null);
+    fireChange(fromIdxRef.current, toIdxRef.current);
   };
 
   if (n === 0) return null;
@@ -259,14 +338,11 @@ export default function PeriodRangeTimeline({
   const toLabel   = getHeaderLabel(items[ti] ?? '', isMonthFmt, formatLabel);
   const rangeText = fi === ti ? fromLabel : `${fromLabel} – ${toLabel}`;
   const span      = ti - fi + 1;
-  const sublabel  = `${span} ${span === 1 ? unit : unit + 's'}`;
+  const unitPlural = /[aeiouáéíóú]$/i.test(unit) ? unit + 's' : unit + 'es';
+  const sublabel  = `${span} ${span === 1 ? unit : unitPlural}`;
 
-  // Handle positions (at segment boundaries, not midpoints)
   const leftPct  = (fi / n) * 100;
   const rightPct = ((ti + 1) / n) * 100;
-
-  // For non-month items: stride-based label density
-  const stride = isMonthFmt ? 1 : (n <= 7 ? 1 : Math.ceil(n / 7));
 
   const cursor = activeDrag === 'shift'        ? 'grabbing'
     : activeDrag                               ? 'ew-resize'
@@ -274,9 +350,6 @@ export default function PeriodRangeTimeline({
     : hoverZone === 'unselected'               ? 'pointer'
     : hoverZone                                ? 'ew-resize'
     : 'default';
-
-  // Divot at every interior boundary (i = 1 .. n-1)
-  const divotBoundaries = Array.from({ length: n - 1 }, (_, i) => i + 1);
 
   return (
     <div
@@ -301,100 +374,99 @@ export default function PeriodRangeTimeline({
       <div className="mx-4" style={{ height: 1, backgroundColor: 'rgba(0,0,0,0.06)' }} />
 
       {/* ── Track ──────────────────────────────────────────────────────────── */}
-      <div className="px-4 pb-5 pt-3">
+      <div className="pb-5 pt-3">
+        <div
+          ref={scrollRef}
+          className="overflow-x-auto no-scrollbar px-4"
+          style={{
+            WebkitMaskImage: canScrollLeft && canScrollRight
+              ? 'linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent)'
+              : canScrollLeft
+              ? 'linear-gradient(to right, transparent, black 40px, black 100%)'
+              : canScrollRight
+              ? 'linear-gradient(to right, black calc(100% - 40px), transparent)'
+              : undefined,
+            maskImage: canScrollLeft && canScrollRight
+              ? 'linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent)'
+              : canScrollLeft
+              ? 'linear-gradient(to right, transparent, black 40px, black 100%)'
+              : canScrollRight
+              ? 'linear-gradient(to right, black calc(100% - 40px), transparent)'
+              : undefined,
+          }}
+        >
         <div
           ref={trackRef}
           className="relative"
-          style={{ height: 56, cursor, touchAction: 'none' }}
+          style={{ height: 56, cursor, touchAction: 'none', minWidth: n * 22 }}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          onPointerCancel={onPointerCancel}
           onPointerLeave={() => { if (!activeDrag) setHoverZone(null); }}
         >
-          {/* ── Continuous pill bar (gradient for selected region) ──────── */}
-          <div
-            className="absolute left-0 right-0"
-            style={{
-              top: BAR_TOP,
-              height: BAR_HEIGHT,
-              borderRadius: BAR_HEIGHT / 2,
-              background: `linear-gradient(to right, rgba(0,0,0,0.09) ${leftPct}%, ${accent} ${leftPct}%, ${accent} ${rightPct}%, rgba(0,0,0,0.09) ${rightPct}%)`,
-              transition: 'background 0.08s',
-            }}
-          />
-
-          {/* ── Triangular divots at every snap boundary ───────────────── */}
-          {divotBoundaries.map(i => {
-            const pct = (i / n) * 100;
-            const sharedStyle: React.CSSProperties = {
-              position: 'absolute',
-              left: `${pct}%`,
-              transform: 'translateX(-50%)',
-              width: 0,
-              height: 0,
-              pointerEvents: 'none',
-              zIndex: 2,
-            };
+          {/* ── Per-segment bars (gaps shown as very light slots) ─────────── */}
+          {items.map((item, i) => {
+            const isDisabled = disabledItems?.has(item) ?? false;
+            const inRange    = !isDisabled && i >= fi && i <= ti;
+            const bgColor    = isDisabled
+              ? 'rgba(0,0,0,0.07)'
+              : inRange ? accent : 'rgba(0,0,0,0.22)';
             return (
-              <React.Fragment key={`d${i}`}>
-                {/* Top notch — ∨ pointing into bar from above */}
-                <div style={{
-                  ...sharedStyle,
+              <div
+                key={`seg-${i}`}
+                style={{
+                  position: 'absolute',
+                  left: `calc(${(i / n) * 100}% + 0.5px)`,
+                  width: `calc(${(1 / n) * 100}% - 1px)`,
                   top: BAR_TOP,
-                  borderLeft:   `${DIVOT_W}px solid transparent`,
-                  borderRight:  `${DIVOT_W}px solid transparent`,
-                  borderTop:    `${DIVOT_H}px solid rgba(255,255,255,0.95)`,
-                }} />
-                {/* Bottom notch — ∧ pointing into bar from below */}
-                <div style={{
-                  ...sharedStyle,
-                  top: BAR_TOP + BAR_HEIGHT - DIVOT_H,
-                  borderLeft:   `${DIVOT_W}px solid transparent`,
-                  borderRight:  `${DIVOT_W}px solid transparent`,
-                  borderBottom: `${DIVOT_H}px solid rgba(255,255,255,0.95)`,
-                }} />
-              </React.Fragment>
+                  height: BAR_HEIGHT,
+                  borderRadius: BAR_HEIGHT / 2,
+                  backgroundColor: bgColor,
+                  transition: 'background-color 0.08s',
+                }}
+              />
             );
           })}
 
-          {/* ── From grip ──────────────────────────────────────────────── */}
+          {/* ── From grip ──────────────────────────────────────────────────── */}
           <div
             className="absolute"
-            style={{ left: `${leftPct}%`, top: 4, transform: 'translateX(-50%)', pointerEvents: 'none' }}
+            style={{ left: `${leftPct}%`, top: 4, transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 3 }}
           >
             <GripHandle accent={accent} lit={activeDrag === 'from' || hoverZone === 'from'} />
           </div>
 
-          {/* ── To grip ────────────────────────────────────────────────── */}
+          {/* ── To grip ────────────────────────────────────────────────────── */}
           <div
             className="absolute"
-            style={{ left: `${rightPct}%`, top: 4, transform: 'translateX(-50%)', pointerEvents: 'none' }}
+            style={{ left: `${rightPct}%`, top: 4, transform: 'translateX(-50%)', pointerEvents: 'none', zIndex: 3 }}
           >
             <GripHandle accent={accent} lit={activeDrag === 'to' || hoverZone === 'to'} />
           </div>
 
-          {/* ── Labels at segment midpoints ────────────────────────────── */}
+          {/* ── Labels at segment midpoints ────────────────────────────────── */}
           {items.map((item, i) => {
+            if (!visibleLabelIndices.has(i)) return null;
             const isFirst = i === 0;
             const isLast  = i === n - 1;
             const label = getTickLabel(item, isMonthFmt, isFirst, isLast, formatLabel);
-            if (isMonthFmt && label === null) return null;
-            if (!isMonthFmt && i % stride !== 0 && !isLast) return null;
             if (!label) return null;
             const pct     = ((i + 0.5) / n) * 100;
-            const inRange = i >= fi && i <= ti;
+            const isDisabled = disabledItems?.has(item) ?? false;
+            const inRange = !isDisabled && i >= fi && i <= ti;
             return (
               <div
-                key={item}
+                key={`lbl-${i}`}
                 className="absolute"
                 style={{
                   left: `${pct}%`,
                   top: 30,
                   transform: 'translateX(-50%)',
-                  color: inRange ? accent : 'rgba(0,0,0,0.28)',
+                  color: isDisabled ? 'rgba(0,0,0,0.18)' : inRange ? accent : 'rgba(0,0,0,0.28)',
                   fontSize: 9,
                   fontWeight: inRange ? 700 : 500,
+                  fontStyle: isDisabled ? 'italic' : undefined,
                   letterSpacing: '0.01em',
                   whiteSpace: 'nowrap',
                   pointerEvents: 'none',
@@ -405,6 +477,7 @@ export default function PeriodRangeTimeline({
               </div>
             );
           })}
+        </div>
         </div>
       </div>
     </div>

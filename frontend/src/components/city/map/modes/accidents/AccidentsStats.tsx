@@ -1,12 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import type { CityData } from '../../../../../constants/cities';
 import { useAccidentsStats } from '../../../../../hooks/useAccidentsStats';
+import { fmtInt } from '../../../../../utils/formatters';
 import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
 import StackedBarMatrix from '../../../plots/StackedBarMatrix';
 import BarHistogram from '../../../plots/BarHistogram';
 import CollisionHeatmap from '../../../plots/CollisionHeatmap';
-import PeriodRangeTimeline from '../PeriodRangeTimeline';
+import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { Car, Bus, Truck, Motorcycle, Bicycle, Sun, CloudRain, Warning } from '@phosphor-icons/react';
 
 export interface AccidentsStatsProps {
@@ -108,9 +109,13 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
     }
   }, [latestYear, yearTo, yearFrom, setYearTo, setYearFrom]);
 
-  const fmt = (n: number) => (loading ? '—' : n.toLocaleString('es'));
+  const fmt = (n: number) => (loading ? '—' : fmtInt(n));
 
-  const yearStrings = [...availableYears].sort((a, b) => a - b).map(String);
+  const { items: yearStrings, disabled: disabledYears } = useMemo(
+    () => fillSequential([...new Set(availableYears)].sort((a, b) => a - b).map(String)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [availableYears.join(',')],
+  );
   const defaultYear = latestYear != null ? String(latestYear) : '';
 
   return (
@@ -120,6 +125,7 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
       {yearStrings.length > 0 && (
         <PeriodRangeTimeline
           items={yearStrings}
+          disabledItems={disabledYears}
           from={yearFrom || defaultYear}
           to={yearTo || defaultYear}
           onChange={(f, t) => { setYearFrom(f); setYearTo(t); }}

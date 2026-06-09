@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
@@ -7,7 +7,8 @@ import { fetchTrafficInfraCoverage, fetchTrafficEvolution } from '../../../../..
 import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
 import LineAreaChart from '../../../plots/LineAreaChart';
-import PeriodRangeTimeline from '../PeriodRangeTimeline';
+import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
+import { fmtMonth } from '../../../../../utils/formatters';
 
 export interface TrafficStatsProps {
   city: CityData;
@@ -33,13 +34,8 @@ function fmt(value: number | null, decimals: number, suffix: string): string {
 
 const ACCENT = '#3A6C7F';
 
-const MONTH_NAMES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
 function trafficLabel(period: string): string {
-  // period is YYYY-MM
-  const [year, month] = period.split('-');
-  const monthIdx = parseInt(month, 10) - 1;
-  return `${MONTH_NAMES[monthIdx] ?? month} ${year}`;
+  return fmtMonth(period);
 }
 
 interface FilterCardProps {
@@ -201,7 +197,11 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
   const infraFractionStr = loading ? '—' : (infraFraction !== null ? `${(infraFraction * 100).toFixed(1)}%` : '—');
   const maxVolumeStr = loading ? '—' : fmt(maxVolume, 0, '');
 
-  const sortedPeriods = [...availablePeriods].sort();
+  const { items: sortedPeriods, disabled: disabledPeriods } = useMemo(
+    () => fillSequential([...availablePeriods].sort()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [availablePeriods.join(',')],
+  );
   const defaultPeriod = sortedPeriods.length > 0 ? sortedPeriods[sortedPeriods.length - 1] : '';
 
   return (
@@ -216,6 +216,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
       {sortedPeriods.length > 0 && (
         <PeriodRangeTimeline
           items={sortedPeriods}
+          disabledItems={disabledPeriods}
           from={periodFrom || defaultPeriod}
           to={period || defaultPeriod}
           onChange={(f, t) => { setPeriodFrom(f); setPeriod(t); }}

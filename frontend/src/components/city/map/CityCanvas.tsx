@@ -232,7 +232,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         if (!mapRef.current || !mapReady) return;
         const map = mapRef.current;
         const cityId = city.id as number;
-        const OUTLINE_COLOR = '#94a3b8';
+        const OUTLINE_COLOR = '#bfcbd6';
         const OUTLINE_WIDTH = 0.75;
         const outlineDefs = [
             { id: 'tp-sea-outline',       filter: ['==', ['get', 'feature_type'], 'sea'] },

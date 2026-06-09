@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { ComponentType } from 'react';
 import { BarChart3, Bike, Clock, MapPin, TrendingUp, Lock, Activity } from 'lucide-react';
+import { fmtInt, fmtMonthLong } from '../utils/formatters';
 import type { CityData } from '../constants/cities';
 import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import {
@@ -32,10 +33,7 @@ function locked(label: string): LiveStat {
 }
 
 export function formatMonth(month: string | null): string {
-  if (!month) return '—';
-  const parts = month.split('-');
-  return new Date(Number(parts[0]), Number(parts[1]) - 1)
-    .toLocaleDateString('es', { month: 'long', year: 'numeric' });
+  return fmtMonthLong(month ?? undefined);
 }
 
 export function useLiveStats(
@@ -145,12 +143,8 @@ export function useLiveStats(
           } else if (traffic.month) {
             setAvailablePeriods([traffic.month.slice(0, 7)]);
           }
-          const monthlyTrips = city.monthly_trips
-            ? city.monthly_trips.toLocaleString('es')
-            : '—';
-          const median = traffic.stats != null
-            ? Math.round(traffic.stats.q50).toLocaleString('es')
-            : '—';
+          const monthlyTrips = city.monthly_trips ? fmtInt(city.monthly_trips) : '—';
+          const median = traffic.stats != null ? fmtInt(traffic.stats.q50) : '—';
           const infraVal = infraCov?.km_on_infra != null
             ? `${infraCov.km_on_infra.toFixed(1)} km`
             : null;
@@ -175,9 +169,9 @@ export function useLiveStats(
             ? ((city.bicycles_count ?? 0) / city.population * 100000).toFixed(2)
             : '—';
           result = [
-            { label: 'Bicicletas totales', value: (city.bicycles_count ?? 0).toLocaleString('es'), icon: Bike },
+            { label: 'Bicicletas totales', value: fmtInt(city.bicycles_count ?? 0), icon: Bike },
             { label: 'Bicicletas / 100k hab.', value: `${bikesPerInhabitant}`, icon: Activity },
-            { label: 'Estaciones', value: (city.stations_count ?? 0).toLocaleString('es'), icon: MapPin },
+            { label: 'Estaciones', value: fmtInt(city.stations_count ?? 0), icon: MapPin },
             {
               label: 'Cobertura',
               value: meanReach !== null ? `${meanReach} %` : '—',

@@ -45,9 +45,9 @@ function lerpArc(a: ArcParams, b: ArcParams, t: number): ArcParams {
 }
 
 function formatEur(amount: number): string {
-  if (Math.abs(amount) >= 1_000_000_000) return `€${(amount/1_000_000_000).toFixed(2)}B`;
-  if (Math.abs(amount) >= 1_000_000)     return `€${(amount/1_000_000).toFixed(2)}M`;
-  if (Math.abs(amount) >= 1_000)         return `€${(amount/1_000).toFixed(1)}K`;
+  const abs = Math.abs(amount);
+  if (abs >= 1_000_000) return `€${(amount/1_000_000).toFixed(1)} M`;
+  if (abs >= 1_000)     return `€${(amount/1_000).toFixed(1)} K`;
   return `€${amount.toFixed(0)}`;
 }
 
@@ -142,9 +142,13 @@ function wrapText(name: string, maxChars: number): string[] {
   return lines.length > 0 ? lines : [upper];
 }
 
-interface TooltipState {
-  visible: boolean; x: number; y: number;
-  name: string; amount: number; pct: number; hasChildren: boolean;
+interface HoverState {
+  parentCode: string;
+  nodeName: string;
+  nodeAmount: number;
+  nodePct: number;
+  nodeHasChildren: boolean;
+  highlightCodes: Set<string>;
 }
 
 export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
@@ -154,11 +158,10 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
+  const [height, setHeight] = useState(600);
   const [focusCode, setFocusCode] = useState<string | null>(null);
   const [focusBaseColor, setFocusBaseColor] = useState<string | null>(null);
-  const [tooltip, setTooltip] = useState<TooltipState>({
-    visible: false, x: 0, y: 0, name: '', amount: 0, pct: 0, hasChildren: false,
-  });
+  const [hovered, setHovered] = useState<HoverState | null>(null);
 
   const prevParamsRef  = useRef<Map<string, ArcParams>>(new Map());
   const clickedArcRef  = useRef<ArcParams | null>(null);
@@ -169,7 +172,12 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(entries => { if (entries[0]) setWidth(entries[0].contentRect.width); });
+    const ro = new ResizeObserver(entries => {
+      if (entries[0]) {
+        setWidth(entries[0].contentRect.width);
+        setHeight(entries[0].contentRect.height || 600);
+      }
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -182,12 +190,15 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
-  const HEIGHT = 480;
-  // Label area scales with viewport: 20% of width, floor at MIN_LABEL_AREA_W
-  const labelAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.25);
-  const RADIUS  = Math.max(50, Math.min(width / 2 - labelAreaW - 14 - BOUNDS_MARGIN, HEIGHT / 2 - 14));
-  const LABEL_R = RADIUS + 14;
-  const maxCharsPerLine = Math.max(8, Math.floor((labelAreaW - PILL_PAD_X * 2) / CHAR_W));
+  const HEIGHT = Math.max(400, height);
+  // Label area scales with viewport, floor at MIN_LABEL_AREA_W
+  const labelAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.27);
+  const RADIUS  = Math.max(50, Math.min(width / 2 - labelAreaW - 6 - BOUNDS_MARGIN, HEIGHT / 2 - 10));
+  const MAX_ARC_R = RADIUS + 20;  // sunburst extends past callout arc indicators
+  const innerRadius = RADIUS * 0.42;
+  const LABEL_R = RADIUS + 75;
+  const pillAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.27);
+  const maxCharsPerLine = Math.max(8, Math.floor((pillAreaW - PILL_PAD_X * 2) / CHAR_W));
 
   const focusedData = useMemo((): BudgetNode => {
     if (!focusCode) return data;
@@ -204,14 +215,18 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     const h = hierarchy<BudgetNode>(focusedData)
       .sum(d => (d.children && d.children.length > 0 ? 0 : d.amount))
       .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-    return partition<BudgetNode>().size([2 * Math.PI, RADIUS])(h);
+    return partition<BudgetNode>().size([2 * Math.PI, MAX_ARC_R])(h);
   }, [focusedData, RADIUS]);
 
   const totalValue = root?.value ?? 1;
 
+  // Equal-width bands: divide (MAX_ARC_R − innerRadius) evenly across depth levels
+  const maxDepth = root?.height ?? 3;
+  const bandW = maxDepth > 0 ? (MAX_ARC_R - innerRadius) / maxDepth : MAX_ARC_R - innerRadius;
+
   const arcGenerator = arc<ArcParams>()
     .startAngle(d => d.x0).endAngle(d => d.x1)
-    .innerRadius(d => d.y0).outerRadius(d => d.y1 - 1);
+    .innerRadius(d => d.y0).outerRadius(d => d.y1);
 
   const topChildren = root?.children ?? [];
 
@@ -226,12 +241,14 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     return m;
   }, [topChildren, focusCode, focusBaseColor]);
 
-  function getNodeColor(node: HierarchyRectangularNode<BudgetNode>): string {
+  function getNodeColor(node: HierarchyRectangularNode<BudgetNode>, highlighted = false): string {
     if (node.depth === 0) return 'transparent';
     let cur: typeof node = node;
     while (cur.depth > 1 && cur.parent) cur = cur.parent;
     const baseColor = colorMap.get(cur.data.code) ?? '#9ca3af';
-    const opacity = node.depth === 1 ? 0.88 : node.depth === 2 ? 0.62 : 0.42;
+    const opacity = highlighted
+      ? (node.depth === 1 ? 0.95 : node.depth === 2 ? 0.80 : 0.65)
+      : (node.depth === 1 ? 0.88 : node.depth === 2 ? 0.62 : 0.42);
     return hexToRgba(baseColor, opacity);
   }
 
@@ -254,19 +271,25 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     rafRef.current = requestAnimationFrame(tick);
   }, []);
 
-  const handleMouseEnter = useCallback((e: React.MouseEvent<SVGPathElement>, node: HierarchyRectangularNode<BudgetNode>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
+  const handleArcMouseEnter = useCallback((node: HierarchyRectangularNode<BudgetNode>) => {
+    let top = node;
+    while (top.depth > 1 && top.parent) top = top.parent;
     const pct = totalValue > 0 ? ((node.value ?? 0) / totalValue) * 100 : 0;
-    setTooltip({ visible: true, x: e.clientX - rect.left, y: e.clientY - rect.top,
-      name: node.data.name, amount: node.value ?? 0, pct, hasChildren: (node.data.children?.length ?? 0) > 0 });
+    const highlightCodes = new Set<string>();
+    // descendants (including self)
+    node.each(n => highlightCodes.add(n.data.code));
+    // ancestors up to depth 1
+    let anc = node.parent;
+    while (anc && anc.depth > 0) { highlightCodes.add(anc.data.code); anc = anc.parent; }
+    setHovered({
+      parentCode: top.data.code,
+      nodeName: node.data.name,
+      nodeAmount: node.value ?? 0,
+      nodePct: pct,
+      nodeHasChildren: (node.data.children?.length ?? 0) > 0,
+      highlightCodes,
+    });
   }, [totalValue]);
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGPathElement>) => {
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    setTooltip(prev => ({ ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top }));
-  }, []);
 
   const handleClick = useCallback((node: HierarchyRectangularNode<BudgetNode>) => {
     if (node.depth === 0 || (node.data.children?.length ?? 0) === 0) return;
@@ -278,7 +301,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     startAnim();
     setFocusBaseColor(baseColor);
     setFocusCode(node.data.code);
-    setTooltip(prev => ({ ...prev, visible: false }));
+    setHovered(null);
   }, [captureSnapshot, startAnim, colorMap]);
 
   const handleBack = useCallback(() => {
@@ -297,9 +320,11 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   };
 
   const getNodeOpacity = (node: HierarchyRectangularNode<BudgetNode>): number => {
-    if (animProgress >= 1) return 1;
-    if (!prevParamsRef.current.has(node.data.code)) return easeInOutCubic(animProgress);
-    return 1;
+    const animOp = animProgress >= 1 ? 1 : (prevParamsRef.current.has(node.data.code) ? 1 : easeInOutCubic(animProgress));
+    if (!hovered) return animOp;
+    let cur = node;
+    while (cur.depth > 1 && cur.parent) cur = cur.parent;
+    return hovered.highlightCodes.has(node.data.code) ? animOp : animOp * 0.5;
   };
 
   const nodes: HierarchyRectangularNode<BudgetNode>[] = useMemo(() => {
@@ -308,8 +333,6 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     root.each(node => { if (node.depth <= 3) res.push(node); });
     return res;
   }, [root]);
-
-  const innerRadius = RADIUS * 0.2;
 
   const labelColor = isPanel ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.9)';
   const labelColorMuted = isPanel ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.5)';
@@ -321,16 +344,19 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     if (!root || animProgress < 1 || width === 0) return null;
 
     const svgHalfH = HEIGHT / 2;
+    const TOP_MARGIN = 20;  // px from canvas top edge to first pill
+    const COL_GAP    = 6;   // px between stacked pills
+    const COL_OFFSET = 14;  // px gap between circle edge and pill column
 
     type LabelDatum = {
       code: string; baseColor: string;
       pax: number; pay: number;
-      lx: number; ly: number;
+      arcPath: string;
       onRight: boolean;
-      lines: string[]; pct: string;
+      lines: string[]; pct: string; eur: string;
       pillW: number; pillH: number;
-      pillX: number;
-      pillY: number;
+      pillX: number; pillY: number;
+      node: HierarchyRectangularNode<BudgetNode>;
     };
 
     const children = root.children ?? [];
@@ -338,66 +364,160 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     const items: LabelDatum[] = children.map(parent => {
       const baseColor = colorMap.get(parent.data.code) ?? '#9ca3af';
       const mid = (parent.x0 + parent.x1) / 2;
-      const [pax, pay] = a2xy(mid, parent.y1 + 2);
-      const [lx, ly]   = a2xy(mid, LABEL_R);
-      const onRight = lx >= 0;
+      // Connector and indicator arc start from the outer edge of the arc ring
+      const [pax, pay] = a2xy(mid, MAX_ARC_R);
+      const onRight    = Math.sin(mid) >= 0;
+      const ARC_GAP = Math.min(0.03, (parent.x1 - parent.x0) * 0.08);
+      const trimX0 = parent.x0 + ARC_GAP, trimX1 = parent.x1 - ARC_GAP;
+      const ax0 = Math.sin(trimX0) * MAX_ARC_R, ay0 = -Math.cos(trimX0) * MAX_ARC_R;
+      const ax1 = Math.sin(trimX1) * MAX_ARC_R, ay1 = -Math.cos(trimX1) * MAX_ARC_R;
+      const largeArc = (trimX1 - trimX0) > Math.PI ? 1 : 0;
+      const arcPath = `M ${ax0.toFixed(2)} ${ay0.toFixed(2)} A ${MAX_ARC_R} ${MAX_ARC_R} 0 ${largeArc} 1 ${ax1.toFixed(2)} ${ay1.toFixed(2)}`;
       const pct   = totalValue > 0 ? ((parent.value ?? 0) / totalValue * 100).toFixed(1) : '0';
+      const eur   = formatEur(parent.value ?? 0);
       const lines = wrapText(parent.data.name, maxCharsPerLine);
-      const pctW  = (pct.length + 2) * 7.5;
-      const pillW = Math.max(...lines.map(l => l.length * CHAR_W), pctW) + PILL_PAD_X * 2;
+      const bottomRowW = (pct.length + 2) * 7.5 + 8 + eur.length * 7.5;
+      const pillW = Math.max(...lines.map(l => l.length * CHAR_W), bottomRowW) + PILL_PAD_X * 2;
       const pillH = lines.length === 1 ? PILL_H_1 : PILL_H_1 + (lines.length - 1) * 12;
-      const pillX = onRight ? lx : lx - pillW;
-      const pillY = ly - pillH / 2;
-      return { code: parent.data.code, baseColor, pax, pay, lx, ly, onRight, lines, pct, pillW, pillH, pillX, pillY };
+      return { code: parent.data.code, baseColor, pax, pay, arcPath, onRight,
+               lines, pct, eur, pillW, pillH, pillX: 0, pillY: 0, node: parent };
     });
 
-    // Resolve vertical overlaps per side — clamp to SVG y bounds
-    const resolve = (group: LabelDatum[]) => {
-      group.sort((a, b) => a.pillY - b.pillY);
+    // ── Assign columns: geometric left/right split, sorted top-to-bottom ─────
+    const rightGroup = items.filter(l =>  l.onRight).sort((a, b) => a.pay - b.pay);
+    const leftGroup  = items.filter(l => !l.onRight).sort((a, b) => a.pay - b.pay);
+
+    // Available width per side = canvas half-width minus outer arc ring edge minus gap minus margin
+    const svgHalfW = width / 2;
+    const availW = Math.max(40, svgHalfW - BOUNDS_MARGIN - MAX_ARC_R - COL_OFFSET);
+
+    // Normalize pill widths within each column, capped to available space
+    const maxRW = rightGroup.length > 0 ? Math.min(Math.max(...rightGroup.map(l => l.pillW)), availW) : 0;
+    const maxLW = leftGroup.length  > 0 ? Math.min(Math.max(...leftGroup.map(l => l.pillW)),  availW) : 0;
+    for (const l of rightGroup) l.pillW = maxRW;
+    for (const l of leftGroup)  l.pillW = maxLW;
+
+    // Column x anchors just outside the outer arc ring — guaranteed to fit within canvas
+    const rightColX = MAX_ARC_R + COL_OFFSET;
+    const leftColX  = -(MAX_ARC_R + COL_OFFSET + maxLW);
+
+    // Seed each pill at the y of its arc sector midpoint, then resolve overlaps
+    for (const l of rightGroup) { l.pillX = rightColX; l.pillY = l.pay - l.pillH / 2; }
+    for (const l of leftGroup)  { l.pillX = leftColX;  l.pillY = l.pay - l.pillH / 2; }
+
+    const resolveY = (group: LabelDatum[]) => {
+      // Push down pass
       for (let i = 1; i < group.length; i++) {
-        const minY = group[i - 1].pillY + group[i - 1].pillH + LABEL_GAP;
+        const minY = group[i - 1].pillY + group[i - 1].pillH + COL_GAP;
         if (group[i].pillY < minY) group[i].pillY = minY;
       }
+      // Push up pass
       for (let i = group.length - 2; i >= 0; i--) {
-        const maxY = group[i + 1].pillY - group[i].pillH - LABEL_GAP;
+        const maxY = group[i + 1].pillY - group[i].pillH - COL_GAP;
         if (group[i].pillY > maxY) group[i].pillY = maxY;
       }
+      // Clamp to canvas bounds
       for (const l of group) {
-        l.pillY = Math.max(-svgHalfH + BOUNDS_MARGIN, Math.min(svgHalfH - BOUNDS_MARGIN - l.pillH, l.pillY));
+        l.pillY = Math.max(-svgHalfH + TOP_MARGIN, Math.min(svgHalfH - BOUNDS_MARGIN - l.pillH, l.pillY));
       }
     };
 
-    resolve(items.filter(l => l.onRight));
-    resolve(items.filter(l => !l.onRight));
+    resolveY(rightGroup);
+    resolveY(leftGroup);
 
-    // Push pills outward to clear the sunburst circle — no re-clamp (SVG overflow:visible)
-    for (const l of items) {
-      const connY = l.pillY + l.pillH / 2;
-      const circleX = Math.sqrt(Math.max(0, RADIUS * RADIUS - connY * connY)) + BOUNDS_MARGIN;
-      if (l.onRight) {
-        if (l.pillX < circleX) l.pillX = circleX;
-      } else {
-        const maxRight = -circleX;
-        if (l.pillX + l.pillW > maxRight) l.pillX = maxRight - l.pillW;
-      }
-    }
+    const INFO_PAD_X = 9;
+    const INFO_PAD_Y = 7;
+    const INFO_LINE_H = 14;
+    const INFO_GAP = 5;
 
     return items.map(l => {
+      const isActive = hovered?.parentCode === l.code;
+      const anyHovered = hovered !== null;
+      const labelOpacity = anyHovered ? (isActive ? 1 : 0) : 1;
+
       const connX = l.onRight ? l.pillX : l.pillX + l.pillW;
-      const connY = l.pillY + l.pillH / 2;
+      const connY = l.pillY + 10;
+
+      // Polyline with only 45°/horizontal segments: diagonal to label y-level, then horizontal
+      const dy = connY - l.pay;
+      const elbowDX = l.onRight ? Math.abs(dy) : -Math.abs(dy);
+      let elbowX = l.pax + elbowDX;
+      if (l.onRight) elbowX = Math.min(elbowX, connX);
+      else elbowX = Math.max(elbowX, connX);
+      const polyPoints = Math.abs(dy) < 0.5
+        ? `${l.pax.toFixed(2)},${l.pay.toFixed(2)} ${connX.toFixed(2)},${connY.toFixed(2)}`
+        : `${l.pax.toFixed(2)},${l.pay.toFixed(2)} ${elbowX.toFixed(2)},${connY.toFixed(2)} ${connX.toFixed(2)},${connY.toFixed(2)}`;
+
       const textX = l.pillX + PILL_PAD_X;
       const multi = l.lines.length > 1;
-      // For 1 line: name at +12, pct at +25 (compact layout)
-      // For N lines: lines start at +9 spaced 12px, pct after last line + gap
       const lineBaseY = multi ? l.pillY + 9 : l.pillY + 12;
       const pctY = multi ? l.pillY + 9 + l.lines.length * 12 + 4 : l.pillY + 25;
 
+      // Info box content (shown only when a child arc is hovered)
+      const showName = isActive && hovered ? hovered.nodeName !== l.node.data.name : false;
+      let infoBox: React.ReactNode = null;
+      if (isActive && hovered && showName) {
+        const hasHint = hovered.nodeHasChildren;
+        const nameLines = wrapText(hovered.nodeName, maxCharsPerLine);
+        const nameRowCount = nameLines.length;
+        const rowCount = nameRowCount + 1 /* amount+pct */ + (hasHint ? 1 : 0);
+        const infoH = INFO_PAD_Y * 2 + rowCount * INFO_LINE_H + (rowCount - 1) * 2;
+        const infoY = l.pillY + l.pillH + INFO_GAP;
+        const infoX = l.pillX;
+        const rowY = (i: number) => infoY + INFO_PAD_Y + i * (INFO_LINE_H + 2) + INFO_LINE_H / 2;
+
+        infoBox = (
+          <g>
+            <rect x={infoX} y={infoY} width={l.pillW} height={infoH} rx={7} ry={7}
+              fill={pillBg} stroke={l.baseColor} strokeWidth={1.5} opacity={0.97} />
+            {nameLines.map((ln, i) => (
+              <text key={i} x={infoX + INFO_PAD_X} y={rowY(i)} textAnchor="start" dominantBaseline="middle"
+                fontSize={10} fontWeight={700} fill={l.baseColor} style={{ letterSpacing: '0.03em' }}>
+                {ln}
+              </text>
+            ))}
+            <text x={infoX + INFO_PAD_X} y={rowY(nameRowCount)} textAnchor="start" dominantBaseline="middle"
+              fontSize={11} fontWeight={800} fill={l.baseColor} opacity={0.85}>
+              {hovered.nodePct.toFixed(1)}%
+            </text>
+            <text x={infoX + l.pillW - INFO_PAD_X} y={rowY(nameRowCount)} textAnchor="end" dominantBaseline="middle"
+              fontSize={11} fontWeight={700} fill={l.baseColor} opacity={0.7}>
+              {formatEur(hovered.nodeAmount)}
+            </text>
+            {hasHint && (
+              <text x={infoX + INFO_PAD_X} y={rowY(nameRowCount + 1)} textAnchor="start" dominantBaseline="middle"
+                fontSize={9} fontWeight={600} fill={hexToRgba(l.baseColor, 0.55)} style={{ letterSpacing: '0.02em' }}>
+                → Click para desglosar
+              </text>
+            )}
+          </g>
+        );
+      }
+
+      const setLabelHover = () => {
+        const nodeVal = l.node.value ?? 0;
+        const pct = totalValue > 0 ? (nodeVal / totalValue) * 100 : 0;
+        const highlightCodes = new Set<string>();
+        l.node.each(n => highlightCodes.add(n.data.code));
+        setHovered({
+          parentCode: l.code,
+          nodeName: l.node.data.name,
+          nodeAmount: nodeVal,
+          nodePct: pct,
+          nodeHasChildren: (l.node.data.children?.length ?? 0) > 0,
+          highlightCodes,
+        });
+      };
+
       return (
-        <g key={l.code}>
-          <circle cx={l.pax} cy={l.pay} r={2} fill={l.baseColor} opacity={0.7} />
-          <line x1={l.pax} y1={l.pay} x2={connX} y2={connY}
+        <g key={l.code} opacity={labelOpacity} style={{ cursor: 'default', transition: 'opacity 0.15s' }}
+          onMouseEnter={setLabelHover}
+          onMouseLeave={() => setHovered(null)}>
+          <path d={l.arcPath} fill="none" stroke={l.baseColor} strokeWidth={2} opacity={0.5} />
+          <polyline points={polyPoints} fill="none"
             stroke={l.baseColor} strokeWidth={1.2} opacity={0.6} />
-          <rect x={l.pillX} y={l.pillY} width={l.pillW} height={l.pillH} rx={7} ry={7} fill={pillBg} />
+          <rect x={l.pillX} y={l.pillY} width={l.pillW} height={l.pillH} rx={7} ry={7}
+            fill={pillBg} stroke={l.baseColor} strokeWidth={1.5} opacity={0.95} />
           {l.lines.map((ln, i) => (
             <text key={i} x={textX} y={lineBaseY + i * 12} textAnchor="start" dominantBaseline="middle"
               fontSize={10} fontWeight={700} fill={l.baseColor} style={{ letterSpacing: '0.03em' }}>
@@ -408,6 +528,11 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
             fontSize={12} fontWeight={800} fill={l.baseColor} opacity={0.85}>
             {l.pct}%
           </text>
+          <text x={l.pillX + l.pillW - PILL_PAD_X} y={pctY} textAnchor="end" dominantBaseline="middle"
+            fontSize={11} fontWeight={700} fill={l.baseColor} opacity={0.7}>
+            {l.eur}
+          </text>
+          {infoBox}
         </g>
       );
     });
@@ -417,11 +542,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     <div className={`flex flex-col h-full ${isPanel ? 'rounded-2xl border bg-white/80 backdrop-blur-sm p-5' : ''}`}
       style={isPanel ? { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' } : undefined}
     >
-      <div className="flex items-center justify-between mb-2 px-1">
-        <p className="text-[10px] font-bold uppercase tracking-tight"
-          style={isPanel ? { color: '#6b7280' } : { color: 'rgba(255,255,255,0.6)', textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
-          {subtitle || `Año ${year}`}
-        </p>
+      <div className="flex items-center justify-end mb-2 px-1">
         {showToggle && (
           <div className={`flex items-center gap-1 p-1 rounded-xl ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
             {(['planned', 'executed'] as const).map(t => (
@@ -438,13 +559,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
         )}
       </div>
 
-      <div ref={containerRef} className="flex-1 relative" style={{ minHeight: HEIGHT, overflowY: 'clip' }}>
-        {/* Top-right label: category name when drilled in, "Presupuesto" at root */}
-        <div className="absolute top-2 right-2 pointer-events-none z-10 text-right"
-          style={{ fontSize: 11, fontWeight: 700, color: labelColor,
-            textShadow: isPanel ? 'none' : '0 1px 4px rgba(0,0,0,0.5)' }}>
-          {focusCode && focusedName ? focusedName : 'Presupuesto'}
-        </div>
+      <div ref={containerRef} className="flex-1 relative" style={{ overflowY: 'clip' }}>
         {width > 0 && RADIUS > 0 && (
           <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>
@@ -453,43 +568,68 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
               {nodes.map((node) => {
                 if (node.depth === 0) return null;
                 const displayed = getDisplayedArc(node);
-                const d = arcGenerator(displayed);
+                const nodeInnerR = innerRadius + (node.depth - 1) * bandW;
+                const nodeOuterR = innerRadius + node.depth * bandW - 1;
+                const d = arcGenerator({ ...displayed, y0: nodeInnerR, y1: nodeOuterR });
                 if (!d) return null;
                 const hasChildren = (node.data.children?.length ?? 0) > 0;
+                const highlighted = !hovered || hovered.highlightCodes.has(node.data.code);
                 return (
                   <path key={node.data.code} d={d}
-                    fill={getNodeColor(node)}
+                    fill={getNodeColor(node, highlighted)}
                     stroke="rgba(255,255,255,0.07)"
                     strokeWidth={1}
                     opacity={getNodeOpacity(node)}
-                    onMouseEnter={e => handleMouseEnter(e, node)}
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
+                    onMouseEnter={() => handleArcMouseEnter(node)}
+                    onMouseLeave={() => setHovered(null)}
                     onClick={() => handleClick(node)}
-                    style={{ cursor: hasChildren ? 'zoom-in' : 'default' }}
+                    style={{ cursor: hasChildren ? 'zoom-in' : 'default', transition: 'opacity 0.15s' }}
                   />
                 );
               })}
 
-              {/* ── Center hole ── */}
-              <circle r={innerRadius}
-                fill={isPanel ? 'white' : 'rgba(0,0,0,0.25)'}
-                stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
-
-
-              {/* ── Back button when drilled in ── */}
-              {focusCode && (
-                <g style={{ cursor: 'pointer' }} onClick={handleBack}>
-                  <circle r={innerRadius}
-                    fill={isPanel ? 'rgba(30,30,30,0.08)' : 'rgba(0,0,0,0.4)'}
-                    stroke="rgba(255,255,255,0.15)" strokeWidth={1.5} />
-                  <text textAnchor="middle" dominantBaseline="middle"
-                    y={-4} fontSize={18} fill={isPanel ? '#1f2937' : '#ffffff'}>↩</text>
-                  <text textAnchor="middle" dominantBaseline="middle"
-                    y={12} fontSize={8} fontWeight={800} letterSpacing="0.1em"
-                    fill={isPanel ? '#6b7280' : 'rgba(255,255,255,0.7)'}>VOLVER</text>
-                </g>
-              )}
+              {/* ── Center circle ── */}
+              {(() => {
+                const labelText = (focusCode && focusedName) ? focusedName : 'Presupuesto';
+                const fSize = Math.max(8, Math.min(12, innerRadius * 0.22));
+                const charsPerLine = Math.max(6, Math.floor((innerRadius * 1.3) / (fSize * 0.62)));
+                const lines = wrapText(labelText, charsPerLine).slice(0, 2);
+                const lineH = fSize + 3;
+                const amountText = formatEur(totalValue);
+                const amountFSize = Math.max(9, Math.min(14, innerRadius * 0.26));
+                // Shift label block up slightly to center label+amount together
+                const labelCY = focusCode ? -(innerRadius * 0.28) : -(amountFSize * 0.55);
+                const amountY = labelCY + (lines.length * 0.5 + 0.5) * lineH + amountFSize * 0.1 + 3;
+                const volverY = innerRadius * 0.62;
+                return (
+                  <g style={focusCode ? { cursor: 'pointer' } : undefined} onClick={focusCode ? handleBack : undefined}>
+                    <circle r={innerRadius} fill="rgba(250,245,238,0.50)" stroke="rgba(51,65,85,0.08)" strokeWidth={1} />
+                    {lines.map((ln, i) => (
+                      <text key={i}
+                        textAnchor="middle" dominantBaseline="middle"
+                        x={0} y={labelCY + (i - (lines.length - 1) / 2) * lineH}
+                        fontSize={fSize} fontWeight={700} letterSpacing="0.07em"
+                        fill="#334155">
+                        {ln}
+                      </text>
+                    ))}
+                    <text textAnchor="middle" dominantBaseline="middle"
+                      x={0} y={amountY}
+                      fontSize={amountFSize} fontWeight={800} letterSpacing="0.03em"
+                      fill="#334155" opacity={0.8}>
+                      {amountText}
+                    </text>
+                    {focusCode && (
+                      <text textAnchor="middle" dominantBaseline="middle"
+                        y={volverY}
+                        fontSize={fSize * 0.78} fontWeight={700} letterSpacing="0.10em"
+                        fill="#64748b">
+                        ← VOLVER
+                      </text>
+                    )}
+                  </g>
+                );
+              })()}
 
               {/* ── Callout labels ── */}
               {renderCallouts()}
@@ -498,26 +638,6 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           </svg>
         )}
 
-        {/* ── Tooltip ── */}
-        {tooltip.visible && (
-          <div className="absolute z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[180px]"
-            style={{ left: tooltip.x + 15, top: tooltip.y - 15, transform: 'translateY(-50%)' }}>
-            <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none">
-              Partida presupuestaria
-            </div>
-            <div className="text-xs font-bold text-gray-800 leading-tight">{tooltip.name}</div>
-            {tooltip.hasChildren && (
-              <div className="text-[9px] text-blue-500 font-bold mt-0.5">Click para desglosar →</div>
-            )}
-            <div className="h-px bg-black/5 my-1" />
-            <div className="flex justify-between items-end gap-3">
-              <span className="text-sm font-black text-gray-900">{formatEur(tooltip.amount)}</span>
-              <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                {tooltip.pct.toFixed(1)}%
-              </span>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

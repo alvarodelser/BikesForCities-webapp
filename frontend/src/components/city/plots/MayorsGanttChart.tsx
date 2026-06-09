@@ -85,15 +85,26 @@ export const MayorsGanttChart: React.FC<MayorsGanttChartProps> = ({
   }, [terms, width]);
 
   const yearTicks = useMemo(() => {
-    if (!xScale) return [];
+    if (!xScale || width === 0) return [];
     const startYear = minDate.getFullYear();
     const endYear = maxDate.getFullYear();
+    const totalYears = endYear - startYear;
+
+    // Pick the smallest "nice" step that keeps labels from overlapping.
+    // Year labels ("2026") are ~32px wide; target 7–10 visible ticks max.
+    const LABEL_PX = 32;
+    const maxTicks = Math.max(2, Math.floor(width / LABEL_PX));
+    const rawStep = totalYears / maxTicks;
+    const niceSteps = [1, 2, 5, 10, 25, 50];
+    const step = niceSteps.find(s => s >= rawStep) ?? 50;
+
     const ticks: Date[] = [];
-    for (let y = startYear; y <= endYear; y++) {
+    const firstTick = Math.ceil(startYear / step) * step;
+    for (let y = firstTick; y <= endYear; y += step) {
       ticks.push(new Date(y, 0, 1));
     }
     return ticks;
-  }, [minDate, maxDate, xScale]);
+  }, [minDate, maxDate, xScale, width]);
 
   const handleMouseEnter = (
     e: React.MouseEvent<SVGPolygonElement>,

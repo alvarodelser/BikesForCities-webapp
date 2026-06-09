@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
+import { fmtInt } from '../../../../../utils/formatters';
 import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
 import { TILE_SERVER_URL } from '../../../../../config/api';
 import type * as GeoJSON from 'geojson';
@@ -178,12 +179,12 @@ export default function TrafficRoutesLayer() {
             const rowValue = loaded === 0
                 ? 'Cargando…'
                 : total > 0
-                    ? `${loaded.toLocaleString('es-ES')} / ${total.toLocaleString('es-ES')}`
-                    : `${loaded.toLocaleString('es-ES')} rutas`;
+                    ? `${fmtInt(loaded)} / ${fmtInt(total)}`
+                    : `${fmtInt(loaded)} rutas`;
             window.dispatchEvent(new CustomEvent('map-selection', {
                 detail: {
                     ...prev,
-                    rows: [{ label: 'Trayectos', value: done ? `${loaded.toLocaleString('es-ES')} trayectos` : rowValue }],
+                    rows: [{ label: 'Trayectos', value: done ? `${fmtInt(loaded)} trayectos` : rowValue }],
                     routeProgress: done ? undefined : { loaded, total, onStop: handleStopRoutes },
                 } as SelectionDetail,
             }));

@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
+import { fmtInt } from '../../../../../utils/formatters';
 import { ODAccumulationLayer, ACCUM_LAYER_ID } from './ODAccumulationLayer';
 import type { SelectionDetail } from '../../../../../types/selection';
 import type * as GeoJSON from 'geojson';
@@ -202,7 +203,7 @@ export default function TrafficTripsLayer() {
             title: `Zona ${hexId.slice(-6)}`,
             rows: [
                 { label: 'CONEXIONES', value: String(connected.length) },
-                { label: 'VIAJES',     value: total.toLocaleString('es-ES') },
+                { label: 'VIAJES',     value: fmtInt(total) },
             ],
         };
         window.dispatchEvent(new CustomEvent('map-selection', { detail }));

@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import * as d3 from 'd3';
 import { HelpCircle, X } from 'lucide-react';
+import { fmtMonth, fmtInt } from '../../../utils/formatters';
 
 interface Series {
   key: string;
@@ -104,16 +105,22 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
       .selectAll('line')
       .attr('stroke', gridColor);
 
-    // Cap x-axis to ~6 evenly spaced ticks to avoid crowding
+    // Width-aware x tick density: ~48px per label minimum, at least 2 ticks.
+    // Auto-detect YYYY-MM values and format as "Jun 26".
     const xDomain = data.map(d => d[xKey] as string);
-    const maxTicks = 6;
+    const isMonthFmt = xDomain.length > 0 && /^\d{4}-\d{2}$/.test(xDomain[0]);
+    const maxTicks = Math.max(2, Math.floor((width - margin.left - margin.right) / 48));
     const tickStep = Math.ceil(xDomain.length / maxTicks);
     const xTickValues = xDomain.filter((_, i) => i % tickStep === 0);
 
     // Axes
     svg.append('g')
       .attr('transform', `translate(0,${height - margin.bottom})`)
-      .call(d3.axisBottom(x).tickValues(xTickValues))
+      .call(
+        d3.axisBottom(x)
+          .tickValues(xTickValues)
+          .tickFormat(v => isMonthFmt ? fmtMonth(String(v)) : String(v))
+      )
       .call(g => g.select('.domain').attr('stroke', 'rgba(0,0,0,0.1)'))
       .selectAll('text')
       .attr('font-size', '10px')
@@ -192,12 +199,12 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
             .style('left', `${event.pageX + 10}px`)
             .style('top', `${event.pageY - 10}px`)
             .html(`
-              <div class="font-bold border-b border-black/10 pb-1 mb-1">${d[xKey]}</div>
+              <div class="font-bold border-b border-black/10 pb-1 mb-1">${isMonthFmt ? fmtMonth(String(d[xKey])) : d[xKey]}</div>
               ${series.map(s => `
                 <div class="flex items-center gap-2">
                   <div class="w-2 h-2 rounded-full" style="background: ${s.color}"></div>
                   <span>${s.label}:</span>
-                  <span class="font-bold ml-auto">${d[s.key]}</span>
+                  <span class="font-bold ml-auto">${typeof d[s.key] === 'number' ? fmtInt(d[s.key] as number) : d[s.key]}</span>
                 </div>
               `).join('')}
             `);

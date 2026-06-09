@@ -54,9 +54,13 @@ export function useMapState(): MapState {
                 next.delete('submode');
             }
             if (currentMode !== newMode) {
+                next.delete('generation');
+                next.delete('routing');
+                next.delete('period');
                 next.delete('yearFrom');
                 next.delete('yearTo');
                 next.delete('periodFrom');
+                next.delete('accidentType');
             }
             return next;
         }, { replace: true });
