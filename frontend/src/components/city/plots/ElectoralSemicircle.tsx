@@ -2,6 +2,7 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import type { ElectionResult } from '../../../services/api';
 import { getPartyColor } from '../../../constants/parties';
+import { fmtInt } from '../../../utils/formatters';
 
 export interface PartyAllocation {
   party: string;
@@ -205,7 +206,7 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
                 fillOpacity={0.88}
                 className="transition-all hover:fill-opacity-100"
                 style={{ cursor: 'pointer' }}
-                onMouseEnter={e => handleMouseEnter(e, dot, allocByParty[dot.party])}
+                onMouseEnter={e => handleMouseEnter(e, dot, allocByParty[dot.party]!)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={() => setTooltip(prev => ({ ...prev, visible: false }))}
               />
@@ -217,7 +218,7 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
         {tooltip.visible && (
           <div
             className="absolute z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[160px]"
-            style={{ left: tooltip.x + 12, top: tooltip.y - 12, transform: 'translateY(-50%)' }}
+            style={{ left: Math.min(tooltip.x + 12, width - 172), top: tooltip.y - 12, transform: 'translateY(-50%)' }}
           >
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: getPartyColor(tooltip.party) }} />
@@ -229,7 +230,7 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
             </div>
             {tooltip.votes != null && (
               <div className="text-[10px] text-gray-400 font-medium">
-                {tooltip.votes.toLocaleString('es-ES')} votos
+                {fmtInt(tooltip.votes)} votos
               </div>
             )}
           </div>
