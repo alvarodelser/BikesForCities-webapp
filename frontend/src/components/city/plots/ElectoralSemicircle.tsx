@@ -74,6 +74,7 @@ export function buildSemicircleLayout(
 
 interface ElectoralSemicircleProps {
   elections: ElectionResult[];
+  selectedYear?: number;
   title?: string;
 }
 
@@ -91,6 +92,7 @@ const CARD_STYLE = { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgb
 
 export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
   elections,
+  selectedYear,
   title = 'Composición del pleno',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -109,10 +111,16 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
     return () => ro.disconnect();
   }, []);
 
-  // Pick most recent year and filter to parties with seats
+  // Pick the most recent election year ≤ selectedYear (falls back to overall latest)
   const { year, allocations } = useMemo(() => {
     if (elections.length === 0) return { year: null, allocations: [] };
-    const latestYear = Math.max(...elections.map(e => e.year));
+    const allYears = [...new Set(elections.map(e => e.year))].sort((a, b) => a - b);
+    const eligibleYears = selectedYear && selectedYear > 0
+      ? allYears.filter(y => y <= selectedYear)
+      : allYears;
+    const latestYear = eligibleYears.length > 0
+      ? eligibleYears[eligibleYears.length - 1]
+      : allYears[allYears.length - 1];
     const yearData = elections.filter(e => e.year === latestYear && (e.councilors ?? 0) > 0);
     yearData.sort((a, b) => (b.councilors ?? 0) - (a.councilors ?? 0));
     return {

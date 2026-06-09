@@ -542,8 +542,8 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     <div className={`flex flex-col h-full ${isPanel ? 'rounded-2xl border bg-white/80 backdrop-blur-sm p-5' : ''}`}
       style={isPanel ? { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' } : undefined}
     >
-      <div className="flex items-center justify-end mb-2 px-1">
-        {showToggle && (
+      {showToggle && (
+        <div className="flex items-center justify-end mb-2 px-1">
           <div className={`flex items-center gap-1 p-1 rounded-xl ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
             {(['planned', 'executed'] as const).map(t => (
               <button key={t} onClick={() => onBudgetTypeChange(t)}
@@ -556,12 +556,12 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
               </button>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div ref={containerRef} className="flex-1 relative" style={{ overflowY: 'clip' }}>
+      <div ref={containerRef} className="flex-1 relative overflow-hidden">
         {width > 0 && RADIUS > 0 && (
-          <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
+          <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'hidden' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>
 
               {/* ── Arcs ── */}

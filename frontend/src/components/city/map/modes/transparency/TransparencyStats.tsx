@@ -67,9 +67,10 @@ export default function TransparencyStats({
   elections,
 }: TransparencyStatsProps) {
   const submodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
-  const hasBudget = submodes.includes('budget');
-  const hasMayors = submodes.includes('mayors');
-  const hasElections = submodes.includes('electoral') && elections.length > 0;
+  const allEnabled = submodes.length === 0;
+  const hasBudget    = allEnabled || submodes.includes('budget');
+  const hasMayors    = allEnabled || submodes.includes('mayors');
+  const hasElections = (allEnabled || submodes.includes('electoral')) && elections.length > 0;
 
   const { items: yearItems, disabled: disabledYears } = useMemo(
     () => fillSequential(
@@ -94,8 +95,10 @@ export default function TransparencyStats({
     });
   }, [mayors]);
 
-  const handleChange = (from: string, _to: string) => {
-    onYearChange(Number(from));
+  const handleChange = (from: string, to: string) => {
+    // Clicking left moves 'from'; clicking right moves 'to'. Use whichever changed.
+    const newYear = from !== selectedYearStr ? from : to;
+    onYearChange(Number(newYear));
   };
 
   const selectedYearStr = String(selectedYear);
@@ -205,7 +208,7 @@ export default function TransparencyStats({
 
       {/* ── Electoral semicircle ─────────────────────────────────────────────── */}
       {hasElections && (
-        <ElectoralSemicircle elections={elections} />
+        <ElectoralSemicircle elections={elections} selectedYear={selectedYear} />
       )}
     </div>
   );
