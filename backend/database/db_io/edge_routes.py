@@ -107,7 +107,7 @@ def get_edge_route_traces(
                 ORDER BY r.path_id
                 LIMIT %(limit)s OFFSET %(offset)s
             )
-            SELECT ST_AsGeoJSON(ST_LineMerge(ST_Collect(e.geom))) AS geom
+            SELECT ST_AsGeoJSON(ST_Collect(e.geom)) AS geom
             FROM matching m
             JOIN path_edges pe ON pe.path_id = m.path_id
             JOIN edges e       ON e.id = pe.edge_id AND e.city_id = %(city_id)s
