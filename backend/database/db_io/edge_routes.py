@@ -55,14 +55,22 @@ def count_edge_routes(
         cur.execute(
             f"""
             SELECT COUNT(*) FROM (
-                SELECT DISTINCT r.path_id
-                FROM path_edges pe2
-                JOIN routes r  ON r.path_id  = pe2.path_id AND r.city_id = %(city_id)s
-                JOIN trips t   ON t.id        = r.trip_id
-                JOIN paths p   ON p.id        = r.path_id
-                WHERE pe2.edge_id = %(edge_id)s
-                  {trip_clause}
-                  {path_clause}
+                SELECT c.path_id
+                FROM (
+                    SELECT DISTINCT pe2.path_id
+                    FROM path_edges pe2
+                    WHERE pe2.edge_id = %(edge_id)s
+                ) c
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM routes r
+                    JOIN trips t ON t.id = r.trip_id
+                    JOIN paths p ON p.id = r.path_id
+                    WHERE r.path_id = c.path_id
+                      AND r.city_id = %(city_id)s
+                      {trip_clause}
+                      {path_clause}
+                )
             ) sub
             """,
             params,
@@ -95,23 +103,31 @@ def get_edge_route_traces(
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            WITH matching AS (
-                SELECT DISTINCT r.path_id
+            WITH candidates AS MATERIALIZED (
+                SELECT DISTINCT pe2.path_id
                 FROM path_edges pe2
-                JOIN routes r  ON r.path_id  = pe2.path_id AND r.city_id = %(city_id)s
-                JOIN trips t   ON t.id        = r.trip_id
-                JOIN paths p   ON p.id        = r.path_id
                 WHERE pe2.edge_id = %(edge_id)s
-                  {trip_clause}
-                  {path_clause}
-                ORDER BY r.path_id
-                LIMIT %(limit)s OFFSET %(offset)s
             )
             SELECT ST_AsGeoJSON(ST_Collect(e.geom)) AS geom
-            FROM matching m
-            JOIN path_edges pe ON pe.path_id = m.path_id
+            FROM (
+                SELECT c.path_id
+                FROM candidates c
+                WHERE EXISTS (
+                    SELECT 1
+                    FROM routes r
+                    JOIN trips t ON t.id = r.trip_id
+                    JOIN paths p ON p.id = r.path_id
+                    WHERE r.path_id = c.path_id
+                      AND r.city_id = %(city_id)s
+                      {trip_clause}
+                      {path_clause}
+                )
+                ORDER BY c.path_id
+                LIMIT %(limit)s OFFSET %(offset)s
+            ) matching
+            JOIN path_edges pe ON pe.path_id = matching.path_id
             JOIN edges e       ON e.id = pe.edge_id AND e.city_id = %(city_id)s
-            GROUP BY m.path_id
+            GROUP BY matching.path_id
             """,
             params,
         )
