@@ -11,8 +11,8 @@ import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
 import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
-import { fetchInfraStats, fetchCityBudgets, fetchCityContext } from '../../services/api';
-import type { InfraStats, BudgetYear, MayorTerm } from '../../services/api';
+import { fetchInfraStats, fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
+import type { InfraStats, BudgetYear, MayorTerm, ElectionResult } from '../../services/api';
 import TransparencyStats from './map/modes/transparency/TransparencyStats';
 import BudgetSunburst from './plots/BudgetSunburst';
 import { buildSunburstTree } from '../../utils/budget';
@@ -132,6 +132,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const [selectedYear, setSelectedYear] = useState<number>(0);
     const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
     const [mayors, setMayors] = useState<MayorTerm[]>([]);
+    const [elections, setElections] = useState<ElectionResult[]>([]);
 
     useEffect(() => {
         if (!city.id) return;
@@ -139,13 +140,15 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
             fetchInfraStats(city.id).catch(() => null),
             fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
             fetchCityContext(city.id).catch(() => ({ mayors: [] as MayorTerm[], budget_year: null, budget_categories: {} })),
-        ]).then(([infraResult, budgetsResult, contextResult]) => {
+            fetchMayorsTimeline(city.id).catch(() => ({ mayors: [], elections: [] as ElectionResult[] })),
+        ]).then(([infraResult, budgetsResult, contextResult, timelineResult]) => {
             setInfraStats(infraResult);
             setBudgetYears(budgetsResult);
             if (budgetsResult.length > 0) {
                 setSelectedYear(budgetsResult[0].year);
             }
             setMayors(contextResult.mayors ?? []);
+            setElections(timelineResult.elections ?? []);
         });
     }, [city.id]);
 
@@ -178,8 +181,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const hasBudgetSubmode = transparencySubmodes.length === 0 || transparencySubmodes.includes('budget');
 
     const sunburstOverlay = mode === MAP_MODES.TRANSPARENCY && hasBudgetSubmode && budgetYears.length > 0 && selectedYear > 0 ? (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-            <div className="pointer-events-auto w-[min(480px,90%)]">
+        <div className="absolute inset-0 pointer-events-none z-10">
+            <div className="pointer-events-auto w-full h-full">
                 <BudgetSunburst
                     data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
                     year={selectedYear}
@@ -222,6 +225,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     budgetType={budgetType}
                     onBudgetTypeChange={setBudgetType}
                     mayors={mayors}
+                    elections={elections}
                 />
             </div>
         )
@@ -271,6 +275,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                                         budgetType={budgetType}
                                         onBudgetTypeChange={setBudgetType}
                                         mayors={mayors}
+                                        elections={elections}
                                     />
                                 )
                                 : <ModeStatsRouter city={city} />
