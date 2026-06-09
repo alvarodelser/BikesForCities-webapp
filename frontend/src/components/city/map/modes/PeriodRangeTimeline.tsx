@@ -306,17 +306,23 @@ export default function PeriodRangeTimeline({
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragRef.current) return;
     const snapIdx      = snapCandidateRef.current;
+    const snapMode     = dragRef.current.mode;
     const displacement = Math.abs(e.clientX - dragRef.current.startX);
     snapCandidateRef.current = null;
     dragRef.current = null;
     setActiveDrag(null);
     if (snapIdx !== null && displacement <= 12) {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null; }
       const enabledIdx = snap(snapIdx);
-      fromIdxRef.current = enabledIdx;
-      toIdxRef.current   = enabledIdx;
-      setDisplayFromIdx(enabledIdx);
-      setDisplayToIdx(enabledIdx);
-      fireChange(enabledIdx, enabledIdx);
+      if (snapMode === 'from') {
+        fromIdxRef.current = enabledIdx;
+        setDisplayFromIdx(enabledIdx);
+        onChange(items[enabledIdx], items[toIdxRef.current]);
+      } else {
+        toIdxRef.current = enabledIdx;
+        setDisplayToIdx(enabledIdx);
+        onChange(items[fromIdxRef.current], items[enabledIdx]);
+      }
     } else {
       fireChange(fromIdxRef.current, toIdxRef.current);
     }
