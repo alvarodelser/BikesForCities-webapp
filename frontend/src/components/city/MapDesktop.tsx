@@ -204,14 +204,16 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
         />
     );
     const mapEl = (
-        <div className="h-[78vh] min-h-[560px] px-[var(--space-gutter)] relative">
-            <CityMap
-                city={city}
-                selectedColor={selectedColor}
-                onEdgeSelect={setSelectedEdgeId}
-                locked={mode === MAP_MODES.TRANSPARENCY}
-            />
-            {sunburstOverlay}
+        <div className="h-[78vh] min-h-[560px] px-[var(--space-gutter)]">
+            <div className="relative h-full">
+                <CityMap
+                    city={city}
+                    selectedColor={selectedColor}
+                    onEdgeSelect={setSelectedEdgeId}
+                    locked={mode === MAP_MODES.TRANSPARENCY}
+                />
+                {sunburstOverlay}
+            </div>
         </div>
     );
     const statsEl = mode === MAP_MODES.TRANSPARENCY
@@ -250,14 +252,16 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 /* Ultrawide C1: map 50% left, scrollable stats 50% right */
                 <DualPanel leftRatio={0.5}>
                     <DualPanel.Left>
-                        <div className="sticky top-0 h-screen px-[var(--space-gutter)] pt-8 pb-6 relative">
-                            <CityMap
-                                city={city}
-                                selectedColor={selectedColor}
-                                onEdgeSelect={setSelectedEdgeId}
-                                locked={mode === MAP_MODES.TRANSPARENCY}
-                            />
-                            {sunburstOverlay}
+                        <div className="sticky top-0 h-screen px-[var(--space-gutter)] pt-8 pb-6">
+                            <div className="relative h-full">
+                                <CityMap
+                                    city={city}
+                                    selectedColor={selectedColor}
+                                    onEdgeSelect={setSelectedEdgeId}
+                                    locked={mode === MAP_MODES.TRANSPARENCY}
+                                />
+                                {sunburstOverlay}
+                            </div>
                         </div>
                     </DualPanel.Left>
                     <DualPanel.Right>

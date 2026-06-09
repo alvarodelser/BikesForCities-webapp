@@ -54,7 +54,19 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const { mode, setMode } = useMapState();
   const [isOpen, setIsOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const topOverlayRef = useRef<HTMLDivElement>(null);
+  const [topChrome, setTopChrome] = useState(130);
   const touchStartY = useRef<number>(0);
+
+  useEffect(() => {
+    const el = topOverlayRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      if (entries[0]) setTopChrome(entries[0].contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Transparency / budget state
   const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
@@ -163,10 +175,10 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
       {/* ── SUNBURST OVERLAY (transparency mode only) ── */}
       {showSunburst && (
         <div
-          className="absolute inset-x-0 pointer-events-none z-10 flex items-center justify-center"
-          style={{ top: 0, bottom: currentHeight }}
+          className="absolute inset-x-0 pointer-events-none z-10"
+          style={{ top: 0, bottom: currentHeight, paddingTop: topChrome }}
         >
-          <div className="pointer-events-auto w-full px-4 max-w-[420px]">
+          <div className="pointer-events-auto w-full h-full">
             <BudgetSunburst
               data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
               year={selectedYear}
@@ -179,7 +191,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
       )}
 
       {/* ── TOP OVERLAY: Filter pills ── */}
-      <div className="absolute top-0 inset-x-0 z-20 pointer-events-none">
+      <div ref={topOverlayRef} className="absolute top-0 inset-x-0 z-20 pointer-events-none">
         <div className="h-[var(--navbar-height,80px)]" />
         <div className="pointer-events-auto px-10 pt-2.5">
           <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
