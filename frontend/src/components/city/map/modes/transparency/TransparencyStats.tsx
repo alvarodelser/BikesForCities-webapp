@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
 import { TrendUp, CurrencyEur, Bank, ChartBar } from '@phosphor-icons/react';
-import PeriodRangeTimeline from '../PeriodRangeTimeline';
+import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
-import type { BudgetYear, MayorTerm } from '../../../../../services/api';
+import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
+import type { BudgetYear, MayorTerm, ElectionResult } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
 import { formatCurrency } from '../../../../../utils/formatters';
 
@@ -16,6 +17,7 @@ interface TransparencyStatsProps {
   budgetType: 'planned' | 'executed';
   onBudgetTypeChange: (t: 'planned' | 'executed') => void;
   mayors: MayorTerm[];
+  elections: ElectionResult[];
 }
 
 interface MetricCardProps {
@@ -62,16 +64,19 @@ export default function TransparencyStats({
   budgetType,
   onBudgetTypeChange,
   mayors,
+  elections,
 }: TransparencyStatsProps) {
   const submodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
   const hasBudget = submodes.includes('budget');
   const hasMayors = submodes.includes('mayors');
+  const hasElections = submodes.includes('electoral') && elections.length > 0;
 
-  const yearItems = useMemo(
-    () =>
-      [...budgetYears]
-        .sort((a, b) => a.year - b.year)
-        .map(by => String(by.year)),
+  const { items: yearItems, disabled: disabledYears } = useMemo(
+    () => fillSequential(
+      [...new Set(budgetYears.map(by => by.year))]
+        .sort((a, b) => a - b)
+        .map(String)
+    ),
     [budgetYears],
   );
 
@@ -105,6 +110,7 @@ export default function TransparencyStats({
               {yearItems.length > 1 ? (
                 <PeriodRangeTimeline
                   items={yearItems}
+                  disabledItems={disabledYears}
                   from={selectedYearStr}
                   to={selectedYearStr}
                   onChange={handleChange}
@@ -195,6 +201,11 @@ export default function TransparencyStats({
           terms={democraticMayors}
           title="Historial de Alcaldía"
         />
+      )}
+
+      {/* ── Electoral semicircle ─────────────────────────────────────────────── */}
+      {hasElections && (
+        <ElectoralSemicircle elections={elections} />
       )}
     </div>
   );
