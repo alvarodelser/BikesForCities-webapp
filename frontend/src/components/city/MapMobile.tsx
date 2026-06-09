@@ -5,8 +5,8 @@ import CityMap from './CityMap';
 import MapSheetContent from './MapSheetContent';
 import BudgetSunburst from './plots/BudgetSunburst';
 import { buildSunburstTree } from '../../utils/budget';
-import { fetchCityBudgets, fetchCityContext } from '../../services/api';
-import type { BudgetYear, MayorTerm } from '../../services/api';
+import { fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
+import type { BudgetYear, MayorTerm, ElectionResult } from '../../services/api';
 
 import { RoadHorizon, Graph, Bicycle, Warning, Eye } from '@phosphor-icons/react';
 
@@ -61,16 +61,19 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   const [selectedYear, setSelectedYear] = useState<number>(0);
   const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
   const [mayors, setMayors] = useState<MayorTerm[]>([]);
+  const [elections, setElections] = useState<ElectionResult[]>([]);
 
   useEffect(() => {
     if (!city.id) return;
     Promise.all([
       fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
       fetchCityContext(city.id).catch(() => ({ mayors: [] as MayorTerm[], budget_year: null, budget_categories: {} })),
-    ]).then(([budgets, context]) => {
+      fetchMayorsTimeline(city.id).catch(() => ({ mayors: [], elections: [] as ElectionResult[] })),
+    ]).then(([budgets, context, timeline]) => {
       setBudgetYears(budgets);
       if (budgets.length > 0) setSelectedYear(budgets[0].year);
       setMayors(context.mayors ?? []);
+      setElections(timeline.elections ?? []);
     });
   }, [city.id]);
 
@@ -142,6 +145,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
     budgetType,
     onBudgetTypeChange: setBudgetType,
     mayors,
+    elections,
   };
 
   return (
