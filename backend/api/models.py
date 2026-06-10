@@ -482,8 +482,8 @@ class CityBudgetsResponse(BaseResponse):
 class MayorRecord(BaseModel):
     name: str
     party: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class MayorTermResponse(BaseModel):
