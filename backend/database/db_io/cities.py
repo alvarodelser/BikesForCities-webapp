@@ -503,35 +503,36 @@ def put_city_budget_categories(
     year: int,
     budget_type: str,
     lines_df: pd.DataFrame,
+    classification: str = 'functional',
 ):
     """
-    Bulk insert functional budget categories for a city/year/type.
+    Bulk insert budget categories for a city/year/type/classification.
     lines_df columns: ['category_code', 'category_name', 'amount']
+    classification: 'functional' (expenses) or 'economic' (income)
     """
     if lines_df.empty:
         return
-        
+
     with conn.cursor() as cur:
-        # Clear existing lines for this city/year/type before re-ingesting
         cur.execute(
-            "DELETE FROM city_budget_categories WHERE city_id = %s AND year = %s AND budget_type = %s",
-            (city_id, year, budget_type)
+            "DELETE FROM city_budget_categories WHERE city_id = %s AND year = %s AND budget_type = %s AND classification = %s",
+            (city_id, year, budget_type, classification)
         )
-        
+
         args = [
-            (city_id, year, budget_type, str(row["category_code"]), row["category_name"], int(row["amount"]))
+            (city_id, year, budget_type, classification, str(row["category_code"]), row["category_name"], int(row["amount"]))
             for _, row in lines_df.iterrows()
         ]
-        
+
         execute_values(
             cur,
             """
-            INSERT INTO city_budget_categories (city_id, year, budget_type, category_code, category_name, amount)
+            INSERT INTO city_budget_categories (city_id, year, budget_type, classification, category_code, category_name, amount)
             VALUES %s
-            ON CONFLICT (city_id, year, budget_type, category_code)
+            ON CONFLICT (city_id, year, budget_type, classification, category_code)
             DO UPDATE SET
                 category_name = EXCLUDED.category_name,
-                amount        = city_budget_categories.amount + EXCLUDED.amount
+                amount        = EXCLUDED.amount
             """,
             args
         )
@@ -674,10 +675,11 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
                             'category_code', cat.category_code,
                             'category_name', cat.category_name,
                             'amount', cat.amount,
-                            'budget_type', cat.budget_type
+                            'budget_type', cat.budget_type,
+                            'classification', cat.classification
                         )
                     ) FROM city_budget_categories cat
-                      WHERE cat.city_id = cb.city_id 
+                      WHERE cat.city_id = cb.city_id
                         AND cat.year = cb.year),
                     '[]'::json
                 ) AS lines
@@ -697,7 +699,7 @@ def get_infra_budget(conn, city_id: int) -> dict:
             """
             SELECT year, budget_type, amount
             FROM city_budget_categories
-            WHERE city_id = %s AND category_code = '153'
+            WHERE city_id = %s AND category_code = '153' AND classification = 'functional'
             ORDER BY year DESC,
                      CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END
             LIMIT 1
@@ -734,6 +736,21 @@ def get_city_elections_data(conn, city_id: int) -> list:
             FROM city_elections
             WHERE city_id = %s
             ORDER BY year, councilors DESC
+            """,
+            (city_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def get_city_councilors_data(conn, city_id: int) -> list:
+    """Return elected councilors per party per year, in candidate-list order."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT year, party, name
+            FROM city_councilors
+            WHERE city_id = %s AND elected = TRUE
+            ORDER BY year, party, id
             """,
             (city_id,),
         )

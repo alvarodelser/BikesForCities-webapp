@@ -29,3 +29,25 @@ def test_election_result_accepts_db_row():
     result = ElectionResult(**row)
     assert result.year == 2023
     assert result.councilors == 12
+
+
+def test_councilor_record_accepts_db_row():
+    from backend.api.models import CouncilorRecord
+
+    row = {"year": 2023, "party": "PP", "name": "José Luis Martínez-Almeida"}
+    record = CouncilorRecord(**row)
+    assert record.name == "José Luis Martínez-Almeida"
+
+
+def test_mayors_timeline_response_includes_councilors():
+    from backend.api.models import CouncilorRecord, MayorsTimelineResponse
+
+    resp = MayorsTimelineResponse(
+        mayors=[],
+        elections=[],
+        councilors=[CouncilorRecord(year=2023, party="PP", name="A B")],
+        message="ok",
+    )
+    assert resp.model_dump(mode="json")["councilors"] == [
+        {"year": 2023, "party": "PP", "name": "A B"}
+    ]

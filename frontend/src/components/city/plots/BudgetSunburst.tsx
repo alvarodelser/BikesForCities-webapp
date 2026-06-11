@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { hierarchy, partition, type HierarchyRectangularNode } from 'd3-hierarchy';
 import { arc } from 'd3-shape';
+import { Bicycle, Bus, RoadHorizon, TrafficCone, Wrench } from '@phosphor-icons/react';
 
 export interface BudgetNode {
   code: string;
@@ -18,7 +19,28 @@ interface BudgetSunburstProps {
   subtitle?: string;
   variant?: 'overlay' | 'panel';
   showToggle?: boolean;
+  mobilityHighlight?: Set<string>;
 }
+
+export const MOBILITY_CODES = new Set(['133', '134', '44', '153', '442']);
+
+type PhosphorIcon = React.ComponentType<{ size?: number; weight?: string; color?: string }>;
+
+const MOBILITY_ICONS: Record<string, PhosphorIcon> = {
+  '133': TrafficCone,
+  '134': Bicycle,
+  '44':  Bus,
+  '153': RoadHorizon,
+  '442': Wrench,
+};
+
+const MOBILITY_LEGEND: Record<string, string> = {
+  '133': 'Tráfico',
+  '134': 'Movilidad urbana',
+  '44':  'Transporte público',
+  '153': 'Vías públicas',
+  '442': 'Infraest. transporte',
+};
 
 const SUNBURST_COLORS = [
   '#027A76', // dark teal
@@ -153,7 +175,7 @@ interface HoverState {
 
 export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   data, year, budgetType, onBudgetTypeChange,
-  subtitle, variant = 'overlay', showToggle = true,
+  subtitle, variant = 'overlay', showToggle = true, mobilityHighlight,
 }) => {
   const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
@@ -243,9 +265,10 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
 
   function getNodeColor(node: HierarchyRectangularNode<BudgetNode>, highlighted = false): string {
     if (node.depth === 0) return 'transparent';
+    const isMobility = mobilityHighlight?.has(node.data.code) ?? false;
     let cur: typeof node = node;
     while (cur.depth > 1 && cur.parent) cur = cur.parent;
-    const baseColor = colorMap.get(cur.data.code) ?? '#9ca3af';
+    const baseColor = isMobility ? '#059669' : (colorMap.get(cur.data.code) ?? '#9ca3af');
     const opacity = highlighted
       ? (node.depth === 1 ? 0.95 : node.depth === 2 ? 0.80 : 0.65)
       : (node.depth === 1 ? 0.88 : node.depth === 2 ? 0.62 : 0.42);
@@ -290,6 +313,28 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
       highlightCodes,
     });
   }, [totalValue]);
+
+  const handleLegendEnter = useCallback((code: string) => {
+    if (!root) return;
+    let target: HierarchyRectangularNode<BudgetNode> | null = null;
+    root.each(n => { if (n.data.code === code) target = n; });
+    if (!target) return;
+    const t = target as HierarchyRectangularNode<BudgetNode>;
+    const highlightCodes = new Set<string>();
+    t.each(n => highlightCodes.add(n.data.code));
+    let anc = t.parent;
+    while (anc && anc.depth > 0) { highlightCodes.add(anc.data.code); anc = anc.parent; }
+    let top = t;
+    while (top.depth > 1 && top.parent) top = top.parent;
+    setHovered({
+      parentCode: top.data.code,
+      nodeName: t.data.name,
+      nodeAmount: t.value ?? 0,
+      nodePct: totalValue > 0 ? ((t.value ?? 0) / totalValue) * 100 : 0,
+      nodeHasChildren: (t.data.children?.length ?? 0) > 0,
+      highlightCodes,
+    });
+  }, [root, totalValue]);
 
   const handleClick = useCallback((node: HierarchyRectangularNode<BudgetNode>) => {
     if (node.depth === 0 || (node.data.children?.length ?? 0) === 0) return;
@@ -559,7 +604,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 relative overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative overflow-hidden" style={{ isolation: 'isolate' }}>
         {width > 0 && RADIUS > 0 && (
           <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'hidden' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>
@@ -574,17 +619,38 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
                 if (!d) return null;
                 const hasChildren = (node.data.children?.length ?? 0) > 0;
                 const highlighted = !hovered || hovered.highlightCodes.has(node.data.code);
+                const isMobility = mobilityHighlight?.has(node.data.code) ?? false;
+                const arcSpan = displayed.x1 - displayed.x0;
+                const midAngle = (displayed.x0 + displayed.x1) / 2;
+                const midR = (nodeInnerR + nodeOuterR) / 2;
+                const [iconX, iconY] = a2xy(midAngle, midR);
                 return (
-                  <path key={node.data.code} d={d}
-                    fill={getNodeColor(node, highlighted)}
-                    stroke="rgba(255,255,255,0.07)"
-                    strokeWidth={1}
-                    opacity={getNodeOpacity(node)}
-                    onMouseEnter={() => handleArcMouseEnter(node)}
-                    onMouseLeave={() => setHovered(null)}
-                    onClick={() => handleClick(node)}
-                    style={{ cursor: hasChildren ? 'zoom-in' : 'default', transition: 'opacity 0.15s' }}
-                  />
+                  <React.Fragment key={node.data.code}>
+                    <path d={d}
+                      fill={getNodeColor(node, highlighted)}
+                      stroke="rgba(255,255,255,0.07)"
+                      strokeWidth={1}
+                      opacity={getNodeOpacity(node)}
+                      onMouseEnter={() => handleArcMouseEnter(node)}
+                      onMouseLeave={() => setHovered(null)}
+                      onClick={() => handleClick(node)}
+                      style={{ cursor: hasChildren ? 'zoom-in' : 'default', transition: 'opacity 0.15s' }}
+                    />
+                    {isMobility && arcSpan > 0.12 && (() => {
+                      const IconComp = MOBILITY_ICONS[node.data.code];
+                      if (!IconComp) return null;
+                      const sz = 10;
+                      return (
+                        <g
+                          transform={`translate(${iconX - sz / 2}, ${iconY - sz / 2})`}
+                          opacity={getNodeOpacity(node)}
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          <IconComp size={sz} weight="bold" color="rgba(255,255,255,0.9)" />
+                        </g>
+                      );
+                    })()}
+                  </React.Fragment>
                 );
               })}
 
@@ -638,6 +704,24 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           </svg>
         )}
 
+        {/* ── Mobility legend ── */}
+        {mobilityHighlight && (
+          <div className="absolute bottom-8 right-6 flex flex-col items-end gap-0.5">
+            {Object.entries(MOBILITY_ICONS).map(([code, IconComp]) => (
+              <div
+                key={code}
+                className="flex items-center gap-1 cursor-default"
+                onMouseEnter={() => handleLegendEnter(code)}
+                onMouseLeave={() => setHovered(null)}
+              >
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85 }}>
+                  {MOBILITY_LEGEND[code]}
+                </span>
+                <IconComp size={9} weight="bold" color="#059669" />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

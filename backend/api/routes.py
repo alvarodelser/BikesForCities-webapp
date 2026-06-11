@@ -24,7 +24,7 @@ from .models import (
     TrafficInfraCoverage, RouteHistogramResponse, RouteHistogramSeries, HistogramSeries,
     StationMonthlyResponse, StationMonthlyPoint,
     CityBudgetsResponse, BudgetYear, BudgetCategory,
-    MayorsTimelineResponse, MayorRecord, ElectionResult,
+    MayorsTimelineResponse, MayorRecord, ElectionResult, CouncilorRecord,
     MayorTermResponse, BudgetCategoryResponse, CityContextResponse,
 )
 from .dependencies import (
@@ -47,6 +47,7 @@ from backend.database.db_io import (
     get_station_monthly_agg,
     get_avg_station_building_count, get_city_station_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
+    get_city_councilors_data,
     get_best_traffic_mode, get_latest_traffic_month, resolve_traffic_params,
     get_traffic_evolution,
 )
@@ -1357,9 +1358,11 @@ def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)):
         validate_network_exists(conn, city_id)
         mayors = get_historical_mayors(conn, city_id)
         elections = get_city_elections_data(conn, city_id)
+        councilors = get_city_councilors_data(conn, city_id)
         return MayorsTimelineResponse(
             mayors=[MayorRecord(**m) for m in mayors],
             elections=[ElectionResult(**e) for e in elections],
+            councilors=[CouncilorRecord(**c) for c in councilors],
             message=f"{len(mayors)} mayors, {len(elections)} election records",
         )
     except HTTPException:

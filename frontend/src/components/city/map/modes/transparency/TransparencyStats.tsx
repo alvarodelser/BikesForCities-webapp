@@ -4,7 +4,7 @@ import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
-import type { BudgetYear, MayorTerm, ElectionResult } from '../../../../../services/api';
+import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
 import { formatCurrency } from '../../../../../utils/formatters';
 
@@ -18,6 +18,7 @@ interface TransparencyStatsProps {
   onBudgetTypeChange: (t: 'planned' | 'executed') => void;
   mayors: MayorTerm[];
   elections: ElectionResult[];
+  councilors?: CouncilorRecord[];
 }
 
 interface MetricCardProps {
@@ -65,6 +66,7 @@ export default function TransparencyStats({
   onBudgetTypeChange,
   mayors,
   elections,
+  councilors,
 }: TransparencyStatsProps) {
   const submodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
   const allEnabled = submodes.length === 0;
@@ -208,7 +210,7 @@ export default function TransparencyStats({
 
       {/* ── Electoral semicircle ─────────────────────────────────────────────── */}
       {hasElections && (
-        <ElectoralSemicircle elections={elections} selectedYear={selectedYear} />
+        <ElectoralSemicircle elections={elections} councilors={councilors} selectedYear={selectedYear} />
       )}
     </div>
   );

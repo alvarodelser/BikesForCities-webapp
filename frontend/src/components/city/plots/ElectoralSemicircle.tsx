@@ -1,13 +1,14 @@
 // frontend/src/components/city/plots/ElectoralSemicircle.tsx
 import React, { useRef, useState, useEffect, useMemo } from 'react';
-import type { ElectionResult } from '../../../services/api';
-import { getPartyColor } from '../../../constants/parties';
+import type { ElectionResult, CouncilorRecord } from '../../../services/api';
+import { getPartyColor, getPartyIdeology } from '../../../constants/parties';
 import { fmtInt } from '../../../utils/formatters';
 
 export interface PartyAllocation {
   party: string;
   councilors: number;
   votes: number | null;
+  names?: string[]; // elected councilors in candidate-list order
 }
 
 export interface SeatDot {
@@ -15,11 +16,22 @@ export interface SeatDot {
   y: number;
   party: string;
   color: string;
+  name: string | null;
 }
 
 /**
- * Computes SVG dot positions for a two-row hemiciclo.
- * Algorithm mirrors poli_sci_kit: inner row gets fewer seats, outer more;
+ * Number of concentric rows for a hemiciclo of `totalSeats`. Scales with the
+ * council size; fewer than 4 rows reads as a sparse double arc, so 4 is the
+ * floor (Spanish municipal councils here range 25–57 seats).
+ */
+export function seatRows(totalSeats: number): number {
+  return Math.min(6, Math.max(4, Math.ceil(totalSeats / 14)));
+}
+
+/**
+ * Computes SVG dot positions for a multi-row hemiciclo.
+ * Algorithm mirrors poli_sci_kit: rows sit at evenly spaced radii, each row
+ * holds seats proportional to its arc length (largest-remainder rounding);
  * dots are sorted left-to-right by angle then inner-before-outer so parties
  * fill the arc contiguously.
  */
@@ -33,9 +45,29 @@ export function buildSemicircleLayout(
   const totalSeats = allocations.reduce((sum, a) => sum + a.councilors, 0);
   if (totalSeats === 0) return [];
 
-  const base = Math.floor(totalSeats / 2);
-  const seatsInner = Math.max(1, base - 1);
-  const seatsOuter = totalSeats - seatsInner;
+  // Seat parties left → right by ideology (ties: bigger party first)
+  const ordered = [...allocations].sort(
+    (a, b) =>
+      getPartyIdeology(a.party) - getPartyIdeology(b.party) ||
+      b.councilors - a.councilors,
+  );
+
+  const rows = seatRows(totalSeats);
+  const radii = Array.from(
+    { length: rows },
+    (_, i) => rInner + (i * (rOuter - rInner)) / (rows - 1),
+  );
+
+  // Seats per row proportional to arc length, largest-remainder rounding
+  // (outer rows win ties so counts never decrease outward).
+  const sumRadii = radii.reduce((s, r) => s + r, 0);
+  const quotas = radii.map(r => (totalSeats * r) / sumRadii);
+  const seatsPerRow = quotas.map(Math.floor);
+  const byRemainder = quotas
+    .map((q, i) => ({ frac: q - Math.floor(q), i }))
+    .sort((a, b) => b.frac - a.frac || b.i - a.i);
+  const remaining = totalSeats - seatsPerRow.reduce((s, n) => s + n, 0);
+  for (let k = 0; k < remaining; k++) seatsPerRow[byRemainder[k].i] += 1;
 
   const arcAngles = (n: number): number[] =>
     n === 1
@@ -44,21 +76,21 @@ export function buildSemicircleLayout(
 
   const positions: { theta: number; row: number; x: number; y: number }[] = [];
 
-  for (const theta of arcAngles(seatsInner)) {
-    positions.push({ theta, row: 0, x: cx + rInner * Math.cos(theta), y: cy - rInner * Math.sin(theta) });
-  }
-  for (const theta of arcAngles(seatsOuter)) {
-    positions.push({ theta, row: 1, x: cx + rOuter * Math.cos(theta), y: cy - rOuter * Math.sin(theta) });
-  }
+  radii.forEach((radius, row) => {
+    for (const theta of arcAngles(seatsPerRow[row])) {
+      positions.push({ theta, row, x: cx + radius * Math.cos(theta), y: cy - radius * Math.sin(theta) });
+    }
+  });
 
   // Sort left-to-right (theta desc = π→0), inner before outer at same angle
   positions.sort((a, b) => b.theta - a.theta || a.row - b.row);
 
-  // Expand party labels in order (biggest party first → fills left side)
-  const labels: { party: string; color: string }[] = [];
-  for (const alloc of allocations) {
+  // Expand party labels in ideological order → contiguous left-to-right wedges
+  const labels: { party: string; color: string; name: string | null }[] = [];
+  for (const alloc of ordered) {
+    const color = getPartyColor(alloc.party);
     for (let i = 0; i < alloc.councilors; i++) {
-      labels.push({ party: alloc.party, color: getPartyColor(alloc.party) });
+      labels.push({ party: alloc.party, color, name: alloc.names?.[i] ?? null });
     }
   }
 
@@ -67,6 +99,7 @@ export function buildSemicircleLayout(
     y: pos.y,
     party: labels[i].party,
     color: labels[i].color,
+    name: labels[i].name,
   }));
 }
 
@@ -74,6 +107,7 @@ export function buildSemicircleLayout(
 
 interface ElectoralSemicircleProps {
   elections: ElectionResult[];
+  councilors?: CouncilorRecord[];
   selectedYear?: number;
   title?: string;
 }
@@ -82,6 +116,7 @@ interface TooltipState {
   visible: boolean;
   x: number;
   y: number;
+  name: string | null;
   party: string;
   councilors: number;
   votes: number | null;
@@ -92,13 +127,14 @@ const CARD_STYLE = { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgb
 
 export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
   elections,
+  councilors = [],
   selectedYear,
   title = 'Composición del pleno',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipState>({
-    visible: false, x: 0, y: 0, party: '', councilors: 0, votes: null,
+    visible: false, x: 0, y: 0, name: null, party: '', councilors: 0, votes: null,
   });
 
   useEffect(() => {
@@ -122,16 +158,27 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
       ? eligibleYears[eligibleYears.length - 1]
       : allYears[allYears.length - 1];
     const yearData = elections.filter(e => e.year === latestYear && (e.councilors ?? 0) > 0);
-    yearData.sort((a, b) => (b.councilors ?? 0) - (a.councilors ?? 0));
+    // Sort left → right by ideology so legend order matches the arc
+    yearData.sort((a, b) =>
+      getPartyIdeology(a.party) - getPartyIdeology(b.party) ||
+      (b.councilors ?? 0) - (a.councilors ?? 0));
+    const namesByParty = new Map<string, string[]>();
+    for (const c of councilors) {
+      if (c.year !== latestYear) continue;
+      const list = namesByParty.get(c.party) ?? [];
+      list.push(c.name);
+      namesByParty.set(c.party, list);
+    }
     return {
       year: latestYear,
       allocations: yearData.map(e => ({
         party: e.party,
         councilors: e.councilors ?? 0,
         votes: e.votes,
+        names: namesByParty.get(e.party),
       })),
     };
-  }, [elections]);
+  }, [elections, councilors, selectedYear]);
 
   const svgHeight = Math.round(width * 0.52);
   const cx = width / 2;
@@ -145,14 +192,18 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
   );
 
   const dotRadius = useMemo(() => {
-    if (dots.length === 0 || width === 0) return 6;
-    const outerArcLen = Math.PI * rOuter;
-    const outerCount = dots.filter(d => {
-      const r = Math.sqrt((d.x - cx) ** 2 + (d.y - cy) ** 2);
-      return r > (rInner + rOuter) / 2;
-    }).length;
-    return Math.min(8, Math.max(3, (outerArcLen / (outerCount || 1)) * 0.38));
-  }, [dots, width, rInner, rOuter, cx, cy]);
+    if (dots.length < 2 || width === 0) return 6;
+    // Size dots from the closest pair so neighbours never overlap,
+    // whatever the row count.
+    let minDistSq = Infinity;
+    for (let i = 0; i < dots.length; i++) {
+      for (let j = i + 1; j < dots.length; j++) {
+        const d = (dots[i].x - dots[j].x) ** 2 + (dots[i].y - dots[j].y) ** 2;
+        if (d < minDistSq) minDistSq = d;
+      }
+    }
+    return Math.min(8, Math.max(3, Math.sqrt(minDistSq) * 0.42));
+  }, [dots, width]);
 
   const totalSeats = allocations.reduce((s, a) => s + a.councilors, 0);
 
@@ -163,6 +214,7 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
       visible: true,
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
+      name: dot.name,
       party: dot.party,
       councilors: alloc.councilors,
       votes: alloc.votes,
@@ -211,7 +263,9 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
                 cy={dot.y}
                 r={dotRadius}
                 fill={dot.color}
-                fillOpacity={0.88}
+                fillOpacity={0.92}
+                stroke="white"
+                strokeWidth={1}
                 className="transition-all hover:fill-opacity-100"
                 style={{ cursor: 'pointer' }}
                 onMouseEnter={e => handleMouseEnter(e, dot, allocByParty[dot.party]!)}
@@ -228,9 +282,12 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
             className="absolute z-[100] pointer-events-none bg-white/95 backdrop-blur-md border border-black/5 rounded-xl shadow-xl p-3 flex flex-col gap-1 min-w-[160px]"
             style={{ left: Math.min(tooltip.x + 12, width - 172), top: tooltip.y - 12, transform: 'translateY(-50%)' }}
           >
+            {tooltip.name && (
+              <span className="text-xs font-bold text-gray-800 leading-tight">{tooltip.name}</span>
+            )}
             <div className="flex items-center gap-1.5">
               <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: getPartyColor(tooltip.party) }} />
-              <span className="text-xs font-bold text-gray-800 leading-tight">{tooltip.party}</span>
+              <span className={`text-xs leading-tight ${tooltip.name ? 'font-medium text-gray-500' : 'font-bold text-gray-800'}`}>{tooltip.party}</span>
             </div>
             <div className="h-px bg-black/5 my-0.5" />
             <div className="text-[11px] font-medium text-gray-600">

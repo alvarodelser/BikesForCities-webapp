@@ -2,7 +2,7 @@ import React from 'react';
 import { useMayorHistory } from '../../../hooks/useMayorHistory';
 import { useCityBudgets } from '../../../hooks/useCityBudgets';
 import { MayorsGanttChart } from '../plots/MayorsGanttChart';
-import { BudgetSunburst } from '../plots/BudgetSunburst';
+import { BudgetSunburst, MOBILITY_CODES } from '../plots/BudgetSunburst';
 
 export interface GeneralContextProps {
   cityId: number;
@@ -66,6 +66,7 @@ const GeneralContext: React.FC<GeneralContextProps> = ({ cityId }) => {
             year={budgetYear ?? new Date().getFullYear()}
             budgetType={budgetType}
             onBudgetTypeChange={setBudgetType}
+            mobilityHighlight={MOBILITY_CODES}
           />
         )}
       </div>

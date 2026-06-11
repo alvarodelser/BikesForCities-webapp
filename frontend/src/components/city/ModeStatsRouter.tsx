@@ -8,7 +8,7 @@ import TrafficStats from './map/modes/traffic/TrafficStats';
 import AccidentsStats from './map/modes/accidents/AccidentsStats';
 import TransparencyStats from './map/modes/transparency/TransparencyStats';
 import { fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
-import type { BudgetYear, MayorTerm, ElectionResult } from '../../services/api';
+import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
 import type { TransparencyDataProps } from './MapSheetContent';
 
 interface ModeStatsRouterProps {
@@ -23,18 +23,20 @@ const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
   const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
   const [mayors, setMayors] = useState<MayorTerm[]>([]);
   const [elections, setElections] = useState<ElectionResult[]>([]);
+  const [councilors, setCouncilors] = useState<CouncilorRecord[]>([]);
 
   useEffect(() => {
     if (!city.id) return;
     Promise.all([
       fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
       fetchCityContext(city.id).catch(() => ({ mayors: [] as MayorTerm[], budget_year: null, budget_categories: {} })),
-      fetchMayorsTimeline(city.id).catch(() => ({ mayors: [], elections: [] as ElectionResult[] })),
+      fetchMayorsTimeline(city.id).catch(() => ({ mayors: [], elections: [] as ElectionResult[], councilors: [] as CouncilorRecord[] })),
     ]).then(([budgets, context, timeline]) => {
       setBudgetYears(budgets);
       if (budgets.length > 0) setSelectedYear(budgets[0].year);
       setMayors(context.mayors ?? []);
       setElections(timeline.elections ?? []);
+      setCouncilors(timeline.councilors ?? []);
     });
   }, [city.id]);
 
@@ -50,6 +52,7 @@ const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
       onBudgetTypeChange={setBudgetType}
       mayors={mayors}
       elections={elections}
+      councilors={councilors}
     />
   );
 };
@@ -78,6 +81,7 @@ const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant, transp
             onBudgetTypeChange={transparencyData.onBudgetTypeChange}
             mayors={transparencyData.mayors}
             elections={transparencyData.elections}
+            councilors={transparencyData.councilors}
           />
         );
       }

@@ -1,7 +1,7 @@
 import React from 'react';
 import type { CityData } from '../../constants/cities';
 import ModeStatsRouter from './ModeStatsRouter';
-import type { BudgetYear, MayorTerm, ElectionResult } from '../../services/api';
+import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
 
 export interface TransparencyDataProps {
   budgetYears: BudgetYear[];
@@ -11,6 +11,7 @@ export interface TransparencyDataProps {
   onBudgetTypeChange: (t: 'planned' | 'executed') => void;
   mayors: MayorTerm[];
   elections: ElectionResult[];
+  councilors?: CouncilorRecord[];
 }
 
 interface MapSheetContentProps {

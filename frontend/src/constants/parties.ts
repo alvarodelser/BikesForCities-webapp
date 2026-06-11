@@ -96,7 +96,111 @@ export const PARTY_COLORS: Record<string, string> = {
   "político independiente": "#9ca3af",
 };
 
+// Official ballot abbreviations (siglas) as stored in city_elections, mapped
+// to their canonical PARTY_COLORS key. The MIR electoral data uses these
+// uppercase coalition names rather than display names.
+const PARTY_ALIASES: Record<string, keyof typeof PARTY_COLORS> = {
+  "MM-VQ": "Más Madrid",
+  "PSC-CP": "PSC",
+  "PSOE-A": "PSOE",
+  "BARCELONA EN COMÚ - C": "Barcelona en comú",
+  "ERC - AM": "ERC",
+  "PODEMOS-IU-AV": "Podemos",
+  "UNIDAS - IU - PODEMOS": "Podemos",
+  "TRIASXBCN-CM": "JxCat",
+  "GGI-AMUNT": "Guanyem Girona",
+  "CM": "JxCat", // Compromís Municipal (Junts brand in Catalan municipals)
+  "CON ANDALUCÍA": "Podemos",
+};
+
+// Family patterns for coalition names not seen yet (each city brands its own
+// list, e.g. "PSOE-A", "EAJ-PNV", "BNG-ASAMBLEAS ABERTAS"). Checked in order
+// after exact/alias lookup fails.
+const PARTY_PATTERNS: [RegExp, keyof typeof PARTY_COLORS][] = [
+  [/PSOE|\bPSC\b|SOCIALISTA/i, "PSOE"],
+  [/\bPP\b|PARTIDO POPULAR/i, "PP"],
+  [/\bVOX\b/i, "Vox"],
+  [/PODEMOS|UNIDAS|\bIU\b|IZQUIERDA UNIDA/i, "Podemos"],
+  [/EN COM[ÚU]/i, "Barcelona en comú"],
+  [/\bERC\b|ESQUERRA REPUBLICANA/i, "ERC"],
+  [/M[ÁA]S MADRID/i, "Más Madrid"],
+  [/JUNTS|JXCAT|CONVERG[ÈE]NCIA/i, "JxCat"],
+  [/COMPROM[ÍI]S/i, "Compromís"],
+  [/BILDU/i, "EH Bildu"],
+  [/\bPNV\b|\bEAJ\b/i, "PNV"],
+  [/\bBNG\b/i, "BNG"],
+  [/CIUDADANOS|\bC'?S\b/i, "Cs"],
+];
+
+// Left-right ideology score (0 = far left, 100 = far right) used to seat
+// parties across the hemiciclo: left-wing fills the left arc, right-wing the
+// right. Regionalist parties (PNV, …) sit at the 50 center, which is also the
+// default for unknown parties. Keyed by canonical PARTY_COLORS names.
+export const PARTY_IDEOLOGY: Record<string, number> = {
+  "CUP": 10,
+  "ERC": 15,
+  "EH Bildu": 15,
+  "BNG": 15,
+  "IU": 20,
+  "Podemos": 20,
+  "Unidas Podemos": 20,
+  "Barcelona en comú": 20,
+  "Guanyem Girona": 20,
+  "Zaragoza en Común": 20,
+  "Marea Atlántica": 20,
+  "Más Madrid": 25,
+  "Ahora Madrid": 25,
+  "Compromís": 25,
+  "PSOE": 40,
+  "PSC": 40,
+  "PNV": 50,
+  "Ciudadanos": 60,
+  "Cs": 60,
+  "CiU": 65,
+  "JxCat": 65,
+  "PDECat": 65,
+  "PP": 80,
+  "Vox": 95,
+};
+
+const CENTER_IDEOLOGY = 50;
+
+const FALLBACK_GRAY = "#9ca3af";
+
+// Uppercase lookup so "VOX"/"CS" (ballot casing) match "Vox"/"Cs".
+const NORMALIZED_COLORS: Record<string, string> = {};
+for (const [name, color] of Object.entries(PARTY_COLORS)) {
+  NORMALIZED_COLORS[name.toUpperCase()] = color;
+}
+for (const [alias, canonical] of Object.entries(PARTY_ALIASES)) {
+  NORMALIZED_COLORS[alias.toUpperCase()] = PARTY_COLORS[canonical];
+}
+
+const NORMALIZED_IDEOLOGY: Record<string, number> = {};
+for (const [name, score] of Object.entries(PARTY_IDEOLOGY)) {
+  NORMALIZED_IDEOLOGY[name.toUpperCase()] = score;
+}
+for (const [alias, canonical] of Object.entries(PARTY_ALIASES)) {
+  const score = PARTY_IDEOLOGY[canonical];
+  if (score !== undefined) NORMALIZED_IDEOLOGY[alias.toUpperCase()] = score;
+}
+
 export function getPartyColor(party: string | null | undefined): string {
-  if (!party) return "#9ca3af";
-  return PARTY_COLORS[party] ?? "#9ca3af";
+  if (!party) return FALLBACK_GRAY;
+  const exact = PARTY_COLORS[party] ?? NORMALIZED_COLORS[party.trim().toUpperCase()];
+  if (exact) return exact;
+  for (const [pattern, canonical] of PARTY_PATTERNS) {
+    if (pattern.test(party)) return PARTY_COLORS[canonical];
+  }
+  return FALLBACK_GRAY;
+}
+
+export function getPartyIdeology(party: string | null | undefined): number {
+  if (!party) return CENTER_IDEOLOGY;
+  const exact = NORMALIZED_IDEOLOGY[party.trim().toUpperCase()];
+  if (exact !== undefined) return exact;
+  for (const [pattern, canonical] of PARTY_PATTERNS) {
+    if (pattern.test(party)) return PARTY_IDEOLOGY[canonical] ?? CENTER_IDEOLOGY;
+  }
+  return CENTER_IDEOLOGY;
 }

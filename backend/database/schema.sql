@@ -144,11 +144,12 @@ CREATE TABLE IF NOT EXISTS city_budget_categories (
     id SERIAL PRIMARY KEY,
     city_id INTEGER REFERENCES cities(id) ON DELETE CASCADE,
     year INTEGER NOT NULL,
-    budget_type VARCHAR(16) NOT NULL, -- 'planned' or 'executed'
-    category_code TEXT NOT NULL,      -- e.g., '134', '1341'
+    budget_type VARCHAR(16) NOT NULL,      -- 'planned' or 'executed'
+    classification VARCHAR(16) NOT NULL DEFAULT 'functional', -- 'functional' or 'economic'
+    category_code TEXT NOT NULL,           -- e.g., '134', '330'
     category_name TEXT NOT NULL,
     amount BIGINT NOT NULL,
-    UNIQUE(city_id, year, budget_type, category_code)
+    UNIQUE(city_id, year, budget_type, classification, category_code)
 );
 
 CREATE TABLE IF NOT EXISTS nodes (

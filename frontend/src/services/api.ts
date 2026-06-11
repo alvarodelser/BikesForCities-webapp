@@ -693,9 +693,16 @@ export interface ElectionResult {
   councilors: number | null;
 }
 
+export interface CouncilorRecord {
+  year: number;
+  party: string;
+  name: string;
+}
+
 export interface MayorsTimeline {
   mayors: MayorRecord[];
   elections: ElectionResult[];
+  councilors?: CouncilorRecord[];
 }
 
 export const fetchMayorsTimeline = async (cityId: number): Promise<MayorsTimeline> => {

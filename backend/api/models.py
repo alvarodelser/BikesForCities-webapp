@@ -497,6 +497,7 @@ class BudgetCategoryResponse(BaseModel):
     code: str
     name: str
     amount: int
+    classification: str = 'functional'
 
 
 class CityContextResponse(BaseModel):
@@ -512,6 +513,13 @@ class ElectionResult(BaseModel):
     councilors: Optional[int] = None
 
 
+class CouncilorRecord(BaseModel):
+    year: int
+    party: str
+    name: str
+
+
 class MayorsTimelineResponse(BaseResponse):
     mayors: List[MayorRecord]
     elections: List[ElectionResult]
+    councilors: List[CouncilorRecord] = []

@@ -83,12 +83,47 @@ def get_entity_id_to_city_id_map(conn, year, ttype, db_cities):
                             entity_to_cid[eid] = cid
     return entity_to_cid
 
+def get_economic_income(year, ttype, id_to_cid, econ_map):
+    """Fetches tb_economica and returns ({cid: total_income}, {cid: [category rows]})."""
+    url = f"{BASE_URL}/{year}/{ttype}/tb_economica.sql.gz"
+    city_income = {cid: 0.0 for cid in id_to_cid.values()}
+    city_rows = {cid: {} for cid in id_to_cid.values()}  # code -> amount
+    for line in fetch_gzipped_lines(url):
+        if 'INSERT INTO "tb_economica"' in line:
+            tuples = re.findall(r"\(([^)]+)\)", line)
+            for t in tuples:
+                parts = re.findall(r"'[^']*'|[^,]+", t)
+                vals = [v.strip(" '") for v in parts]
+                if len(vals) >= 5:
+                    eid = vals[1]
+                    tipreig = vals[2]
+                    cdcta = vals[3].strip()
+                    if tipreig == 'I' and eid in id_to_cid:
+                        try:
+                            amount_str = vals[4].lower()
+                            amount = float(amount_str) if amount_str != 'null' else 0.0
+                        except (ValueError, IndexError):
+                            continue
+                        cid = id_to_cid[eid]
+                        city_income[cid] += amount
+                        city_rows[cid][cdcta] = city_rows[cid].get(cdcta, 0.0) + amount
+    # Convert to list of dicts matching put_city_budget_categories expected format
+    city_lines = {
+        cid: [
+            {"category_code": code, "category_name": econ_map.get(code, "Unknown"), "amount": int(amt)}
+            for code, amt in rows.items()
+        ]
+        for cid, rows in city_rows.items()
+    }
+    return city_income, city_lines
+
+
 def process_year(conn, year, db_cities):
     print(f"\n📅 Processing budgets for {year}...")
-    
+
     for ttype in TYPES:
         status_key = f"013_load_budgets_{ttype}"
-        
+
         print(f"  🔍 Fetching functional mapping for {year} {ttype}...")
         func_map = get_mapping_dict(year, ttype, 'tb_cuentasProgramas', 0, 1)
         if not func_map:
@@ -100,11 +135,17 @@ def process_year(conn, year, db_cities):
             print(f"  ⚠️ No target cities found in inventory for {year} {ttype}.")
             continue
 
+        print(f"  🔍 Fetching economic (income) mapping for {year} {ttype}...")
+        econ_map = get_mapping_dict(year, ttype, 'tb_cuentasEconomica', 1, 2)
+
+        print(f"  📥 Fetching economic income lines for {year} {ttype}...")
+        city_income, city_income_lines = get_economic_income(year, ttype, id_to_cid, econ_map)
+
         print(f"  📥 Fetching functional budget lines for {year} {ttype}...")
         url_func = f"{BASE_URL}/{year}/{ttype}/tb_funcional.sql.gz"
-        
+
         city_rows = {cid: [] for cid in id_to_cid.values()}
-        
+
         for line in fetch_gzipped_lines(url_func):
             if 'INSERT INTO "tb_funcional"' in line:
                 # Find all tuples (...) in the line. Gobierto dumps use multi-row inserts.
@@ -122,7 +163,7 @@ def process_year(conn, year, db_cities):
                                 amount = float(amount_str) if amount_str != 'null' else 0.0
                             except (ValueError, IndexError):
                                 amount = 0.0
-                            
+
                             city_rows[cid].append({
                                 "category_code": str(code),
                                 "category_name": func_map.get(code, "Unknown"),
@@ -131,27 +172,33 @@ def process_year(conn, year, db_cities):
 
         for cid, rows in city_rows.items():
             if not rows: continue
-            
+
             city_name = next(c[1] for c in db_cities if c[0] == cid)
             upsert_ingestion_status(conn, status_key, "RUNNING", city_id=cid, time_period=str(year))
-            
+
             # Aggregate: sum amounts for same code (some cities have multiple rows per code in raw data)
             df_lines = pd.DataFrame(rows)
             df_lines = (
                 df_lines.groupby('category_code', as_index=False)
                 .agg(category_name=('category_name', 'first'), amount=('amount', 'sum'))
             )
-            
+
             # Total expenses: sum of 1-digit functional codes
             total_exp = float(df_lines[df_lines['category_code'].str.len() == 1]['amount'].sum())
-            print(f"  💾 Loading {len(df_lines)} aggregated lines for {city_name} ({ttype}). Total: {total_exp:,.0f}€")
+            total_inc = city_income.get(cid, 0.0)
+            print(f"  💾 Loading {len(df_lines)} aggregated lines for {city_name} ({ttype}). Expenses: {total_exp:,.0f}€  Income: {total_inc:,.0f}€")
 
             # Convert numpy types to Python types for SQL
             df_lines['amount'] = df_lines['amount'].astype(int)
 
-            put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=int(total_exp))
-            put_city_budget_categories(conn, cid, year, ttype, df_lines)
-            
+            put_city_budgets(conn, cid, year, budget_type=ttype, total_expenses=int(total_exp), total_income=int(total_inc) if total_inc else None)
+            put_city_budget_categories(conn, cid, year, ttype, df_lines, classification='functional')
+
+            income_lines = city_income_lines.get(cid, [])
+            if income_lines:
+                df_income = pd.DataFrame(income_lines)
+                put_city_budget_categories(conn, cid, year, ttype, df_income, classification='economic')
+
             upsert_ingestion_status(conn, status_key, "SUCCESS", city_id=cid, time_period=str(year))
 
 def main():

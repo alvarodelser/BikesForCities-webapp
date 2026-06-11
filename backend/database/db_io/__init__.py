@@ -32,6 +32,7 @@ from .cities import (
     get_infra_budget,
     get_historical_mayors,
     get_city_elections_data,
+    get_city_councilors_data,
 )
 
 from .graph import (
@@ -172,6 +173,7 @@ __all__ = [
     "put_historical_mayors", "put_city_elections", "put_city_councilors",
     "put_city_budgets", "put_city_budget_categories", "get_city_budgets",
     "get_infra_budget", "get_historical_mayors", "get_city_elections_data",
+    "get_city_councilors_data",
     # graph
     "put_nodes", "put_edges", "get_nodes", "get_edges",
     "get_edge_id_map", "count_nodes", "count_edges",
