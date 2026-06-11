@@ -134,4 +134,26 @@ describe('buildSemicircleLayout', () => {
     const dots = buildSemicircleLayout(ALLOCATIONS, CX, CY, R_INNER, R_OUTER);
     expect(dots.every(d => d.name === null)).toBe(true);
   });
+
+  // Geometry rules ported from d3-parliament-chart (dkaoster), single section:
+  // each row's arc is inset by atan(seatRadius / rowRadius) at both ends so
+  // seats never poke past the horizontal baseline edges.
+  it('insets row ends by the seat radius (d3-parliament-chart rule)', () => {
+    const seatRadius = 10;
+    const dots = buildSemicircleLayout(MADRID, CX, CY, R_INNER, R_OUTER, seatRadius);
+    for (const dot of dots) {
+      const r = Math.sqrt((dot.x - CX) ** 2 + (dot.y - CY) ** 2);
+      const gap = Math.atan(seatRadius / r);
+      const theta = Math.atan2(CY - dot.y, dot.x - CX);
+      expect(theta).toBeGreaterThanOrEqual(gap - 1e-9);
+      expect(theta).toBeLessThanOrEqual(Math.PI - gap + 1e-9);
+    }
+  });
+
+  it('keeps full-arc behaviour when seatRadius is omitted', () => {
+    const dots = buildSemicircleLayout(MADRID, CX, CY, R_INNER, R_OUTER);
+    const thetas = dots.map(d => Math.atan2(CY - d.y, d.x - CX));
+    expect(Math.min(...thetas)).toBeCloseTo(0, 6);
+    expect(Math.max(...thetas)).toBeCloseTo(Math.PI, 6);
+  });
 });

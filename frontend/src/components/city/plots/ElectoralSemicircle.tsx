@@ -30,10 +30,12 @@ export function seatRows(totalSeats: number): number {
 
 /**
  * Computes SVG dot positions for a multi-row hemiciclo.
- * Algorithm mirrors poli_sci_kit: rows sit at evenly spaced radii, each row
- * holds seats proportional to its arc length (largest-remainder rounding);
- * dots are sorted left-to-right by angle then inner-before-outer so parties
- * fill the arc contiguously.
+ * Rows sit at evenly spaced radii, each row holds seats proportional to its
+ * arc length (largest-remainder rounding). Per-row angles follow the
+ * d3-parliament-chart geometry (dkaoster, single section): the arc is inset
+ * by atan(seatRadius / rowRadius) at both ends, seats are justified evenly
+ * across it (single seat → centered). Dots are sorted left-to-right by angle
+ * then inner-before-outer so parties fill the arc contiguously.
  */
 export function buildSemicircleLayout(
   allocations: PartyAllocation[],
@@ -41,6 +43,7 @@ export function buildSemicircleLayout(
   cy: number,
   rInner: number,
   rOuter: number,
+  seatRadius = 0,
 ): SeatDot[] {
   const totalSeats = allocations.reduce((sum, a) => sum + a.councilors, 0);
   if (totalSeats === 0) return [];
@@ -69,15 +72,19 @@ export function buildSemicircleLayout(
   const remaining = totalSeats - seatsPerRow.reduce((s, n) => s + n, 0);
   for (let k = 0; k < remaining; k++) seatsPerRow[byRemainder[k].i] += 1;
 
-  const arcAngles = (n: number): number[] =>
-    n === 1
+  const arcAngles = (n: number, radius: number): number[] => {
+    const gap = seatRadius > 0 ? Math.atan(seatRadius / radius) : 0;
+    const start = Math.PI - gap;
+    const end = gap;
+    return n === 1
       ? [Math.PI / 2]
-      : Array.from({ length: n }, (_, i) => Math.PI - (i * Math.PI) / (n - 1));
+      : Array.from({ length: n }, (_, i) => start - (i * (start - end)) / (n - 1));
+  };
 
   const positions: { theta: number; row: number; x: number; y: number }[] = [];
 
   radii.forEach((radius, row) => {
-    for (const theta of arcAngles(seatsPerRow[row])) {
+    for (const theta of arcAngles(seatsPerRow[row], radius)) {
       positions.push({ theta, row, x: cx + radius * Math.cos(theta), y: cy - radius * Math.sin(theta) });
     }
   });
@@ -180,30 +187,50 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
     };
   }, [elections, councilors, selectedYear]);
 
-  const svgHeight = Math.round(width * 0.52);
+  // Geometry per d3-parliament-chart: the hemicycle fills the chart width
+  // (graphRadius = width/2 − seatRadius) with a deep radial band. Seat size is
+  // solved in two passes: a provisional layout measures the closest seat pair,
+  // which then fixes the seat radius and the edge insets of the final layout.
+  const chartW = Math.min(width, 680);
   const cx = width / 2;
-  const cy = svgHeight;
-  const rOuter = width * 0.43;
-  const rInner = width * 0.27;
 
-  const dots = useMemo(
-    () => (width > 0 ? buildSemicircleLayout(allocations, cx, cy, rInner, rOuter) : []),
-    [allocations, width, cx, cy, rInner, rOuter],
-  );
-
-  const dotRadius = useMemo(() => {
-    if (dots.length < 2 || width === 0) return 6;
-    // Size dots from the closest pair so neighbours never overlap,
-    // whatever the row count.
+  const closestPair = (pts: SeatDot[]): number => {
     let minDistSq = Infinity;
-    for (let i = 0; i < dots.length; i++) {
-      for (let j = i + 1; j < dots.length; j++) {
-        const d = (dots[i].x - dots[j].x) ** 2 + (dots[i].y - dots[j].y) ** 2;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const d = (pts[i].x - pts[j].x) ** 2 + (pts[i].y - pts[j].y) ** 2;
         if (d < minDistSq) minDistSq = d;
       }
     }
-    return Math.min(8, Math.max(3, Math.sqrt(minDistSq) * 0.42));
-  }, [dots, width]);
+    return Math.sqrt(minDistSq);
+  };
+
+  const { dots, dotRadius, svgHeight, cy } = useMemo(() => {
+    if (width === 0 || allocations.length === 0) {
+      return { dots: [] as SeatDot[], dotRadius: 6, svgHeight: 120, cy: 118 };
+    }
+    // Pass 1: provisional seat size to measure the layout's natural spacing
+    const r0 = 10;
+    const rOuter0 = chartW / 2 - r0 - 2;
+    const height0 = Math.round(rOuter0 + r0 + 4);
+    const probe = buildSemicircleLayout(
+      allocations, cx, height0 - 2, rOuter0 * 0.45, rOuter0, r0,
+    );
+    const dotR = probe.length > 1
+      ? Math.min(16, Math.max(3, closestPair(probe) * 0.46))
+      : 6;
+    // Pass 2: final layout with the solved seat radius
+    const rOuter = chartW / 2 - dotR - 2;
+    const rInner = rOuter * 0.45;
+    const height = Math.round(rOuter + dotR + 4);
+    const centerY = height - 2;
+    return {
+      dots: buildSemicircleLayout(allocations, cx, centerY, rInner, rOuter, dotR),
+      dotRadius: dotR,
+      svgHeight: height,
+      cy: centerY,
+    };
+  }, [allocations, width, chartW, cx]);
 
   const totalSeats = allocations.reduce((s, a) => s + a.councilors, 0);
 
