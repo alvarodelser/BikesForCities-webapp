@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, Maximize2, Minus, Square } from 'lucide-react';
 import { Wine, Pill } from '@phosphor-icons/react';
 import type { SelectionDetail } from '../../../types/selection';
+import AnimatedProgressBar from '../../ui/AnimatedProgressBar';
 
 export type { SelectionDetail };
 export const PANEL_WIDTH = '240px';
@@ -280,15 +281,12 @@ export default function SelectionPanel({
                         )}
                         {selection.routeProgress && (() => {
                             const { loaded, total, onStop } = selection.routeProgress;
-                            const pct = total > 0 ? Math.min(100, (loaded / total) * 100) : 0;
+                            const progressValue = total > 0 ? Math.min(100, (loaded / total) * 100) : undefined;
                             return (
                                 <div className="mt-1.5 flex flex-col gap-1">
                                     <div className="flex items-center justify-between gap-2">
-                                        <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-black/8">
-                                            <div
-                                                className="h-full rounded-full transition-all duration-300"
-                                                style={{ width: `${pct}%`, backgroundColor: accent }}
-                                            />
+                                        <div className="flex-1">
+                                            <AnimatedProgressBar color={accent} value={progressValue} />
                                         </div>
                                         {onStop && (
                                             <button
