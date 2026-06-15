@@ -187,7 +187,7 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
               year={selectedYear}
               budgetType={budgetType}
               onBudgetTypeChange={setBudgetType}
-              showToggle={false}
+              showToggle={true}
               mobilityHighlight={MOBILITY_CODES}
             />
           </div>

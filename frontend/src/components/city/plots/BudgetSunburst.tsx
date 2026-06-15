@@ -588,8 +588,43 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
       style={isPanel ? { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' } : undefined}
     >
       {showToggle && (
-        <div className="flex items-center justify-end mb-2 px-1">
-          <div className={`flex items-center gap-1 p-1 rounded-xl ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
+        <div className="flex items-center justify-between gap-2 mb-2 px-1 flex-wrap">
+          {/* Functional category filter */}
+          <div className={`flex items-center gap-1 p-1 rounded-xl flex-wrap ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
+            <button
+              onClick={focusCode ? handleBack : undefined}
+              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                !focusCode
+                  ? isPanel ? 'bg-white text-gray-800 shadow-sm' : 'bg-white/20 text-white shadow-sm'
+                  : isPanel ? 'text-gray-400 hover:text-gray-600' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              TODOS
+            </button>
+            {topChildren.map(child => {
+              const color = colorMap.get(child.data.code) ?? '#9ca3af';
+              const isActive = focusCode === child.data.code;
+              const label = child.data.name.length > 13 ? child.data.name.slice(0, 12) + '…' : child.data.name;
+              return (
+                <button
+                  key={child.data.code}
+                  title={child.data.name}
+                  onClick={() => isActive ? handleBack() : handleClick(child)}
+                  className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
+                  style={{
+                    background: isActive ? color : 'transparent',
+                    color: isActive ? 'white' : isPanel ? '#6b7280' : 'rgba(255,255,255,0.7)',
+                  }}
+                >
+                  <span style={{ width: 6, height: 6, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Planned / executed */}
+          <div className={`flex items-center gap-1 p-1 rounded-xl flex-shrink-0 ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
             {(['planned', 'executed'] as const).map(t => (
               <button key={t} onClick={() => onBudgetTypeChange(t)}
                 className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${

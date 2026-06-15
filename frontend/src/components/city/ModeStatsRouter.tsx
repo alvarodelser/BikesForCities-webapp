@@ -17,7 +17,7 @@ interface ModeStatsRouterProps {
   transparencyData?: TransparencyDataProps;
 }
 
-const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
+const TransparencyContainer: React.FC<{ city: CityData; variant?: 'light' | 'darkTint' }> = ({ city, variant }) => {
   const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(0);
   const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
@@ -53,6 +53,7 @@ const TransparencyContainer: React.FC<{ city: CityData }> = ({ city }) => {
       mayors={mayors}
       elections={elections}
       councilors={councilors}
+      variant={variant}
     />
   );
 };
@@ -82,10 +83,11 @@ const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant, transp
             mayors={transparencyData.mayors}
             elections={transparencyData.elections}
             councilors={transparencyData.councilors}
+            variant={variant}
           />
         );
       }
-      return <TransparencyContainer city={city} />;
+      return <TransparencyContainer city={city} variant={variant} />;
     default:
       return null;
   }

@@ -1,5 +1,7 @@
 // frontend/src/components/city/plots/ElectoralSemicircle.tsx
 import React, { useRef, useState, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { HelpCircle, X } from 'lucide-react';
 import type { ElectionResult, CouncilorRecord } from '../../../services/api';
 import { getPartyColor, getPartyIdeology } from '../../../constants/parties';
 import { fmtInt } from '../../../utils/formatters';
@@ -117,6 +119,7 @@ interface ElectoralSemicircleProps {
   councilors?: CouncilorRecord[];
   selectedYear?: number;
   title?: string;
+  helpContent?: ReactNode;
 }
 
 interface TooltipState {
@@ -137,12 +140,20 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
   councilors = [],
   selectedYear,
   title = 'Composición del pleno',
+  helpContent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipState>({
     visible: false, x: 0, y: 0, name: null, party: '', councilors: 0, votes: null,
   });
+  const [showHelp, setShowHelp] = useState(false);
+  const helpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHelpTimer = () => { if (helpTimerRef.current) { clearTimeout(helpTimerRef.current); helpTimerRef.current = null; } };
+  const handleHelpMouseEnter = () => clearHelpTimer();
+  const handleHelpMouseLeave = () => { if (showHelp) helpTimerRef.current = setTimeout(() => setShowHelp(false), 5000); };
+  useEffect(() => () => { if (helpTimerRef.current) clearTimeout(helpTimerRef.current); }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -267,22 +278,35 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
   const allocByParty = Object.fromEntries(allocations.map(a => [a.party, a]));
 
   return (
-    <div className={`${CARD_CLASS} flex flex-col`} style={CARD_STYLE}>
-      <div className="mb-2">
-        <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
-        {year && (
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">
-            {totalSeats} concejales · Elecciones municipales {year}
-          </p>
+    <div
+      className={`${CARD_CLASS} flex flex-col`}
+      style={CARD_STYLE}
+      onMouseEnter={handleHelpMouseEnter}
+      onMouseLeave={handleHelpMouseLeave}
+    >
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
+          {year && (
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">
+              {totalSeats} concejales · Elecciones municipales {year}
+            </p>
+          )}
+        </div>
+        {helpContent && (
+          <button
+            onClick={() => { clearHelpTimer(); setShowHelp(v => !v); }}
+            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600"
+            aria-label={showHelp ? 'Cerrar ayuda' : 'Mostrar ayuda'}
+          >
+            {showHelp ? <X className="w-3.5 h-3.5" /> : <HelpCircle className="w-3.5 h-3.5" />}
+          </button>
         )}
       </div>
 
-      <div ref={containerRef} className="relative" style={{ height: svgHeight > 0 ? svgHeight : 120 }}>
+      <div ref={containerRef} className="relative mb-6" style={{ height: svgHeight > 0 ? svgHeight : 120 }}>
         {width > 0 && (
           <svg width={width} height={svgHeight} style={{ display: 'block', overflow: 'visible' }}>
-            {/* Baseline */}
-            <line x1={0} y1={cy} x2={width} y2={cy} stroke="#f3f4f6" strokeWidth={2} />
-
             {dots.map((dot, i) => (
               <circle
                 key={i}
@@ -341,6 +365,16 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
           </span>
         ))}
       </div>
+
+      {/* Expandable help section */}
+      {helpContent && showHelp && (
+        <>
+          <div className="border-t border-black/10 mt-4" />
+          <div className="text-[11px] leading-relaxed text-gray-500 mt-3">
+            {helpContent}
+          </div>
+        </>
+      )}
     </div>
   );
 };

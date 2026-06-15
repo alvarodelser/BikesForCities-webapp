@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
-import { TrendUp, CurrencyEur, Bank, ChartBar } from '@phosphor-icons/react';
+import { useMemo } from 'react';
+import { ChartBar } from '@phosphor-icons/react';
 import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
+import MetricPill from '../../../pills/MetricPill';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
-import { formatCurrency } from '../../../../../utils/formatters';
 
 interface TransparencyStatsProps {
   city: CityData;
@@ -19,43 +19,15 @@ interface TransparencyStatsProps {
   mayors: MayorTerm[];
   elections: ElectionResult[];
   councilors?: CouncilorRecord[];
-}
-
-interface MetricCardProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  accent?: string;
-}
-
-function MetricCard({ icon, label, value, accent = '#3A6C7F' }: MetricCardProps) {
-  return (
-    <div
-      className="rounded-2xl border bg-white/80 backdrop-blur-sm p-4 flex items-center gap-3"
-      style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
-    >
-      <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{
-          background: `linear-gradient(135deg, ${accent}, ${accent}cc)`,
-          boxShadow: `0 4px 12px ${accent}55`,
-        }}
-      >
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-1">
-          {label}
-        </div>
-        <div className="text-sm font-bold text-gray-800 leading-tight truncate">
-          {value}
-        </div>
-      </div>
-    </div>
-  );
+  variant?: 'light' | 'darkTint';
 }
 
 const ACCENT = '#3A6C7F';
+
+// Budget figures scaled to millions so they fit the MetricPill big-number slot;
+// the "M€" unit is carried by the sublabel.
+const fmtBudgetMetric = (v: number | null | undefined): string =>
+  v == null ? '—' : `${Math.round(v / 1e6).toLocaleString('es-ES')} M€`;
 
 export default function TransparencyStats({
   city,
@@ -67,6 +39,7 @@ export default function TransparencyStats({
   mayors,
   elections,
   councilors,
+  variant,
 }: TransparencyStatsProps) {
   const submodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
   const allEnabled = submodes.length === 0;
@@ -169,23 +142,35 @@ export default function TransparencyStats({
 
           {/* ── Summary metric cards ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <MetricCard
-              icon={<TrendUp size={18} color="white" weight="bold" />}
+            <MetricPill
+              value={fmtBudgetMetric(yearData?.total_income)}
               label="Ingresos totales"
-              value={yearData?.total_income != null ? formatCurrency(yearData.total_income) : '—'}
+              sublabel="Millones de €"
               accent={ACCENT}
+              variant={variant}
+              helpQueVes="El total de ingresos del municipio en el año seleccionado: impuestos, tasas, transferencias del Estado y otras fuentes de financiación."
+              helpPorQueEsUtil="Los ingresos determinan la capacidad financiera del ayuntamiento para invertir en servicios e infraestructura. Comparados con el gasto y la deuda, revelan el margen real de maniobra del consistorio."
+              helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial. La cifra de ejecutado refleja los ingresos realmente percibidos según la contabilidad municipal."
             />
-            <MetricCard
-              icon={<CurrencyEur size={18} color="white" weight="bold" />}
+            <MetricPill
+              value={fmtBudgetMetric(yearData?.total_expenses)}
               label="Gastos totales"
-              value={yearData?.total_expenses != null ? formatCurrency(yearData.total_expenses) : '—'}
+              sublabel="Millones de €"
               accent={ACCENT}
+              variant={variant}
+              helpQueVes="El total de gastos del municipio en el año seleccionado: personal, servicios, inversión en infraestructura y carga financiera."
+              helpPorQueEsUtil="El gasto refleja las prioridades políticas y operativas del ayuntamiento. Contrastar lo ejecutado con lo planificado muestra la capacidad real de ejecución de la administración."
+              helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial. La cifra de ejecutado procede de la contabilidad municipal y representa el gasto efectivamente realizado."
             />
-            <MetricCard
-              icon={<Bank size={18} color="white" weight="bold" />}
+            <MetricPill
+              value={fmtBudgetMetric(yearData?.public_debt)}
               label="Deuda pública"
-              value={yearData?.public_debt != null ? formatCurrency(yearData.public_debt) : '—'}
+              sublabel="Millones de €"
               accent={ACCENT}
+              variant={variant}
+              helpQueVes="El volumen de deuda viva del municipio: el endeudamiento acumulado pendiente de la administración local."
+              helpPorQueEsUtil="La deuda marca la sostenibilidad financiera del municipio. Niveles altos limitan la inversión futura; un endeudamiento contenido es señal de gestión fiscal prudente."
+              helpComoSeRecogieron="Se obtiene de los registros contables municipales y refleja el stock de deuda pendiente según la contabilidad de ejercicio."
             />
           </div>
 
@@ -195,6 +180,13 @@ export default function TransparencyStats({
               budgetYear={yearData}
               title="Ejecución presupuestaria"
               subtitle={`Ejecutado − Planificado · ${selectedYear}`}
+              helpContent={
+                <>
+                  <p><strong>QUÉ VES</strong>: La desviación por área de gasto entre lo ejecutado y lo planificado en el año seleccionado. Las barras hacia abajo indican menos gasto del previsto; hacia arriba, más.</p>
+                  <p><strong>POR QUÉ IMPORTA</strong>: Un presupuesto solo se cumple cuando lo planificado se ejecuta. Las desviaciones revelan qué prioridades se reforzaron o recortaron en la práctica frente a lo aprobado.</p>
+                  <p><strong>METODOLOGÍA</strong>: Para cada área de primer nivel se restan los importes planificados de los ejecutados. Solo se muestran años con ambos tipos de presupuesto disponibles.</p>
+                </>
+              }
             />
           )}
         </>
@@ -205,12 +197,30 @@ export default function TransparencyStats({
         <MayorsGanttChart
           terms={democraticMayors}
           title="Historial de Alcaldía"
+          helpContent={
+            <>
+              <p><strong>QUÉ VES</strong>: La sucesión de alcaldes desde 1975 hasta hoy. Cada barra es un mandato, coloreada por el partido del alcalde y dimensionada según su duración.</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: El historial de alcaldía revela la estabilidad política y la continuidad de las políticas urbanas. Mandatos cortos sugieren inestabilidad; mandatos largos, consolidación o consenso.</p>
+              <p><strong>METODOLOGÍA</strong>: Los datos proceden de registros administrativos municipales y bases públicas de gobiernos locales. Se incluyen solo los alcaldes desde la restauración de la democracia (1975).</p>
+            </>
+          }
         />
       )}
 
       {/* ── Electoral semicircle ─────────────────────────────────────────────── */}
       {hasElections && (
-        <ElectoralSemicircle elections={elections} councilors={councilors} selectedYear={selectedYear} />
+        <ElectoralSemicircle
+          elections={elections}
+          councilors={councilors}
+          selectedYear={selectedYear}
+          helpContent={
+            <>
+              <p><strong>QUÉ VES</strong>: La composición del pleno municipal tras las últimas elecciones disponibles. Cada punto es un concejal, coloreado por partido y situado de izquierda a derecha según su ideología.</p>
+              <p><strong>POR QUÉ IMPORTA</strong>: El hemiciclo muestra de un vistazo el equilibrio de fuerzas del consistorio y qué coaliciones son posibles, base para entender la toma de decisiones municipal.</p>
+              <p><strong>METODOLOGÍA</strong>: Los concejales proceden de registros electorales oficiales. La posición izquierda-derecha se basa en la clasificación ideológica estándar de cada partido.</p>
+            </>
+          }
+        />
       )}
     </div>
   );

@@ -182,35 +182,54 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
       if (s.dashed) path.attr('stroke-dasharray', '4,4');
     });
 
+    // Vertical crosshair line (snaps to nearest data point)
+    const crosshair = svg.append('line')
+      .attr('y1', margin.top)
+      .attr('y2', height - margin.bottom)
+      .attr('stroke', 'rgba(0,0,0,0.12)')
+      .attr('stroke-width', 1)
+      .attr('pointer-events', 'none')
+      .style('display', 'none');
+
     // Tooltip
     svg.append('rect')
       .attr('width', width)
       .attr('height', height)
       .attr('fill', 'transparent')
       .on('mousemove', (event) => {
-        const [mx] = d3.pointer(event);
+        const [mx, my] = d3.pointer(event);
         const xValues = data.map(d => x(d[xKey])!);
         const i = d3.bisectCenter(xValues, mx);
         const d = data[i];
+        const snappedX = xValues[i];
 
-        if (d && tooltipRef.current) {
+        crosshair
+          .style('display', null)
+          .attr('x1', snappedX)
+          .attr('x2', snappedX);
+
+        if (d && tooltipRef.current && containerRef.current) {
+          const containerW = containerRef.current.offsetWidth;
+          const tooltipW = tooltipRef.current.offsetWidth || 140;
+          const flipLeft = mx + 12 + tooltipW > containerW;
           d3.select(tooltipRef.current)
             .style('display', 'block')
-            .style('left', `${event.pageX + 10}px`)
-            .style('top', `${event.pageY - 10}px`)
+            .style('left', flipLeft ? `${mx - tooltipW - 8}px` : `${mx + 12}px`)
+            .style('top', `${Math.max(0, my - 10)}px`)
             .html(`
               <div class="font-bold border-b border-black/10 pb-1 mb-1">${isMonthFmt ? fmtMonth(String(d[xKey])) : d[xKey]}</div>
               ${series.map(s => `
                 <div class="flex items-center gap-2">
                   <div class="w-2 h-2 rounded-full" style="background: ${s.color}"></div>
                   <span>${s.label}:</span>
-                  <span class="font-bold ml-auto">${typeof d[s.key] === 'number' ? fmtInt(d[s.key] as number) : d[s.key]}</span>
+                  <span class="font-bold ml-auto">${d[s.key] != null && typeof d[s.key] === 'number' ? fmtInt(d[s.key] as number) : (d[s.key] != null ? d[s.key] : '—')}</span>
                 </div>
               `).join('')}
             `);
         }
       })
       .on('mouseleave', () => {
+        crosshair.style('display', 'none');
         if (tooltipRef.current) d3.select(tooltipRef.current).style('display', 'none');
       });
 
@@ -257,7 +276,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
         <svg ref={svgRef}></svg>
         <div
           ref={tooltipRef}
-          className="fixed z-50 hidden bg-white/95 backdrop-blur-sm border border-black/10 rounded-lg p-2 shadow-lg text-[11px] min-w-[120px] pointer-events-none text-gray-700"
+          className="absolute z-20 hidden bg-white/95 backdrop-blur-sm border border-black/10 rounded-lg p-2 shadow-lg text-[11px] min-w-[120px] pointer-events-none text-gray-700"
         ></div>
       </div>
 
