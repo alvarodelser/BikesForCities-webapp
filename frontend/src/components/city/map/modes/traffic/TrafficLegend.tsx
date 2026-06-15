@@ -8,9 +8,14 @@ export default function TrafficLegend() {
 
     const [hasSelection, setHasSelection] = useState(false);
     const [selectedHex, setSelectedHex] = useState<string | null>(null);
+    const [activeSubmode, setActiveSubmode] = useState<string | null>(null);
 
     useEffect(() => {
-        const handler = (e: Event) => setHasSelection(!!(e as CustomEvent).detail);
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            setHasSelection(!!detail);
+            setActiveSubmode(detail?.activeSubmode ?? null);
+        };
         window.addEventListener('map-selection', handler);
         return () => window.removeEventListener('map-selection', handler);
     }, []);
@@ -101,6 +106,21 @@ export default function TrafficLegend() {
                         </div>
                     </div>
                     <div className="text-[8px] text-black/25 italic">&lt; P5 no representado</div>
+                </>
+            )}
+            {hasSelection && activeSubmode === 'heatmap' && (
+                <>
+                    <div className="text-[8px] font-black text-black/30 uppercase tracking-widest">
+                        Concentración de trayectos
+                    </div>
+                    <div
+                        className="h-3 w-full rounded-full"
+                        style={{ background: 'linear-gradient(to right, #BFDDCE, #027A76, #014440)' }}
+                    />
+                    <div className="flex justify-between text-[9px] font-semibold text-black/40">
+                        <span>Baja</span>
+                        <span>Alta</span>
+                    </div>
                 </>
             )}
         </div>
