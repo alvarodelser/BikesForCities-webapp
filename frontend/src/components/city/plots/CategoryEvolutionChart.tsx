@@ -24,9 +24,8 @@ export const CategoryEvolutionChart: React.FC<CategoryEvolutionChartProps> = ({
   if (selectedCats.length === 0) {
     return (
       <div
-        className="rounded-2xl border p-5 w-full text-center"
-        style={{ borderColor: `color-mix(in srgb, ${ACCENT} 30%, transparent)`,
-                 backgroundColor: `color-mix(in srgb, ${ACCENT} 15%, transparent)` }}
+        className="rounded-2xl border bg-white/80 backdrop-blur-sm p-5 w-full text-center"
+        style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
       >
         <h3 className="text-sm font-bold text-[var(--blue-dark)]">Evolución del gasto por área</h3>
         <p className="mt-2 text-xs text-[var(--blue-dark)]/60">
@@ -52,7 +51,7 @@ export const CategoryEvolutionChart: React.FC<CategoryEvolutionChartProps> = ({
       series={series}
       title="Evolución del gasto por área"
       subtitle="Importe por año · ejecutado (planificado cuando no hay ejecución)"
-      variant="darkTint"
+      variant="light"
       accent={ACCENT}
       helpContent={
         <>

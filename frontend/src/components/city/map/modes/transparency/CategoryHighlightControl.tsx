@@ -16,13 +16,17 @@ export const CategoryHighlightControl: React.FC<CategoryHighlightControlProps> =
 }) => {
   const [query, setQuery] = useState('');
 
-  const filtered = useMemo(() => {
+  const displayed = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return categories;
-    return categories.filter(
-      c => c.name.toLowerCase().includes(q) || c.code.includes(q),
-    );
-  }, [categories, query]);
+    const base = q
+      ? categories.filter(c => c.name.toLowerCase().includes(q) || c.code.includes(q))
+      : categories;
+    // Selected areas float to the top; within each group keep code order.
+    return [...base].sort((a, b) => {
+      const sel = (selected.has(b.code) ? 1 : 0) - (selected.has(a.code) ? 1 : 0);
+      return sel !== 0 ? sel : a.code.localeCompare(b.code);
+    });
+  }, [categories, query, selected]);
 
   const toggle = (code: string) => {
     const next = new Set(selected);
@@ -36,25 +40,20 @@ export const CategoryHighlightControl: React.FC<CategoryHighlightControlProps> =
       className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden w-1/3 flex flex-col"
       style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
     >
-      <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+      <div className="flex items-center gap-2 px-3 pt-2.5 pb-1.5">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+          className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
         >
-          <ListChecks size={16} color="white" weight="bold" />
+          <ListChecks size={13} color="white" weight="bold" />
         </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-[var(--blue-dark)]">Áreas destacadas</h3>
-          <p className="text-[10px] text-[var(--blue)] opacity-70 leading-snug">
-            Elige qué áreas resaltar en el gráfico y seguir en el tiempo.
-          </p>
-        </div>
+        <h3 className="text-xs font-bold text-[var(--blue-dark)] min-w-0 flex-1 truncate">Áreas destacadas</h3>
       </div>
 
-      <div className="px-4 pb-2">
+      <div className="px-3 pb-1.5">
         <div className="relative">
           <MagnifyingGlass
-            size={14}
+            size={13}
             weight="bold"
             className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--blue-dark)]/40"
           />
@@ -64,17 +63,17 @@ export const CategoryHighlightControl: React.FC<CategoryHighlightControlProps> =
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar área…"
             aria-label="Buscar área de gasto"
-            className="w-full rounded-xl border bg-white/70 pl-8 pr-3 py-1.5 text-xs text-[var(--blue-dark)] placeholder:text-[var(--blue-dark)]/40 focus:outline-none focus:ring-2"
+            className="w-full rounded-lg border bg-white/70 pl-8 pr-3 py-1 text-xs text-[var(--blue-dark)] placeholder:text-[var(--blue-dark)]/40 focus:outline-none focus:ring-2"
             style={{ borderColor: 'rgba(0,0,0,0.08)' }}
           />
         </div>
       </div>
 
-      <div className="px-2 pb-3 overflow-y-auto" style={{ maxHeight: 220 }}>
-        {filtered.length === 0 ? (
+      <div className="px-2 pb-2 overflow-y-auto" style={{ maxHeight: 132 }}>
+        {displayed.length === 0 ? (
           <p className="px-2 py-3 text-xs text-[var(--blue-dark)]/40">Sin resultados.</p>
         ) : (
-          filtered.map(cat => {
+          displayed.map(cat => {
             const isOn = selected.has(cat.code);
             return (
               <button
@@ -83,7 +82,7 @@ export const CategoryHighlightControl: React.FC<CategoryHighlightControlProps> =
                 role="checkbox"
                 aria-checked={isOn}
                 onClick={() => toggle(cat.code)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors hover:bg-black/5"
+                className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left transition-colors hover:bg-black/5"
               >
                 <span
                   className="w-4 h-4 rounded-[5px] border flex items-center justify-center flex-shrink-0 text-white text-[10px] font-bold"
