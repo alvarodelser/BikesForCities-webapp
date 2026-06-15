@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X } from 'lucide-react';
+import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
 import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
@@ -48,11 +48,18 @@ interface FilterCardProps {
   helpQueVes?: string;
   helpPorQueEsUtil?: string;
   helpComoSeRecogieron?: string;
+  helpComoSeRecogieronPerOption?: Record<string, string>;
 }
 
-function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect, helpQueVes, helpPorQueEsUtil, helpComoSeRecogieron }: FilterCardProps) {
+export function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect, helpQueVes, helpPorQueEsUtil, helpComoSeRecogieron, helpComoSeRecogieronPerOption }: FilterCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const hasHelp = !!(helpQueVes || helpPorQueEsUtil || helpComoSeRecogieron);
+  const [othersExpanded, setOthersExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) setOthersExpanded(false);
+  }, [expanded]);
+
+  const hasHelp = !!(helpQueVes || helpPorQueEsUtil || helpComoSeRecogieron || helpComoSeRecogieronPerOption);
 
   const sectionHead = (text: string) => (
     <p className="text-[8px] font-black uppercase tracking-widest mb-0.5 text-[var(--blue-dark)]/35">{text}</p>
@@ -122,10 +129,71 @@ function FilterCard({ icon: Icon, title, description, options, activeValue, onSe
               <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpPorQueEsUtil}</p>
             </div>
           )}
-          {helpComoSeRecogieron && (
+          {(helpComoSeRecogieron || helpComoSeRecogieronPerOption) && (
             <div>
               {sectionHead('METODOLOGÍA')}
-              <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpComoSeRecogieron}</p>
+              {helpComoSeRecogieronPerOption ? (
+                activeValue && helpComoSeRecogieronPerOption[activeValue] ? (
+                  <>
+                    <div
+                      className="rounded-lg px-2 py-1.5 mb-2"
+                      style={{ backgroundColor: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}
+                    >
+                      <span
+                        className="text-[9px] font-black uppercase tracking-widest"
+                        style={{ color: ACCENT }}
+                      >
+                        {options.find(o => o.value === activeValue)?.label ?? activeValue}
+                      </span>
+                      <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75 mt-0.5">
+                        {helpComoSeRecogieronPerOption[activeValue]}
+                      </p>
+                    </div>
+                    {options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]).length > 0 && (
+                      <button
+                        onClick={() => setOthersExpanded(v => !v)}
+                        className="flex items-center gap-1 text-[10px] font-semibold text-[var(--blue-dark)]/40 hover:text-[var(--blue-dark)]/65 transition-colors mt-1"
+                        aria-label={othersExpanded ? 'Ver otros' : `Ver otros (${options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]).length})`}
+                      >
+                        {othersExpanded ? (
+                          <><ChevronUp className="w-3 h-3" />Ver otros</>
+                        ) : (
+                          <><ChevronDown className="w-3 h-3" />Ver otros ({options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]).length})</>
+                        )}
+                      </button>
+                    )}
+                    {othersExpanded && (
+                      <div className="mt-2 flex flex-col gap-2">
+                        {options
+                          .filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value])
+                          .map((o, i) => (
+                            <div key={o.value} className={i > 0 ? 'border-t border-black/[0.06] pt-2' : ''}>
+                              <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/65">{o.label}</p>
+                              <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/55">
+                                {helpComoSeRecogieronPerOption![o.value]}
+                              </p>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {options
+                      .filter(o => helpComoSeRecogieronPerOption![o.value])
+                      .map((o, i) => (
+                        <div key={o.value} className={i > 0 ? 'border-t border-black/[0.06] pt-2' : ''}>
+                          <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/65">{o.label}</p>
+                          <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/55">
+                            {helpComoSeRecogieronPerOption![o.value]}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                )
+              ) : (
+                <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpComoSeRecogieron}</p>
+              )}
             </div>
           )}
         </div>
@@ -237,7 +305,11 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
           onSelect={handleGenerationSelect}
           helpQueVes="La fuente de datos que determina dónde se originan y terminan los viajes del modelo. Real usa trayectos GPS del sistema de bici pública; Estaciones estima los viajes a partir de los flujos de entrada y salida de cada estación; Población genera demanda sintética a partir de la densidad de edificios y la distribución de población."
           helpPorQueEsUtil="La elección de la fuente cambia radicalmente el resultado. Real capta la movilidad observada de los usuarios actuales; Estaciones amplía la estimación a todo el sistema de bici pública; Población estima la demanda potencial de la ciudad entera, incluyendo quienes podrían usar la bici pero aún no lo hacen. Comparar los tres revela qué parte de la demanda se cubre y cuánta queda sin infraestructura."
-          helpComoSeRecogieron="Real: trayectos GPS del sistema de bici pública proyectados al nodo más cercano de la red (tolerancia 150 m). Estaciones: viajes sintetizados a partir de flujos de entrada/salida por estación. Población: modelo de gravedad donde la probabilidad de viaje es proporcional a la densidad de edificios del origen, la densidad de población del destino e inversamente proporcional a la distancia."
+          helpComoSeRecogieronPerOption={{
+            real: 'Trayectos GPS del sistema de bici pública proyectados al nodo más cercano de la red (tolerancia 150 m).',
+            station_based: 'Viajes sintetizados a partir de flujos de entrada/salida por estación.',
+            buildings_population: 'Modelo de gravedad donde la probabilidad de viaje es proporcional a la densidad de edificios del origen, la densidad de población del destino e inversamente proporcional a la distancia.',
+          }}
         />
         <div style={{ opacity: isODMode ? 0.4 : 1, pointerEvents: isODMode ? 'none' : undefined }}>
           <FilterCard
@@ -249,7 +321,11 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
             onSelect={v => setRouting(v)}
             helpQueVes="El algoritmo que decide por qué tramos de la red ciclista discurre cada viaje. Define si los ciclistas modelados priorizan distancia, seguridad o siguen trazas GPS registradas."
             helpPorQueEsUtil="La diferencia de volumen entre Ruta corta y Ruta segura identifica qué corredores están forzando a los ciclistas a circular por calzada — y cuánto tráfico captaría un nuevo tramo de carril en ese punto. Ambas opciones son escenarios de simulación que permiten evaluar el impacto de cualquier mejora de infraestructura antes de construirla."
-            helpComoSeRecogieron="Map-matched: cada viaje GPS se ancla a los nodos más cercanos a inicio y fin (tolerancia 150 m); la ruta se resuelve por distancia mínima. Ruta corta: Dijkstra con peso = longitud en metros. Ruta segura: Dijkstra con route_cost = length × (1 + peligrosidad × ln(max(length,1)) / 144); la peligrosidad depende del tipo de vía, velocidad máxima y número de carriles."
+            helpComoSeRecogieronPerOption={{
+              map_matched: 'Cada viaje GPS se ancla a los nodos más cercanos a inicio y fin (tolerancia 150 m); la ruta se resuelve por distancia mínima.',
+              shortest: 'Dijkstra con peso = longitud en metros.',
+              safest: 'Dijkstra con route_cost = length × (1 + peligrosidad × ln(max(length,1)) / 144); la peligrosidad depende del tipo de vía, velocidad máxima y número de carriles.',
+            }}
           />
         </div>
       </div>
