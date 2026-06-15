@@ -23,6 +23,9 @@ interface LineAreaChartProps {
   helpContent?: ReactNode;
   variant?: 'light' | 'darkTint';
   accent?: string;
+  /** Draw the series label at the right edge where each line ends (with a leader
+   *  curve when packed and hover-to-highlight). Reserves right margin space. */
+  endLabels?: boolean;
 }
 
 export const LineAreaChart: React.FC<LineAreaChartProps> = ({
@@ -34,6 +37,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
   helpContent,
   variant = 'light',
   accent = '#3b82f6',
+  endLabels = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -65,7 +69,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
     const gridColor = isDarkTint ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.05)';
 
     const height = 260;
-    const margin = { top: 20, right: series.some(s => s.axis === 'secondary') ? 50 : 20, bottom: 30, left: 50 };
+    const margin = { top: 20, right: endLabels ? 116 : (series.some(s => s.axis === 'secondary') ? 50 : 20), bottom: 30, left: 50 };
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -172,6 +176,8 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
 
       const path = svg.append('path')
         .datum(data)
+        .attr('class', 'series-line')
+        .attr('data-skey', s.key)
         .attr('fill', 'none')
         .attr('stroke', s.color)
         .attr('stroke-width', 2)
@@ -233,7 +239,98 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
         if (tooltipRef.current) d3.select(tooltipRef.current).style('display', 'none');
       });
 
-  }, [data, xKey, series, width]);
+    // End-of-line labels at the right edge (appended last so they sit above the
+    // tooltip overlay and remain hoverable).
+    if (endLabels) {
+      const LABEL_GAP = 13;
+      const innerRight = width - margin.right;
+      const labelX = innerRight + 8;
+      const maxChars = Math.max(6, Math.floor((margin.right - 14) / 6));
+
+      type LabelEntry = { key: string; label: string; color: string; ex: number; ey: number; ly: number };
+      const entries: LabelEntry[] = [];
+      series.forEach(s => {
+        const yScale = s.axis === 'secondary' ? yRight! : yLeft;
+        let last: Record<string, any> | null = null;
+        for (let i = data.length - 1; i >= 0; i--) {
+          const v = data[i][s.key];
+          if (v != null && typeof v === 'number' && isFinite(v)) { last = data[i]; break; }
+        }
+        if (!last) return;
+        const ey = yScale(last[s.key]);
+        entries.push({ key: s.key, label: s.label, color: s.color, ex: x(last[xKey])!, ey, ly: ey });
+      });
+
+      // Resolve vertical overlaps: push down, then up, then clamp to plot band.
+      entries.sort((a, b) => a.ey - b.ey);
+      for (let i = 1; i < entries.length; i++) {
+        const min = entries[i - 1].ly + LABEL_GAP;
+        if (entries[i].ly < min) entries[i].ly = min;
+      }
+      for (let i = entries.length - 2; i >= 0; i--) {
+        const max = entries[i + 1].ly - LABEL_GAP;
+        if (entries[i].ly > max) entries[i].ly = max;
+      }
+      for (const e of entries) {
+        e.ly = Math.max(margin.top + 4, Math.min(height - margin.bottom - 2, e.ly));
+      }
+
+      const g = svg.append('g').attr('class', 'end-labels');
+      entries.forEach(e => {
+        const curved = Math.abs(e.ly - e.ey) > 1.5;
+        const midX = (e.ex + labelX) / 2;
+        const d = curved
+          ? `M${e.ex},${e.ey} C${midX},${e.ey} ${midX},${e.ly} ${labelX - 4},${e.ly}`
+          : `M${e.ex},${e.ey} L${labelX - 4},${e.ly}`;
+        g.append('path')
+          .attr('class', 'series-conn')
+          .attr('data-skey', e.key)
+          .attr('d', d)
+          .attr('fill', 'none')
+          .attr('stroke', e.color)
+          .attr('stroke-width', 1)
+          .attr('stroke-opacity', 0.45);
+        const text = e.label.length > maxChars ? `${e.label.slice(0, maxChars - 1)}…` : e.label;
+        const t = g.append('text')
+          .attr('class', 'series-label')
+          .attr('data-skey', e.key)
+          .attr('x', labelX)
+          .attr('y', e.ly)
+          .attr('dy', '0.32em')
+          .attr('font-size', '10px')
+          .attr('font-weight', 600)
+          .attr('fill', e.color)
+          .style('cursor', 'default')
+          .text(text);
+        t.append('title').text(e.label);
+      });
+
+      const emphasize = (key: string | null) => {
+        svg.selectAll<SVGPathElement, unknown>('.series-line').each(function () {
+          const el = this as SVGPathElement;
+          const match = el.getAttribute('data-skey') === key;
+          el.setAttribute('stroke-opacity', key == null || match ? '1' : '0.18');
+          el.setAttribute('stroke-width', match ? '3.2' : '2');
+        });
+        g.selectAll<SVGTextElement, unknown>('.series-label').each(function () {
+          const el = this as SVGTextElement;
+          const match = el.getAttribute('data-skey') === key;
+          el.setAttribute('opacity', key == null || match ? '1' : '0.3');
+          el.setAttribute('font-weight', match ? '800' : '600');
+        });
+        g.selectAll<SVGPathElement, unknown>('.series-conn').each(function () {
+          const el = this as SVGPathElement;
+          const match = el.getAttribute('data-skey') === key;
+          el.setAttribute('stroke-opacity', key == null ? '0.45' : (match ? '0.85' : '0.12'));
+        });
+      };
+
+      g.selectAll<SVGTextElement, unknown>('.series-label')
+        .on('mouseenter', function () { emphasize((this as SVGTextElement).getAttribute('data-skey')); })
+        .on('mouseleave', () => emphasize(null));
+    }
+
+  }, [data, xKey, series, width, endLabels]);
 
   return (
     <div
@@ -280,18 +377,20 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
         ></div>
       </div>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
-        {series.map(s => (
-          <div key={s.key} className="flex items-center gap-1.5">
-            <div
-              className={`h-0.5 w-4 ${s.dashed ? 'border-t-2 border-dashed' : ''}`}
-              style={{ borderColor: s.color, backgroundColor: s.dashed ? 'transparent' : s.color }}
-            />
-            <span className={`text-[10px] font-medium ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500'}`}>{s.label}</span>
-          </div>
-        ))}
-      </div>
+      {/* Legend (hidden when inline end-of-line labels are shown) */}
+      {!endLabels && (
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {series.map(s => (
+            <div key={s.key} className="flex items-center gap-1.5">
+              <div
+                className={`h-0.5 w-4 ${s.dashed ? 'border-t-2 border-dashed' : ''}`}
+                style={{ borderColor: s.color, backgroundColor: s.dashed ? 'transparent' : s.color }}
+              />
+              <span className={`text-[10px] font-medium ${variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500'}`}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Expandable help section */}
       {helpContent && showHelp && (

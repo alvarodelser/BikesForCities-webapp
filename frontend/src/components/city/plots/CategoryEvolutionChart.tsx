@@ -53,6 +53,7 @@ export const CategoryEvolutionChart: React.FC<CategoryEvolutionChartProps> = ({
       subtitle="Importe por año · ejecutado (planificado cuando no hay ejecución)"
       variant="light"
       accent={ACCENT}
+      endLabels
       helpContent={
         <>
           <p><strong>QUÉ VES</strong>: La evolución del importe presupuestario de las áreas seleccionadas a lo largo de los años disponibles. Cada línea es un área de gasto.</p>
