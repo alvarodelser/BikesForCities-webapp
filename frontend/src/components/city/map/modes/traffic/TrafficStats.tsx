@@ -339,27 +339,32 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
               safest: (
                 <>
                   <p className="mb-1.5">Dijkstra con peso <Katex math="\text{route\_cost} = \ell \cdot \!\left(1 + p \cdot \dfrac{\log_{10}\ell}{144}\right)" /> donde <Katex math="p" /> es la peligrosidad del tramo.</p>
-                  <table className="w-full text-[9.5px] border-collapse mb-1.5">
+                  <table className="text-[9px] border-collapse mb-1.5 mx-auto rounded" style={{ tableLayout: 'fixed', width: '200px', outline: `1px solid ${ACCENT}20` }}>
+                    <colgroup>
+                      <col style={{ width: '50px' }} />
+                      <col />
+                      <col style={{ width: '18px' }} />
+                    </colgroup>
                     <thead>
                       <tr className="text-left" style={{ color: `${ACCENT}cc` }}>
-                        <th className="pb-0.5 font-black uppercase tracking-wide">Componente</th>
-                        <th className="pb-0.5 font-black uppercase tracking-wide">Valor</th>
-                        <th className="pb-0.5 font-black uppercase tracking-wide text-right">+p</th>
+                        <th className="px-1.5 pb-0.5 pt-1 font-black uppercase tracking-wide">Comp.</th>
+                        <th className="pb-0.5 pt-1 font-black uppercase tracking-wide">Valor</th>
+                        <th className="pr-1.5 pb-0.5 pt-1 font-black uppercase tracking-wide text-right">+p</th>
                       </tr>
                     </thead>
                     <tbody className="text-[var(--blue-dark)]/60">
-                      <tr><td className="py-px">Clase de vía</td><td>cycleway</td><td className="text-right">0</td></tr>
-                      <tr><td /><td>residencial / terciaria</td><td className="text-right">3</td></tr>
-                      <tr><td /><td>secundaria</td><td className="text-right">6</td></tr>
-                      <tr><td /><td>primaria</td><td className="text-right">12</td></tr>
-                      <tr><td /><td>trunk</td><td className="text-right">20</td></tr>
-                      <tr className="border-t border-black/10"><td className="pt-1">Velocidad</td><td>≤ 30 km/h</td><td className="text-right">+0</td></tr>
-                      <tr><td /><td>≤ 50 km/h</td><td className="text-right">+8</td></tr>
-                      <tr><td /><td>&gt; 50 km/h</td><td className="text-right">+16</td></tr>
-                      <tr className="border-t border-black/10"><td className="pt-1">Carriles</td><td>1</td><td className="text-right">+0</td></tr>
-                      <tr><td /><td>2</td><td className="text-right">+4</td></tr>
-                      <tr><td /><td>≥ 4</td><td className="text-right">+16</td></tr>
-                      <tr className="border-t border-black/10"><td className="pt-1" colSpan={2}>Puente / túnel (mínimo)</td><td className="text-right">20</td></tr>
+                      <tr><td className="px-1.5 py-px">Clase</td><td>cycleway</td><td className="pr-1.5 text-right">0</td></tr>
+                      <tr><td /><td>resid./terc.</td><td className="pr-1.5 text-right">3</td></tr>
+                      <tr><td /><td>secundaria</td><td className="pr-1.5 text-right">6</td></tr>
+                      <tr><td /><td>primaria</td><td className="pr-1.5 text-right">12</td></tr>
+                      <tr><td /><td>trunk</td><td className="pr-1.5 text-right">20</td></tr>
+                      <tr className="border-t border-black/10"><td className="px-1.5 pt-0.5">Vel.</td><td>≤ 30 km/h</td><td className="pr-1.5 text-right">+0</td></tr>
+                      <tr><td /><td>≤ 50 km/h</td><td className="pr-1.5 text-right">+8</td></tr>
+                      <tr><td /><td>&gt; 50 km/h</td><td className="pr-1.5 text-right">+16</td></tr>
+                      <tr className="border-t border-black/10"><td className="px-1.5 pt-0.5">Carriles</td><td>1</td><td className="pr-1.5 text-right">+0</td></tr>
+                      <tr><td /><td>2</td><td className="pr-1.5 text-right">+4</td></tr>
+                      <tr><td /><td>≥ 4</td><td className="pr-1.5 text-right">+16</td></tr>
+                      <tr className="border-t border-black/10"><td className="px-1.5 pt-0.5 pb-1" colSpan={2}>Puente/túnel</td><td className="pr-1.5 pb-1 text-right">20</td></tr>
                     </tbody>
                   </table>
                   <p>Calibración: 100 m de carril bici → coste 100; 100 m de vía primaria 4 carriles a 50 km/h → coste ≈150.</p>
