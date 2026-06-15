@@ -107,7 +107,7 @@ describe('FilterCard — per-option methodology', () => {
     openHelp();
     fireEvent.click(screen.getByRole('button', { name: /ver otros/i }));
     expect(screen.getByText('Stations text.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /ver otros/i }));
+    fireEvent.click(screen.getByRole('button', { name: /ocultar otras opciones/i }));
     expect(screen.queryByText('Stations text.')).not.toBeInTheDocument();
   });
 

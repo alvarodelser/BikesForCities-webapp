@@ -156,7 +156,7 @@ export function FilterCard({ icon: Icon, title, description, options, activeValu
                           <button
                             onClick={() => setOthersExpanded(v => !v)}
                             className="flex items-center gap-1 text-[10px] font-semibold text-[var(--blue-dark)]/40 hover:text-[var(--blue-dark)]/65 transition-colors mt-1"
-                            aria-label={othersExpanded ? 'Ver otros' : `Ver otros (${otherOptions.length})`}
+                            aria-label={othersExpanded ? 'Ocultar otras opciones' : `Ver otros (${otherOptions.length})`}
                           >
                             {othersExpanded ? (
                               <><ChevronUp className="w-3 h-3" />Ver otros</>
