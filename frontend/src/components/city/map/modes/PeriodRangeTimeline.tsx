@@ -383,7 +383,7 @@ export default function PeriodRangeTimeline({
       <div className="pb-5 pt-3">
         <div
           ref={scrollRef}
-          className="overflow-x-auto no-scrollbar px-4"
+          className="overflow-x-auto no-scrollbar px-4 min-w-0"
           style={{
             WebkitMaskImage: canScrollLeft && canScrollRight
               ? 'linear-gradient(to right, transparent, black 40px, black calc(100% - 40px), transparent)'

@@ -639,7 +639,7 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 relative overflow-hidden" style={{ isolation: 'isolate' }}>
+      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden" style={{ isolation: 'isolate' }}>
         {width > 0 && RADIUS > 0 && (
           <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'hidden' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>

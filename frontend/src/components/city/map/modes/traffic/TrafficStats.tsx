@@ -16,6 +16,8 @@ export interface TrafficStatsProps {
   variant?: 'light' | 'darkTint';
 }
 
+const ACCENT = '#3A6C7F';
+
 const GENERATION_OPTIONS: { value: string; label: string }[] = [
   { value: 'real', label: 'GPS real' },
   { value: 'station_based', label: 'Estaciones' },
@@ -28,12 +30,155 @@ const ALGORITHM_OPTIONS: { value: string; label: string }[] = [
   { value: 'safest', label: 'Ruta segura' },
 ];
 
+const PELIG_CASES = [
+  { label: 'carril bici', p: 0,  dash: '',      sw: 1.0, opacity: 0.40, highlights: ['cycleway', '≤ 30', '1 carril'] },
+  { label: 'terc. 2c',    p: 15, dash: '5 3',   sw: 1.3, opacity: 0.65, highlights: ['resid./terc.', '≤ 50', '2 carriles'] },
+  { label: 'prim. 4c',    p: 36, dash: '',      sw: 1.8, opacity: 0.85, highlights: ['primaria', '≤ 50', '≥ 4 carriles'] },
+] as const;
+
+const PELIG_ROWS = [
+  { group: 'Clase',        val: 'cycleway',       p: 0,  id: 'cycleway',      sep: false },
+  { group: null,           val: 'resid./terc.',   p: 3,  id: 'resid./terc.',  sep: false },
+  { group: null,           val: 'secundaria',     p: 6,  id: 'secundaria',    sep: false },
+  { group: null,           val: 'primaria',       p: 12, id: 'primaria',      sep: false },
+  { group: null,           val: 'trunk',          p: 20, id: 'trunk',         sep: false },
+  { group: 'Vel.',         val: '≤ 30 km/h',      p: 0,  id: '≤ 30',         sep: true  },
+  { group: null,           val: '≤ 50 km/h',      p: 8,  id: '≤ 50',         sep: false },
+  { group: null,           val: '> 50 km/h',      p: 16, id: '> 50',         sep: false },
+  { group: 'Carriles',     val: '1',              p: 0,  id: '1 carril',      sep: true  },
+  { group: null,           val: '2',              p: 4,  id: '2 carriles',    sep: false },
+  { group: null,           val: '≥ 4',            p: 16, id: '≥ 4 carriles', sep: false },
+  { group: 'Puente/túnel', val: null,             p: 20, id: 'puente',        sep: true, span: true },
+] as const;
+
+function PeligrosidadSection() {
+  const [hover, setHover] = useState<number | null>(null);
+
+  const W = 170, H = 80;
+  const ml = 6, mr = 58, mt = 4, mb = 16;
+  const pw = W - ml - mr;
+  const ph = H - mt - mb;
+  const X_MIN = 10, X_MAX = 400, Y_MAX = 720;
+
+  const cost = (l: number, p: number) => l * (1 + (p * Math.log10(l)) / 144);
+  const sx = (l: number) => ml + ((l - X_MIN) / (X_MAX - X_MIN)) * pw;
+  const sy = (c: number) => mt + ph - (c / Y_MAX) * ph;
+
+  const xs = Array.from({ length: 80 }, (_, i) => X_MIN + ((X_MAX - X_MIN) * i) / 79);
+  const makePath = (p: number) =>
+    xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${sx(x).toFixed(1)},${sy(cost(x, p)).toFixed(1)}`).join(' ');
+
+  const isHighlighted = (rowId: string) =>
+    hover !== null && PELIG_CASES[hover].highlights.includes(rowId as never);
+
+  return (
+    <div className="flex flex-row flex-wrap gap-x-3 gap-y-1 items-start mb-1.5">
+      {/* Table */}
+      <table className="text-[9px] border-collapse flex-shrink-0 rounded" style={{ tableLayout: 'fixed', width: '194px', outline: `1px solid ${ACCENT}20` }}>
+        <colgroup>
+          <col style={{ width: '50px' }} />
+          <col />
+          <col style={{ width: '18px' }} />
+        </colgroup>
+        <thead>
+          <tr className="text-left" style={{ color: `${ACCENT}cc` }}>
+            <th className="px-1.5 pb-0.5 pt-1 font-black uppercase tracking-wide">Comp.</th>
+            <th className="pb-0.5 pt-1 font-black uppercase tracking-wide">Valor</th>
+            <th className="pr-1.5 pb-0.5 pt-1 font-black uppercase tracking-wide text-right">+p</th>
+          </tr>
+        </thead>
+        <tbody>
+          {PELIG_ROWS.map(row => {
+            const lit = isHighlighted(row.id);
+            const style = lit ? { backgroundColor: `${ACCENT}18`, fontWeight: 700 } : undefined;
+            const tdBase = `transition-all ${row.sep ? 'border-t border-black/10' : ''}`;
+            return (
+              <tr key={row.id} style={style}>
+                <td className={`px-1.5 py-px text-[var(--blue-dark)]/60 ${tdBase} ${row.sep ? 'pt-0.5' : ''}`}>
+                  {row.group ?? ''}
+                </td>
+                {row.span ? (
+                  <td colSpan={2} className={`pr-1.5 text-right text-[var(--blue-dark)]/60 ${tdBase} ${row.sep ? 'pt-0.5 pb-1' : ''}`}>
+                    {row.p}
+                  </td>
+                ) : (
+                  <>
+                    <td className={`text-[var(--blue-dark)]/60 ${tdBase}`}>{row.val}</td>
+                    <td className={`pr-1.5 text-right text-[var(--blue-dark)]/60 ${tdBase}`}>{row.p}</td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+
+      {/* Chart */}
+      <svg
+        width={W} height={H}
+        className="flex-shrink-0 overflow-visible text-[var(--blue-dark)]"
+        onMouseLeave={() => setHover(null)}
+      >
+        {[200, 400, 600].map(v => (
+          <line key={v} x1={ml} x2={ml + pw} y1={sy(v)} y2={sy(v)} stroke="currentColor" strokeOpacity={0.06} strokeWidth={0.5} />
+        ))}
+        <line x1={ml} x2={ml + pw} y1={sy(0)} y2={sy(0)} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.75} />
+        <line x1={ml} x2={ml} y1={mt} y2={mt + ph} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.75} />
+        {[100, 200, 300, 400].map(v => (
+          <g key={v}>
+            <line x1={sx(v)} x2={sx(v)} y1={sy(0)} y2={sy(0) + 3} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.5} />
+            <text x={sx(v)} y={sy(0) + 10} textAnchor="middle" fontSize={6} fill="currentColor" fillOpacity={0.35}>{v}</text>
+          </g>
+        ))}
+        <text x={ml + pw / 2} y={H - 1} textAnchor="middle" fontSize={6} fill="currentColor" fillOpacity={0.35}>m</text>
+        {PELIG_CASES.map((c, i) => {
+          const active = hover === i;
+          const faded = hover !== null && !active;
+          return (
+            <g key={i} onMouseEnter={() => setHover(i)} style={{ cursor: 'default' }}>
+              {/* wide invisible hit area */}
+              <path d={makePath(c.p)} fill="none" stroke="transparent" strokeWidth={10} />
+              {/* visible line */}
+              <path
+                d={makePath(c.p)}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={active ? c.sw + 0.6 : c.sw}
+                strokeOpacity={faded ? 0.12 : active ? Math.min(c.opacity + 0.15, 1) : c.opacity}
+                strokeDasharray={c.dash}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ transition: 'stroke-opacity 0.15s, stroke-width 0.15s' }}
+              />
+              {/* end dot + label */}
+              <g onMouseEnter={() => setHover(i)}>
+                <circle
+                  cx={sx(X_MAX)} cy={sy(cost(X_MAX, c.p))} r={active ? 2.5 : 1.75}
+                  fill="currentColor" fillOpacity={faded ? 0.12 : active ? 0.9 : c.opacity}
+                  style={{ transition: 'fill-opacity 0.15s' }}
+                />
+                <text
+                  x={sx(X_MAX) + 5} y={sy(cost(X_MAX, c.p)) + 2.5}
+                  fontSize={5.5} fill="currentColor"
+                  fillOpacity={faded ? 0.15 : active ? 0.9 : c.opacity + 0.1}
+                  fontWeight={active ? 'bold' : 'normal'}
+                  style={{ transition: 'fill-opacity 0.15s, font-weight 0.1s' }}
+                >
+                  {c.label}
+                </text>
+              </g>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 function fmt(value: number | null, decimals: number, suffix: string): string {
   if (value === null) return '—';
   return suffix ? `${value.toFixed(decimals)} ${suffix}` : value.toFixed(decimals);
 }
-
-const ACCENT = '#3A6C7F';
 
 function trafficLabel(period: string): string {
   return fmtMonth(period);
@@ -54,10 +199,10 @@ interface FilterCardProps {
 
 export function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect, helpQueVes, helpPorQueEsUtil, helpComoSeRecogieron, helpComoSeRecogieronPerOption }: FilterCardProps) {
   const [expanded, setExpanded] = useState(false);
-  const [othersExpanded, setOthersExpanded] = useState(false);
+  const [expandedOther, setExpandedOther] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!expanded) setOthersExpanded(false);
+    if (!expanded) setExpandedOther(null);
   }, [expanded]);
 
   const hasHelp = !!(helpQueVes || helpPorQueEsUtil || helpComoSeRecogieron || helpComoSeRecogieronPerOption);
@@ -134,75 +279,45 @@ export function FilterCard({ icon: Icon, title, description, options, activeValu
             <div>
               {sectionHead('METODOLOGÍA')}
               {helpComoSeRecogieronPerOption ? (
-                activeValue && helpComoSeRecogieronPerOption[activeValue] ? (
-                  (() => {
-                    const otherOptions = options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]);
+                <div className="flex flex-col gap-1">
+                  {options.filter(o => helpComoSeRecogieronPerOption![o.value]).map(o => {
+                    const isActive = o.value === activeValue;
+                    const isOpen = isActive || expandedOther === o.value;
                     return (
-                      <>
-                        <div
-                          className="rounded-lg px-2 py-1.5 mb-2"
-                          style={{ backgroundColor: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}
+                      <div
+                        key={o.value}
+                        className="rounded-lg overflow-hidden"
+                        style={{
+                          backgroundColor: isActive ? `${ACCENT}12` : `${ACCENT}07`,
+                          border: `1px solid ${isActive ? `${ACCENT}30` : `${ACCENT}18`}`,
+                        }}
+                      >
+                        <button
+                          className="w-full flex items-center justify-between px-2 py-1.5 text-left"
+                          onClick={() => !isActive && setExpandedOther(v => v === o.value ? null : o.value)}
+                          aria-label={isActive ? o.label : isOpen ? `Colapsar ${o.label}` : `Expandir ${o.label}`}
                         >
                           <span
                             className="text-[9px] font-black uppercase tracking-widest"
-                            style={{ color: ACCENT }}
+                            style={{ color: isActive ? ACCENT : `${ACCENT}80` }}
                           >
-                            {options.find(o => o.value === activeValue)?.label ?? activeValue}
+                            {o.label}
                           </span>
-                          <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75 mt-0.5">
-                            {helpComoSeRecogieronPerOption[activeValue]}
-                          </p>
-                        </div>
-                        {otherOptions.length > 0 && (
-                          <button
-                            onClick={() => setOthersExpanded(v => !v)}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-[var(--blue-dark)]/40 hover:text-[var(--blue-dark)]/65 transition-colors mt-1"
-                            aria-label={othersExpanded ? 'Ocultar otras opciones' : `Ver otros (${otherOptions.length})`}
-                          >
-                            {othersExpanded ? (
-                              <><ChevronUp className="w-3 h-3" />Ver otros</>
-                            ) : (
-                              <><ChevronDown className="w-3 h-3" />Ver otros ({otherOptions.length})</>
-                            )}
-                          </button>
-                        )}
-                        {othersExpanded && (
-                          <div className="mt-2 flex flex-col gap-2">
-                            {otherOptions.map((o) => (
-                              <div
-                                key={o.value}
-                                className="rounded-lg px-2 py-1.5"
-                                style={{ backgroundColor: `${ACCENT}07`, border: `1px solid ${ACCENT}18` }}
-                              >
-                                <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/55">{o.label}</p>
-                                <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/45 mt-0.5">
-                                  {helpComoSeRecogieronPerOption![o.value]}
-                                </p>
-                              </div>
-                            ))}
+                          {!isActive && (
+                            isOpen
+                              ? <ChevronUp className="w-3 h-3 flex-shrink-0" style={{ color: `${ACCENT}60` }} />
+                              : <ChevronDown className="w-3 h-3 flex-shrink-0" style={{ color: `${ACCENT}60` }} />
+                          )}
+                        </button>
+                        {isOpen && (
+                          <div className="px-2 pb-1.5 text-[10.5px] leading-relaxed" style={{ color: isActive ? 'var(--blue-dark)' : `${ACCENT}aa` }}>
+                            {helpComoSeRecogieronPerOption![o.value]}
                           </div>
                         )}
-                      </>
+                      </div>
                     );
-                  })()
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {options
-                      .filter(o => helpComoSeRecogieronPerOption![o.value])
-                      .map((o) => (
-                        <div
-                          key={o.value}
-                          className="rounded-lg px-2 py-1.5"
-                          style={{ backgroundColor: `${ACCENT}07`, border: `1px solid ${ACCENT}18` }}
-                        >
-                          <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/55">{o.label}</p>
-                          <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/45 mt-0.5">
-                            {helpComoSeRecogieronPerOption![o.value]}
-                          </p>
-                        </div>
-                      ))}
-                  </div>
-                )
+                  })}
+                </div>
               ) : (
                 <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75">{helpComoSeRecogieron}</p>
               )}
@@ -338,36 +453,9 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
               shortest: <>Dijkstra sobre el grafo dirigido de la red OSM (respeta sentidos únicos), con peso <Katex math="w = \ell\text{ (m)}" />. Los pares origen-destino idénticos se calculan una sola vez y el resultado se comparte entre todos los viajes que los usan. El cálculo se paraleliza en hasta 8 procesos.</>,
               safest: (
                 <>
-                  <p className="mb-1.5">Dijkstra con peso <Katex math="\text{route\_cost} = \ell \cdot \!\left(1 + p \cdot \dfrac{\log_{10}\ell}{144}\right)" /> donde <Katex math="p" /> es la peligrosidad del tramo.</p>
-                  <table className="text-[9px] border-collapse mb-1.5 mx-auto rounded" style={{ tableLayout: 'fixed', width: '200px', outline: `1px solid ${ACCENT}20` }}>
-                    <colgroup>
-                      <col style={{ width: '50px' }} />
-                      <col />
-                      <col style={{ width: '18px' }} />
-                    </colgroup>
-                    <thead>
-                      <tr className="text-left" style={{ color: `${ACCENT}cc` }}>
-                        <th className="px-1.5 pb-0.5 pt-1 font-black uppercase tracking-wide">Comp.</th>
-                        <th className="pb-0.5 pt-1 font-black uppercase tracking-wide">Valor</th>
-                        <th className="pr-1.5 pb-0.5 pt-1 font-black uppercase tracking-wide text-right">+p</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-[var(--blue-dark)]/60">
-                      <tr><td className="px-1.5 py-px">Clase</td><td>cycleway</td><td className="pr-1.5 text-right">0</td></tr>
-                      <tr><td /><td>resid./terc.</td><td className="pr-1.5 text-right">3</td></tr>
-                      <tr><td /><td>secundaria</td><td className="pr-1.5 text-right">6</td></tr>
-                      <tr><td /><td>primaria</td><td className="pr-1.5 text-right">12</td></tr>
-                      <tr><td /><td>trunk</td><td className="pr-1.5 text-right">20</td></tr>
-                      <tr className="border-t border-black/10"><td className="px-1.5 pt-0.5">Vel.</td><td>≤ 30 km/h</td><td className="pr-1.5 text-right">+0</td></tr>
-                      <tr><td /><td>≤ 50 km/h</td><td className="pr-1.5 text-right">+8</td></tr>
-                      <tr><td /><td>&gt; 50 km/h</td><td className="pr-1.5 text-right">+16</td></tr>
-                      <tr className="border-t border-black/10"><td className="px-1.5 pt-0.5">Carriles</td><td>1</td><td className="pr-1.5 text-right">+0</td></tr>
-                      <tr><td /><td>2</td><td className="pr-1.5 text-right">+4</td></tr>
-                      <tr><td /><td>≥ 4</td><td className="pr-1.5 text-right">+16</td></tr>
-                      <tr className="border-t border-black/10"><td className="px-1.5 pt-0.5 pb-1" colSpan={2}>Puente/túnel</td><td className="pr-1.5 pb-1 text-right">20</td></tr>
-                    </tbody>
-                  </table>
-                  <p>Calibración: 100 m de carril bici → coste 100; 100 m de vía primaria 4 carriles a 50 km/h → coste ≈150.</p>
+                  <p className="mb-1.5">Dijkstra con peso <Katex math="\text{route\_cost} = \ell \cdot \!\left(1 + p \cdot \dfrac{\log_{10}\ell}{144}\right)" /> donde <Katex math="p" /> es la peligrosidad del tramo. Pasa el cursor sobre las líneas para ver los componentes activos.</p>
+                  <PeligrosidadSection />
+                  <p className="text-[9px] text-[var(--blue-dark)]/40 mt-0.5">Calibración: 100 m carril bici → coste 100; 100 m primaria 4c → coste 150.</p>
                 </>
               ),
             }}
