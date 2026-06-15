@@ -42,7 +42,7 @@ const MOBILITY_LEGEND: Record<string, string> = {
   '442': 'Infraest. transporte',
 };
 
-const SUNBURST_COLORS = [
+export const SUNBURST_COLORS = [
   '#027A76', // dark teal
   '#3A6C7F', // dark blue
   '#C97828', // darkened amber (readable on cream)
