@@ -17,7 +17,7 @@ export default function AnimatedProgressBar({ color = '#027A76', value, classNam
     const animate = (ts: number) => {
       if (startRef.current === null) startRef.current = ts;
       const elapsed = (ts - startRef.current) / 1000;
-      setAnimatedPct(95 * (1 - Math.exp(-0.666 * elapsed)));
+      setAnimatedPct(95 * (1 - Math.exp(-0.333 * elapsed)));
       rafRef.current = requestAnimationFrame(animate);
     };
     rafRef.current = requestAnimationFrame(animate);
