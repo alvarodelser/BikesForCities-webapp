@@ -33,7 +33,7 @@ describe('AnimatedProgressBar', () => {
     expect(fill.style.width).toBe('60%');
   });
 
-  it('clamps explicit value at 100', () => {
+  it('renders value above 100 as-is, overflow clips visually', () => {
     const { container } = render(<AnimatedProgressBar value={120} />);
     const track = container.querySelector('div') as HTMLElement;
     const fill = track.querySelector('div') as HTMLElement;
