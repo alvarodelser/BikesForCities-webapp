@@ -134,49 +134,52 @@ export function FilterCard({ icon: Icon, title, description, options, activeValu
               {sectionHead('METODOLOGÍA')}
               {helpComoSeRecogieronPerOption ? (
                 activeValue && helpComoSeRecogieronPerOption[activeValue] ? (
-                  <>
-                    <div
-                      className="rounded-lg px-2 py-1.5 mb-2"
-                      style={{ backgroundColor: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}
-                    >
-                      <span
-                        className="text-[9px] font-black uppercase tracking-widest"
-                        style={{ color: ACCENT }}
-                      >
-                        {options.find(o => o.value === activeValue)?.label ?? activeValue}
-                      </span>
-                      <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75 mt-0.5">
-                        {helpComoSeRecogieronPerOption[activeValue]}
-                      </p>
-                    </div>
-                    {options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]).length > 0 && (
-                      <button
-                        onClick={() => setOthersExpanded(v => !v)}
-                        className="flex items-center gap-1 text-[10px] font-semibold text-[var(--blue-dark)]/40 hover:text-[var(--blue-dark)]/65 transition-colors mt-1"
-                        aria-label={othersExpanded ? 'Ver otros' : `Ver otros (${options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]).length})`}
-                      >
-                        {othersExpanded ? (
-                          <><ChevronUp className="w-3 h-3" />Ver otros</>
-                        ) : (
-                          <><ChevronDown className="w-3 h-3" />Ver otros ({options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]).length})</>
+                  (() => {
+                    const otherOptions = options.filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value]);
+                    return (
+                      <>
+                        <div
+                          className="rounded-lg px-2 py-1.5 mb-2"
+                          style={{ backgroundColor: `${ACCENT}12`, border: `1px solid ${ACCENT}30` }}
+                        >
+                          <span
+                            className="text-[9px] font-black uppercase tracking-widest"
+                            style={{ color: ACCENT }}
+                          >
+                            {options.find(o => o.value === activeValue)?.label ?? activeValue}
+                          </span>
+                          <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/75 mt-0.5">
+                            {helpComoSeRecogieronPerOption[activeValue]}
+                          </p>
+                        </div>
+                        {otherOptions.length > 0 && (
+                          <button
+                            onClick={() => setOthersExpanded(v => !v)}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-[var(--blue-dark)]/40 hover:text-[var(--blue-dark)]/65 transition-colors mt-1"
+                            aria-label={othersExpanded ? 'Ver otros' : `Ver otros (${otherOptions.length})`}
+                          >
+                            {othersExpanded ? (
+                              <><ChevronUp className="w-3 h-3" />Ver otros</>
+                            ) : (
+                              <><ChevronDown className="w-3 h-3" />Ver otros ({otherOptions.length})</>
+                            )}
+                          </button>
                         )}
-                      </button>
-                    )}
-                    {othersExpanded && (
-                      <div className="mt-2 flex flex-col gap-2">
-                        {options
-                          .filter(o => o.value !== activeValue && helpComoSeRecogieronPerOption![o.value])
-                          .map((o, i) => (
-                            <div key={o.value} className={i > 0 ? 'border-t border-black/[0.06] pt-2' : ''}>
-                              <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/65">{o.label}</p>
-                              <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/55">
-                                {helpComoSeRecogieronPerOption![o.value]}
-                              </p>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </>
+                        {othersExpanded && (
+                          <div className="mt-2 flex flex-col gap-2">
+                            {otherOptions.map((o, i) => (
+                              <div key={o.value} className={i > 0 ? 'border-t border-black/[0.06] pt-2' : ''}>
+                                <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/65">{o.label}</p>
+                                <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/55">
+                                  {helpComoSeRecogieronPerOption![o.value]}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()
                 ) : (
                   <div className="flex flex-col gap-2">
                     {options
