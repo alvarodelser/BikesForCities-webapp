@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSunburstTree } from './budget';
+import { buildSunburstTree, resolveBudgetType, buildCategoryOptions, buildCategorySeries } from './budget';
 import type { BudgetYear } from '../services/api';
 
 const sampleYear: BudgetYear = {
@@ -61,5 +61,71 @@ describe('buildSunburstTree', () => {
     const personal = tree.children!.find(c => c.code === '1')!;
     const fijo = personal.children!.find(c => c.code === '1a')!;
     expect(fijo.amount).toBe(150_000);
+  });
+});
+
+// ── New helpers ───────────────────────────────────────────────────────────────
+
+const year2022: BudgetYear = {
+  year: 2022,
+  total_income: null, total_expenses: null, public_debt: null,
+  lines: [
+    { category_code: '133', category_name: 'Tráfico',   amount: 100, budget_type: 'planned' },
+    { category_code: '133', category_name: 'Tráfico',   amount: 90,  budget_type: 'executed' },
+    { category_code: '44',  category_name: 'Transporte', amount: 200, budget_type: 'planned' },
+    { category_code: '44',  category_name: 'Transporte', amount: 180, budget_type: 'executed' },
+  ],
+};
+
+// Latest year: only planned available (e.g. budget approved, not yet executed)
+const year2023: BudgetYear = {
+  year: 2023,
+  total_income: null, total_expenses: null, public_debt: null,
+  lines: [
+    { category_code: '133', category_name: 'Tráfico', amount: 110, budget_type: 'planned' },
+    // note: no '44' line this year, and no executed lines at all
+  ],
+};
+
+describe('resolveBudgetType', () => {
+  it('prefers executed when present', () => {
+    expect(resolveBudgetType(year2022)).toBe('executed');
+  });
+  it('falls back to planned when no executed lines', () => {
+    expect(resolveBudgetType(year2023)).toBe('planned');
+  });
+  it('returns planned for empty or missing year', () => {
+    expect(resolveBudgetType({ ...year2022, lines: [] })).toBe('planned');
+    expect(resolveBudgetType(null)).toBe('planned');
+  });
+});
+
+describe('buildCategoryOptions', () => {
+  it('returns the deduped union of codes across years, sorted by code', () => {
+    const opts = buildCategoryOptions([year2023, year2022]);
+    expect(opts).toEqual([
+      { code: '133', name: 'Tráfico' },
+      { code: '44',  name: 'Transporte' },
+    ]);
+  });
+  it('falls back to the code when no name is available', () => {
+    const noName: BudgetYear = {
+      ...year2022,
+      lines: [{ category_code: '99', category_name: null, amount: 1, budget_type: 'planned' }],
+    };
+    expect(buildCategoryOptions([noName])).toEqual([{ code: '99', name: '99' }]);
+  });
+});
+
+describe('buildCategorySeries', () => {
+  it('uses the resolved type per year and orders years ascending', () => {
+    const rows = buildCategorySeries([year2023, year2022], ['133', '44']);
+    expect(rows).toEqual([
+      { year: 2022, '133': 90, '44': 180 }, // 2022 resolves to executed
+      { year: 2023, '133': 110 },           // 2023 resolves to planned; '44' absent → gap
+    ]);
+  });
+  it('returns rows with only the year when no codes are requested', () => {
+    expect(buildCategorySeries([year2022], [])).toEqual([{ year: 2022 }]);
   });
 });

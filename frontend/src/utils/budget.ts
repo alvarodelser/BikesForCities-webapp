@@ -60,3 +60,46 @@ export function buildSunburstTree(
   const topCodes = childrenOf.get(null) ?? [];
   return { code: 'root', name: 'Presupuesto', amount: 0, children: topCodes.map(buildNode) };
 }
+
+export function resolveBudgetType(
+  yearData: BudgetYear | null | undefined,
+): 'executed' | 'planned' {
+  if (!yearData) return 'planned';
+  return yearData.lines.some(l => l.budget_type === 'executed') ? 'executed' : 'planned';
+}
+
+export function buildCategoryOptions(
+  budgetYears: BudgetYear[],
+): { code: string; name: string }[] {
+  const names = new Map<string, string>();
+  for (const year of budgetYears) {
+    for (const line of year.lines) {
+      const existing = names.get(line.category_code);
+      if (existing === undefined) {
+        names.set(line.category_code, line.category_name ?? line.category_code);
+      } else if (existing === line.category_code && line.category_name) {
+        // upgrade a code-only placeholder once a real name appears
+        names.set(line.category_code, line.category_name);
+      }
+    }
+  }
+  return [...names.entries()]
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.code.localeCompare(b.code));
+}
+
+export function buildCategorySeries(
+  budgetYears: BudgetYear[],
+  codes: string[],
+): Array<Record<string, number>> {
+  const sortedYears = [...budgetYears].sort((a, b) => a.year - b.year);
+  return sortedYears.map(year => {
+    const type = resolveBudgetType(year);
+    const row: Record<string, number> = { year: year.year };
+    for (const code of codes) {
+      const line = year.lines.find(l => l.category_code === code && l.budget_type === type);
+      if (line) row[code] = line.amount;
+    }
+    return row;
+  });
+}
