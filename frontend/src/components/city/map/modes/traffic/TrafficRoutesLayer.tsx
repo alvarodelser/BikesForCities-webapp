@@ -161,34 +161,38 @@ export default function TrafficRoutesLayer() {
         edgeId: number,
         mode: string,
         knownTotal: number | null,
+        resume?: { accumulated: GeoJSON.Feature[]; offset: number },
     ) => {
         if (!city?.id) return;
 
         routeLoadAbortRef.current?.abort();
         const controller = new AbortController();
         routeLoadAbortRef.current = controller;
-        clearOverlay();
 
         const total = knownTotal ?? 0;
-        const accumulated: GeoJSON.Feature[] = [];
-        let offset = 0;
+        const accumulated: GeoJSON.Feature[] = resume ? [...resume.accumulated] : [];
+        let offset = resume?.offset ?? 0;
 
-        const pushProgress = (loaded: number, done: boolean) => {
+        if (resume?.accumulated.length) {
+            renderOverlay({ type: 'FeatureCollection', features: accumulated }, mode);
+        } else {
+            clearOverlay();
+        }
+
+        const pushProgress = (loaded: number, done: boolean, onResume?: () => void) => {
             const prev = lastSelectionRef.current;
             if (!prev || prev.type !== 'edge') return;
-            const rowValue = loaded === 0
-                ? 'Cargando…'
-                : total > 0
-                    ? `${fmtInt(loaded)} / ${fmtInt(total)}`
-                    : `${fmtInt(loaded)} rutas`;
             window.dispatchEvent(new CustomEvent('map-selection', {
                 detail: {
                     ...prev,
-                    rows: [{ label: 'Trayectos', value: done ? `${fmtInt(loaded)} trayectos` : rowValue }],
+                    rows: done ? [{ label: 'Trayectos', value: `${fmtInt(loaded)} trayectos` }] : [],
                     routeProgress: done ? undefined : { loaded, total, onStop: handleStopRoutes },
+                    onResume: done ? onResume : undefined,
                 } as SelectionDetail,
             }));
         };
+
+        pushProgress(accumulated.length, false);
 
         try {
             do {
@@ -218,10 +222,16 @@ export default function TrafficRoutesLayer() {
                 offset += ROUTE_PAGE_SIZE;
             } while (total === 0 || accumulated.length < total);
 
-            pushProgress(accumulated.length, true);
+            if (controller.signal.aborted) {
+                const resumeData = { accumulated: [...accumulated], offset };
+                pushProgress(accumulated.length, true, () => loadRoutes(edgeId, mode, knownTotal, resumeData));
+            } else {
+                pushProgress(accumulated.length, true);
+            }
         } catch (err) {
             if (controller.signal.aborted) {
-                pushProgress(accumulated.length, true);
+                const resumeData = { accumulated: [...accumulated], offset };
+                pushProgress(accumulated.length, true, () => loadRoutes(edgeId, mode, knownTotal, resumeData));
                 return;
             }
             console.error('Failed to fetch edge routes:', err);

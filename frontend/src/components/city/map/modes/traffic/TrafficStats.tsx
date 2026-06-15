@@ -6,6 +6,7 @@ import { useTrafficStats } from '../../../../../hooks/useTrafficStats';
 import { fetchTrafficInfraCoverage, fetchTrafficEvolution } from '../../../../../services/api';
 import { useMapState } from '../../../../../hooks/useMapState';
 import MetricPill from '../../../pills/MetricPill';
+import { Katex } from '../../../../components/ui/Katex';
 import LineAreaChart from '../../../plots/LineAreaChart';
 import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { fmtMonth } from '../../../../../utils/formatters';
@@ -48,7 +49,7 @@ interface FilterCardProps {
   helpQueVes?: string;
   helpPorQueEsUtil?: string;
   helpComoSeRecogieron?: string;
-  helpComoSeRecogieronPerOption?: Record<string, string>;
+  helpComoSeRecogieronPerOption?: Record<string, React.ReactNode>;
 }
 
 export function FilterCard({ icon: Icon, title, description, options, activeValue, onSelect, helpQueVes, helpPorQueEsUtil, helpComoSeRecogieron, helpComoSeRecogieronPerOption }: FilterCardProps) {
@@ -167,10 +168,14 @@ export function FilterCard({ icon: Icon, title, description, options, activeValu
                         )}
                         {othersExpanded && (
                           <div className="mt-2 flex flex-col gap-2">
-                            {otherOptions.map((o, i) => (
-                              <div key={o.value} className={i > 0 ? 'border-t border-black/[0.06] pt-2' : ''}>
-                                <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/65">{o.label}</p>
-                                <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/55">
+                            {otherOptions.map((o) => (
+                              <div
+                                key={o.value}
+                                className="rounded-lg px-2 py-1.5"
+                                style={{ backgroundColor: `${ACCENT}07`, border: `1px solid ${ACCENT}18` }}
+                              >
+                                <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/55">{o.label}</p>
+                                <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/45 mt-0.5">
                                   {helpComoSeRecogieronPerOption![o.value]}
                                 </p>
                               </div>
@@ -184,10 +189,14 @@ export function FilterCard({ icon: Icon, title, description, options, activeValu
                   <div className="flex flex-col gap-2">
                     {options
                       .filter(o => helpComoSeRecogieronPerOption![o.value])
-                      .map((o, i) => (
-                        <div key={o.value} className={i > 0 ? 'border-t border-black/[0.06] pt-2' : ''}>
-                          <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/65">{o.label}</p>
-                          <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/55">
+                      .map((o) => (
+                        <div
+                          key={o.value}
+                          className="rounded-lg px-2 py-1.5"
+                          style={{ backgroundColor: `${ACCENT}07`, border: `1px solid ${ACCENT}18` }}
+                        >
+                          <p className="text-[10.5px] font-bold text-[var(--blue-dark)]/55">{o.label}</p>
+                          <p className="text-[10.5px] leading-relaxed text-[var(--blue-dark)]/45 mt-0.5">
                             {helpComoSeRecogieronPerOption![o.value]}
                           </p>
                         </div>
@@ -309,9 +318,9 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
           helpQueVes="La fuente de datos que determina dónde se originan y terminan los viajes del modelo. Real usa trayectos GPS del sistema de bici pública; Estaciones estima los viajes a partir de los flujos de entrada y salida de cada estación; Población genera demanda sintética a partir de la densidad de edificios y la distribución de población."
           helpPorQueEsUtil="La elección de la fuente cambia radicalmente el resultado. Real capta la movilidad observada de los usuarios actuales; Estaciones amplía la estimación a todo el sistema de bici pública; Población estima la demanda potencial de la ciudad entera, incluyendo quienes podrían usar la bici pero aún no lo hacen. Comparar los tres revela qué parte de la demanda se cubre y cuánta queda sin infraestructura."
           helpComoSeRecogieronPerOption={{
-            real: 'Trayectos GPS del sistema de bici pública proyectados al nodo más cercano de la red (tolerancia 150 m).',
-            station_based: 'Viajes sintetizados a partir de flujos de entrada/salida por estación.',
-            buildings_population: 'Modelo de gravedad donde la probabilidad de viaje es proporcional a la densidad de edificios del origen, la densidad de población del destino e inversamente proporcional a la distancia.',
+            real: 'Viajes reales del sistema BiciMAD (datos.madrid.es, 2017–2023). El origen y destino de cada trayecto se anclan al nodo de red más cercano dentro de un radio de 150 m. Los pares con el mismo origen y destino comparten el path calculado, evitando computación redundante.',
+            station_based: 'Se parte de los flujos mensuales de entradas y salidas por estación. Se construye una matriz de probabilidades O-D calibrada con el histograma de distancias reales de Madrid (bins de 200 m). El flujo se balancea con Sinkhorn-Knopp para que el total de salidas y llegadas por estación coincida con los datos observados. Cada estación se proyecta al nodo de red más cercano.',
+            buildings_population: 'Modelo de gravedad: la probabilidad de viaje entre dos zonas es proporcional a la densidad de edificios en el origen y a la densidad de población en el destino (WorldPop/Eurostat), e inversamente proporcional a la distancia. La función de decaimiento se calibra contra el histograma de distancias de Madrid. El pipeline de ingesta de rásteres está en desarrollo.',
           }}
         />
         <div style={{ opacity: isODMode ? 0.4 : 1, pointerEvents: isODMode ? 'none' : undefined }}>
@@ -325,9 +334,9 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
             helpQueVes="El algoritmo que decide por qué tramos de la red ciclista discurre cada viaje. Define si los ciclistas modelados priorizan distancia, seguridad o siguen trazas GPS registradas."
             helpPorQueEsUtil="La diferencia de volumen entre Ruta corta y Ruta segura identifica qué corredores están forzando a los ciclistas a circular por calzada — y cuánto tráfico captaría un nuevo tramo de carril en ese punto. Ambas opciones son escenarios de simulación que permiten evaluar el impacto de cualquier mejora de infraestructura antes de construirla."
             helpComoSeRecogieronPerOption={{
-              map_matched: 'Cada viaje GPS se ancla a los nodos más cercanos a inicio y fin (tolerancia 150 m); la ruta se resuelve por distancia mínima.',
-              shortest: 'Dijkstra con peso = longitud en metros.',
-              safest: 'Dijkstra con route_cost = length × (1 + peligrosidad × ln(max(length,1)) / 144); la peligrosidad depende del tipo de vía, velocidad máxima y número de carriles.',
+              map_matched: 'Los trazos GPS se almacenan directamente como rutas observadas, anclando inicio y fin al nodo de red más cercano (radio 150 m). Cada traza es única y no se deduplica. Refleja el comportamiento ciclista real en lugar de una ruta modelada.',
+              shortest: 'Dijkstra sobre el grafo dirigido de la red OSM (respeta sentidos únicos), con peso = longitud en metros. Los pares origen-destino idénticos se calculan una sola vez y el resultado se comparte entre todos los viajes que los usan. El cálculo se paraleliza en hasta 8 procesos.',
+              safest: 'Dijkstra con peso = route_cost = length × (1 + peligrosidad × log₁₀(length) / 144). La peligrosidad suma tres componentes: clase de vía (cycleway: 0, residencial: 3, secundaria: 6, primaria: 12, trunk: 20), velocidad máxima (≤30 km/h: +0, ≤50: +8, >50: +16) y número de carriles (1: +0, 2: +4, ≥4: +16). Puentes y túneles tienen peligrosidad mínima de 20. Calibración: 100 m de carril bici → coste 100; 100 m de vía primaria 4 carriles a 50 km/h → coste ≈150.',
             }}
           />
         </div>

@@ -40,5 +40,6 @@ export interface SelectionDetail {
     submodeOptions?: Array<{ id: string; label: string }>;
     activeSubmode?: string;
     onSubmodeChange?: (submode: string) => void;
+    onResume?: () => void;
     participants?: SelectionParticipant[];
 }

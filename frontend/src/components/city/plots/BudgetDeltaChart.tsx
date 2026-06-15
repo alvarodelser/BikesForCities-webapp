@@ -1,4 +1,6 @@
 import React, { useRef, useState, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { HelpCircle, X } from 'lucide-react';
 import { scaleBand, scaleLinear } from 'd3-scale';
 import type { BudgetYear } from '../../../services/api';
 
@@ -79,16 +81,25 @@ interface BudgetDeltaChartProps {
   budgetYear: BudgetYear;
   title?: string;
   subtitle?: string;
+  helpContent?: ReactNode;
 }
 
 export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
   budgetYear,
   title = 'Ejecución presupuestaria',
   subtitle,
+  helpContent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [tooltip, setTooltip] = useState<TooltipState>({ visible: false, x: 0, y: 0, datum: null });
+  const [showHelp, setShowHelp] = useState(false);
+  const helpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearHelpTimer = () => { if (helpTimerRef.current) { clearTimeout(helpTimerRef.current); helpTimerRef.current = null; } };
+  const handleHelpMouseEnter = () => clearHelpTimer();
+  const handleHelpMouseLeave = () => { if (showHelp) helpTimerRef.current = setTimeout(() => setShowHelp(false), 5000); };
+  useEffect(() => () => { if (helpTimerRef.current) clearTimeout(helpTimerRef.current); }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -148,11 +159,27 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
   const handleMouseLeave = () => setTooltip(prev => ({ ...prev, visible: false }));
 
   return (
-    <div className={`${cardClass} flex flex-col`} style={cardStyle}>
-      <div className="mb-4">
-        <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
-        {subtitle && (
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">{subtitle}</p>
+    <div
+      className={`${cardClass} flex flex-col`}
+      style={cardStyle}
+      onMouseEnter={handleHelpMouseEnter}
+      onMouseLeave={handleHelpMouseLeave}
+    >
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-black text-gray-800 uppercase tracking-widest">{title}</h3>
+          {subtitle && (
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tight mt-0.5">{subtitle}</p>
+          )}
+        </div>
+        {helpContent && (
+          <button
+            onClick={() => { clearHelpTimer(); setShowHelp(v => !v); }}
+            className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 transition-all bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600"
+            aria-label={showHelp ? 'Cerrar ayuda' : 'Mostrar ayuda'}
+          >
+            {showHelp ? <X className="w-3.5 h-3.5" /> : <HelpCircle className="w-3.5 h-3.5" />}
+          </button>
         )}
       </div>
 
@@ -244,6 +271,16 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
           </div>
         )}
       </div>
+
+      {/* Expandable help section */}
+      {helpContent && showHelp && (
+        <>
+          <div className="border-t border-black/10 mt-4" />
+          <div className="text-[11px] leading-relaxed text-gray-500 mt-3">
+            {helpContent}
+          </div>
+        </>
+      )}
     </div>
   );
 };

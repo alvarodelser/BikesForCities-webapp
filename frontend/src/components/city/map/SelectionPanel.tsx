@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Maximize2, Minus, Square } from 'lucide-react';
+import { X, Maximize2, Minus, Square, Play } from 'lucide-react';
 import { Wine, Pill } from '@phosphor-icons/react';
 import type { SelectionDetail } from '../../../types/selection';
 import AnimatedProgressBar from '../../ui/AnimatedProgressBar';
@@ -180,16 +180,26 @@ export default function SelectionPanel({
                         )}
                         {selection.rows && selection.rows.length > 0 && (
                             <div className="flex flex-col gap-1 mt-0.5">
-                                {selection.rows.map(row => {
+                                {selection.rows.map((row, i) => {
                                     const RowIcon = row.icon;
+                                    const isLast = i === selection.rows!.length - 1;
                                     return (
-                                    <div key={row.label} className="flex items-baseline justify-between gap-3">
+                                    <div key={row.label} className="flex items-center justify-between gap-3">
                                         <span className="text-[9px] font-semibold text-black/35 uppercase tracking-wide">
                                             {row.label}
                                         </span>
-                                        <span className="text-[11px] font-bold flex items-center gap-1" style={{ color: row.accent ?? 'rgba(0,0,0,0.7)' }}>
+                                        <span className="text-[11px] font-bold flex items-center gap-1.5" style={{ color: row.accent ?? 'rgba(0,0,0,0.7)' }}>
                                             {RowIcon && <RowIcon size={11} weight="bold" />}
                                             {row.value}
+                                            {isLast && !selection.routeProgress && selection.onResume && (
+                                                <button
+                                                    onClick={selection.onResume}
+                                                    title="Reanudar carga"
+                                                    className="flex items-center justify-center w-4 h-4 rounded-full border border-black/10 bg-black/5 hover:bg-green-50 hover:border-green-200 hover:text-green-600 text-black/35 transition-all"
+                                                >
+                                                    <Play className="w-2 h-2 fill-current" />
+                                                </button>
+                                            )}
                                         </span>
                                     </div>
                                     );
@@ -280,14 +290,18 @@ export default function SelectionPanel({
                             }} />
                         )}
                         {selection.routeProgress && (() => {
-                            const { loaded, total, onStop } = selection.routeProgress;
-                            const progressValue = total > 0 ? Math.min(100, (loaded / total) * 100) : undefined;
+                            const { loaded, onStop } = selection.routeProgress;
                             return (
                                 <div className="mt-1.5 flex flex-col gap-1">
-                                    <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2">
                                         <div className="flex-1">
-                                            <AnimatedProgressBar color={accent} value={progressValue} />
+                                            <AnimatedProgressBar key={Math.floor(loaded / 100)} color={accent} />
                                         </div>
+                                        {loaded > 0 && (
+                                            <span className="text-[9px] font-bold tabular-nums shrink-0" style={{ color: accent }}>
+                                                {loaded.toLocaleString()}
+                                            </span>
+                                        )}
                                         {onStop && (
                                             <button
                                                 onClick={onStop}
@@ -326,6 +340,16 @@ export default function SelectionPanel({
                                 </div>
                             );
                         })()}
+                        {selection.activeSubmode === 'heatmap' && (
+                            <div className="mt-2 flex flex-col gap-1">
+                                <span className="text-[8px] font-black text-black/30 uppercase tracking-widest">Concentración de trayectos</span>
+                                <div className="h-2.5 w-full rounded-full" style={{ background: 'linear-gradient(to right, #BFDDCE, #027A76, #014440)' }} />
+                                <div className="flex justify-between text-[8px] text-black/30 font-semibold">
+                                    <span>Baja</span>
+                                    <span>Alta</span>
+                                </div>
+                            </div>
+                        )}
                         {extraContent}
                     </div>
                 )}

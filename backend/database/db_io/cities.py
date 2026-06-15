@@ -680,7 +680,8 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
                         )
                     ) FROM city_budget_categories cat
                       WHERE cat.city_id = cb.city_id
-                        AND cat.year = cb.year),
+                        AND cat.year = cb.year
+                        AND cat.classification = 'functional'),
                     '[]'::json
                 ) AS lines
             FROM city_budgets cb
