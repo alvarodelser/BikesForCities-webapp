@@ -15,7 +15,7 @@ import { fetchInfraStats, fetchCityBudgets, fetchCityContext, fetchMayorsTimelin
 import type { InfraStats, BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
 import TransparencyStats from './map/modes/transparency/TransparencyStats';
 import BudgetSunburst, { MOBILITY_CODES } from './plots/BudgetSunburst';
-import { buildSunburstTree } from '../../utils/budget';
+import { buildSunburstTree, resolveBudgetType } from '../../utils/budget';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
@@ -130,7 +130,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const [infraStats, setInfraStats] = useState<InfraStats | null>(null);
     const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
     const [selectedYear, setSelectedYear] = useState<number>(0);
-    const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
+    const [highlightCodes, setHighlightCodes] = useState<Set<string>>(() => new Set(MOBILITY_CODES));
+    const budgetType = resolveBudgetType(budgetYears.find(by => by.year === selectedYear));
     const [mayors, setMayors] = useState<MayorTerm[]>([]);
     const [elections, setElections] = useState<ElectionResult[]>([]);
     const [councilors, setCouncilors] = useState<CouncilorRecord[]>([]);
@@ -189,9 +190,10 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
                     year={selectedYear}
                     budgetType={budgetType}
-                    onBudgetTypeChange={setBudgetType}
+                    onBudgetTypeChange={() => {}}
                     showToggle={true}
-                    mobilityHighlight={MOBILITY_CODES}
+                    showBudgetTypeToggle={false}
+                    mobilityHighlight={highlightCodes}
                 />
             </div>
         </div>
@@ -227,8 +229,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                     budgetYears={budgetYears}
                     selectedYear={selectedYear}
                     onYearChange={setSelectedYear}
-                    budgetType={budgetType}
-                    onBudgetTypeChange={setBudgetType}
+                    highlightCodes={highlightCodes}
+                    onHighlightChange={setHighlightCodes}
                     mayors={mayors}
                     elections={elections}
                     councilors={councilors}
@@ -280,8 +282,8 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                                         budgetYears={budgetYears}
                                         selectedYear={selectedYear}
                                         onYearChange={setSelectedYear}
-                                        budgetType={budgetType}
-                                        onBudgetTypeChange={setBudgetType}
+                                        highlightCodes={highlightCodes}
+                                        onHighlightChange={setHighlightCodes}
                                         mayors={mayors}
                                         elections={elections}
                                         councilors={councilors}

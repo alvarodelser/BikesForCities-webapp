@@ -4,7 +4,7 @@ import { useMapState } from '../../hooks/useMapState';
 import CityMap from './CityMap';
 import MapSheetContent from './MapSheetContent';
 import BudgetSunburst, { MOBILITY_CODES } from './plots/BudgetSunburst';
-import { buildSunburstTree } from '../../utils/budget';
+import { buildSunburstTree, resolveBudgetType } from '../../utils/budget';
 import { fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
 
@@ -71,7 +71,8 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
   // Transparency / budget state
   const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(0);
-  const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
+  const [highlightCodes, setHighlightCodes] = useState<Set<string>>(() => new Set(MOBILITY_CODES));
+  const budgetType = resolveBudgetType(budgetYears.find(by => by.year === selectedYear));
   const [mayors, setMayors] = useState<MayorTerm[]>([]);
   const [elections, setElections] = useState<ElectionResult[]>([]);
   const [councilors, setCouncilors] = useState<CouncilorRecord[]>([]);
@@ -156,8 +157,8 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
     budgetYears,
     selectedYear,
     onYearChange: setSelectedYear,
-    budgetType,
-    onBudgetTypeChange: setBudgetType,
+    highlightCodes,
+    onHighlightChange: setHighlightCodes,
     mayors,
     elections,
     councilors,
@@ -186,9 +187,10 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
               data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
               year={selectedYear}
               budgetType={budgetType}
-              onBudgetTypeChange={setBudgetType}
+              onBudgetTypeChange={() => {}}
               showToggle={true}
-              mobilityHighlight={MOBILITY_CODES}
+              showBudgetTypeToggle={false}
+              mobilityHighlight={highlightCodes}
             />
           </div>
         </div>

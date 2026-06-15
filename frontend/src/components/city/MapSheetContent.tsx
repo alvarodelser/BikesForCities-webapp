@@ -7,8 +7,8 @@ export interface TransparencyDataProps {
   budgetYears: BudgetYear[];
   selectedYear: number;
   onYearChange: (year: number) => void;
-  budgetType: 'planned' | 'executed';
-  onBudgetTypeChange: (t: 'planned' | 'executed') => void;
+  highlightCodes: Set<string>;
+  onHighlightChange: (next: Set<string>) => void;
   mayors: MayorTerm[];
   elections: ElectionResult[];
   councilors?: CouncilorRecord[];

@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
-import { ChartBar } from '@phosphor-icons/react';
 import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
+import CategoryEvolutionChart from '../../../plots/CategoryEvolutionChart';
+import { CategoryHighlightControl } from './CategoryHighlightControl';
+import { buildCategoryOptions } from '../../../../../utils/budget';
 import MetricPill from '../../../pills/MetricPill';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
@@ -14,8 +16,8 @@ interface TransparencyStatsProps {
   budgetYears: BudgetYear[];
   selectedYear: number;
   onYearChange: (year: number) => void;
-  budgetType: 'planned' | 'executed';
-  onBudgetTypeChange: (t: 'planned' | 'executed') => void;
+  highlightCodes: Set<string>;
+  onHighlightChange: (next: Set<string>) => void;
   mayors: MayorTerm[];
   elections: ElectionResult[];
   councilors?: CouncilorRecord[];
@@ -34,8 +36,8 @@ export default function TransparencyStats({
   budgetYears,
   selectedYear,
   onYearChange,
-  budgetType,
-  onBudgetTypeChange,
+  highlightCodes,
+  onHighlightChange,
   mayors,
   elections,
   councilors,
@@ -59,6 +61,11 @@ export default function TransparencyStats({
   const yearData = useMemo(
     () => budgetYears.find(by => by.year === selectedYear) ?? null,
     [budgetYears, selectedYear],
+  );
+
+  const categoryOptions = useMemo(
+    () => buildCategoryOptions(budgetYears),
+    [budgetYears],
   );
 
   const democraticMayors = useMemo(() => {
@@ -100,44 +107,12 @@ export default function TransparencyStats({
               ) : null}
             </div>
 
-            {/* ── Budget type card ──────────────────────────────────────── */}
-            <div
-              className="rounded-2xl border bg-white/80 backdrop-blur-sm overflow-hidden w-1/3"
-              style={{ borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}
-            >
-              <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-                <div
-                  className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${ACCENT}, ${ACCENT}cc)`, boxShadow: `0 4px 12px ${ACCENT}55` }}
-                >
-                  <ChartBar size={16} color="white" weight="bold" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-bold text-[var(--blue-dark)]">Tipo de presupuesto</h3>
-                  <p className="text-[10px] text-[var(--blue)] opacity-70 leading-snug">Alterna entre el presupuesto aprobado y el gasto realmente ejecutado.</p>
-                </div>
-              </div>
-              <div className="px-4 pb-4 flex flex-wrap gap-1.5">
-                {(['planned', 'executed'] as const).map(t => {
-                  const isActive = budgetType === t;
-                  return (
-                    <button
-                      key={t}
-                      onClick={() => onBudgetTypeChange(t)}
-                      className="px-3 py-1 rounded-xl text-xs font-bold transition-all border"
-                      style={{
-                        backgroundColor: isActive ? ACCENT : 'white',
-                        borderColor: isActive ? ACCENT : 'rgba(0,0,0,0.08)',
-                        color: isActive ? 'white' : 'var(--blue-dark)',
-                        boxShadow: isActive ? `0 4px 12px ${ACCENT}40` : undefined,
-                      }}
-                    >
-                      {t === 'planned' ? 'Planificado' : 'Ejecutado'}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* ── Category highlight control ────────────────────────────── */}
+            <CategoryHighlightControl
+              categories={categoryOptions}
+              selected={highlightCodes}
+              onChange={onHighlightChange}
+            />
           </div>
 
           {/* ── Summary metric cards ─────────────────────────────────────── */}
@@ -189,6 +164,13 @@ export default function TransparencyStats({
               }
             />
           )}
+
+          {/* ── Category expense evolution ───────────────────────────────── */}
+          <CategoryEvolutionChart
+            budgetYears={budgetYears}
+            categories={categoryOptions}
+            selected={highlightCodes}
+          />
         </>
       )}
 

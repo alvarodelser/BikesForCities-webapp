@@ -10,6 +10,7 @@ import TransparencyStats from './map/modes/transparency/TransparencyStats';
 import { fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
 import type { TransparencyDataProps } from './MapSheetContent';
+import { MOBILITY_CODES } from './plots/BudgetSunburst';
 
 interface ModeStatsRouterProps {
   city: CityData;
@@ -20,7 +21,7 @@ interface ModeStatsRouterProps {
 const TransparencyContainer: React.FC<{ city: CityData; variant?: 'light' | 'darkTint' }> = ({ city, variant }) => {
   const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
   const [selectedYear, setSelectedYear] = useState<number>(0);
-  const [budgetType, setBudgetType] = useState<'planned' | 'executed'>('planned');
+  const [highlightCodes, setHighlightCodes] = useState<Set<string>>(() => new Set(MOBILITY_CODES));
   const [mayors, setMayors] = useState<MayorTerm[]>([]);
   const [elections, setElections] = useState<ElectionResult[]>([]);
   const [councilors, setCouncilors] = useState<CouncilorRecord[]>([]);
@@ -48,8 +49,8 @@ const TransparencyContainer: React.FC<{ city: CityData; variant?: 'light' | 'dar
       budgetYears={budgetYears}
       selectedYear={selectedYear}
       onYearChange={setSelectedYear}
-      budgetType={budgetType}
-      onBudgetTypeChange={setBudgetType}
+      highlightCodes={highlightCodes}
+      onHighlightChange={setHighlightCodes}
       mayors={mayors}
       elections={elections}
       councilors={councilors}
@@ -78,8 +79,8 @@ const ModeStatsRouter: React.FC<ModeStatsRouterProps> = ({ city, variant, transp
             budgetYears={transparencyData.budgetYears}
             selectedYear={transparencyData.selectedYear}
             onYearChange={transparencyData.onYearChange}
-            budgetType={transparencyData.budgetType}
-            onBudgetTypeChange={transparencyData.onBudgetTypeChange}
+            highlightCodes={transparencyData.highlightCodes}
+            onHighlightChange={transparencyData.onHighlightChange}
             mayors={transparencyData.mayors}
             elections={transparencyData.elections}
             councilors={transparencyData.councilors}
