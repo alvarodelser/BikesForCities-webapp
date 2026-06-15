@@ -63,6 +63,7 @@ export const CategoryHighlightControl: React.FC<CategoryHighlightControlProps> =
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Buscar área…"
+            aria-label="Buscar área de gasto"
             className="w-full rounded-xl border bg-white/70 pl-8 pr-3 py-1.5 text-xs text-[var(--blue-dark)] placeholder:text-[var(--blue-dark)]/40 focus:outline-none focus:ring-2"
             style={{ borderColor: 'rgba(0,0,0,0.08)' }}
           />
@@ -78,6 +79,9 @@ export const CategoryHighlightControl: React.FC<CategoryHighlightControlProps> =
             return (
               <button
                 key={cat.code}
+                type="button"
+                role="checkbox"
+                aria-checked={isOn}
                 onClick={() => toggle(cat.code)}
                 className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-colors hover:bg-black/5"
               >
