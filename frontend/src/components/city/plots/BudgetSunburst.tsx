@@ -19,6 +19,7 @@ interface BudgetSunburstProps {
   subtitle?: string;
   variant?: 'overlay' | 'panel';
   showToggle?: boolean;
+  showBudgetTypeToggle?: boolean;
   mobilityHighlight?: Set<string>;
 }
 
@@ -175,7 +176,7 @@ interface HoverState {
 
 export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   data, year, budgetType, onBudgetTypeChange,
-  subtitle, variant = 'overlay', showToggle = true, mobilityHighlight,
+  subtitle, variant = 'overlay', showToggle = true, showBudgetTypeToggle = true, mobilityHighlight,
 }) => {
   const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
@@ -624,18 +625,20 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           </div>
 
           {/* Planned / executed */}
-          <div className={`flex items-center gap-1 p-1 rounded-xl flex-shrink-0 ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
-            {(['planned', 'executed'] as const).map(t => (
-              <button key={t} onClick={() => onBudgetTypeChange(t)}
-                className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  budgetType === t
-                    ? isPanel ? 'bg-white text-gray-800 shadow-sm' : 'bg-white/20 text-white shadow-sm'
-                    : isPanel ? 'text-gray-400 hover:text-gray-600' : 'text-white/50 hover:text-white/80'
-                }`}>
-                {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
-              </button>
-            ))}
-          </div>
+          {showBudgetTypeToggle && (
+            <div className={`flex items-center gap-1 p-1 rounded-xl flex-shrink-0 ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
+              {(['planned', 'executed'] as const).map(t => (
+                <button key={t} onClick={() => onBudgetTypeChange(t)}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
+                    budgetType === t
+                      ? isPanel ? 'bg-white text-gray-800 shadow-sm' : 'bg-white/20 text-white shadow-sm'
+                      : isPanel ? 'text-gray-400 hover:text-gray-600' : 'text-white/50 hover:text-white/80'
+                  }`}>
+                  {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -739,22 +742,26 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
           </svg>
         )}
 
-        {/* ── Mobility legend ── */}
-        {mobilityHighlight && (
+        {/* ── Highlight legend ── */}
+        {mobilityHighlight && mobilityHighlight.size > 0 && (
           <div className="absolute bottom-8 right-6 flex flex-col items-end gap-0.5">
-            {Object.entries(MOBILITY_ICONS).map(([code, IconComp]) => (
-              <div
-                key={code}
-                className="flex items-center gap-1 cursor-default"
-                onMouseEnter={() => handleLegendEnter(code)}
-                onMouseLeave={() => setHovered(null)}
-              >
-                <span style={{ fontSize: 8, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85 }}>
-                  {MOBILITY_LEGEND[code]}
-                </span>
-                <IconComp size={9} weight="bold" color="#059669" />
-              </div>
-            ))}
+            {[...mobilityHighlight].map(code => {
+              const IconComp = MOBILITY_ICONS[code];
+              const label = MOBILITY_LEGEND[code] ?? findNode(data, code)?.name ?? code;
+              return (
+                <div
+                  key={code}
+                  className="flex items-center gap-1 cursor-default"
+                  onMouseEnter={() => handleLegendEnter(code)}
+                  onMouseLeave={() => setHovered(null)}
+                >
+                  <span style={{ fontSize: 8, fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.85 }}>
+                    {label}
+                  </span>
+                  {IconComp && <IconComp size={9} weight="bold" color="#059669" />}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
