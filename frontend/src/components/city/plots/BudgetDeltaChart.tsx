@@ -13,7 +13,7 @@ export interface DeltaDatum {
   deltaPct: number | null;
 }
 
-export function buildDeltaData(budgetYear: BudgetYear): DeltaDatum[] {
+export function buildDeltaData(budgetYear: BudgetYear, codes?: Set<string>): DeltaDatum[] {
   const { lines } = budgetYear;
   if (lines.length === 0) return [];
 
@@ -22,13 +22,20 @@ export function buildDeltaData(budgetYear: BudgetYear): DeltaDatum[] {
   const hasExecuted = lines.some(l => l.budget_type === 'executed');
   if (!hasPlanned || !hasExecuted) return [];
 
-  const minLen = Math.min(...lines.map(l => l.category_code.length));
-  const topLines = lines.filter(l => l.category_code.length === minLen);
+  // When a code filter is given, compare exactly those categories (at any depth);
+  // otherwise fall back to the top-level areas.
+  let relevant: typeof lines;
+  if (codes && codes.size > 0) {
+    relevant = lines.filter(l => codes.has(l.category_code));
+  } else {
+    const minLen = Math.min(...lines.map(l => l.category_code.length));
+    relevant = lines.filter(l => l.category_code.length === minLen);
+  }
 
   const planned = new Map<string, { name: string; amount: number }>();
   const executed = new Map<string, { name: string; amount: number }>();
 
-  for (const line of topLines) {
+  for (const line of relevant) {
     const map = line.budget_type === 'planned' ? planned : line.budget_type === 'executed' ? executed : null;
     if (!map) continue;
     const existing = map.get(line.category_code);
@@ -38,8 +45,8 @@ export function buildDeltaData(budgetYear: BudgetYear): DeltaDatum[] {
     });
   }
 
-  const codes = new Set([...planned.keys(), ...executed.keys()]);
-  return Array.from(codes)
+  const resultCodes = new Set([...planned.keys(), ...executed.keys()]);
+  return Array.from(resultCodes)
     .map(code => {
       const p = planned.get(code)?.amount ?? 0;
       const e = executed.get(code)?.amount ?? 0;
@@ -82,6 +89,8 @@ interface BudgetDeltaChartProps {
   title?: string;
   subtitle?: string;
   helpContent?: ReactNode;
+  /** When provided, only these category codes are compared (at any depth). */
+  filterCodes?: Set<string>;
 }
 
 export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
@@ -89,6 +98,7 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
   title = 'Ejecución presupuestaria',
   subtitle,
   helpContent,
+  filterCodes,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -111,7 +121,7 @@ export const BudgetDeltaChart: React.FC<BudgetDeltaChartProps> = ({
     return () => ro.disconnect();
   }, []);
 
-  const data = useMemo(() => buildDeltaData(budgetYear), [budgetYear]);
+  const data = useMemo(() => buildDeltaData(budgetYear, filterCodes), [budgetYear, filterCodes]);
 
   const innerWidth = Math.max(width - MARGIN.left - MARGIN.right, 0);
   const innerHeight = CHART_HEIGHT - MARGIN.top - MARGIN.bottom;

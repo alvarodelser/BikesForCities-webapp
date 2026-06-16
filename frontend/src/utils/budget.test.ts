@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSunburstTree, resolveBudgetType, buildCategoryOptions, buildCategorySeries } from './budget';
+import { buildSunburstTree, resolveBudgetType, buildCategoryOptions, buildCategorySeries, latestYearWithBoth } from './budget';
 import type { BudgetYear } from '../services/api';
 
 const sampleYear: BudgetYear = {
@@ -127,5 +127,18 @@ describe('buildCategorySeries', () => {
   });
   it('returns rows with only the year when no codes are requested', () => {
     expect(buildCategorySeries([year2022], [])).toEqual([{ year: 2022 }]);
+  });
+});
+
+describe('latestYearWithBoth', () => {
+  it('returns the latest year that has both planned and executed lines', () => {
+    // year2022 has both; year2023 has only planned → 2022 is the latest "complete" year
+    expect(latestYearWithBoth([year2023, year2022])?.year).toBe(2022);
+  });
+  it('returns null when no year has both budget types', () => {
+    expect(latestYearWithBoth([year2023])).toBeNull();
+  });
+  it('returns null for an empty list', () => {
+    expect(latestYearWithBoth([])).toBeNull();
   });
 });

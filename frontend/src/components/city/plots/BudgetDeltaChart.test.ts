@@ -48,6 +48,29 @@ describe('buildDeltaData', () => {
     expect(buildDeltaData(onlyPlanned)).toHaveLength(0);
   });
 
+  it('filters to the given category codes (any depth) when provided', () => {
+    const nested: BudgetYear = {
+      ...sampleYear,
+      lines: [
+        { category_code: '1',   category_name: 'Personal',    amount: 200_000, budget_type: 'planned' },
+        { category_code: '1',   category_name: 'Personal',    amount: 220_000, budget_type: 'executed' },
+        { category_code: '133', category_name: 'Tráfico',     amount: 10_000,  budget_type: 'planned' },
+        { category_code: '133', category_name: 'Tráfico',     amount: 9_000,   budget_type: 'executed' },
+        { category_code: '2',   category_name: 'Inversiones', amount: 80_000,  budget_type: 'planned' },
+        { category_code: '2',   category_name: 'Inversiones', amount: 60_000,  budget_type: 'executed' },
+      ],
+    };
+    const data = buildDeltaData(nested, new Set(['133']));
+    expect(data).toHaveLength(1);
+    expect(data[0].code).toBe('133');
+    expect(data[0].delta).toBe(-1_000); // 9000 - 10000
+  });
+
+  it('ignores the code filter when the set is empty (top-level behavior)', () => {
+    const data = buildDeltaData(sampleYear, new Set());
+    expect(data.map(d => d.code).sort()).toEqual(['1', '2']);
+  });
+
   it('sets deltaPct to null when planned amount is zero for a category', () => {
     const mixedYear: BudgetYear = {
       ...sampleYear,

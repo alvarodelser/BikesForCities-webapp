@@ -5,7 +5,7 @@ import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
 import CategoryEvolutionChart from '../../../plots/CategoryEvolutionChart';
 import { CategoryHighlightControl } from './CategoryHighlightControl';
-import { buildCategoryOptions } from '../../../../../utils/budget';
+import { buildCategoryOptions, latestYearWithBoth } from '../../../../../utils/budget';
 import MetricPill from '../../../pills/MetricPill';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
@@ -65,6 +65,12 @@ export default function TransparencyStats({
 
   const categoryOptions = useMemo(
     () => buildCategoryOptions(budgetYears),
+    [budgetYears],
+  );
+
+  // Planned-vs-executed comparison uses the latest year that actually has both.
+  const deltaYear = useMemo(
+    () => latestYearWithBoth(budgetYears),
     [budgetYears],
   );
 
@@ -150,16 +156,17 @@ export default function TransparencyStats({
           </div>
 
           {/* ── Budget delta chart ───────────────────────────────────────── */}
-          {yearData && (
+          {deltaYear && (
             <BudgetDeltaChart
-              budgetYear={yearData}
+              budgetYear={deltaYear}
+              filterCodes={highlightCodes}
               title="Ejecución presupuestaria"
-              subtitle={`Ejecutado − Planificado · ${selectedYear}`}
+              subtitle={`Ejecutado − Planificado · ${deltaYear.year}`}
               helpContent={
                 <>
-                  <p><strong>QUÉ VES</strong>: La desviación por área de gasto entre lo ejecutado y lo planificado en el año seleccionado. Las barras hacia abajo indican menos gasto del previsto; hacia arriba, más.</p>
+                  <p><strong>QUÉ VES</strong>: La desviación entre lo ejecutado y lo planificado para las áreas destacadas. Las barras hacia abajo indican menos gasto del previsto; hacia arriba, más.</p>
                   <p><strong>POR QUÉ IMPORTA</strong>: Un presupuesto solo se cumple cuando lo planificado se ejecuta. Las desviaciones revelan qué prioridades se reforzaron o recortaron en la práctica frente a lo aprobado.</p>
-                  <p><strong>METODOLOGÍA</strong>: Para cada área de primer nivel se restan los importes planificados de los ejecutados. Solo se muestran años con ambos tipos de presupuesto disponibles.</p>
+                  <p><strong>METODOLOGÍA</strong>: Se restan los importes planificados de los ejecutados para cada área seleccionada en el panel, usando el año más reciente que dispone de ambos tipos de presupuesto.</p>
                 </>
               }
             />
