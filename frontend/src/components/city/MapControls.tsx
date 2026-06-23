@@ -10,7 +10,7 @@ interface MapControlsProps {
 
 const MapControls: React.FC<MapControlsProps> = ({ colorScheme, vertical = false, onHelpClick }) => {
     const { zoomIn, zoomOut, reset, toggleBackground } = useMap();
-    const [showBackground, setShowBackground] = useState(true);
+    const [showBackground, setShowBackground] = useState(false);
 
     const handleToggleBackground = () => {
         const next = !showBackground;

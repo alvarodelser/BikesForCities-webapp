@@ -19,8 +19,8 @@ function openHelp() {
   fireEvent.click(screen.getByRole('button', { name: /mostrar información/i }));
 }
 
-describe('FilterCard — per-option methodology', () => {
-  it('shows the active option text in metodología when help is open', () => {
+describe('FilterCard — per-option methodology accordion', () => {
+  it('shows active option text expanded when help is open', () => {
     render(
       <FilterCard
         icon={Network}
@@ -37,7 +37,7 @@ describe('FilterCard — per-option methodology', () => {
     expect(screen.getByText('GPS text.')).toBeInTheDocument();
   });
 
-  it('does not show other options text before toggle', () => {
+  it('does not show other options text by default', () => {
     render(
       <FilterCard
         icon={Network}
@@ -55,7 +55,7 @@ describe('FilterCard — per-option methodology', () => {
     expect(screen.queryByText('Population text.')).not.toBeInTheDocument();
   });
 
-  it('shows "Ver otros (2)" toggle button', () => {
+  it('shows chevron buttons for non-active options', () => {
     render(
       <FilterCard
         icon={Network}
@@ -69,10 +69,11 @@ describe('FilterCard — per-option methodology', () => {
       />,
     );
     openHelp();
-    expect(screen.getByRole('button', { name: /ver otros \(2\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expandir estaciones/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expandir población/i })).toBeInTheDocument();
   });
 
-  it('expands other options on toggle click', () => {
+  it('expands an individual other option on click', () => {
     render(
       <FilterCard
         icon={Network}
@@ -86,12 +87,12 @@ describe('FilterCard — per-option methodology', () => {
       />,
     );
     openHelp();
-    fireEvent.click(screen.getByRole('button', { name: /ver otros/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expandir estaciones/i }));
     expect(screen.getByText('Stations text.')).toBeInTheDocument();
-    expect(screen.getByText('Population text.')).toBeInTheDocument();
+    expect(screen.queryByText('Population text.')).not.toBeInTheDocument();
   });
 
-  it('collapses other options when toggle clicked again', () => {
+  it('collapses an expanded other option when clicked again', () => {
     render(
       <FilterCard
         icon={Network}
@@ -105,13 +106,13 @@ describe('FilterCard — per-option methodology', () => {
       />,
     );
     openHelp();
-    fireEvent.click(screen.getByRole('button', { name: /ver otros/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expandir estaciones/i }));
     expect(screen.getByText('Stations text.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /ocultar otras opciones/i }));
+    fireEvent.click(screen.getByRole('button', { name: /colapsar estaciones/i }));
     expect(screen.queryByText('Stations text.')).not.toBeInTheDocument();
   });
 
-  it('shows all options equally when no activeValue', () => {
+  it('shows all options collapsed when no activeValue', () => {
     render(
       <FilterCard
         icon={Network}
@@ -125,10 +126,9 @@ describe('FilterCard — per-option methodology', () => {
       />,
     );
     openHelp();
-    expect(screen.getByText('GPS text.')).toBeInTheDocument();
-    expect(screen.getByText('Stations text.')).toBeInTheDocument();
-    expect(screen.getByText('Population text.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /ver otros/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('GPS text.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Stations text.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expandir gps real/i })).toBeInTheDocument();
   });
 
   it('falls back to flat text when only helpComoSeRecogieron is provided', () => {
@@ -147,7 +147,7 @@ describe('FilterCard — per-option methodology', () => {
     expect(screen.getByText('Flat fallback text.')).toBeInTheDocument();
   });
 
-  it('collapses others when help is closed and reopened', () => {
+  it('collapses expanded others when help is closed and reopened', () => {
     render(
       <FilterCard
         icon={Network}
@@ -160,15 +160,12 @@ describe('FilterCard — per-option methodology', () => {
         helpComoSeRecogieronPerOption={PER_OPTION}
       />,
     );
-    // Open help, expand others
     openHelp();
-    fireEvent.click(screen.getByRole('button', { name: /ver otros/i }));
+    fireEvent.click(screen.getByRole('button', { name: /expandir estaciones/i }));
     expect(screen.getByText('Stations text.')).toBeInTheDocument();
-    // Close help
     fireEvent.click(screen.getByRole('button', { name: /cerrar información/i }));
-    // Reopen help — others should be collapsed again
     openHelp();
     expect(screen.queryByText('Stations text.')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ver otros \(2\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expandir estaciones/i })).toBeInTheDocument();
   });
 });

@@ -82,7 +82,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 },
                 layers: [
                     { id: 'background', type: 'background', paint: { 'background-color': '#FBF6EF' } } as any,
-                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' } } as any,
+                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'none' } } as any,
                 ],
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
@@ -194,7 +194,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             // toggleBackground also calls moveLayer to keep them on top after mode layers are added.
             mapInstance.addLayer({
                 id: 'carto-labels-layer', type: 'raster', source: 'carto-labels',
-                minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' },
+                minzoom: 0, maxzoom: 19, layout: { visibility: 'none' },
             });
 
             setLoading(false);

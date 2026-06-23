@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { CityData } from '../../constants/cities';
 import CityCanvas from './map/CityCanvas';
 import CityLegend from './map/CityLegend';
@@ -119,13 +119,16 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
         }
     }, [mapInstance]);
 
+    const prevLockedRef = useRef(false);
     // When locked (transparency mode): hide base tiles and zoom in; restore when unlocked
     React.useEffect(() => {
         if (!mapInstance) return;
         if (locked) {
+            prevLockedRef.current = true;
             toggleBackground(false);
             mapInstance.easeTo({ zoom: 13, duration: 800 });
-        } else {
+        } else if (prevLockedRef.current) {
+            prevLockedRef.current = false;
             toggleBackground(true);
         }
     }, [locked, mapInstance, toggleBackground]);

@@ -31,9 +31,9 @@ const ALGORITHM_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const PELIG_CASES = [
-  { label: 'carril bici', p: 0,  dash: '',      sw: 1.0, opacity: 0.40, highlights: ['cycleway', '≤ 30', '1 carril'] },
-  { label: 'terc. 2c',    p: 15, dash: '5 3',   sw: 1.3, opacity: 0.65, highlights: ['resid./terc.', '≤ 50', '2 carriles'] },
-  { label: 'prim. 4c',    p: 36, dash: '',      sw: 1.8, opacity: 0.85, highlights: ['primaria', '≤ 50', '≥ 4 carriles'] },
+  { label: 'carril bici',   p: 0,  dash: '',    sw: 1.0, opacity: 0.40, highlights: ['cycleway', '≤ 30', '1 carril'] },
+  { label: 'calle terc. 2c', p: 15, dash: '5 3', sw: 1.3, opacity: 0.65, highlights: ['resid./terc.', '≤ 50', '2 carriles'] },
+  { label: 'vía prim. 4c',  p: 36, dash: '',    sw: 1.8, opacity: 0.85, highlights: ['primaria', '≤ 50', '≥ 4 carriles'] },
 ] as const;
 
 const PELIG_ROWS = [
@@ -54,11 +54,11 @@ const PELIG_ROWS = [
 function PeligrosidadSection() {
   const [hover, setHover] = useState<number | null>(null);
 
-  const W = 170, H = 80;
-  const ml = 6, mr = 58, mt = 4, mb = 16;
-  const pw = W - ml - mr;
-  const ph = H - mt - mb;
-  const X_MIN = 10, X_MAX = 400, Y_MAX = 720;
+  const W = 192, H = 170;
+  const ml = 28, mr = 68, mt = 6, mb = 18;
+  const pw = W - ml - mr;  // 96
+  const ph = H - mt - mb;  // 146
+  const X_MIN = 10, X_MAX = 800, Y_MAX = 1500;
 
   const cost = (l: number, p: number) => l * (1 + (p * Math.log10(l)) / 144);
   const sx = (l: number) => ml + ((l - X_MIN) / (X_MAX - X_MIN)) * pw;
@@ -119,26 +119,39 @@ function PeligrosidadSection() {
         className="flex-shrink-0 overflow-visible text-[var(--blue-dark)]"
         onMouseLeave={() => setHover(null)}
       >
-        {[200, 400, 600].map(v => (
-          <line key={v} x1={ml} x2={ml + pw} y1={sy(v)} y2={sy(v)} stroke="currentColor" strokeOpacity={0.06} strokeWidth={0.5} />
+        {/* Y-axis grid lines */}
+        {[400, 800, 1200].map(v => (
+          <line key={v} x1={ml} x2={ml + pw} y1={sy(v)} y2={sy(v)}
+            stroke="currentColor" strokeOpacity={0.06} strokeWidth={0.5} />
         ))}
+        {/* Axes */}
         <line x1={ml} x2={ml + pw} y1={sy(0)} y2={sy(0)} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.75} />
         <line x1={ml} x2={ml} y1={mt} y2={mt + ph} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.75} />
-        {[100, 200, 300, 400].map(v => (
+        {/* Y-axis tick labels (cost) */}
+        {[0, 400, 800, 1200].map(v => (
           <g key={v}>
-            <line x1={sx(v)} x2={sx(v)} y1={sy(0)} y2={sy(0) + 3} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.5} />
-            <text x={sx(v)} y={sy(0) + 10} textAnchor="middle" fontSize={6} fill="currentColor" fillOpacity={0.35}>{v}</text>
+            <line x1={ml - 2} x2={ml} y1={sy(v)} y2={sy(v)} stroke="currentColor" strokeOpacity={0.2} strokeWidth={0.5} />
+            <text x={ml - 4} y={sy(v) + 2.5} textAnchor="end" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>{v}</text>
           </g>
         ))}
-        <text x={ml + pw / 2} y={H - 1} textAnchor="middle" fontSize={6} fill="currentColor" fillOpacity={0.35}>m</text>
+        {/* X-axis ticks */}
+        {[200, 400, 600, 800].map(v => (
+          <g key={v}>
+            <line x1={sx(v)} x2={sx(v)} y1={sy(0)} y2={sy(0) + 3} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.5} />
+            <text x={sx(v)} y={sy(0) + 9} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>{v}</text>
+          </g>
+        ))}
+        <text x={ml + pw / 2} y={H - 2} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>m</text>
+        {/* Lines */}
         {PELIG_CASES.map((c, i) => {
           const active = hover === i;
           const faded = hover !== null && !active;
+          const endY = sy(cost(X_MAX, c.p));
+          const endCost = Math.round(cost(X_MAX, c.p));
+          const labelOpacity = faded ? 0.15 : active ? 0.9 : c.opacity + 0.1;
           return (
             <g key={i} onMouseEnter={() => setHover(i)} style={{ cursor: 'default' }}>
-              {/* wide invisible hit area */}
               <path d={makePath(c.p)} fill="none" stroke="transparent" strokeWidth={10} />
-              {/* visible line */}
               <path
                 d={makePath(c.p)}
                 fill="none"
@@ -150,21 +163,26 @@ function PeligrosidadSection() {
                 strokeLinejoin="round"
                 style={{ transition: 'stroke-opacity 0.15s, stroke-width 0.15s' }}
               />
-              {/* end dot + label */}
               <g onMouseEnter={() => setHover(i)}>
                 <circle
-                  cx={sx(X_MAX)} cy={sy(cost(X_MAX, c.p))} r={active ? 2.5 : 1.75}
+                  cx={sx(X_MAX)} cy={endY} r={active ? 2.5 : 1.75}
                   fill="currentColor" fillOpacity={faded ? 0.12 : active ? 0.9 : c.opacity}
                   style={{ transition: 'fill-opacity 0.15s' }}
                 />
                 <text
-                  x={sx(X_MAX) + 5} y={sy(cost(X_MAX, c.p)) + 2.5}
-                  fontSize={5.5} fill="currentColor"
-                  fillOpacity={faded ? 0.15 : active ? 0.9 : c.opacity + 0.1}
+                  x={sx(X_MAX) + 5} y={endY + 2}
+                  fontSize={5.5} fill="currentColor" fillOpacity={labelOpacity}
                   fontWeight={active ? 'bold' : 'normal'}
                   style={{ transition: 'fill-opacity 0.15s, font-weight 0.1s' }}
                 >
                   {c.label}
+                </text>
+                <text
+                  x={sx(X_MAX) + 5} y={endY + 9}
+                  fontSize={4.5} fill="currentColor" fillOpacity={labelOpacity * 0.65}
+                  style={{ transition: 'fill-opacity 0.15s' }}
+                >
+                  {endCost}
                 </text>
               </g>
             </g>
@@ -455,7 +473,7 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
                 <>
                   <p className="mb-1.5">Dijkstra con peso <Katex math="\text{route\_cost} = \ell \cdot \!\left(1 + p \cdot \dfrac{\log_{10}\ell}{144}\right)" /> donde <Katex math="p" /> es la peligrosidad del tramo. Pasa el cursor sobre las líneas para ver los componentes activos.</p>
                   <PeligrosidadSection />
-                  <p className="text-[9px] text-[var(--blue-dark)]/40 mt-0.5">Calibración: 100 m carril bici → coste 100; 100 m primaria 4c → coste 150.</p>
+                  <p className="text-[9px] text-[var(--blue-dark)]/40 mt-0.5">Calibración: 100 m bici → coste 100; 800 m bici → coste 800 (lineal); 800 m primaria 4c → coste ~1381 (superlineal).</p>
                 </>
               ),
             }}
