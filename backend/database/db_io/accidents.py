@@ -217,7 +217,7 @@ def get_vehicle_pair_severity(
 
     with conn.cursor() as cur:
         cur.execute(f"""
-            WITH participant_cats AS (
+            WITH participant_cats AS MATERIALIZED (
                 SELECT ap.accident_db_id,
                     CASE
                         WHEN ap.person_type ILIKE '%%peato%%' OR ap.person_type ILIKE '%%peatón%%'
@@ -262,11 +262,17 @@ def get_vehicle_pair_severity(
                   AND a.geom IS NOT NULL
                   {year_clause}
             ),
-            acc_cat_sev AS (
+            acc_cat_sev AS MATERIALIZED (
                 SELECT accident_db_id, category, MAX(sev_rank) AS sev
                 FROM participant_cats
                 WHERE category IS NOT NULL
                 GROUP BY accident_db_id, category
+            ),
+            -- Number of distinct categories per accident (replaces correlated NOT EXISTS)
+            accident_cat_count AS (
+                SELECT accident_db_id, COUNT(DISTINCT category) AS cat_count
+                FROM acc_cat_sev
+                GROUP BY accident_db_id
             ),
             -- Accidents where 2+ participants share the same category (true same-vehicle crashes)
             multi_same_cat AS (
@@ -307,13 +313,10 @@ def get_vehicle_pair_severity(
                 SUM(CASE WHEN acs.sev = 1 THEN 1 ELSE 0 END)::INT  AS minor,
                 SUM(CASE WHEN acs.sev = 0 THEN 1 ELSE 0 END)::INT  AS uninjured
             FROM acc_cat_sev acs
+            JOIN accident_cat_count acc ON acc.accident_db_id = acs.accident_db_id
             WHERE (
                 -- Solo or same-type-only accidents (no other category present)
-                NOT EXISTS (
-                    SELECT 1 FROM acc_cat_sev acs2
-                    WHERE acs2.accident_db_id = acs.accident_db_id
-                      AND acs2.category != acs.category
-                )
+                acc.cat_count = 1
                 -- OR true same-vehicle crash: 2+ participants of this type in the accident
                 OR EXISTS (
                     SELECT 1 FROM multi_same_cat ms
