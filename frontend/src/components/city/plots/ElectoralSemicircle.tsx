@@ -216,7 +216,7 @@ export const ElectoralSemicircle: React.FC<ElectoralSemicircleProps> = ({
     return Math.sqrt(minDistSq);
   };
 
-  const { dots, dotRadius, svgHeight, cy } = useMemo(() => {
+  const { dots, dotRadius, svgHeight } = useMemo(() => {
     if (width === 0 || allocations.length === 0) {
       return { dots: [] as SeatDot[], dotRadius: 6, svgHeight: 120, cy: 118 };
     }

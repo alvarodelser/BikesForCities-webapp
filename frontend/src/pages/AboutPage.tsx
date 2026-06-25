@@ -1,8 +1,4 @@
 import React from 'react';
-import {
-  Users,
-  Bike,
-} from 'lucide-react';
 import InfoCard, { type InfoItem } from '../components/ui/InfoCard';
 import ScrollableCardList from '../components/ui/ScrollableCardList';
 

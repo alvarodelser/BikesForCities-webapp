@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   computeLabelCandidates,
   rectsOverlap,
-  type LabelCandidate,
   type LabelRect,
 } from './spainMapLabels';
 

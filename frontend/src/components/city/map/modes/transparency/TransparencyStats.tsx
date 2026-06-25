@@ -5,7 +5,7 @@ import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
 import CategoryEvolutionChart from '../../../plots/CategoryEvolutionChart';
 import { CategoryHighlightControl } from './CategoryHighlightControl';
-import { buildCategoryOptions, latestYearWithBoth, resolveBudgetType } from '../../../../../utils/budget';
+import { buildCategoryOptions, latestYearWithBoth } from '../../../../../utils/budget';
 import MetricPill from '../../../pills/MetricPill';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
@@ -82,23 +82,6 @@ export default function TransparencyStats({
     [budgetYears],
   );
 
-  // Percentage of total expenses in the selected year covered by highlighted categories.
-  const highlightPct = useMemo(() => {
-    if (!yearData || highlightCodes.size === 0) return null;
-    const { lines } = yearData;
-    const preferType = resolveBudgetType(yearData);
-    const typeLines = lines.filter(l => l.budget_type === preferType);
-    if (typeLines.length === 0) return null;
-    const minLen = Math.min(...typeLines.map(l => l.category_code.length));
-    const totalExpenses = typeLines
-      .filter(l => l.category_code.length === minLen)
-      .reduce((sum, l) => sum + l.amount, 0);
-    if (totalExpenses === 0) return null;
-    const selectedExpenses = typeLines
-      .filter(l => highlightCodes.has(l.category_code))
-      .reduce((sum, l) => sum + l.amount, 0);
-    return (selectedExpenses / totalExpenses) * 100;
-  }, [yearData, highlightCodes]);
 
   const democraticMayors = useMemo(() => {
     const today = new Date();

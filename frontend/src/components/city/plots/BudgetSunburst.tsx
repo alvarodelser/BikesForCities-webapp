@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { hierarchy, partition, type HierarchyRectangularNode } from 'd3-hierarchy';
 import { arc } from 'd3-shape';
-import { Bicycle, Bus, RoadHorizon, TrafficCone, Wrench } from '@phosphor-icons/react';
+import { Bicycle, Bus, RoadHorizon, TrafficCone, Wrench, type Icon } from '@phosphor-icons/react';
 
 export interface BudgetNode {
   code: string;
@@ -25,9 +25,7 @@ interface BudgetSunburstProps {
 
 export const MOBILITY_CODES = new Set(['133', '134', '44', '153', '442']);
 
-type PhosphorIcon = React.ComponentType<{ size?: number; weight?: string; color?: string }>;
-
-const MOBILITY_ICONS: Record<string, PhosphorIcon> = {
+const MOBILITY_ICONS: Record<string, Icon> = {
   '133': TrafficCone,
   '134': Bicycle,
   '44':  Bus,
@@ -140,10 +138,8 @@ function a2xy(angle: number, r: number): [number, number] {
 // ── Label / callout constants ─────────────────────────────────────────────
 const CHAR_W = 6.4;           // px per uppercase char at font-size 10
 const PILL_PAD_X = 9;
-const LABEL_GAP = 5;
 const BOUNDS_MARGIN = 8;
 const PILL_H_1 = 34;          // single-line pill height
-const PILL_H_2 = 48;          // two-line pill height
 const MIN_LABEL_AREA_W = 65;  // px reserved per side for callout labels
 
 function wrapText(name: string, maxChars: number): string[] {
@@ -175,8 +171,8 @@ interface HoverState {
 }
 
 export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
-  data, year, budgetType, onBudgetTypeChange,
-  subtitle, variant = 'overlay', showToggle = true, showBudgetTypeToggle = true, mobilityHighlight,
+  data, budgetType, onBudgetTypeChange,
+  variant = 'overlay', showToggle = true, showBudgetTypeToggle = true, mobilityHighlight,
 }) => {
   const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
@@ -219,7 +215,6 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   const RADIUS  = Math.max(50, Math.min(width / 2 - labelAreaW - 6 - BOUNDS_MARGIN, HEIGHT / 2 - 10));
   const MAX_ARC_R = RADIUS + 20;  // sunburst extends past callout arc indicators
   const innerRadius = RADIUS * 0.42;
-  const LABEL_R = RADIUS + 75;
   const pillAreaW = Math.max(MIN_LABEL_AREA_W, width * 0.27);
   const maxCharsPerLine = Math.max(8, Math.floor((pillAreaW - PILL_PAD_X * 2) / CHAR_W));
 
@@ -379,9 +374,6 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
     root.each(node => { if (node.depth <= 3) res.push(node); });
     return res;
   }, [root]);
-
-  const labelColor = isPanel ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.9)';
-  const labelColorMuted = isPanel ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.5)';
 
   // ── Depth-1 callout labels ────────────────────────────────────────────────
   const pillBg = isPanel ? 'rgba(251,246,239,0.92)' : 'rgba(251,246,239,0.88)';

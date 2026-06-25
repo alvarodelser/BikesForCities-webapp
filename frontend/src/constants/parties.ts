@@ -43,7 +43,6 @@ export const PARTY_COLORS: Record<string, string> = {
   "Guanyem Girona": "#E65C56",
   "Zaragoza en Común": "#BA1227",
   "Marea Atlántica": "#E65C56",
-  "Compromís": "#F5A623",
   "Partido Andalucista": "#228B22",
   "Foro Asturias": "#0082CA",
   "Federación Socialista Asturiana": "#E40035",

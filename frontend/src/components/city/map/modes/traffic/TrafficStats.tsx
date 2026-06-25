@@ -97,7 +97,7 @@ function PeligrosidadSection() {
                 <td className={`px-1.5 py-px text-[var(--blue-dark)]/60 ${tdBase} ${row.sep ? 'pt-0.5' : ''}`}>
                   {row.group ?? ''}
                 </td>
-                {row.span ? (
+                {'span' in row && row.span ? (
                   <td colSpan={2} className={`pr-1.5 text-right text-[var(--blue-dark)]/60 ${tdBase} ${row.sep ? 'pt-0.5 pb-1' : ''}`}>
                     {row.p}
                   </td>
