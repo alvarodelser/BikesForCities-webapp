@@ -3,7 +3,7 @@ import type { CityData } from '../../constants/cities';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
-import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
+import { formatPopulation, formatDistance, formatPercentage, formatBudgetM } from '../../utils/formatters';
 
 interface OverviewSectionProps {
   city: CityData;
@@ -75,7 +75,7 @@ const OverviewSection: React.FC<OverviewSectionProps> = ({ city }) => {
               <h3 className="text-lg font-semibold text-[var(--blue-dark)]">Presupuesto</h3>
             </div>
             <p className="text-3xl font-bold text-[var(--blue-dark)] relative z-10">
-              {formatCurrency(city.budget)}
+              {formatBudgetM(city.budget)}
             </p>
 
           </GlassCard>

@@ -109,9 +109,9 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
         gradient
         helpContent={
           <>
-            <p><strong>QUÉ VES</strong>: La distribución de las estaciones según su volumen de trayectos mensuales estimados, agrupadas en rangos.</p>
-            <p><strong>POR QUÉ IMPORTA</strong>: Revela si la demanda está concentrada en unas pocas estaciones o bien repartida. Una distribución muy sesgada indica desequilibrios estructurales de red que la redistribución de flota no puede resolver por sí sola.</p>
-            <p><strong>METODOLOGÍA</strong>: Se agregan los viajes por estación de origen y destino. El período activo en el selector de rango determina qué meses se incluyen en la agregación.</p>
+            <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>La distribución de las estaciones según su volumen de trayectos mensuales estimados, agrupadas en rangos.</p>
+            <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Revela si la demanda está concentrada en unas pocas estaciones o bien repartida. Una distribución muy sesgada indica desequilibrios estructurales de red que la redistribución de flota no puede resolver por sí sola.</p>
+            <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Se agregan los viajes por estación de origen y destino. El período activo en el selector de rango determina qué meses se incluyen en la agregación.</p>
           </>
         }
       />
@@ -124,9 +124,9 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
         gradient
         helpContent={
           <>
-            <p><strong>QUÉ VES</strong>: La distribución de las estaciones según cuántos edificios tienen en su radio inmediato de 150 metros.</p>
-            <p><strong>POR QUÉ IMPORTA</strong>: Una estación rodeada de pocos edificios tiene demanda estructuralmente baja, independientemente de cómo funcione el servicio. Este gráfico muestra si la red está bien posicionada donde vive y trabaja la gente.</p>
-            <p><strong>METODOLOGÍA</strong>: Para cada estación se cuenta el número de polígonos de edificio dentro de un radio de 150 metros usando datos de catastro o equivalente OSM. Las estaciones con menos de 5 edificios en ese radio se consideran fuera del tejido urbano consolidado.</p>
+            <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>La distribución de las estaciones según cuántos edificios tienen en su radio inmediato de 150 metros.</p>
+            <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Una estación rodeada de pocos edificios tiene demanda estructuralmente baja, independientemente de cómo funcione el servicio. Este gráfico muestra si la red está bien posicionada donde vive y trabaja la gente.</p>
+            <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Para cada estación se cuenta el número de polígonos de edificio dentro de un radio de 150 metros usando datos de catastro o equivalente OSM. Las estaciones con menos de 5 edificios en ese radio se consideran fuera del tejido urbano consolidado.</p>
           </>
         }
       />

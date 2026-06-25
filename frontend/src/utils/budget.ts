@@ -104,13 +104,16 @@ export function buildCategorySeries(
   });
 }
 
-/** The most recent year that has BOTH planned and executed lines (the latest
- *  year for which a planned-vs-executed comparison is possible). */
+/** The most recent year that has BOTH planned and executed lines with at least
+ *  one meaningful difference — i.e. a real planned-vs-executed comparison. */
 export function latestYearWithBoth(budgetYears: BudgetYear[]): BudgetYear | null {
-  const withBoth = budgetYears.filter(
-    y => y.lines.some(l => l.budget_type === 'planned')
-      && y.lines.some(l => l.budget_type === 'executed'),
-  );
+  const withBoth = budgetYears.filter(y => {
+    const planned = y.lines.filter(l => l.budget_type === 'planned');
+    const executed = y.lines.filter(l => l.budget_type === 'executed');
+    if (planned.length === 0 || executed.length === 0) return false;
+    const executedMap = new Map(executed.map(l => [l.category_code, l.amount]));
+    return planned.some(l => executedMap.get(l.category_code) !== l.amount);
+  });
   if (withBoth.length === 0) return null;
   return withBoth.reduce((a, b) => (b.year > a.year ? b : a));
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Maximize2, Minus, Square, Play } from 'lucide-react';
+import { fmtInt } from '../../../utils/formatters';
 import { Wine, Pill } from '@phosphor-icons/react';
 import type { SelectionDetail } from '../../../types/selection';
 import AnimatedProgressBar from '../../ui/AnimatedProgressBar';
@@ -299,7 +300,7 @@ export default function SelectionPanel({
                                         </div>
                                         {loaded > 0 && (
                                             <span className="text-[9px] font-bold tabular-nums shrink-0" style={{ color: accent }}>
-                                                {loaded.toLocaleString()}
+                                                {fmtInt(loaded)}
                                             </span>
                                         )}
                                         {onStop && (

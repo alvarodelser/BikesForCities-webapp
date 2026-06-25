@@ -138,6 +138,28 @@ describe('latestYearWithBoth', () => {
   it('returns null when no year has both budget types', () => {
     expect(latestYearWithBoth([year2023])).toBeNull();
   });
+  it('returns null when both types are present but amounts are identical (no real difference)', () => {
+    const identicalYear: BudgetYear = {
+      year: 2024,
+      total_income: null, total_expenses: null, public_debt: null,
+      lines: [
+        { category_code: '1', category_name: 'A', amount: 100, budget_type: 'planned' },
+        { category_code: '1', category_name: 'A', amount: 100, budget_type: 'executed' },
+      ],
+    };
+    expect(latestYearWithBoth([identicalYear])).toBeNull();
+  });
+  it('prefers the year with differences over an identical-amount year', () => {
+    const identicalYear: BudgetYear = {
+      year: 2024,
+      total_income: null, total_expenses: null, public_debt: null,
+      lines: [
+        { category_code: '1', category_name: 'A', amount: 100, budget_type: 'planned' },
+        { category_code: '1', category_name: 'A', amount: 100, budget_type: 'executed' },
+      ],
+    };
+    expect(latestYearWithBoth([identicalYear, year2022])?.year).toBe(2022);
+  });
   it('returns null for an empty list', () => {
     expect(latestYearWithBoth([])).toBeNull();
   });

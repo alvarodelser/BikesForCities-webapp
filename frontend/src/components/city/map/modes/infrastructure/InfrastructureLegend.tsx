@@ -53,7 +53,7 @@ const COMPONENT_COLORS = [
     '#10b981',
     '#ec4899',
 ];
-const FALLBACK_COLOR = '#9ca3af';
+const FALLBACK_COLOR = '#00cac3';
 
 function buildColorExpression(): any {
     const expr: any[] = ['match', ['get', 'component_id']];

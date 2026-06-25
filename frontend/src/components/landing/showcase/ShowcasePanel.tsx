@@ -10,6 +10,7 @@ interface ShowcasePanelProps {
   body: string;
   ctaLabel: string;
   onCta: () => void;
+  ctaDisabled?: boolean;
 }
 
 const CARD_STYLE: React.CSSProperties = {
@@ -37,6 +38,7 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
   body,
   ctaLabel,
   onCta,
+  ctaDisabled = false,
 }) => {
   const { isMobile } = useViewport();
 
@@ -104,7 +106,8 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
         <button
           type="button"
           aria-label={`${ctaLabel} — ${title}`}
-          onClick={onCta}
+          onClick={ctaDisabled ? undefined : onCta}
+          disabled={ctaDisabled}
           style={{
             display: 'inline-block',
             marginTop: 18,
@@ -114,10 +117,10 @@ const ShowcasePanel: React.FC<ShowcasePanelProps> = ({
             fontWeight: 700,
             padding: '8px 18px',
             borderRadius: 20,
-            background: 'var(--blue-dark)',
-            color: '#fff',
+            background: ctaDisabled ? 'rgba(0,0,0,0.12)' : 'var(--blue-dark)',
+            color: ctaDisabled ? 'rgba(0,0,0,0.35)' : '#fff',
             border: 'none',
-            cursor: 'pointer',
+            cursor: ctaDisabled ? 'default' : 'pointer',
           }}
         >
           {ctaLabel}

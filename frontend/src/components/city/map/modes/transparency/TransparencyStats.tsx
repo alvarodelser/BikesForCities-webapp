@@ -5,7 +5,7 @@ import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
 import CategoryEvolutionChart from '../../../plots/CategoryEvolutionChart';
 import { CategoryHighlightControl } from './CategoryHighlightControl';
-import { buildCategoryOptions, latestYearWithBoth } from '../../../../../utils/budget';
+import { buildCategoryOptions, latestYearWithBoth, resolveBudgetType } from '../../../../../utils/budget';
 import MetricPill from '../../../pills/MetricPill';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
@@ -29,7 +29,7 @@ const ACCENT = '#3A6C7F';
 // Budget figures scaled to millions so they fit the MetricPill big-number slot;
 // the "M€" unit is carried by the sublabel.
 const fmtBudgetMetric = (v: number | null | undefined): string =>
-  v == null ? '—' : `${Math.round(v / 1e6).toLocaleString('es-ES')} M€`;
+  v == null ? '—' : `${Math.round(v / 1e6)} M€`;
 
 export default function TransparencyStats({
   city,
@@ -58,10 +58,18 @@ export default function TransparencyStats({
     [budgetYears],
   );
 
-  const yearData = useMemo(
-    () => budgetYears.find(by => by.year === selectedYear) ?? null,
-    [budgetYears, selectedYear],
-  );
+  // Among potentially duplicate entries for the same year (one per budget_type),
+  // prefer the executed row — identified by having a distinct total_income or
+  // total_expenses compared to the other rows for that year.
+  const yearData = useMemo(() => {
+    const candidates = budgetYears.filter(by => by.year === selectedYear);
+    if (candidates.length === 0) return null;
+    if (candidates.length === 1) return candidates[0];
+    // Pick the row whose total_income is highest (executed income tends to be >= planned)
+    return candidates.reduce((best, c) =>
+      (c.total_income ?? 0) >= (best.total_income ?? 0) ? c : best
+    );
+  }, [budgetYears, selectedYear]);
 
   const categoryOptions = useMemo(
     () => buildCategoryOptions(budgetYears),
@@ -73,6 +81,24 @@ export default function TransparencyStats({
     () => latestYearWithBoth(budgetYears),
     [budgetYears],
   );
+
+  // Percentage of total expenses in the selected year covered by highlighted categories.
+  const highlightPct = useMemo(() => {
+    if (!yearData || highlightCodes.size === 0) return null;
+    const { lines } = yearData;
+    const preferType = resolveBudgetType(yearData);
+    const typeLines = lines.filter(l => l.budget_type === preferType);
+    if (typeLines.length === 0) return null;
+    const minLen = Math.min(...typeLines.map(l => l.category_code.length));
+    const totalExpenses = typeLines
+      .filter(l => l.category_code.length === minLen)
+      .reduce((sum, l) => sum + l.amount, 0);
+    if (totalExpenses === 0) return null;
+    const selectedExpenses = typeLines
+      .filter(l => highlightCodes.has(l.category_code))
+      .reduce((sum, l) => sum + l.amount, 0);
+    return (selectedExpenses / totalExpenses) * 100;
+  }, [yearData, highlightCodes]);
 
   const democraticMayors = useMemo(() => {
     const today = new Date();
@@ -129,9 +155,9 @@ export default function TransparencyStats({
               sublabel="Millones de €"
               accent={ACCENT}
               variant={variant}
-              helpQueVes="El total de ingresos del municipio en el año seleccionado: impuestos, tasas, transferencias del Estado y otras fuentes de financiación."
-              helpPorQueEsUtil="Los ingresos determinan la capacidad financiera del ayuntamiento para invertir en servicios e infraestructura. Comparados con el gasto y la deuda, revelan el margen real de maniobra del consistorio."
-              helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial. La cifra de ejecutado refleja los ingresos realmente percibidos según la contabilidad municipal."
+              helpQueVes="El total de ingresos del municipio en el año seleccionado."
+              helpPorQueEsUtil="Los ingresos determinan la capacidad financiera del ayuntamiento para invertir en servicios e infraestructura."
+              helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial obtenido del CONPREL, Ministerio de Hacienda. La cifra de ejecutado refleja los ingresos realmente percibidos según la contabilidad municipal."
             />
             <MetricPill
               value={fmtBudgetMetric(yearData?.total_expenses)}
@@ -139,19 +165,9 @@ export default function TransparencyStats({
               sublabel="Millones de €"
               accent={ACCENT}
               variant={variant}
-              helpQueVes="El total de gastos del municipio en el año seleccionado: personal, servicios, inversión en infraestructura y carga financiera."
-              helpPorQueEsUtil="El gasto refleja las prioridades políticas y operativas del ayuntamiento. Contrastar lo ejecutado con lo planificado muestra la capacidad real de ejecución de la administración."
-              helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial. La cifra de ejecutado procede de la contabilidad municipal y representa el gasto efectivamente realizado."
-            />
-            <MetricPill
-              value={fmtBudgetMetric(yearData?.public_debt)}
-              label="Deuda pública"
-              sublabel="Millones de €"
-              accent={ACCENT}
-              variant={variant}
-              helpQueVes="El volumen de deuda viva del municipio: el endeudamiento acumulado pendiente de la administración local."
-              helpPorQueEsUtil="La deuda marca la sostenibilidad financiera del municipio. Niveles altos limitan la inversión futura; un endeudamiento contenido es señal de gestión fiscal prudente."
-              helpComoSeRecogieron="Se obtiene de los registros contables municipales y refleja el stock de deuda pendiente según la contabilidad de ejercicio."
+              helpQueVes="El total de gastos del municipio en el año seleccionado."
+              helpPorQueEsUtil="El gasto refleja las prioridades políticas y operativas del ayuntamiento."
+              helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial. Las cifras ejecutada y planficada procede de la contabilidad municipal y representa el gasto efectivamente realizado."
             />
           </div>
 
@@ -164,9 +180,9 @@ export default function TransparencyStats({
               subtitle={`Ejecutado − Planificado · ${deltaYear.year}`}
               helpContent={
                 <>
-                  <p><strong>QUÉ VES</strong>: La desviación entre lo ejecutado y lo planificado para las áreas destacadas. Las barras hacia abajo indican menos gasto del previsto; hacia arriba, más.</p>
-                  <p><strong>POR QUÉ IMPORTA</strong>: Un presupuesto solo se cumple cuando lo planificado se ejecuta. Las desviaciones revelan qué prioridades se reforzaron o recortaron en la práctica frente a lo aprobado.</p>
-                  <p><strong>METODOLOGÍA</strong>: Se restan los importes planificados de los ejecutados para cada área seleccionada en el panel, usando el año más reciente que dispone de ambos tipos de presupuesto.</p>
+                  <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>La desviación entre ejecutado y planificado para las áreas destacadas. Una desviación hacia abajo indican menos gasto del previsto; hacia arriba, más.</p>
+                  <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Las desviaciones revelan la capacidad de ejecución del presupuesto del consistorio y qué prioridades se reforzaron o recortaron en la práctica frente a lo aprobado.</p>
+                  <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Se restan los importes planificados de los ejecutados para cada área seleccionada en el panel, usando el año más reciente que dispone de ambos tipos de presupuesto.</p>
                 </>
               }
             />
@@ -188,9 +204,9 @@ export default function TransparencyStats({
           title="Historial de Alcaldía"
           helpContent={
             <>
-              <p><strong>QUÉ VES</strong>: La sucesión de alcaldes desde 1975 hasta hoy. Cada barra es un mandato, coloreada por el partido del alcalde y dimensionada según su duración.</p>
-              <p><strong>POR QUÉ IMPORTA</strong>: El historial de alcaldía revela la estabilidad política y la continuidad de las políticas urbanas. Mandatos cortos sugieren inestabilidad; mandatos largos, consolidación o consenso.</p>
-              <p><strong>METODOLOGÍA</strong>: Los datos proceden de registros administrativos municipales y bases públicas de gobiernos locales. Se incluyen solo los alcaldes desde la restauración de la democracia (1975).</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>Mandatos de alcaldes desde 1975 hasta hoy. Cada barra es un mandato, cuyo tono indica el partido político y dimensionada según su duración.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>El historial de alcaldía contextualiza las prioridades de los mandatos electorales y la continuidad de las políticas urbanas.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Los datos proceden de Wikidata, la base de datos semántica basada en Wikipedia. Se ha obtenido todos los alcaldes asociados a cada municipio y su afiliación política, que puede no coincidir con el período en cuestión. Se muestra el período a partir de 1975.</p>
             </>
           }
         />
@@ -204,9 +220,9 @@ export default function TransparencyStats({
           selectedYear={selectedYear}
           helpContent={
             <>
-              <p><strong>QUÉ VES</strong>: La composición del pleno municipal tras las últimas elecciones disponibles. Cada punto es un concejal, coloreado por partido y situado de izquierda a derecha según su ideología.</p>
-              <p><strong>POR QUÉ IMPORTA</strong>: El hemiciclo muestra de un vistazo el equilibrio de fuerzas del consistorio y qué coaliciones son posibles, base para entender la toma de decisiones municipal.</p>
-              <p><strong>METODOLOGÍA</strong>: Los concejales proceden de registros electorales oficiales. La posición izquierda-derecha se basa en la clasificación ideológica estándar de cada partido.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>La composición del pleno municipal tras las últimas elecciones disponibles. Cada punto es un concejal, su color indica el partido.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>El hemiciclo muestra de un vistazo el equilibrio de fuerzas del consistorio, base para entender la toma de decisiones municipal.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Los concejales proceden del registros electorales oficiales del ministerio del interior. La posición izquierda-derecha se basa en la clasificación ideológica estándar de cada partido.</p>
             </>
           }
         />

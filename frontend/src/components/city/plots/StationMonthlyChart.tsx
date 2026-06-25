@@ -107,9 +107,9 @@ export const StationMonthlyChart: React.FC<StationMonthlyChartProps> = ({ cityId
       subtitle="Viajes estimados y estaciones activas por mes"
       helpContent={
         <>
-          <p><strong>QUÉ VES</strong>: Dos series superpuestas: la evolución mes a mes de los trayectos estimados y el número de estaciones activas en el mismo período.</p>
-          <p><strong>POR QUÉ IMPORTA</strong>: Las dos líneas juntas revelan la causa de cada variación. Si caen los viajes pero no las estaciones, el problema es de demanda o meteorología. Si caen las dos, es operativo — cierre de estaciones, reducción de flota —.</p>
-          <p><strong>METODOLOGÍA</strong>: Los trayectos se agregan por mes de unlock a partir del log del sistema. Las estaciones activas se cuentan como las que tienen al menos un trayecto en el mes. Las dos series se normalizan sobre sus propios ejes para hacerlas visualmente comparables.</p>
+          <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>Dos series superpuestas: la evolución mes a mes de los trayectos estimados y el número de estaciones activas en el mismo período.</p>
+          <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Las dos líneas juntas revelan la causa de cada variación. Si caen los viajes pero no las estaciones, el problema es de demanda o meteorología. Si caen las dos, es operativo — cierre de estaciones, reducción de flota —.</p>
+          <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Los trayectos se agregan por mes de unlock a partir del log del sistema. Las estaciones activas se cuentan como las que tienen al menos un trayecto en el mes. Las dos series se normalizan sobre sus propios ejes para hacerlas visualmente comparables.</p>
         </>
       }
     />

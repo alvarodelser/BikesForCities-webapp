@@ -226,7 +226,11 @@ export function FilterCard({ icon: Icon, title, description, options, activeValu
   const hasHelp = !!(helpQueVes || helpPorQueEsUtil || helpComoSeRecogieron || helpComoSeRecogieronPerOption);
 
   const sectionHead = (text: string) => (
-    <p className="text-[8px] font-black uppercase tracking-widest mb-0.5 text-[var(--blue-dark)]/35">{text}</p>
+    <div className="mb-0.5">
+      <span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07]">
+        {text}
+      </span>
+    </div>
   );
 
   return (

@@ -183,18 +183,17 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                     {titleText}
                                 </h1>
 
-                                {!locked && (
-                                    <MapControls
+                                <MapControls
                                         colorScheme={colorScheme}
                                         onHelpClick={() => helpOpen ? closeMapHelp() : openMapHelp()}
+                                        helpOnly={locked}
                                     />
-                                )}
                             </div>
                         </div>
                     )}
 
                     {/* Mobile: vertical MapControls floating at bottom-RIGHT */}
-                    {isMobile && !locked && (
+                    {isMobile && (
                         <div
                             className="absolute right-4 z-20 transition-all duration-300"
                             style={{ bottom: `${bottomOffset + 12}px` }}
@@ -203,6 +202,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                                 colorScheme={colorScheme}
                                 vertical
                                 onHelpClick={() => helpOpen ? closeMapHelp() : openMapHelp()}
+                                helpOnly={locked}
                             />
                         </div>
                     )}
@@ -224,7 +224,7 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                     </div>
 
                     {/* Map help panel */}
-                    {!locked && <MapHelpPanel />}
+                    <MapHelpPanel />
 
                     {/* Legend — floats over canvas */}
                     {!locked && <CityLegend colorScheme={colorScheme} bottomOffset={bottomOffset} defaultOpen={!isMobile} />}

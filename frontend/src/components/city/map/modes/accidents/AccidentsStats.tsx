@@ -185,9 +185,9 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           rowIcons={CYCLIST_ROW_ICONS}
           helpContent={
             <>
-              <p><strong>QUÉ VES</strong>: Para cada tipo de vehículo contrario (turismo, camión, moto, etc.), la distribución de los siniestros ciclistas por nivel de gravedad: ileso, leve, grave y fatal.</p>
-              <p><strong>POR QUÉ IMPORTA</strong>: No todos los choques son iguales. Las colisiones con camiones y autobuses concentran la mortalidad aunque sean menos frecuentes. Este gráfico identifica con qué tipo de vehículo hay que separar físicamente el carril para reducir fatalidades.</p>
-              <p><strong>METODOLOGÍA</strong>: Se cruzan el tipo de vehículo contrario y la severidad de las víctimas ciclistas. La altura de cada barra es el número total de siniestros; los colores apilados representan las cuatro categorías de gravedad según la clasificación oficial de la DGT.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>Para cada tipo de vehículo contrario (turismo, camión, moto, etc.), la distribución de los siniestros ciclistas por nivel de gravedad: ileso, leve, grave y fatal.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>No todos los choques son iguales. Las colisiones con camiones y autobuses concentran la mortalidad aunque sean menos frecuentes. Este gráfico identifica con qué tipo de vehículo hay que separar físicamente el carril para reducir fatalidades.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Se cruzan el tipo de vehículo contrario y la severidad de las víctimas ciclistas. La altura de cada barra es el número total de siniestros; los colores apilados representan las cuatro categorías de gravedad según la clasificación oficial de la DGT.</p>
             </>
           }
         />
@@ -199,9 +199,9 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           rowIcons={PEDESTRIAN_ROW_ICONS}
           helpContent={
             <>
-              <p><strong>QUÉ VES</strong>: Para cada tipo de vehículo, la distribución de los siniestros con víctimas peatonales según gravedad: ileso, leve, grave y fatal.</p>
-              <p><strong>POR QUÉ IMPORTA</strong>: Muestra qué tipo de tráfico pone en riesgo a los peatones. La gravedad media de los atropellos varía mucho según el vehículo. Sirve para priorizar zonas de coexistencia o de velocidad reducida junto a la red ciclista.</p>
-              <p><strong>METODOLOGÍA</strong>: Mismo registro que la matriz ciclista, filtrado por víctima peatonal. El vehículo contrario puede ser motorizado, bicicleta o VMP.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>Para cada tipo de vehículo, la distribución de los siniestros con víctimas peatonales según gravedad: ileso, leve, grave y fatal.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Muestra qué tipo de tráfico pone en riesgo a los peatones. La gravedad media de los atropellos varía mucho según el vehículo. Sirve para priorizar zonas de coexistencia o de velocidad reducida junto a la red ciclista.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Mismo registro que la matriz ciclista, filtrado por víctima peatonal. El vehículo contrario puede ser motorizado, bicicleta o VMP.</p>
             </>
           }
         />
@@ -219,9 +219,9 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           subtitle="Siniestros ciclistas según condiciones meteorológicas"
           helpContent={
             <>
-              <p><strong>QUÉ VES</strong>: La comparación del número de siniestros ciclistas en condiciones de buen tiempo frente a lluvia, separado por bicicletas convencionales y EPACs.</p>
-              <p><strong>POR QUÉ IMPORTA</strong>: Si los siniestros en lluvia son desproporcionadamente graves, puede indicar problemas de adherencia o visibilidad. Si son más frecuentes en seco, el patrón apunta a mayor volumen de uso en buen tiempo.</p>
-              <p><strong>METODOLOGÍA</strong>: Se filtra el registro de accidentes por tipo de vehículo (bicicleta / EPAC) y por la condición meteorológica declarada en el parte oficial: seco vs lluvia. Las demás condiciones se agrupan en "otras".</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>La comparación del número de siniestros ciclistas en condiciones de buen tiempo frente a lluvia, separado por bicicletas convencionales y EPACs.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Si los siniestros en lluvia son desproporcionadamente graves, puede indicar problemas de adherencia o visibilidad. Si son más frecuentes en seco, el patrón apunta a mayor volumen de uso en buen tiempo.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Se filtra el registro de accidentes por tipo de vehículo (bicicleta / EPAC) y por la condición meteorológica declarada en el parte oficial: seco vs lluvia. Las demás condiciones se agrupan en "otras".</p>
             </>
           }
         />
@@ -231,9 +231,9 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
           subtitle="▽ fila · △ columna · gravedad media del vehículo"
           helpContent={
             <>
-              <p><strong>QUÉ VES</strong>: Una matriz donde filas y columnas representan tipos de vehículo. El color de cada celda indica la gravedad media de los accidentes entre ese par, escalado de verde (ileso promedio) a rojo (mortal promedio).</p>
-              <p><strong>POR QUÉ IMPORTA</strong>: De un vistazo, muestra qué combinaciones de vehículos producen los peores resultados. Es el argumento más visual para justificar la separación física entre bicicletas y tráfico motorizado pesado.</p>
-              <p><strong>METODOLOGÍA</strong>: Para cada par de tipos de vehículo se promedian los valores de gravedad (0=ileso, 1=leve, 2=grave, 3=fatal). Solo se muestran celdas con al menos 5 siniestros en el período para evitar ruido estadístico.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>Una matriz donde filas y columnas representan tipos de vehículo. El color de cada celda indica la gravedad media de los accidentes entre ese par, escalado de verde (ileso promedio) a rojo (mortal promedio).</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>De un vistazo, muestra qué combinaciones de vehículos producen los peores resultados. Es el argumento más visual para justificar la separación física entre bicicletas y tráfico motorizado pesado.</p>
+              <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Para cada par de tipos de vehículo se promedian los valores de gravedad (0=ileso, 1=leve, 2=grave, 3=fatal). Solo se muestran celdas con al menos 5 siniestros en el período para evitar ruido estadístico.</p>
             </>
           }
         />

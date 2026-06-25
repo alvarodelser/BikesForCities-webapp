@@ -15,9 +15,9 @@ describe('MapsPanel', () => {
 
   it('renders the traffic O/D map image with correct src and alt', () => {
     render(<MemoryRouter><MapsPanel /></MemoryRouter>);
-    const img = screen.getByAltText('Mapa de flujos origen-destino de movilidad ciclista');
+    const img = screen.getByAltText('Mapa animado de flujos origen-destino de movilidad ciclista');
     expect(img).toBeInTheDocument();
-    expect(img).toHaveAttribute('src', '/landing/map_traffic_od.png');
+    expect(img).toHaveAttribute('src', '/landing/map_traffic_od.svg');
   });
 
   it('renders the CTA button', () => {

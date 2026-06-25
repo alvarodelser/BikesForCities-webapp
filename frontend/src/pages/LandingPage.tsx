@@ -3,7 +3,7 @@ import React from 'react';
 import HeroSection from '../components/landing/HeroSection';
 import MapSelector from '../components/landing/MapSelector';
 import DataShowcaseSection from '../components/landing/DataShowcaseSection';
-import GetInvolvedSection from '../components/landing/GetInvolvedSection';
+import GetInvolvedSection, { FaqSection } from '../components/landing/GetInvolvedSection';
 
 const LandingPage: React.FC = () => {
   return (
@@ -12,6 +12,7 @@ const LandingPage: React.FC = () => {
       <MapSelector />
       <DataShowcaseSection />
       <GetInvolvedSection />
+      <FaqSection />
     </div>
   );
 };

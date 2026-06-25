@@ -45,75 +45,37 @@ const getCityCoordinates = (cities: CityData[]): CityCoordinates[] => {
   }));
 };
 
-// Constants for Canary Islands transformation
+// Canary Islands province codes (Las Palmas, Santa Cruz de Tenerife)
 const CANARY_PROV_CODES = ["35", "38"];
-const CANARY_LAT_OFFSET = 7.5;
-const CANARY_LON_OFFSET_DESKTOP = 1.5;
-const CANARY_LON_OFFSET_MOBILE = 2.5; // Moved right for mobile as requested
 
-/**
- * Transforms coordinates for Canary Islands to move them closer to the mainland.
- */
-const transformCanaryCoords = (lon: number, lat: number, isMobile: boolean, codProv?: string): [number, number] => {
-  const lonOffset = isMobile ? CANARY_LON_OFFSET_MOBILE : CANARY_LON_OFFSET_DESKTOP;
-  if (codProv && CANARY_PROV_CODES.includes(codProv)) {
-    return [lon + lonOffset, lat + CANARY_LAT_OFFSET];
-  }
-  if (!codProv && lat < 30) {
-    return [lon + lonOffset, lat + CANARY_LAT_OFFSET];
-  }
-  return [lon, lat];
+// Real geographic bounding box of the Canary archipelago, used both to fit the
+// inset projection and to detect Canary cities. Corners: [west, north] / [east, south].
+const CANARY_GEO_BOUNDS = {
+  type: 'MultiPoint' as const,
+  coordinates: [
+    [-18.25, 29.5],
+    [-13.3, 27.5],
+  ],
 };
 
-/**
- * Deeply transforms all coordinates in a GeoJSON geometry.
- */
+// A city belongs to the Canary inset when it falls inside the archipelago bbox.
+const isCanaryCity = (lon: number, lat: number): boolean => lon < -12 && lat < 30;
+
+// Cache for the GeoJSON data to avoid redundant fetches
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const transformGeometry = (geometry: any, isMobile: boolean, codProv: string) => {
-  if (!geometry || !geometry.coordinates) return;
+let cachedGeoJSON: any = null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const transform = (coords: any) => {
-    if (!Array.isArray(coords)) return;
-    if (coords.length === 2 && typeof coords[0] === 'number' && typeof coords[1] === 'number') {
-      const [shiftedLon, shiftedLat] = transformCanaryCoords(coords[0], coords[1], isMobile, codProv);
-      coords[0] = shiftedLon;
-      coords[1] = shiftedLat;
-    } else {
-      coords.forEach(transform);
-    }
-  };
-
-  transform(geometry.coordinates);
-};
-
-// Cache for the raw GeoJSON data to avoid redundant fetches
-let cachedRawGeoJSON: any = null;
-
-// Load Spain provinces GeoJSON data
-const loadSpainGeoJSON = async (isMobile: boolean) => {
+// Load Spain provinces GeoJSON data once — geometry is no longer mutated per viewport
+const loadSpainGeoJSON = async () => {
   try {
-    if (!cachedRawGeoJSON) {
+    if (!cachedGeoJSON) {
       const response = await fetch(spainGeoJSON);
       if (!response.ok) {
         throw new Error(`Error al cargar la geometría: ${response.status}`);
       }
-      cachedRawGeoJSON = await response.json();
+      cachedGeoJSON = await response.json();
     }
-
-    // Always work on a fresh clone to apply correct transformation for current viewport
-    const data = JSON.parse(JSON.stringify(cachedRawGeoJSON));
-
-    if (data && data.features) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      data.features.forEach((feature: any) => {
-        const codProv = feature.properties?.cod_prov;
-        if (CANARY_PROV_CODES.includes(codProv)) {
-          transformGeometry(feature.geometry, isMobile, codProv);
-        }
-      });
-    }
-    return data;
+    return cachedGeoJSON;
   } catch (error) {
     console.error('Error loading Spain GeoJSON:', error);
     throw error;
@@ -148,8 +110,8 @@ const Pin = React.memo(function Pin({ cityName, city, x, y, isActive, isHovered,
   const height = isMobile ? 10 : 12;
   const rx = 5; // Fixed small radius for pill shape
 
-  // Navy blue border color
-  const strokeColor = '#003849';
+  // Cream border color
+  const strokeColor = '#FBF6EF';
 
   return (
     <g
@@ -299,9 +261,41 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .translate([width / 2 + xOffset, height / 2]);
   }, [size, isMobile]);
 
+  // Canary inset projection: the SAME projection as the mainland (identical scale),
+  // only translated so the archipelago lands at the bottom-left corner. Because the
+  // shared scale tracks the map size, the islands scale exactly like the peninsula
+  // and always stay on screen regardless of viewport.
+  const canaryProjection = useMemo(() => {
+    if (!projection) return null;
+    const { height } = size;
+    const margin = 16;
+    const [[west, north], [east, south]] = CANARY_GEO_BOUNDS.coordinates;
+    // Project the archipelago bbox with the main projection to read its pixel footprint
+    const nw = projection([west, north]);
+    const se = projection([east, south]);
+    if (!nw || !se) return null;
+    const bboxLeft = Math.min(nw[0], se[0]);
+    const bboxBottom = Math.max(nw[1], se[1]);
+    // Pure pixel shift placing that footprint at the bottom-left corner
+    const dx = margin - bboxLeft;
+    const dy = height - margin - bboxBottom;
+    const [tx, ty] = projection.translate();
+    return d3.geoMercator()
+      .center([-3.5, 40])
+      .scale(projection.scale())
+      .translate([tx + dx, ty + dy]);
+  }, [projection, size]);
+
+  // Unified screen position: Canary cities use the inset projection, the rest the main one.
+  const cityScreenPos = useCallback((lon: number, lat: number): [number, number] | null => {
+    const proj = isCanaryCity(lon, lat) ? canaryProjection : projection;
+    if (!proj) return null;
+    return proj([lon, lat]);
+  }, [projection, canaryProjection]);
+
   // Load GeoJSON data
   useEffect(() => {
-    loadSpainGeoJSON(isMobile)
+    loadSpainGeoJSON()
       .then(data => {
         setGeoData(data);
         setError(null);
@@ -309,11 +303,11 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       .catch(err => {
         setError(err.message || 'Error al cargar los datos del mapa');
       });
-  }, [isMobile]);
+  }, []);
 
   // Draw base map shape via D3, scoped to g.map-base to avoid wiping React pins
   useEffect(() => {
-    if (!svgRef.current || !geoData) return;
+    if (!svgRef.current || !geoData || !projection || !canaryProjection) return;
 
     const svg = d3.select(svgRef.current);
 
@@ -321,27 +315,47 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const g = svg.select('g.map-base');
     g.selectAll('*').remove();
 
-    const path = d3.geoPath().projection(projection);
-
-    const mergedGeometry = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const buildMultiPolygon = (features: any[]) => ({
       type: 'MultiPolygon',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      coordinates: geoData.features.flatMap((f: any) =>
+      coordinates: features.flatMap((f: any) =>
         f.geometry.type === 'MultiPolygon'
           ? f.geometry.coordinates
           : [f.geometry.coordinates],
       ),
-    };
+    });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const isCanary = (f: any) => CANARY_PROV_CODES.includes(f.properties?.cod_prov);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const canaryFeatures = geoData.features.filter((f: any) => isCanary(f));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mainlandFeatures = geoData.features.filter((f: any) => !isCanary(f));
+
+    const mainPath = d3.geoPath().projection(projection);
+    const canaryPath = d3.geoPath().projection(canaryProjection);
+
+    // Peninsula + Balearics — keeps the .spain-shape class used for land/sea hit-testing
     g.append('path')
       .attr('class', 'spain-shape')
-      .datum(mergedGeometry)
+      .datum(buildMultiPolygon(mainlandFeatures))
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .attr('d', path as any)
+      .attr('d', mainPath as any)
       .style('fill', 'url(#map-gradient)')
       .style('stroke', 'none')
       .style('opacity', 1.0);
-  }, [geoData, projection]);
+
+    // Canary Islands inset — separate projection fitted to a fixed bottom-left box
+    g.append('path')
+      .attr('class', 'canary-shape')
+      .datum(buildMultiPolygon(canaryFeatures))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .attr('d', canaryPath as any)
+      .style('fill', 'url(#map-gradient)')
+      .style('stroke', 'none')
+      .style('opacity', 1.0);
+  }, [geoData, projection, canaryProjection]);
 
   // Label placement: run after D3 has drawn .spain-shape so isPointInFill works
   useEffect(() => {
@@ -357,17 +371,25 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     const result: Record<string, LabelConfig> = {};
 
     for (const city of sorted) {
-      const [lon, lat] = transformCanaryCoords(
-        city.geoCoords.longitude,
-        city.geoCoords.latitude,
-        isMobile,
-      );
-      const p = projection([lon, lat]);
+      const p = cityScreenPos(city.geoCoords.longitude, city.geoCoords.latitude);
       if (!p) continue;
       const [px, py] = p;
 
       const pinW = isMobile ? 12 : 14;
       const pinH = isMobile ? 10 : 12;
+
+      // Canary inset cities: label directly below the pin (no land/sea placement search)
+      if (isCanaryCity(city.geoCoords.longitude, city.geoCoords.latitude)) {
+        result[city.name] = {
+          anchorX: px,
+          anchorY: py + pinH / 2 + 17,
+          fill: '#003849',
+          textShadow: '0 0 2px rgba(255,255,255,0.8)',
+          hidden: true,
+        };
+        continue;
+      }
+
       const textWidth = city.name.length * 7;
       const candidates = computeLabelCandidates(px, py, pinW, pinH, textWidth);
 
@@ -432,7 +454,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
     }
 
     setLabelConfigs(result);
-  }, [geoData, projection, size, cities, isMobile]);
+  }, [geoData, projection, size, cities, isMobile, cityScreenPos]);
 
   // Calculate connector layout for desktop using smart card placement
   useEffect(() => {
@@ -447,12 +469,10 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       return;
     }
 
-    const [lon, lat] = transformCanaryCoords(
+    const p = cityScreenPos(
       selectedCityData.geoCoords.longitude,
       selectedCityData.geoCoords.latitude,
-      isMobile,
     );
-    const p = projection([lon, lat]);
     if (!p) { setCardLayout(null); return; }
     const [px, py] = p;
 
@@ -547,7 +567,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
       px, py, cardX, cardY, cardW, cardH,
       connectorPath: `M ${px} ${py} L ${edgeX} ${edgeY}`,
     });
-  }, [selectedCityData, projection, isMobile, size, geoData]);
+  }, [selectedCityData, projection, isMobile, size, geoData, cityScreenPos]);
 
   // Stable per-component handlers so React.memo on Pin can bail out for non-hovered pins
   const handlePinClick = useCallback((cityName: string) => {
@@ -640,12 +660,7 @@ const SpainMap: React.FC<SpainMapProps> = (props) => {
         {/* City Pins — inside SVG, sibling to g.map-base, not affected by D3 cleanup */}
         {projection &&
           getCityCoordinates(cities).map(city => {
-            const [shiftedLon, shiftedLat] = transformCanaryCoords(
-              city.coordinates[0],
-              city.coordinates[1],
-              isMobile,
-            );
-            const p = projection([shiftedLon, shiftedLat]);
+            const p = cityScreenPos(city.coordinates[0], city.coordinates[1]);
             if (!p) return null;
             const isActive = selectedCity === city.name;
             const isHovered = hoveredCity === city.name;

@@ -207,7 +207,26 @@ function SecondaryStory({ item, withRule }: { item: NewsItem; withRule: boolean 
 function NewsGraphic() {
   const [lead, ...rest] = STATIC_NEWS;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', position: 'relative' }}>
+      {/* Watermark overlay — blocks clicks and marks content as in progress */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 10,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'default', pointerEvents: 'all',
+      }}>
+        <span style={{
+          transform: 'rotate(-25deg)',
+          fontSize: '1.35rem', fontWeight: 700,
+          color: 'rgba(0,0,0,0.38)',
+          textTransform: 'uppercase', letterSpacing: '0.22em',
+          userSelect: 'none', whiteSpace: 'nowrap',
+          border: '2.5px solid rgba(0,0,0,0.28)',
+          padding: '7px 16px', borderRadius: 4,
+          fontFamily: 'EB Garamond, Georgia, serif',
+        }}>
+          En desarrollo
+        </span>
+      </div>
       <Masthead />
       <div style={{
         display: 'grid',
@@ -247,9 +266,10 @@ const NewsPanel: React.FC = () => {
       }}
       eyebrow="Comunidad · participación"
       title="Una plataforma para coincidir"
-      body="Las últimas noticias sobre movilidad ciclista en España. Infraestructura, política, datos y experiencias de ciudades que ya están cambiando."
+      body="Las últimas noticias sobre movilidad ciclista en España. Infraestructura, política, datos y experiencias de ciudades que ya están cambiando. Esta sección está en desarrollo."
       ctaLabel="Únete a la conversación →"
       onCta={() => navigate('/about')}
+      ctaDisabled
     />
   );
 };

@@ -6,9 +6,10 @@ interface MapControlsProps {
     colorScheme: { primary: string; secondary: string; accent: string; light: string };
     vertical?: boolean;
     onHelpClick?: () => void;
+    helpOnly?: boolean;
 }
 
-const MapControls: React.FC<MapControlsProps> = ({ colorScheme, vertical = false, onHelpClick }) => {
+const MapControls: React.FC<MapControlsProps> = ({ colorScheme, vertical = false, onHelpClick, helpOnly = false }) => {
     const { zoomIn, zoomOut, reset, toggleBackground } = useMap();
     const [showBackground, setShowBackground] = useState(false);
 
@@ -33,18 +34,22 @@ const MapControls: React.FC<MapControlsProps> = ({ colorScheme, vertical = false
                     <HelpCircle className="w-5 h-5" />
                 </button>
             )}
-            <button onClick={handleToggleBackground} className={btnClass} style={btnStyle(showBackground)} title="Toggle Base Map">
-                <Layers className="w-5 h-5" />
-            </button>
-            <button onClick={zoomIn} className={btnClass} style={btnStyle()} title="Zoom In">
-                <ZoomIn className="w-5 h-5" />
-            </button>
-            <button onClick={zoomOut} className={btnClass} style={btnStyle()} title="Zoom Out">
-                <ZoomOut className="w-5 h-5" />
-            </button>
-            <button onClick={reset} className={btnClass} style={btnStyle()} title="Reset View">
-                <RotateCcw className="w-5 h-5" />
-            </button>
+            {!helpOnly && (
+                <>
+                    <button onClick={handleToggleBackground} className={btnClass} style={btnStyle(showBackground)} title="Toggle Base Map">
+                        <Layers className="w-5 h-5" />
+                    </button>
+                    <button onClick={zoomIn} className={btnClass} style={btnStyle()} title="Zoom In">
+                        <ZoomIn className="w-5 h-5" />
+                    </button>
+                    <button onClick={zoomOut} className={btnClass} style={btnStyle()} title="Zoom Out">
+                        <ZoomOut className="w-5 h-5" />
+                    </button>
+                    <button onClick={reset} className={btnClass} style={btnStyle()} title="Reset View">
+                        <RotateCcw className="w-5 h-5" />
+                    </button>
+                </>
+            )}
         </div>
     );
 };

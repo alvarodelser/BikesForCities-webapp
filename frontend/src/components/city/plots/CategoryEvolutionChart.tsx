@@ -56,9 +56,9 @@ export const CategoryEvolutionChart: React.FC<CategoryEvolutionChartProps> = ({
       endLabels
       helpContent={
         <>
-          <p><strong>QUÉ VES</strong>: La evolución del importe presupuestario de las áreas seleccionadas a lo largo de los años disponibles. Cada línea es un área de gasto.</p>
-          <p><strong>POR QUÉ IMPORTA</strong>: Ver una categoría en el tiempo revela tendencias —refuerzo o recorte sostenido— que una sola foto anual no muestra.</p>
-          <p><strong>METODOLOGÍA</strong>: Para cada año se usa el gasto ejecutado; cuando un año aún no tiene ejecución disponible, se usa el planificado. Las áreas sin dato en un año concreto dejan un hueco en su línea.</p>
+          <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">QUÉ VES</span>La evolución del importe presupuestario de las áreas seleccionadas a lo largo de los años disponibles. Cada línea es un área de gasto.</p>
+          <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">POR QUÉ IMPORTA</span>Ver una categoría en el tiempo revela tendencias —refuerzo o recorte sostenido— que una sola foto anual no muestra.</p>
+          <p><span className="inline-flex px-1.5 py-px rounded-full text-[7.5px] font-black uppercase tracking-widest text-black/35 bg-black/[0.045] border border-black/[0.07] mr-1.5 align-middle">METODOLOGÍA</span>Para cada año se usa el gasto ejecutado; cuando un año aún no tiene ejecución disponible, se usa el planificado. Las áreas sin dato en un año concreto dejan un hueco en su línea.</p>
         </>
       }
     />

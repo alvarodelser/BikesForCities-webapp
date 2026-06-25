@@ -10,7 +10,7 @@ import DualPanel from './DualPanel';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
-import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
+import { formatPopulation, formatDistance, formatPercentage, formatBudgetM } from '../../utils/formatters';
 import { fetchInfraStats, fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
 import type { InfraStats, BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
 import TransparencyStats from './map/modes/transparency/TransparencyStats';
@@ -89,7 +89,7 @@ function CityHero({ city, selectedColor, infraStats }: { city: CityData, selecte
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
                         { icon: Users, label: 'Población', value: formatPopulation(city.population), gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
-                        { icon: Euro, label: 'Presupuesto', value: formatCurrency(city.budget), gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
+                        { icon: Euro, label: 'Presupuesto', value: formatBudgetM(city.budget), gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
                         { icon: Bike, label: 'Red Ciclista', value: infraStats?.total_km ? `${formatDistance(infraStats.total_km)} km` : '—', gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
                         { icon: Percent, label: 'Cobertura', value: infraStats?.coverage != null ? `${formatPercentage(infraStats.coverage)}%` : '—', gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
                     ].map(({ icon: Icon, label, value, gradient }) => (
