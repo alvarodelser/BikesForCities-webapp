@@ -183,6 +183,7 @@ def get_od_hex_flows(
     period: str | None = None,
     resolution: int = 8,
     min_trips: int | None = None,
+    period_from: str | None = None,
 ) -> dict:
     """Return a GeoJSON FeatureCollection of O-D flows aggregated by H3 hex at the given resolution.
 
@@ -193,30 +194,49 @@ def get_od_hex_flows(
     import h3
     from collections import defaultdict
 
-    period_date = (period + '-01') if period else None
+    period_date      = (period      + '-01') if period      else None
+    period_from_date = (period_from + '-01') if period_from else None
 
-    # Aggregate trips by (origin_node, dest_node) first — far cheaper than
-    # joining all rows to nodes before grouping on a large table.
-    # Cap at 200k most-common pairs so the response stays manageable.
     with conn.cursor() as cur:
-        cur.execute("""
-            WITH od_counts AS (
-                SELECT origin_node, dest_node, COUNT(*) AS cnt
-                FROM trips
-                WHERE city_id = %s AND generation_type = %s
-                  AND origin_node IS NOT NULL AND dest_node IS NOT NULL
-                  AND (%s IS NULL OR DATE_TRUNC('month', datetime_unlock) = %s::date)
-                GROUP BY origin_node, dest_node
-                ORDER BY cnt DESC
-                LIMIT 200000
-            )
-            SELECT n1.lat, n1.lon, n2.lat, n2.lon, od.cnt
-            FROM od_counts od
-            JOIN nodes n1 ON n1.id = od.origin_node
-            JOIN nodes n2 ON n2.id = od.dest_node
-            WHERE n1.lat IS NOT NULL AND n1.lon IS NOT NULL
-              AND n2.lat IS NOT NULL AND n2.lon IS NOT NULL
-        """, (city_id, generation_type, period_date, period_date))
+        if period_from_date and period_date:
+            cur.execute("""
+                WITH od_counts AS (
+                    SELECT origin_node, dest_node, COUNT(*) AS cnt
+                    FROM trips
+                    WHERE city_id = %s AND generation_type = %s
+                      AND origin_node IS NOT NULL AND dest_node IS NOT NULL
+                      AND DATE_TRUNC('month', datetime_unlock) >= %s::date
+                      AND DATE_TRUNC('month', datetime_unlock) <= %s::date
+                    GROUP BY origin_node, dest_node
+                    ORDER BY cnt DESC
+                    LIMIT 200000
+                )
+                SELECT n1.lat, n1.lon, n2.lat, n2.lon, od.cnt
+                FROM od_counts od
+                JOIN nodes n1 ON n1.id = od.origin_node
+                JOIN nodes n2 ON n2.id = od.dest_node
+                WHERE n1.lat IS NOT NULL AND n1.lon IS NOT NULL
+                  AND n2.lat IS NOT NULL AND n2.lon IS NOT NULL
+            """, (city_id, generation_type, period_from_date, period_date))
+        else:
+            cur.execute("""
+                WITH od_counts AS (
+                    SELECT origin_node, dest_node, COUNT(*) AS cnt
+                    FROM trips
+                    WHERE city_id = %s AND generation_type = %s
+                      AND origin_node IS NOT NULL AND dest_node IS NOT NULL
+                      AND (%s IS NULL OR DATE_TRUNC('month', datetime_unlock) = %s::date)
+                    GROUP BY origin_node, dest_node
+                    ORDER BY cnt DESC
+                    LIMIT 200000
+                )
+                SELECT n1.lat, n1.lon, n2.lat, n2.lon, od.cnt
+                FROM od_counts od
+                JOIN nodes n1 ON n1.id = od.origin_node
+                JOIN nodes n2 ON n2.id = od.dest_node
+                WHERE n1.lat IS NOT NULL AND n1.lon IS NOT NULL
+                  AND n2.lat IS NOT NULL AND n2.lon IS NOT NULL
+            """, (city_id, generation_type, period_date, period_date))
         node_pairs = cur.fetchall()
 
     hex_counts: dict = defaultdict(int)

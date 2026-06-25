@@ -17,7 +17,7 @@ sys.path.append(str(Path(__file__).resolve().parents[2]))
 from backend.database.db_io import (
     connect_db, get_all_cities, update_city_wikidata,
     put_historical_mayors, upsert_ingestion_status,
-    get_ingestion_status, check_prerequisites,
+    get_ingestion_status, check_prerequisites, refresh_city_modes,
 )
 
 QLEVER_ENDPOINT = "https://qlever.cs.uni-freiburg.de/api/wikidata"
@@ -239,6 +239,7 @@ def main():
                 print(f"       Mayor: {mayor_current} ({party_current}) | {len(df_mayors)} historical records.")
                 updated_count += 1
                 upsert_ingestion_status(conn, "011_load_wikidata", "SUCCESS", city_id=city_id)
+                refresh_city_modes(conn, city_id)
             else:
                 print(f"  ❌ {city_name}: No data found for {wikidata_id}.")
                 upsert_ingestion_status(conn, "011_load_wikidata", "FAILED", city_id=city_id)

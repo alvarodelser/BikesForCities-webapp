@@ -17,6 +17,7 @@ from .cities import (
     get_city_center,
     city_exists,
     get_city_id_by_name,
+    search_cities_by_name,
     get_city_details,
     get_city_bounds,
     get_ingestion_status,
@@ -31,6 +32,7 @@ from .cities import (
     get_infra_budget,
     get_historical_mayors,
     get_city_elections_data,
+    get_city_councilors_data,
 )
 
 from .graph import (
@@ -43,6 +45,7 @@ from .graph import (
     count_edges,
     get_paginated_nodes,
     get_paginated_edges,
+    search_edges_by_name,
     get_highway_distribution,
     get_station_reachability,
     compute_all_reach_coverages,
@@ -118,6 +121,7 @@ from .traffic import (
     has_traffic,
     get_traffic_infra_coverage,
     get_route_histogram,
+    get_traffic_evolution,
 )
 
 from .edge_routes import (
@@ -163,16 +167,17 @@ __all__ = [
     "connect_db", "check_alive",
     # Cities
     "get_all_cities", "get_city_center",
-    "city_exists", "get_city_id_by_name", "get_city_details", "get_city_bounds",
+    "city_exists", "get_city_id_by_name", "search_cities_by_name", "get_city_details", "get_city_bounds",
     "get_or_create_city", "put_city_modes", "get_city_modes", "refresh_city_modes", "update_city_wikidata",
     "get_ingestion_status", "upsert_ingestion_status", "check_prerequisites",
     "put_historical_mayors", "put_city_elections", "put_city_councilors",
     "put_city_budgets", "put_city_budget_categories", "get_city_budgets",
     "get_infra_budget", "get_historical_mayors", "get_city_elections_data",
+    "get_city_councilors_data",
     # graph
     "put_nodes", "put_edges", "get_nodes", "get_edges",
     "get_edge_id_map", "count_nodes", "count_edges",
-    "get_paginated_nodes", "get_paginated_edges", "get_highway_distribution",
+    "get_paginated_nodes", "get_paginated_edges", "search_edges_by_name", "get_highway_distribution",
     "get_station_reachability", "compute_all_reach_coverages",
     "get_gcc_coverage", "get_cycling_components_geojson", "get_building_coverage_components_geojson",
     "get_edge_building_coverage", "analyze_graph_tables",
@@ -201,7 +206,7 @@ __all__ = [
     "get_traffic_modes", "get_best_traffic_mode",
     "get_edge_traffic", "get_traffic_stats", "get_max_traffic_edge",
     "get_latest_traffic_month", "resolve_traffic_params", "has_traffic",
-    "get_traffic_infra_coverage", "get_route_histogram",
+    "get_traffic_infra_coverage", "get_route_histogram", "get_traffic_evolution",
     # edge routes
     "get_edge_route_traces", "get_edge_route_od", "count_edge_routes",
     # accidents

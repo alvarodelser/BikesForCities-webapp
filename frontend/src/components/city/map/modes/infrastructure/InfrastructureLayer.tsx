@@ -75,7 +75,7 @@ export default function InfrastructureLayer({ submode: _submode }: { submode: st
                 }
             } catch { /* map may have been removed */ }
         };
-    }, [map, city]);
+    }, [map, city?.id]);
 
     return null;
 }

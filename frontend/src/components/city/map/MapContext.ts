@@ -17,6 +17,11 @@ export interface MapContextValue {
     layerState: 'idle' | 'loading' | 'error' | 'empty';
     setLayerState: (state: 'idle' | 'loading' | 'error' | 'empty') => void;
     setLayerRetry: (retryFn: () => void) => void;
+    // Map help panel
+    helpOpen: boolean;
+    helpAnchor: string | null;
+    openMapHelp: (anchor?: string) => void;
+    closeMapHelp: () => void;
 }
 
 const noop = () => {};
@@ -33,6 +38,10 @@ export const MapContext = createContext<MapContextValue>({
     layerState: 'idle',
     setLayerState: noop,
     setLayerRetry: noop,
+    helpOpen: false,
+    helpAnchor: null,
+    openMapHelp: noop,
+    closeMapHelp: noop,
 });
 
 export const useMap = () => useContext(MapContext);

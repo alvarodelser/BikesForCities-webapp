@@ -60,3 +60,13 @@
 .animate-fade-out {
   animation: fade-out 1.5s ease-out forwards;
 }
+
+@keyframes help-anchor-pulse {
+  0%   { background-color: transparent; }
+  20%  { background-color: rgba(250, 204, 21, 0.25); }
+  100% { background-color: transparent; }
+}
+
+.help-anchor-pulse {
+  animation: help-anchor-pulse 0.8s ease-out forwards;
+}

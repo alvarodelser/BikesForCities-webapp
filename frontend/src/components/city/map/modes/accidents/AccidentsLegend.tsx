@@ -49,8 +49,8 @@ export default function AccidentsLegend() {
 
             <div className="mt-2 text-[10px] text-slate-500 font-medium leading-relaxed bg-black/5 p-2 rounded-lg">
                 {isBike
-                    ? 'Filtrado: accidentes con al menos una bicicleta o VMU implicada.'
-                    : 'Mostrando todos los accidentes registrados en la ciudad.'}
+                    ? 'Filtrado: siniestros con al menos una bicicleta o VMP implicada.'
+                    : 'Mostrando todos los siniestros registrados en la ciudad.'}
             </div>
         </div>
     );

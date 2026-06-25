@@ -47,18 +47,29 @@ def get_features(
 
 def get_building_coverage_fraction(conn, city_id: int) -> Optional[float]:
     """Return fraction of buildings within 150 m of a bike path (0–1), restricted to
-    the 10×10 km rotated study area (same rectangle as the legend / reset button).
+    the 10×10 km study area centred on the city.
+
+    Uses ±5000/cos(lat) Web Mercator units so the envelope is exactly ±5 km on the
+    ground at the city's latitude, matching the ingestion metric in calculate_osm_metrics.
     """
     with conn.cursor() as cur:
         cur.execute(
             """
             WITH center AS (
-                SELECT ST_Transform(ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), 3857) AS pt
+                SELECT
+                    center_lat,
+                    ST_Transform(ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), 3857) AS pt
                 FROM cities WHERE id = %s
             ),
             study_area AS (
                 SELECT ST_Transform(
-                    ST_MakeEnvelope(ST_X(pt)-5000, ST_Y(pt)-5000, ST_X(pt)+5000, ST_Y(pt)+5000, 3857),
+                    ST_MakeEnvelope(
+                        ST_X(pt) - 5000.0 / cos(radians(center_lat)),
+                        ST_Y(pt) - 5000.0 / cos(radians(center_lat)),
+                        ST_X(pt) + 5000.0 / cos(radians(center_lat)),
+                        ST_Y(pt) + 5000.0 / cos(radians(center_lat)),
+                        3857
+                    ),
                     4326
                 ) AS geom
                 FROM center

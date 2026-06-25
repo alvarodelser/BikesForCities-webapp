@@ -14,7 +14,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
-from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status, get_ingestion_status, check_prerequisites
+from backend.database.db_io import connect_db, get_all_cities, put_city_elections, put_city_councilors, upsert_ingestion_status, get_ingestion_status, check_prerequisites, refresh_city_modes
 
 # Current latest election: May 2023
 ELECTION_YEAR = 2023
@@ -220,6 +220,7 @@ def main():
             print(f"  • Upserting {len(group)} parties for {city_name}...")
             put_city_elections(conn, city_id, group)
             upsert_ingestion_status(conn, "012_load_electoral", "SUCCESS", city_id=city_id, time_period=str(ELECTION_YEAR))
+            refresh_city_modes(conn, int(city_id))
 
         if not df_candidates.empty:
             print(f"✔ Prepared {len(df_candidates)} candidates.")

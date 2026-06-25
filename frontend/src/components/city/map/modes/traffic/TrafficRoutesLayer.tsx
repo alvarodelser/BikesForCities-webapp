@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useThresholds } from '../../ThresholdsContext';
 import { useMapState } from '../../../../../hooks/useMapState';
+import { fmtInt } from '../../../../../utils/formatters';
 import { fetchTrafficResolve, fetchEdgeRoutes } from '../../../../../services/api';
 import { TILE_SERVER_URL } from '../../../../../config/api';
 import type * as GeoJSON from 'geojson';
@@ -47,7 +48,7 @@ function buildOpacityExpr(q5: number): unknown[] {
 export default function TrafficRoutesLayer() {
     const { map, city, setSelectedEdgeId, setLayerState, setLayerRetry } = useMap();
     const { setThresholds } = useThresholds();
-    const { generation, routing, period, setGeneration, setRouting, setPeriod } = useMapState();
+    const { generation, routing, period, periodFrom, setGeneration, setRouting, setPeriod, setPeriodFrom } = useMapState();
 
     const [renderMode, setRenderMode] = useState<'traces' | 'heatmap'>('traces');
     const renderModeRef = useRef<'traces' | 'heatmap'>('traces');
@@ -160,34 +161,38 @@ export default function TrafficRoutesLayer() {
         edgeId: number,
         mode: string,
         knownTotal: number | null,
+        resume?: { accumulated: GeoJSON.Feature[]; offset: number },
     ) => {
         if (!city?.id) return;
 
         routeLoadAbortRef.current?.abort();
         const controller = new AbortController();
         routeLoadAbortRef.current = controller;
-        clearOverlay();
 
         const total = knownTotal ?? 0;
-        const accumulated: GeoJSON.Feature[] = [];
-        let offset = 0;
+        const accumulated: GeoJSON.Feature[] = resume ? [...resume.accumulated] : [];
+        let offset = resume?.offset ?? 0;
 
-        const pushProgress = (loaded: number, done: boolean) => {
+        if (resume?.accumulated.length) {
+            renderOverlay({ type: 'FeatureCollection', features: accumulated }, mode);
+        } else {
+            clearOverlay();
+        }
+
+        const pushProgress = (loaded: number, done: boolean, onResume?: () => void) => {
             const prev = lastSelectionRef.current;
             if (!prev || prev.type !== 'edge') return;
-            const rowValue = loaded === 0
-                ? 'Cargando…'
-                : total > 0
-                    ? `${loaded.toLocaleString('es-ES')} / ${total.toLocaleString('es-ES')}`
-                    : `${loaded.toLocaleString('es-ES')} rutas`;
             window.dispatchEvent(new CustomEvent('map-selection', {
                 detail: {
                     ...prev,
-                    rows: [{ label: 'Rutas', value: done ? `${loaded.toLocaleString('es-ES')} rutas` : rowValue }],
+                    rows: done ? [{ label: 'Trayectos', value: `${fmtInt(loaded)} trayectos` }] : [],
                     routeProgress: done ? undefined : { loaded, total, onStop: handleStopRoutes },
+                    onResume: done ? onResume : undefined,
                 } as SelectionDetail,
             }));
         };
+
+        pushProgress(accumulated.length, false);
 
         try {
             do {
@@ -199,6 +204,7 @@ export default function TrafficRoutesLayer() {
                     generationType: generation || undefined,
                     algorithm: routing || undefined,
                     month: period || undefined,
+                    monthFrom: periodFrom || undefined,
                     skipCount: true,
                     signal: controller.signal,
                 });
@@ -216,15 +222,21 @@ export default function TrafficRoutesLayer() {
                 offset += ROUTE_PAGE_SIZE;
             } while (total === 0 || accumulated.length < total);
 
-            pushProgress(accumulated.length, true);
+            if (controller.signal.aborted) {
+                const resumeData = { accumulated: [...accumulated], offset };
+                pushProgress(accumulated.length, true, () => loadRoutes(edgeId, mode, knownTotal, resumeData));
+            } else {
+                pushProgress(accumulated.length, true);
+            }
         } catch (err) {
             if (controller.signal.aborted) {
-                pushProgress(accumulated.length, true);
+                const resumeData = { accumulated: [...accumulated], offset };
+                pushProgress(accumulated.length, true, () => loadRoutes(edgeId, mode, knownTotal, resumeData));
                 return;
             }
             console.error('Failed to fetch edge routes:', err);
         }
-    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, handleStopRoutes]);
+    }, [city?.id, renderOverlay, clearOverlay, generation, routing, period, periodFrom, handleStopRoutes]);
 
 
     // --- Mount: hide others (traffic layer stays hidden until loadData sets tiles + visible) ---
@@ -255,9 +267,12 @@ export default function TrafficRoutesLayer() {
         };
     }, [map]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Tracks whether we've written resolved generation/routing back to the URL already
-    const urlParamsSetRef = useRef(false);
-    useEffect(() => { urlParamsSetRef.current = false; }, [city?.id]);
+    // Key of the last params we actually applied to the tile source.
+    // When we call setGeneration/setPeriod etc. from within the resolve callback, React
+    // re-runs this effect. If the re-run's params match what we already applied, we skip
+    // the fetch — avoiding the 3-cycle chain that caused the loading bar to flash 4×.
+    const lastAppliedParamsRef = useRef('');
+    useEffect(() => { lastAppliedParamsRef.current = ''; }, [city?.id]);
 
     // --- Data fetch: resolve traffic params, then re-point the tile source ---
     useEffect(() => {
@@ -275,37 +290,60 @@ export default function TrafficRoutesLayer() {
             return;
         }
 
+        // Skip if this re-run was caused by our own setState calls (params already applied).
+        const currentKey = `${generation || ''}|${routing || ''}|${period || ''}|${periodFrom || ''}`;
+        if (currentKey === lastAppliedParamsRef.current) return;
+
         const loadData = () => {
             if (cancelled) return;
             setLayerState?.('loading');
 
-            console.log(`[TrafficRoutesLayer] resolve → city=${city!.id} gen=${generation} routing=${routing} period=${period}`);
-            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined).then(result => {
+            fetchTrafficResolve(city!.id!, generation || undefined, routing || undefined, period || undefined, periodFrom || undefined).then(result => {
                 if (cancelled || !map) return;
 
                 if (!result.generation_type || !result.algorithm || !result.month) {
                     setLayerState?.('empty');
                     return;
                 }
+
+                // resolvedMonthStr is the latest month that actually has data for the
+                // selected generation_type/algorithm — use it as the default when
+                // period/periodFrom are not yet set in the URL.
+                const resolvedMonthStr = result.month.slice(0, 7);
+                const rawTo   = period     || resolvedMonthStr;
+                const rawFrom = periodFrom || resolvedMonthStr;
+
+                // Enforce chronological order — user or race-condition can produce periodFrom > period.
+                const effectivePeriodTo   = rawFrom <= rawTo ? rawTo   : rawFrom;
+                const effectivePeriodFrom = rawFrom <= rawTo ? rawFrom : rawTo;
+
+                // Record applied params BEFORE calling setState so the resulting re-run
+                // finds the key and skips without another fetch.
+                lastAppliedParamsRef.current =
+                    `${result.generation_type}|${result.algorithm}|${effectivePeriodTo}|${effectivePeriodFrom}`;
+
+                // Update URL params for navigation (triggers re-run, but ref prevents re-fetch).
+                // Also corrects any inverted range that was stored in the URL.
+                if (!generation) setGeneration(result.generation_type);
+                if (!routing) setRouting(result.algorithm);
+                if (period !== effectivePeriodTo) setPeriod(effectivePeriodTo);
+                if (periodFrom !== effectivePeriodFrom) setPeriodFrom(effectivePeriodFrom);
+
                 setLayerState?.('idle');
-
-                let urlChanged = false;
-                if (!generation && result.generation_type) { setGeneration(result.generation_type); urlChanged = true; }
-                if (!routing && result.algorithm) { setRouting(result.algorithm); urlChanged = true; }
-                if (!period && result.month) {
-                    const resolvedMonthStr = result.month.slice(0, 7);
-                    setPeriod(resolvedMonthStr);
-                    urlChanged = true;
-                }
-
-                if (urlChanged) return;
 
                 const src = map.getSource(SOURCE_ID) as maplibregl.VectorTileSource | undefined;
                 if (src) {
                     const tileParams = new URLSearchParams();
                     tileParams.set('generation_type', result.generation_type);
                     tileParams.set('algorithm', result.algorithm);
-                    tileParams.set('month', result.month);
+                    // Use full-date string from resolve result only when it matches the effective end month;
+                    // otherwise append -01 so the tile function receives a valid DATE string.
+                    tileParams.set('month', effectivePeriodTo === resolvedMonthStr
+                        ? result.month
+                        : effectivePeriodTo + '-01');
+                    if (effectivePeriodFrom !== effectivePeriodTo) {
+                        tileParams.set('month_from', effectivePeriodFrom + '-01');
+                    }
 
                     const newTileUrl = `${TILE_SERVER_URL}/edges_with_traffic/{z}/{x}/{y}?${tileParams.toString()}`;
                     src.setTiles([newTileUrl]);
@@ -345,7 +383,7 @@ export default function TrafficRoutesLayer() {
             cancelled = true;
             setLayerState?.('idle');
         };
-    }, [map, city?.id, generation, routing, period, setLayerState, setLayerRetry]);
+    }, [map, city?.id, generation, routing, period, periodFrom, setLayerState, setLayerRetry]);
 
     // --- Click handling ---
     useEffect(() => {
@@ -395,7 +433,7 @@ export default function TrafficRoutesLayer() {
                 badge: tripCount != null
                     ? { text: `${Math.round(tripCount)} v/mes`, color: '#027A76' }
                     : { text: 'Sin datos', color: '#9ca3af' },
-                rows: [{ label: 'Rutas', value: 'Cargando…' }],
+                rows: [{ label: 'Trayectos', value: 'Cargando…' }],
                 colormap: thresholdsRef.current
                     ? { ...thresholdsRef.current, value: tripCount }
                     : undefined,
@@ -441,7 +479,7 @@ export default function TrafficRoutesLayer() {
             ? parseFloat(lastSelectionRef.current.badge.text) || null
             : null;
         loadRoutes(stickyRef.current.edgeId, renderMode, tripCount);
-    }, [renderMode, generation, routing, period]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [renderMode, generation, routing, period, periodFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
     return null;
 }

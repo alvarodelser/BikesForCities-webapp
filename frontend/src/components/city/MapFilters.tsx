@@ -1,16 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { useViewport } from '../../hooks/useViewport';
 import { useMapState } from '../../hooks/useMapState';
-import { fetchAccidentsSummary } from '../../services/api';
-import {
-  Car,
-  MapPin,
-  Network,
-  Mountain,
-  TriangleAlert,
-  CircleDot,
-} from 'lucide-react';
+import { RoadHorizon, Graph, Bicycle, Warning, Eye } from '@phosphor-icons/react';
 import { MAP_MODES } from '../../constants/mapModes';
 import type { MapMode } from '../../constants/mapModes';
 
@@ -24,139 +16,78 @@ interface MapFiltersProps {
 
 interface VizSubmode { id: string; label: string }
 
-// Viz submodes per mode, with optional condition
 const VIZ_SUBMODES: Partial<Record<string, { items: VizSubmode[]; requiresEdge?: boolean }>> = {
   [MAP_MODES.STATIONS]: {
     items: [
-      { id: 'trips',    label: 'Viajes' },
-      { id: 'downtime', label: 'Tiempo' },
-      { id: 'reach',    label: 'Alcance' },
+      { id: 'trips',    label: 'Demanda' },
+      { id: 'downtime', label: 'Disponibilidad' },
+      { id: 'reach',    label: 'Cobertura' },
     ],
   },
   [MAP_MODES.TRAFFIC]: {
     items: [
-      { id: 'rutas', label: 'Rutas' },
-      { id: 'od',    label: 'Origen-Destino' },
+      { id: 'rutas', label: 'Trayectos' },
+      { id: 'od',    label: 'Desplazamientos' },
     ],
   },
 };
 
-// Default viz submode per mode
 const DEFAULT_SUBMODE: Partial<Record<string, string>> = {
   [MAP_MODES.STATIONS]: 'trips',
   [MAP_MODES.TRAFFIC]:  'rutas',
 };
 
 const MODE_META = [
-  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura', color: '#027A76', icon: Network },
-  { id: MAP_MODES.TRAFFIC,        name: 'Tráfico',         color: '#3A6C7F', icon: Car     },
-  { id: MAP_MODES.STATIONS,       name: 'Servicios Bici',  color: '#ffa585', icon: MapPin  },
-  { id: MAP_MODES.TERRAIN,        name: 'Terreno',         color: 'var(--orange)', icon: Mountain },
-  { id: MAP_MODES.INTERSECTIONS,  name: 'Intersecciones',  color: 'var(--yellow)', icon: CircleDot },
-  { id: MAP_MODES.ACCIDENTS,      name: 'Accidentes',      color: 'var(--red)', icon: TriangleAlert },
+  { id: MAP_MODES.INFRASTRUCTURE, name: 'Infraestructura',     color: '#027A76',      icon: RoadHorizon },
+  { id: MAP_MODES.TRAFFIC,        name: 'Modelo de Movilidad', color: '#3A6C7F',      icon: Graph       },
+  { id: MAP_MODES.STATIONS,       name: 'Servicio Bici',       color: '#ffa585',      icon: Bicycle     },
+  { id: MAP_MODES.ACCIDENTS,      name: 'Accidentes',          color: 'var(--red)',   icon: Warning     },
+  { id: MAP_MODES.TRANSPARENCY,   name: 'Transparencia',       color: '#3A6C7F',      icon: Eye         },
 ] as const;
 
-const ACCIDENT_ACCENT = '#ef4444';
-
-// ── Compact year timeline for accidents pill ──────────────────────────────────
-
-interface CompactYearTimelineProps {
-  cityId: number;
-  selectedYear: string;
-  onYearSelect: (year: string) => void;
-}
-
-function CompactYearTimeline({ cityId, selectedYear, onYearSelect }: CompactYearTimelineProps) {
-  const [years, setYears] = useState<number[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchAccidentsSummary(cityId)
-      .then(s => { if (!cancelled) setYears((s.available_years ?? []).slice().sort((a, b) => a - b)); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [cityId]);
-
-  if (years.length === 0) return null;
-
-  const selectedNum = selectedYear ? parseInt(selectedYear, 10) : null;
-
-  return (
-    <div
-      className="relative z-10 border-t px-3 pb-3 pt-2.5"
-      style={{ borderColor: 'rgba(0,0,0,0.08)' }}
-      onClick={e => e.stopPropagation()}
-    >
-      <span
-        className="block text-[8px] font-black uppercase tracking-widest mb-2"
-        style={{ color: 'rgba(0,0,0,0.3)' }}
-      >
-        Año
-      </span>
-
-      {/* Timeline track */}
-      <div className="relative flex items-start justify-between">
-        {/* Connecting line */}
-        <div
-          className="absolute top-[9px] left-2.5 right-2.5 h-[1.5px]"
-          style={{ backgroundColor: 'rgba(0,0,0,0.08)' }}
-        />
-
-        {years.map((yr) => {
-          const isActive = selectedNum === yr;
-          return (
-            <button
-              key={yr}
-              onClick={() => onYearSelect(isActive ? '' : String(yr))}
-              className="relative flex flex-col items-center gap-1 group"
-              style={{ minWidth: 0 }}
-            >
-              {/* Dot */}
-              <div
-                className="w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center transition-all duration-200 relative z-10"
-                style={{
-                  backgroundColor: isActive ? ACCIDENT_ACCENT : 'white',
-                  borderColor: isActive ? ACCIDENT_ACCENT : 'rgba(0,0,0,0.15)',
-                  boxShadow: isActive
-                    ? `0 0 0 2px ${ACCIDENT_ACCENT}30, 0 2px 6px ${ACCIDENT_ACCENT}50`
-                    : '0 1px 2px rgba(0,0,0,0.1)',
-                  transform: isActive ? 'scale(1.15)' : 'scale(1)',
-                }}
-              >
-                {isActive && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-              </div>
-              {/* Year label */}
-              <span
-                className="text-[8px] font-bold transition-all duration-200 whitespace-nowrap"
-                style={{
-                  color: isActive ? ACCIDENT_ACCENT : 'rgba(0,0,0,0.35)',
-                  transform: isActive ? 'scale(1.05)' : 'scale(1)',
-                }}
-              >
-                {yr}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* "All years" pill */}
-      {selectedNum != null && (
-        <button
-          className="mt-2 w-full py-1 rounded-lg text-[9px] font-bold transition-all"
-          style={{
-            color: ACCIDENT_ACCENT,
-            backgroundColor: `${ACCIDENT_ACCENT}10`,
-            border: `1px solid ${ACCIDENT_ACCENT}25`,
-          }}
-          onClick={() => onYearSelect('')}
-        >
-          Ver todos los años
-        </button>
-      )}
-    </div>
-  );
-}
+// Context copy keyed by mode or mode/submode
+const CONTEXT_COPY: Partial<Record<string, { title: string; body: string }>> = {
+  [MAP_MODES.INFRASTRUCTURE]: {
+    title: 'Carriles bici de la ciudad',
+    body:  'Explora los carriles bici, vías ciclistas y zonas de velocidad reducida. El mapa muestra el tipo y estado de cada tramo de la red. Compara qué barrios están bien conectados y cuáles quedan fuera de la red.',
+  },
+  [`${MAP_MODES.TRAFFIC}/rutas`]: {
+    title: 'Por dónde circulan los ciclistas',
+    body:  'Visualiza las rutas que toman los ciclistas. Cada tramo muestra la intensidad de uso: cuántas personas pasan por ahí. Útil para identificar qué corredores concentran más flujo ciclista y dónde la falta de infraestructura frena el uso.',
+  },
+  [`${MAP_MODES.TRAFFIC}/od`]: {
+    title: 'Origen y destino de los desplazamientos ciclistas',
+    body:  'Muestra los pares origen-destino de los viajes: qué zonas generan más desplazamientos y hacia dónde se dirigen. Las líneas representan la demanda real de movilidad; donde hay una línea intensa, hay necesidad de infraestructura.',
+  },
+  [MAP_MODES.TRAFFIC]: {
+    title: 'Por dónde circulan los ciclistas',
+    body:  'Visualiza las rutas que toman los ciclistas. Cada tramo muestra la intensidad de uso: cuántas personas pasan por ahí.',
+  },
+  [`${MAP_MODES.STATIONS}/trips`]: {
+    title: 'Uso y demanda por estación bici',
+    body:  'Muestra la demanda de cada estación: número de usos, entradas y salidas. Identifica las estaciones más saturadas; que más necesitan ampliación de flota o nuevos puntos cercanos, y las que apenas se utilizan.',
+  },
+  [`${MAP_MODES.STATIONS}/downtime`]: {
+    title: 'Disponibilidad horaria del servicio',
+    body:  'Analiza la disponibilidad de bicicletas por horas, fines de semana y laborables. El momento crítico del servicio es cuando un usuario llega y no encuentra bici: aquí puedes ver cuándo y dónde ocurre con más frecuencia.',
+  },
+  [`${MAP_MODES.STATIONS}/reach`]: {
+    title: 'Alcance de cada estación',
+    body:  'Calcula el área de alcance de cada estación siguiendo el trazado real y las reglas de circulación. Muestra la diferencia entre la cobertura óptima y la situación real, donde una red viaria diseñada para el coche, especialmente las calles de sentido único, limita el acceso en bici.',
+  },
+  [MAP_MODES.STATIONS]: {
+    title: 'Uso y demanda por estación bici',
+    body:  'Muestra la demanda de cada estación: número de usos, entradas y salidas.',
+  },
+  [MAP_MODES.ACCIDENTS]: {
+    title: 'Dónde ocurren los accidentes y por qué',
+    body:  'Localiza los puntos de mayor siniestralidad ciclista en la ciudad. Cada incidente muestra el tipo de vehículo implicado, la gravedad y el tipo de vía. Los tramos sin infraestructura ciclista concentran accidentes graves. La severidad repercute en los usuarios vulnerables de la vía.',
+  },
+  [MAP_MODES.TRANSPARENCY]: {
+    title: 'Presupuesto y gobierno municipal',
+    body:  'Explora cómo el ayuntamiento gestiona sus recursos. Compara lo presupuestado con lo ejecutado por área de gasto, y consulta el historial de mandatos municipales. Los datos provienen de los presupuestos municipales publicados.',
+  },
+};
 
 // ── Desktop partitioned pill ──────────────────────────────────────────────────
 
@@ -164,26 +95,22 @@ interface PillProps {
   modeId: MapMode;
   name: string;
   color: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties; size?: number }>;
   active: boolean;
   disabled: boolean;
   submode: string;
-  period: string;
   edgeSelected: boolean;
-  cityId: number;
   onModeClick: () => void;
   onSubmodeClick: (id: string) => void;
-  onPeriodChange: (v: string) => void;
 }
 
 function ExpandingPill({
   modeId, name, color, icon: Icon,
-  active, disabled, submode, period,
-  cityId, onModeClick, onSubmodeClick, onPeriodChange,
+  active, disabled, submode,
+  onModeClick, onSubmodeClick,
 }: PillProps) {
   const viz = VIZ_SUBMODES[modeId];
   const showSubmodes = active && !!viz;
-  const showAccidentsTimeline = active && modeId === MAP_MODES.ACCIDENTS;
 
   return (
     <div
@@ -204,18 +131,15 @@ function ExpandingPill({
           : '0 2px 6px rgba(0,0,0,0.04)',
       }}
     >
-      {/* Glass reflection */}
       <div className="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent rounded-t-2xl pointer-events-none" />
 
-      {/* Top half: icon + label */}
       <div className="relative z-10 flex items-center gap-2 justify-center px-3 py-3">
-        <Icon className="w-4 h-4" style={{ color: active ? color : 'white' }} />
+        <Icon size={16} style={{ color: active ? color : 'white' }} />
         <span className="text-sm font-semibold" style={{ color: active ? color : 'white' }}>
           {name}
         </span>
       </div>
 
-      {/* Bottom half: viz submode row */}
       {showSubmodes && (
         <div
           className="relative z-10 flex border-t"
@@ -228,7 +152,7 @@ function ExpandingPill({
               <button
                 key={s.id}
                 onClick={() => onSubmodeClick(s.id)}
-                className="flex-1 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors cursor-pointer"
+                className="flex-1 py-1.5 text-[11px] font-semibold transition-colors cursor-pointer"
                 style={{
                   backgroundColor: isActive ? 'rgba(0,0,0,0.06)' : 'transparent',
                   color:           isActive ? color : 'rgba(0,0,0,0.45)',
@@ -241,15 +165,6 @@ function ExpandingPill({
           })}
         </div>
       )}
-
-      {/* Accidents: year timeline */}
-      {showAccidentsTimeline && (
-        <CompactYearTimeline
-          cityId={cityId}
-          selectedYear={period}
-          onYearSelect={onPeriodChange}
-        />
-      )}
     </div>
   );
 }
@@ -258,7 +173,7 @@ function ExpandingPill({
 
 const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChange, isModeAvailable, selectedEdgeId = null }) => {
   const { isMobile } = useViewport();
-  const { submode, period, setMode, setSubmode, setPeriod } = useMapState();
+  const { submode, setMode, setSubmode } = useMapState();
 
   const handleModeClick = (id: MapMode) => {
     const defaultSub = DEFAULT_SUBMODE[id] ?? '';
@@ -269,7 +184,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
     setSubmode(id);
   };
 
-  // ── Mobile: horizontal pill strip (unchanged layout, no expansion) ──
+  // ── Mobile: horizontal pill strip ──
   if (isMobile) {
     return (
       <div className="flex gap-2 overflow-x-auto px-[var(--space-gutter)] py-2 bg-black/[0.03] border-b border-black/10">
@@ -291,7 +206,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
                     : 'bg-white border-black/10 text-black/70'
                 }`}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon size={14} />
                 {m.name}
               </button>
             );
@@ -301,12 +216,15 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
   }
 
   // ── Desktop: expanding pills grid ──
+  const contextKey = submode ? `${selectedMode}/${submode}` : selectedMode;
+  const context = CONTEXT_COPY[contextKey] ?? CONTEXT_COPY[selectedMode];
+
   return (
     <section className="w-full">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-white mb-1">Herramientas de Análisis</h2>
-        <p className="text-base text-white/80">
-          Selecciona un modo para analizar la infraestructura ciclista de {city.name}
+      <div className="mb-4 flex items-baseline gap-3 flex-wrap">
+        <h2 className="text-lg font-bold text-white whitespace-nowrap">Capas de análisis</h2>
+        <p className="text-sm text-white/65">
+          Selecciona un modo para visualizar {city.name} desde diferentes perspectivas
         </p>
       </div>
 
@@ -323,15 +241,19 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
               active={selectedMode === m.id}
               disabled={!isModeAvailable(m.id)}
               submode={selectedMode === m.id ? submode : ''}
-              period={selectedMode === m.id ? period : ''}
               edgeSelected={selectedEdgeId !== null}
-              cityId={city.id ?? 0}
               onModeClick={() => handleModeClick(m.id)}
               onSubmodeClick={handleSubmodeClick}
-              onPeriodChange={setPeriod}
             />
           ))}
       </div>
+
+      {context && (
+        <div className="mt-5">
+          <p className="text-sm font-bold text-white">{context.title}</p>
+          <p className="text-sm text-white/75 mt-1 leading-relaxed">{context.body}</p>
+        </div>
+      )}
     </section>
   );
 };

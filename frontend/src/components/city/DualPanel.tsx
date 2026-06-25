@@ -25,10 +25,10 @@ function DualPanel({ leftRatio = 0.45, children }: DualPanelProps) {
   return (
     <div
       className="grid"
-      style={{ gridTemplateColumns: `${leftRatio * 100}% 1fr` }}
+      style={{ gridTemplateColumns: `${leftRatio * 100}% minmax(0, 1fr)` }}
     >
-      <div className="overflow-y-auto">{left}</div>
-      <div>{right}</div>
+      <div className="overflow-y-auto min-w-0">{left}</div>
+      <div className="min-w-0">{right}</div>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React from 'react';
 import type { CityData } from '../../constants/cities';
 import { GlassCard } from './GlassCard';
 import { FlatCard } from './FlatCard';
-import { formatPopulation, formatCurrency, formatDistance, formatPercentage } from '../../utils/formatters';
+import { formatPopulation, formatBudgetM, formatDistance, formatPercentage } from '../../utils/formatters';
 
 interface CityCardProps {
   city: CityData;
@@ -58,7 +58,7 @@ const CityCard: React.FC<CityCardProps> = ({
         tint="rgba(255, 255, 255, 0.18)"
         blurStrength="lg"
         shadow="lg"
-        className="w-full flex flex-col border-white/30"
+        className="w-full h-full flex flex-col border-white/30"
         onClick={onClick}
       >
         {/* City name */}
@@ -81,7 +81,7 @@ const CityCard: React.FC<CityCardProps> = ({
 
           <GlassCard surface="inset" size="sm" depth="lg" className="text-center">
             <h3 className="font-semibold text-white/90 mb-1 text-xs">Presupuesto</h3>
-            <p className="font-bold text-white text-sm">{formatCurrency(city.budget)}</p>
+            <p className="font-bold text-white text-sm">{formatBudgetM(city.budget)}</p>
           </GlassCard>
 
           <GlassCard surface="inset" size="sm" depth="lg" className="text-center">
@@ -184,7 +184,7 @@ const CityCard: React.FC<CityCardProps> = ({
               Presupuesto
             </h3>
             <p className="font-bold text-white drop-shadow-lg text-sm">
-              {formatCurrency(city.budget)}
+              {formatBudgetM(city.budget)}
             </p>
           </GlassCard>
 

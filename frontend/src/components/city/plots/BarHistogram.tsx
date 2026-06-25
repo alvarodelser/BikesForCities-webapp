@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, type ReactNode } from 'react';
 import { HelpCircle, X } from 'lucide-react';
+import { fmtInt } from '../../../utils/formatters';
 
 interface BarDatum {
   label: string;
@@ -145,7 +146,7 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
                       <div className="rounded-xl border border-black/10 bg-white/95 backdrop-blur-md shadow-xl p-3">
                         <p className="text-[11px] font-bold text-gray-900 mb-0.5">{d.label}</p>
                         <p className="text-[11px] text-gray-600 tabular-nums">
-                          {d.value.toLocaleString('es')}{yUnit ? ` ${yUnit}` : ''}
+                          {fmtInt(d.value)}{yUnit ? ` ${yUnit}` : ''}
                         </p>
                         {total > 0 && (
                           <p className="text-[11px] text-gray-400">

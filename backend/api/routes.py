@@ -11,19 +11,20 @@ from shapely.geometry import mapping
 
 from .models import (
     CityListResponse, CityDetailResponse, CityStatsResponse,
-    PaginatedNodesResponse, PaginatedEdgesResponse, PaginatedTripsResponse,
+    PaginatedNodesResponse, PaginatedEdgesResponse, EdgeSearchResponse, PaginatedTripsResponse,
     PaginatedFeaturesResponse, GeoJSONResponse, GeoJSONFeatureCollection,
     NodeResponse, EdgeResponse, TripResponse, FeatureResponse,
     CityResponse, NetworkStats, GeoJSONFeature, ErrorResponse,
     StationResponse, StationListResponse,
     TrafficResponse, TrafficResolveResponse, TrafficCount, TrafficStats, TrafficMode, TrafficModesResponse,
+    TrafficEvolutionPoint, TrafficEvolutionResponse,
     EdgeRoutesResponse,
     InfraStatsResponse, InfraComponentsResponse, EdgeBuildingCoverageResponse,
     StationBuildingCoverageResponse,
     TrafficInfraCoverage, RouteHistogramResponse, RouteHistogramSeries, HistogramSeries,
     StationMonthlyResponse, StationMonthlyPoint,
     CityBudgetsResponse, BudgetYear, BudgetCategory,
-    MayorsTimelineResponse, MayorRecord, ElectionResult,
+    MayorsTimelineResponse, MayorRecord, ElectionResult, CouncilorRecord,
     MayorTermResponse, BudgetCategoryResponse, CityContextResponse,
 )
 from .dependencies import (
@@ -34,8 +35,8 @@ from backend.database.db_io import (
     get_all_cities, get_city_center, count_nodes, count_edges,
     count_trips, count_features, get_nodes, get_edges, get_features, get_od_hex_flows,
     get_stations, get_edge_traffic, get_traffic_stats, get_traffic_modes, get_max_traffic_edge,
-    get_city_details, get_city_bounds,
-    get_paginated_nodes, get_paginated_edges, get_paginated_trips,
+    get_city_details, get_city_bounds, search_cities_by_name,
+    get_paginated_nodes, get_paginated_edges, search_edges_by_name, get_paginated_trips,
     get_paginated_features, get_paginated_stations,
     get_station_hourly_availability, get_city_median_max_hourly_bikes, get_station_hourly_demand, get_station_reachability,
     get_edge_route_traces, get_edge_route_od, count_edge_routes,
@@ -46,7 +47,9 @@ from backend.database.db_io import (
     get_station_monthly_agg,
     get_avg_station_building_count, get_city_station_coverage,
     get_city_budgets, get_historical_mayors, get_city_elections_data,
+    get_city_councilors_data,
     get_best_traffic_mode, get_latest_traffic_month, resolve_traffic_params,
+    get_traffic_evolution,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,7 +69,7 @@ def list_networks(conn=Depends(get_db_connection)):
              center_lat, center_lon, radius,
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, traffic_combos, accidents, stations,
+             infra, traffic, traffic_combos, accidents, stations, transparency_submodes,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count, station_coverage) = row
 
             bounds = None
@@ -78,12 +81,15 @@ def list_networks(conn=Depends(get_db_connection)):
                     "max_lon": max_lon
                 }
 
+            t_submodes = transparency_submodes or []
             available_modes = {
                 "infrastructure": bool(infra),
                 "traffic": bool(traffic),
                 "traffic_combinations": traffic_combos or [],
                 "accidents": bool(accidents),
                 "stations": bool(stations),
+                "transparency": len(t_submodes) > 0,
+                "transparency_submodes": t_submodes,
             }
 
             city_obj = CityResponse(
@@ -121,6 +127,26 @@ def list_networks(conn=Depends(get_db_connection)):
         raise HTTPException(status_code=500, detail="Error al obtener las ciudades")
 
 
+@router.get("/cities/search", response_model=CityListResponse)
+def search_cities(
+    q: str = Query(..., min_length=1, description="City name to search for"),
+    conn=Depends(get_db_connection)
+):
+    """Search cities by name using fuzzy matching."""
+    try:
+        cities_data = search_cities_by_name(conn, q)
+        cities = [CityResponse(
+            id=row["id"], name=row["name"], alt_name=row.get("alt_name"),
+            slug=row["slug"], description=row.get("description"),
+            center_lat=row.get("center_lat"), center_lon=row.get("center_lon"),
+            radius=row.get("radius"),
+        ) for row in cities_data]
+        return CityListResponse(data=cities, message=f"Found {len(cities)} city/cities matching '{q}'")
+    except Exception as e:
+        logger.error(f"Error searching cities for '{q}': {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar ciudades")
+
+
 @router.get("/cities/{city_id}", response_model=CityDetailResponse)
 def get_city(city_id: int, conn=Depends(get_db_connection)):
     """Get city details."""
@@ -133,12 +159,15 @@ def get_city(city_id: int, conn=Depends(get_db_connection)):
         
         bounds_dict = get_city_bounds(conn, city_id)
 
+        t_submodes = city_dict.get("transparency_submodes") or []
         available_modes = {
             "infrastructure": bool(city_dict.get("infrastructure")),
             "traffic": bool(city_dict.get("traffic")),
             "traffic_combinations": city_dict.get("traffic_combinations") or [],
             "accidents": bool(city_dict.get("accidents")),
             "stations": bool(city_dict.get("stations")),
+            "transparency": len(t_submodes) > 0,
+            "transparency_submodes": t_submodes,
         }
 
         city = CityResponse(
@@ -155,9 +184,9 @@ def get_city(city_id: int, conn=Depends(get_db_connection)):
             mayor=city_dict.get("mayor"),
             mayor_party=city_dict.get("mayor_party"),
             service_name=city_dict.get("service_name"),
-            stations_count=city_dict.get("stations_count"),
-            monthly_trips=city_dict.get("monthly_trips"),
-            bicycles_count=city_dict.get("bicycles_count"),
+            stations_count=int(city_dict.get("stations_count")) if city_dict.get("stations_count") is not None else None,
+            monthly_trips=int(city_dict.get("monthly_trips")) if city_dict.get("monthly_trips") is not None else None,
+            bicycles_count=int(city_dict.get("bicycles_count")) if city_dict.get("bicycles_count") is not None else None,
             bounds=bounds_dict,
             available_modes=available_modes,
             station_coverage=city_dict.get("station_coverage"),
@@ -341,12 +370,13 @@ def get_od_flows(
     city_id: int,
     generation_type: str = Query(..., description="Trip generation type"),
     period: Optional[str] = Query(None, description="Month filter YYYY-MM"),
+    period_from: Optional[str] = Query(None, description="Start month filter YYYY-MM"),
     resolution: int = Query(8, ge=6, le=10, description="H3 resolution (8 ≈ 0.5 km edge)"),
     conn=Depends(get_db_connection),
 ):
     """O-D flows aggregated by H3 hex as a GeoJSON FeatureCollection."""
     try:
-        geojson = get_od_hex_flows(conn, city_id, generation_type, period=period, resolution=resolution)
+        geojson = get_od_hex_flows(conn, city_id, generation_type, period=period, resolution=resolution, period_from=period_from)
         return geojson
     except Exception as e:
         logger.error(f"Error computing OD hex flows for city {city_id}: {e}")
@@ -454,6 +484,28 @@ def get_network_edges_geojson(
     except Exception as e:
         logger.error(f"Error getting GeoJSON edges for city {city_id}: {e}")
         raise HTTPException(status_code=500, detail="Error al obtener la geometría de los tramos")
+
+
+@router.get("/cities/{city_id}/edges/search", response_model=EdgeSearchResponse)
+def search_network_edges(
+    city_id: int,
+    q: str = Query(..., min_length=1, description="Street name to search for"),
+    conn=Depends(get_db_connection)
+):
+    """Search edges by street name using fuzzy matching (pg_trgm if available, ILIKE fallback)."""
+    try:
+        validate_network_exists(conn, city_id)
+        rows = search_edges_by_name(conn, city_id, q)
+        edges = [EdgeResponse(**row) for row in rows]
+        return EdgeSearchResponse(
+            data=edges,
+            message=f"Found {len(edges)} edge(s) matching '{q}'"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching edges for city {city_id} query '{q}': {e}")
+        raise HTTPException(status_code=500, detail="Error al buscar tramos por nombre")
 
 
 @router.get("/cities/{city_id}/features/geojson", response_model=GeoJSONResponse)
@@ -676,7 +728,8 @@ def get_city_traffic(
     city_id: int,
     generation_type: Optional[str] = Query(None, description="Filter: real | station_based | buildings_population"),
     algorithm: Optional[str] = Query(None, description="Filter: map_matched | safest | shortest | grouped"),
-    month: Optional[str] = Query(None, description="Month YYYY-MM (defaults to latest for combination)"),
+    month: Optional[str] = Query(None, description="Month YYYY-MM (end of range, defaults to latest)"),
+    month_from: Optional[str] = Query(None, description="Start month YYYY-MM (range start)"),
     conn=Depends(get_db_connection)
 ):
     """Get trip counts per road segment. Defaults to best available (generation, algorithm) combination."""
@@ -685,9 +738,15 @@ def get_city_traffic(
 
         from datetime import date as date_type
         month_date: Optional[date_type] = None
+        month_from_date: Optional[date_type] = None
         if month:
             try:
                 month_date = date_type.fromisoformat(month + "-01")
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Formato de mes inválido. Use AAAA-MM.")
+        if month_from:
+            try:
+                month_from_date = date_type.fromisoformat(month_from + "-01")
             except ValueError:
                 raise HTTPException(status_code=422, detail="Formato de mes inválido. Use AAAA-MM.")
 
@@ -696,15 +755,16 @@ def get_city_traffic(
             generation_type=generation_type,
             algorithm=algorithm,
             month=month_date,
+            month_from=month_from_date,
         )
 
         stats = None
         max_edge_name = None
         if resolved_gen and resolved_algo and resolved_month:
-            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
             if raw:
                 stats = TrafficStats(**raw)
-            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+            max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
             if max_edge:
                 max_edge_name = max_edge.get('edge_name')
 
@@ -747,7 +807,8 @@ def resolve_city_traffic(
     city_id: int,
     generation_type: Optional[str] = Query(None),
     algorithm: Optional[str] = Query(None),
-    month: Optional[str] = Query(None, description="Month YYYY-MM (defaults to latest)"),
+    month: Optional[str] = Query(None, description="Month YYYY-MM end of range (defaults to latest)"),
+    month_from: Optional[str] = Query(None, description="Start month YYYY-MM"),
     conn=Depends(get_db_connection),
 ):
     """Resolve traffic parameters and return stats without per-edge data.
@@ -762,9 +823,15 @@ def resolve_city_traffic(
 
         from datetime import date as date_type
         month_date: Optional[date_type] = None
+        month_from_date: Optional[date_type] = None
         if month:
             try:
                 month_date = date_type.fromisoformat(month + "-01")
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
+        if month_from:
+            try:
+                month_from_date = date_type.fromisoformat(month_from + "-01")
             except ValueError:
                 raise HTTPException(status_code=422, detail="Invalid month format. Use YYYY-MM.")
 
@@ -789,12 +856,12 @@ def resolve_city_traffic(
         stats = None
         max_edge_name = None
         edge_count = None
-        raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+        raw = get_traffic_stats(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
         if raw:
             edge_count = raw.get('edge_count')
             stats = TrafficStats(**{k: v for k, v in raw.items() if k != 'edge_count'})
 
-        max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month)
+        max_edge = get_max_traffic_edge(conn, city_id, resolved_gen, resolved_algo, resolved_month, month_from=month_from_date)
         if max_edge:
             max_edge_name = max_edge.get('edge_name')
 
@@ -806,9 +873,11 @@ def resolve_city_traffic(
                     SELECT DISTINCT TO_CHAR(month, 'YYYY-MM') AS period
                     FROM edge_traffic
                     WHERE city_id = %s
+                      AND generation_type = %s
+                      AND algorithm = %s
                     ORDER BY period DESC
                     """,
-                    (city_id,),
+                    (city_id, resolved_gen, resolved_algo),
                 )
                 available_periods = [r[0] for r in cur.fetchall()]
         except Exception as periods_err:
@@ -831,6 +900,49 @@ def resolve_city_traffic(
         raise HTTPException(status_code=500, detail="Error al resolver los parámetros de tráfico")
 
 
+@router.get("/cities/{city_id}/traffic/evolution", response_model=TrafficEvolutionResponse)
+def get_city_traffic_evolution(
+    city_id: int,
+    generation_type: Optional[str] = Query(None),
+    algorithm: Optional[str] = Query(None),
+    conn=Depends(get_db_connection),
+):
+    """Return per-month active-edge counts for all available periods.
+
+    Replaces the frontend pattern of calling /traffic/resolve once per period
+    to build the evolution chart — returns all months in a single query.
+    """
+    try:
+        validate_network_exists(conn, city_id)
+
+        resolved_gen, resolved_algo, _ = resolve_traffic_params(
+            conn, city_id, generation_type=generation_type, algorithm=algorithm
+        )
+
+        if not resolved_gen or not resolved_algo:
+            return TrafficEvolutionResponse(
+                success=True,
+                message="No traffic data available",
+                generation_type=None,
+                algorithm=None,
+                data=[],
+            )
+
+        points = get_traffic_evolution(conn, city_id, resolved_gen, resolved_algo)
+
+        return TrafficEvolutionResponse(
+            message="Evolution data retrieved",
+            generation_type=resolved_gen,
+            algorithm=resolved_algo,
+            data=[TrafficEvolutionPoint(**p) for p in points],
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting traffic evolution for city {city_id}: {e}")
+        raise HTTPException(status_code=500, detail="Error al obtener la evolución del tráfico")
+
+
 @router.get("/cities/{city_id}/edges/{edge_id}/routes", response_model=EdgeRoutesResponse)
 def get_edge_routes(
     city_id: int,
@@ -841,6 +953,7 @@ def get_edge_routes(
     generation_type: Optional[str] = Query(None, description="Trip generation filter"),
     algorithm: Optional[str] = Query(None, description="Path algorithm filter"),
     month: Optional[str] = Query(None, description="Month filter YYYY-MM"),
+    month_from: Optional[str] = Query(None, description="Start month filter YYYY-MM"),
     skip_count: bool = Query(False, description="Skip the total count query; use tile trip_count instead"),
     conn=Depends(get_db_connection),
 ):
@@ -872,6 +985,7 @@ def get_edge_routes(
             generation_type=generation_type,
             algorithm=algorithm,
             month=month,
+            month_from=month_from,
         )
 
         if mode == "heatmap":
@@ -881,6 +995,7 @@ def get_edge_routes(
                 generation_type=generation_type,
                 algorithm=algorithm,
                 month=month,
+                month_from=month_from,
             )
             features = []
             for row in rows:
@@ -902,6 +1017,7 @@ def get_edge_routes(
                 generation_type=generation_type,
                 algorithm=algorithm,
                 month=month,
+                month_from=month_from,
             )
             features = [
                 {"type": "Feature", "geometry": json.loads(g), "properties": {}}
@@ -933,7 +1049,8 @@ def get_edge_routes(
 def get_city_accidents(
     city_id: int,
     cyclists_only: bool = Query(True, description="Filter to cyclist-involved accidents only"),
-    year: Optional[int] = Query(None, description="Filter to a specific year"),
+    year_from: Optional[int] = Query(None, description="Start year (inclusive)"),
+    year_to: Optional[int] = Query(None, description="End year (inclusive)"),
     conn=Depends(get_db_connection),
 ):
     """Slim GeoJSON FeatureCollection for the map (no per-victim participants).
@@ -945,7 +1062,7 @@ def get_city_accidents(
         with conn.cursor() as _cur:
             _cur.execute("SET LOCAL statement_timeout = '30s'")
         validate_network_exists(conn, city_id)
-        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only, year=year)
+        geojson = get_accidents_geojson(conn, city_id, cyclists_only=cyclists_only, year_from=year_from, year_to=year_to)
         return {
             "data": geojson,
             "count": len(geojson["features"]),
@@ -961,13 +1078,14 @@ def get_city_accidents(
 @router.get("/cities/{city_id}/accidents/summary")
 def get_city_accidents_summary(
     city_id: int,
-    year: Optional[int] = Query(None, description="Filter counts to a specific year"),
+    year_from: Optional[int] = Query(None, description="Start year (inclusive)"),
+    year_to: Optional[int] = Query(None, description="End year (inclusive)"),
     conn=Depends(get_db_connection),
 ):
     """Aggregate counts (total / cyclist / pedestrian / latest_year / available_years)."""
     try:
         validate_network_exists(conn, city_id)
-        return {"data": get_accidents_summary(conn, city_id, year=year)}
+        return {"data": get_accidents_summary(conn, city_id, year_from=year_from, year_to=year_to)}
     except HTTPException:
         raise
     except Exception as e:
@@ -978,18 +1096,14 @@ def get_city_accidents_summary(
 @router.get("/cities/{city_id}/accidents/pair-stats")
 def get_city_accidents_pair_stats(
     city_id: int,
-    year: Optional[int] = Query(None, description="Filter to a specific year"),
+    year_from: Optional[int] = Query(None, description="Start year (inclusive)"),
+    year_to: Optional[int] = Query(None, description="End year (inclusive)"),
     conn=Depends(get_db_connection),
 ):
-    """Per-vehicle-type severity for each vehicle-pair combination.
-
-    Returns severity counts for cat_a participants in accidents involving both
-    cat_a and cat_b vehicle types. Also includes (bike_vmu, solo) for solo cyclist
-    accidents. No year required — aggregate over all available data by default.
-    """
+    """Per-vehicle-type severity for each vehicle-pair combination."""
     try:
         validate_network_exists(conn, city_id)
-        return {"data": get_vehicle_pair_severity(conn, city_id, year=year)}
+        return {"data": get_vehicle_pair_severity(conn, city_id, year_from=year_from, year_to=year_to)}
     except HTTPException:
         raise
     except Exception as e:
@@ -1097,6 +1211,7 @@ def get_city_traffic_infra_coverage(
     generation_type: Optional[str] = Query(None),
     algorithm: Optional[str] = Query(None),
     month: Optional[str] = Query(None, description="YYYY-MM"),
+    month_from: Optional[str] = Query(None, description="Start month YYYY-MM for range aggregation"),
     conn=Depends(get_db_connection),
 ):
     """Return km of simulated trips on cycling infrastructure for a given (gen, algo, month)."""
@@ -1118,7 +1233,9 @@ def get_city_traffic_infra_coverage(
         if month_date is None:
             return TrafficInfraCoverage(message="No traffic data for this combination", data={})
 
-        cov = get_traffic_infra_coverage(conn, city_id, generation_type, algorithm, month_date)
+        month_from_date = date_type.fromisoformat(month_from + "-01") if month_from else None
+
+        cov = get_traffic_infra_coverage(conn, city_id, generation_type, algorithm, month_date, month_from=month_from_date)
         return TrafficInfraCoverage(
             message="Traffic infrastructure coverage retrieved",
             data={
@@ -1241,9 +1358,11 @@ def get_city_mayors_timeline(city_id: int, conn=Depends(get_db_connection)):
         validate_network_exists(conn, city_id)
         mayors = get_historical_mayors(conn, city_id)
         elections = get_city_elections_data(conn, city_id)
+        councilors = get_city_councilors_data(conn, city_id)
         return MayorsTimelineResponse(
             mayors=[MayorRecord(**m) for m in mayors],
             elections=[ElectionResult(**e) for e in elections],
+            councilors=[CouncilorRecord(**c) for c in councilors],
             message=f"{len(mayors)} mayors, {len(elections)} election records",
         )
     except HTTPException:
@@ -1326,7 +1445,7 @@ def get_system_status(conn=Depends(get_db_connection)):
              center_lat, center_lon, radius,
              population, budget, coverage, cycling_network,
              min_lat, max_lat, min_lon, max_lon,
-             infra, traffic, traffic_combos, accidents, stations,
+             infra, traffic, traffic_combos, accidents, stations, transparency_submodes,
              mayor, mayor_party, service_name, stations_count, monthly_trips, bicycles_count, station_coverage) = row
 
             city_stats.append({

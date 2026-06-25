@@ -243,11 +243,13 @@ export const fetchTrafficResolve = async (
   generationType?: string,
   algorithm?: string,
   month?: string,
+  monthFrom?: string,
 ): Promise<TrafficResolveResult> => {
   const params = new URLSearchParams();
   if (generationType) params.set('generation_type', generationType);
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
+  if (monthFrom) params.set('month_from', monthFrom);
   const qs = params.toString();
   const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/resolve${qs ? `?${qs}` : ''}`);
   if (!response.ok) throw new Error('Error al resolver los parámetros de tráfico');
@@ -264,17 +266,50 @@ export const fetchTrafficResolve = async (
 };
 
 
+export interface TrafficEvolutionPoint {
+  period: string;
+  edge_count: number;
+}
+
+export interface TrafficEvolutionResult {
+  generation_type: string | null;
+  algorithm: string | null;
+  data: TrafficEvolutionPoint[];
+}
+
+export const fetchTrafficEvolution = async (
+  cityId: number,
+  generationType?: string,
+  algorithm?: string,
+): Promise<TrafficEvolutionResult> => {
+  const params = new URLSearchParams();
+  if (generationType) params.set('generation_type', generationType);
+  if (algorithm) params.set('algorithm', algorithm);
+  const qs = params.toString();
+  const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/traffic/evolution${qs ? `?${qs}` : ''}`);
+  if (!response.ok) throw new Error('Error al obtener la evolución del tráfico');
+  const result = await response.json();
+  return {
+    generation_type: result.generation_type ?? null,
+    algorithm: result.algorithm ?? null,
+    data: result.data ?? [],
+  };
+};
+
+
 export const fetchODFlows = async (
   cityId: number,
   generationType: string,
   period?: string,
   resolution: number = 8,
+  periodFrom?: string,
 ): Promise<GeoJSON.FeatureCollection> => {
   const params = new URLSearchParams({
     generation_type: generationType,
     resolution: String(resolution),
   });
   if (period) params.set('period', period);
+  if (periodFrom) params.set('period_from', periodFrom);
   const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/trips/od-flows?${params}`);
   if (!response.ok) throw new Error('Error al cargar flujos O-D');
   return response.json();
@@ -301,6 +336,7 @@ export interface EdgeRoutesParams {
   generationType?: string;
   algorithm?: string;
   month?: string;
+  monthFrom?: string;
   skipCount?: boolean;
   signal?: AbortSignal;
 }
@@ -317,6 +353,7 @@ export const fetchEdgeRoutes = async (
   if (params.generationType) qs.set('generation_type', params.generationType);
   if (params.algorithm) qs.set('algorithm', params.algorithm);
   if (params.month) qs.set('month', params.month);
+  if (params.monthFrom) qs.set('month_from', params.monthFrom);
   if (params.skipCount) qs.set('skip_count', 'true');
   const fetchFn = params.signal
     ? (url: string) => apiFetchWithSignal(url, params.signal!, {})
@@ -399,10 +436,12 @@ export interface AccidentsGeoJSON {
 export const fetchAccidents = async (
   cityId: number,
   cyclistsOnly: boolean = true,
-  year?: number,
+  yearFrom?: number,
+  yearTo?: number,
 ): Promise<AccidentsGeoJSON> => {
   const params = new URLSearchParams({ cyclists_only: String(cyclistsOnly) });
-  if (year != null) params.set('year', String(year));
+  if (yearFrom != null) params.set('year_from', String(yearFrom));
+  if (yearTo   != null) params.set('year_to',   String(yearTo));
   const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/accidents?${params}`,
   );
@@ -419,9 +458,10 @@ export interface AccidentsSummary {
   available_years: number[];
 }
 
-export const fetchAccidentsSummary = async (cityId: number, year?: number): Promise<AccidentsSummary> => {
+export const fetchAccidentsSummary = async (cityId: number, yearFrom?: number, yearTo?: number): Promise<AccidentsSummary> => {
   const params = new URLSearchParams();
-  if (year != null) params.set('year', String(year));
+  if (yearFrom != null) params.set('year_from', String(yearFrom));
+  if (yearTo   != null) params.set('year_to',   String(yearTo));
   const qs = params.toString();
   const response = await apiFetch(`${API_BASE_URL}/cities/${cityId}/accidents/summary${qs ? '?' + qs : ''}`);
   if (!response.ok) throw new Error('Error al cargar el resumen de accidentes');
@@ -465,10 +505,12 @@ export interface VehiclePairStat {
 
 export const fetchVehiclePairStats = async (
   cityId: number,
-  year?: number,
+  yearFrom?: number,
+  yearTo?: number,
 ): Promise<VehiclePairStat[]> => {
   const params = new URLSearchParams();
-  if (year != null) params.set('year', String(year));
+  if (yearFrom != null) params.set('year_from', String(yearFrom));
+  if (yearTo   != null) params.set('year_to',   String(yearTo));
   const qs = params.toString();
   const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/accidents/pair-stats${qs ? '?' + qs : ''}`,
@@ -541,11 +583,13 @@ export const fetchTrafficInfraCoverage = async (
   generationType?: string,
   algorithm?: string,
   month?: string,
+  monthFrom?: string,
 ): Promise<TrafficInfraCoverageData> => {
   const params = new URLSearchParams();
   if (generationType) params.set('generation_type', generationType);
   if (algorithm) params.set('algorithm', algorithm);
   if (month) params.set('month', month);
+  if (monthFrom) params.set('month_from', monthFrom);
   const qs = params.toString();
   const response = await apiFetch(
     `${API_BASE_URL}/cities/${cityId}/traffic/infra-coverage${qs ? `?${qs}` : ''}`
@@ -649,9 +693,16 @@ export interface ElectionResult {
   councilors: number | null;
 }
 
+export interface CouncilorRecord {
+  year: number;
+  party: string;
+  name: string;
+}
+
 export interface MayorsTimeline {
   mayors: MayorRecord[];
   elections: ElectionResult[];
+  councilors?: CouncilorRecord[];
 }
 
 export const fetchMayorsTimeline = async (cityId: number): Promise<MayorsTimeline> => {

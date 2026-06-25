@@ -89,19 +89,21 @@ def get_or_create_city(
 
 def put_city_modes(conn, city_id: int, modes_dict: dict):
     combos = modes_dict.get("traffic_combinations", [])
+    transparency_submodes = modes_dict.get("transparency_submodes", [])
     with conn.cursor() as cur:
         cur.execute(
             """
             INSERT INTO city_modes (
                 city_id, infrastructure, traffic, traffic_combinations,
-                accidents, stations
-            ) VALUES (%s, %s, %s, %s, %s, %s)
+                accidents, stations, transparency_submodes
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (city_id) DO UPDATE SET
-                infrastructure       = EXCLUDED.infrastructure,
-                traffic              = EXCLUDED.traffic,
-                traffic_combinations = EXCLUDED.traffic_combinations,
-                accidents            = EXCLUDED.accidents,
-                stations             = EXCLUDED.stations
+                infrastructure        = EXCLUDED.infrastructure,
+                traffic               = EXCLUDED.traffic,
+                traffic_combinations  = EXCLUDED.traffic_combinations,
+                accidents             = EXCLUDED.accidents,
+                stations              = EXCLUDED.stations,
+                transparency_submodes = EXCLUDED.transparency_submodes
             """,
             (
                 city_id,
@@ -110,6 +112,7 @@ def put_city_modes(conn, city_id: int, modes_dict: dict):
                 json.dumps(combos),
                 modes_dict.get("accidents", False),
                 modes_dict.get("stations", False),
+                json.dumps(transparency_submodes),
             ),
         )
 
@@ -153,6 +156,7 @@ def get_all_cities(conn) -> List[Tuple]:
                 cm_infra.total_kilometers AS cycling_network,
                 c.bounds_min_lat, c.bounds_max_lat, c.bounds_min_lon, c.bounds_max_lon,
                 m.infrastructure, m.traffic, m.traffic_combinations, m.accidents, m.stations,
+                m.transparency_submodes,
                 c.mayor, c.mayor_party,
                 (SELECT citybikes_network_id FROM stations s
                  WHERE s.city_id = c.id LIMIT 1) AS service_name,
@@ -213,6 +217,29 @@ def get_city_id_by_name(conn, name: str) -> Optional[int]:
         return result[0] if result else None
 
 
+def search_cities_by_name(conn, query: str) -> list:
+    """Return cities whose name fuzzy-matches query (pg_trgm similarity, fallback ILIKE)."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        try:
+            cur.execute("SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm'")
+            use_trgm = cur.fetchone() is not None
+        except Exception:
+            use_trgm = False
+
+        select = "SELECT id, name, alt_name, slug, description, center_lat, center_lon, radius FROM cities"
+        if use_trgm:
+            cur.execute(
+                select + " WHERE name %% %s ORDER BY similarity(name, %s) DESC",
+                (query, query),
+            )
+        else:
+            cur.execute(
+                select + " WHERE name ILIKE %s ORDER BY name",
+                (f"%{query}%",),
+            )
+        return cur.fetchall()
+
+
 def get_city_details(conn, city_id: int) -> Optional[dict]:
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
@@ -241,7 +268,7 @@ def get_city_details(conn, city_id: int) -> Optional[dict]:
                 )) AS bicycles_count,
                 cm_infra.station_coverage,
                 m.infrastructure, m.traffic, m.traffic_combinations,
-                m.accidents, m.stations
+                m.accidents, m.stations, m.transparency_submodes
             FROM cities c
             LEFT JOIN city_modes m ON c.id = m.city_id
             LEFT JOIN LATERAL (
@@ -476,35 +503,36 @@ def put_city_budget_categories(
     year: int,
     budget_type: str,
     lines_df: pd.DataFrame,
+    classification: str = 'functional',
 ):
     """
-    Bulk insert functional budget categories for a city/year/type.
+    Bulk insert budget categories for a city/year/type/classification.
     lines_df columns: ['category_code', 'category_name', 'amount']
+    classification: 'functional' (expenses) or 'economic' (income)
     """
     if lines_df.empty:
         return
-        
+
     with conn.cursor() as cur:
-        # Clear existing lines for this city/year/type before re-ingesting
         cur.execute(
-            "DELETE FROM city_budget_categories WHERE city_id = %s AND year = %s AND budget_type = %s",
-            (city_id, year, budget_type)
+            "DELETE FROM city_budget_categories WHERE city_id = %s AND year = %s AND budget_type = %s AND classification = %s",
+            (city_id, year, budget_type, classification)
         )
-        
+
         args = [
-            (city_id, year, budget_type, str(row["category_code"]), row["category_name"], int(row["amount"]))
+            (city_id, year, budget_type, classification, str(row["category_code"]), row["category_name"], int(row["amount"]))
             for _, row in lines_df.iterrows()
         ]
-        
+
         execute_values(
             cur,
             """
-            INSERT INTO city_budget_categories (city_id, year, budget_type, category_code, category_name, amount)
+            INSERT INTO city_budget_categories (city_id, year, budget_type, classification, category_code, category_name, amount)
             VALUES %s
-            ON CONFLICT (city_id, year, budget_type, category_code)
+            ON CONFLICT (city_id, year, budget_type, classification, category_code)
             DO UPDATE SET
                 category_name = EXCLUDED.category_name,
-                amount        = city_budget_categories.amount + EXCLUDED.amount
+                amount        = EXCLUDED.amount
             """,
             args
         )
@@ -566,9 +594,27 @@ def _refresh_city_modes_impl(conn, city_id: int) -> dict:
 
         cur.execute(
             """
+            SELECT
+                EXISTS (SELECT 1 FROM city_budgets WHERE city_id = %(id)s)         AS has_budget,
+                EXISTS (SELECT 1 FROM historical_mayors WHERE city_id = %(id)s)    AS has_mayors,
+                EXISTS (SELECT 1 FROM city_elections WHERE city_id = %(id)s)       AS has_electoral
+            """,
+            {'id': city_id},
+        )
+        t = cur.fetchone()
+        transparency_submodes = []
+        if t['has_budget']:
+            transparency_submodes.append('budget')
+        if t['has_mayors']:
+            transparency_submodes.append('mayors')
+        if t['has_electoral']:
+            transparency_submodes.append('electoral')
+
+        cur.execute(
+            """
             INSERT INTO city_modes (
                 city_id, infrastructure, traffic, traffic_combinations,
-                stations, accidents
+                stations, accidents, transparency_submodes
             )
             SELECT
                 %(id)s,
@@ -577,20 +623,23 @@ def _refresh_city_modes_impl(conn, city_id: int) -> dict:
                 %(combos)s::jsonb,
                 (SELECT COUNT(*) >= %(s_min)s FROM stations
                  WHERE city_id = %(id)s AND merged_into_id IS NULL),
-                EXISTS (SELECT 1 FROM accidents WHERE city_id = %(id)s)
+                EXISTS (SELECT 1 FROM accidents WHERE city_id = %(id)s),
+                %(transparency_submodes)s::jsonb
             ON CONFLICT (city_id) DO UPDATE SET
-                infrastructure       = EXCLUDED.infrastructure,
-                traffic              = EXCLUDED.traffic,
-                traffic_combinations = EXCLUDED.traffic_combinations,
-                stations             = EXCLUDED.stations,
-                accidents            = EXCLUDED.accidents
-            RETURNING infrastructure, traffic, traffic_combinations, stations, accidents
+                infrastructure        = EXCLUDED.infrastructure,
+                traffic               = EXCLUDED.traffic,
+                traffic_combinations  = EXCLUDED.traffic_combinations,
+                stations              = EXCLUDED.stations,
+                accidents             = EXCLUDED.accidents,
+                transparency_submodes = EXCLUDED.transparency_submodes
+            RETURNING infrastructure, traffic, traffic_combinations, stations, accidents, transparency_submodes
             """,
             {
                 'id': city_id,
                 'has_traffic': len(combos) > 0,
                 'combos': json.dumps(combos),
                 's_min': STATIONS_MIN_COUNT,
+                'transparency_submodes': json.dumps(transparency_submodes),
             },
         )
         return dict(cur.fetchone())
@@ -600,7 +649,7 @@ def get_city_modes(conn, city_id: int) -> Optional[dict]:
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute(
             """
-            SELECT infrastructure, traffic, traffic_combinations, accidents, stations
+            SELECT infrastructure, traffic, traffic_combinations, accidents, stations, transparency_submodes
             FROM city_modes
             WHERE city_id = %s
             """,
@@ -626,11 +675,13 @@ def get_city_budgets(conn, city_id: int) -> List[dict]:
                             'category_code', cat.category_code,
                             'category_name', cat.category_name,
                             'amount', cat.amount,
-                            'budget_type', cat.budget_type
+                            'budget_type', cat.budget_type,
+                            'classification', cat.classification
                         )
                     ) FROM city_budget_categories cat
-                      WHERE cat.city_id = cb.city_id 
-                        AND cat.year = cb.year),
+                      WHERE cat.city_id = cb.city_id
+                        AND cat.year = cb.year
+                        AND cat.classification = 'functional'),
                     '[]'::json
                 ) AS lines
             FROM city_budgets cb
@@ -649,7 +700,7 @@ def get_infra_budget(conn, city_id: int) -> dict:
             """
             SELECT year, budget_type, amount
             FROM city_budget_categories
-            WHERE city_id = %s AND category_code = '153'
+            WHERE city_id = %s AND category_code = '153' AND classification = 'functional'
             ORDER BY year DESC,
                      CASE WHEN budget_type = 'executed' THEN 1 ELSE 2 END
             LIMIT 1
@@ -686,6 +737,21 @@ def get_city_elections_data(conn, city_id: int) -> list:
             FROM city_elections
             WHERE city_id = %s
             ORDER BY year, councilors DESC
+            """,
+            (city_id,),
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
+def get_city_councilors_data(conn, city_id: int) -> list:
+    """Return elected councilors per party per year, in candidate-list order."""
+    with conn.cursor(cursor_factory=RealDictCursor) as cur:
+        cur.execute(
+            """
+            SELECT year, party, name
+            FROM city_councilors
+            WHERE city_id = %s AND elected = TRUE
+            ORDER BY year, party, id
             """,
             (city_id,),
         )

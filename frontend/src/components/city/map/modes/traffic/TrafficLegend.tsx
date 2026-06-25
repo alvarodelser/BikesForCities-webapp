@@ -103,6 +103,7 @@ export default function TrafficLegend() {
                     <div className="text-[8px] text-black/25 italic">&lt; P5 no representado</div>
                 </>
             )}
+
         </div>
     );
 }

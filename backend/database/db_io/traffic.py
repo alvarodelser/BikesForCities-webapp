@@ -220,13 +220,35 @@ def get_edge_traffic(
     generation_type: Optional[str] = None,
     algorithm: Optional[str] = None,
     month: Optional[date] = None,
+    month_from: Optional[date] = None,
 ) -> Tuple[List[Tuple[int, int, date]], str, str, Optional[date]]:
     """Return traffic records plus the resolved (generation_type, algorithm, month).
+
+    When month_from is supplied, aggregates SUM(trip_count) across the range
+    [month_from, month]. month is treated as the range end (resolved to latest if None).
     """
     res_gen, res_algo, res_month = resolve_traffic_params(conn, city_id, generation_type, algorithm, month)
-    
+
     if res_month is None:
         return [], res_gen, res_algo, None
+
+    if month_from is not None:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT edge_id, SUM(trip_count)::BIGINT AS trip_count, MAX(month) AS month
+                FROM edge_traffic
+                WHERE city_id        = %s
+                  AND generation_type = %s
+                  AND algorithm       = %s
+                  AND month >= %s
+                  AND month <= %s
+                GROUP BY edge_id
+                ORDER BY edge_id
+                """,
+                (city_id, res_gen, res_algo, month_from, res_month),
+            )
+            return cur.fetchall(), res_gen, res_algo, res_month
 
     with conn.cursor() as cur:
         cur.execute(
@@ -250,8 +272,49 @@ def get_traffic_stats(
     generation_type: str,
     algorithm: str,
     month: date,
+    month_from: Optional[date] = None,
 ) -> Optional[dict]:
-    """Return percentile stats for the colormap (q5, q50, q95, min, max)."""
+    """Return percentile stats for the colormap (q5, q50, q95, min, max).
+
+    When month_from is supplied, stats are computed over the range [month_from, month].
+    """
+    if month_from is not None:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    PERCENTILE_CONT(0.05) WITHIN GROUP (ORDER BY agg.trip_count) AS q5,
+                    PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY agg.trip_count) AS q50,
+                    PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY agg.trip_count) AS q95,
+                    MIN(agg.trip_count) AS min,
+                    MAX(agg.trip_count) AS max,
+                    COUNT(*) AS edge_count
+                FROM (
+                    SELECT edge_id, SUM(trip_count) AS trip_count
+                    FROM edge_traffic
+                    WHERE city_id        = %s
+                      AND generation_type = %s
+                      AND algorithm       = %s
+                      AND month >= %s
+                      AND month <= %s
+                      AND trip_count > 0
+                    GROUP BY edge_id
+                ) agg
+                """,
+                (city_id, generation_type, algorithm, month_from, month),
+            )
+            row = cur.fetchone()
+            if not row or row[0] is None:
+                return None
+            return {
+                'q5':        float(row[0]),
+                'q50':       float(row[1]),
+                'q95':       float(row[2]),
+                'min':       float(row[3]),
+                'max':       float(row[4]),
+                'edge_count': int(row[5]),
+            }
+
     with conn.cursor() as cur:
         cur.execute(
             """
@@ -290,41 +353,94 @@ def get_max_traffic_edge(
     generation_type: str,
     algorithm: str,
     month,
+    month_from=None,
 ) -> Optional[dict]:
-    """Return the max-volume edge's trip_count and name.
-
-    If the edge has no OSM name, falls back to any adjacent edge with a name.
-    Returns {'trip_count': int, 'edge_name': str | None} or None.
-    """
+    """Return the max-volume edge's trip_count and name."""
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                et.trip_count,
-                COALESCE(
-                    e.name,
-                    (SELECT e2.name FROM edges e2
-                     WHERE e2.city_id = e.city_id
-                       AND e2.id != e.id
-                       AND (e2.u = e.u OR e2.u = e.v OR e2.v = e.u OR e2.v = e.v)
-                       AND e2.name IS NOT NULL
-                     LIMIT 1)
-                ) AS edge_name
-            FROM edge_traffic et
-            JOIN edges e ON e.id = et.edge_id AND e.city_id = et.city_id
-            WHERE et.city_id        = %s
-              AND et.generation_type = %s
-              AND et.algorithm       = %s
-              AND et.month           = %s
-            ORDER BY et.trip_count DESC
-            LIMIT 1
-            """,
-            (city_id, generation_type, algorithm, month),
-        )
+        if month_from is not None:
+            cur.execute(
+                """
+                SELECT
+                    agg.trip_count,
+                    COALESCE(
+                        e.name,
+                        (SELECT e2.name FROM edges e2
+                         WHERE e2.city_id = e.city_id
+                           AND e2.id != e.id
+                           AND (e2.u = e.u OR e2.u = e.v OR e2.v = e.u OR e2.v = e.v)
+                           AND e2.name IS NOT NULL
+                         LIMIT 1)
+                    ) AS edge_name
+                FROM (
+                    SELECT edge_id, SUM(trip_count)::BIGINT AS trip_count
+                    FROM edge_traffic
+                    WHERE city_id        = %s
+                      AND generation_type = %s
+                      AND algorithm       = %s
+                      AND month >= %s
+                      AND month <= %s
+                    GROUP BY edge_id
+                ) agg
+                JOIN edges e ON e.id = agg.edge_id AND e.city_id = %s
+                ORDER BY agg.trip_count DESC
+                LIMIT 1
+                """,
+                (city_id, generation_type, algorithm, month_from, month, city_id),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT
+                    et.trip_count,
+                    COALESCE(
+                        e.name,
+                        (SELECT e2.name FROM edges e2
+                         WHERE e2.city_id = e.city_id
+                           AND e2.id != e.id
+                           AND (e2.u = e.u OR e2.u = e.v OR e2.v = e.u OR e2.v = e.v)
+                           AND e2.name IS NOT NULL
+                         LIMIT 1)
+                    ) AS edge_name
+                FROM edge_traffic et
+                JOIN edges e ON e.id = et.edge_id AND e.city_id = et.city_id
+                WHERE et.city_id        = %s
+                  AND et.generation_type = %s
+                  AND et.algorithm       = %s
+                  AND et.month           = %s
+                ORDER BY et.trip_count DESC
+                LIMIT 1
+                """,
+                (city_id, generation_type, algorithm, month),
+            )
         row = cur.fetchone()
         if not row:
             return None
         return {'trip_count': int(row[0]), 'edge_name': row[1]}
+
+
+def get_traffic_evolution(
+    conn,
+    city_id: int,
+    generation_type: str,
+    algorithm: str,
+) -> List[dict]:
+    """Return per-month active-edge counts for all available periods, sorted ascending."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT
+                TO_CHAR(month, 'YYYY-MM') AS period,
+                COUNT(*) FILTER (WHERE trip_count > 0) AS edge_count
+            FROM edge_traffic
+            WHERE city_id        = %s
+              AND generation_type = %s
+              AND algorithm       = %s
+            GROUP BY month
+            ORDER BY month ASC
+            """,
+            (city_id, generation_type, algorithm),
+        )
+        return [{'period': row[0], 'edge_count': int(row[1])} for row in cur.fetchall()]
 
 
 def has_traffic(conn, city_id: int) -> bool:
@@ -342,30 +458,51 @@ def get_traffic_infra_coverage(
     generation_type: str,
     algorithm: str,
     month: date,
+    month_from: Optional[date] = None,
 ) -> dict:
-    """Return km of simulated trips that traverse cycling infrastructure.
-
-    Weights each edge's length by its trip_count (trip-weighted km).
-    Separate cycleway edges (highway LIKE '%cycleway%') from the rest.
-    """
+    """Return km of simulated trips that traverse cycling infrastructure."""
     with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT
-                SUM(e.length * et.trip_count)
-                    FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_weighted,
-                SUM(e.length * et.trip_count)                    AS total_weighted,
-                SUM(e.length)
-                    FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_km_raw
-            FROM edge_traffic et
-            JOIN edges e ON e.id = et.edge_id
-            WHERE et.city_id        = %s
-              AND et.generation_type = %s
-              AND et.algorithm       = %s
-              AND et.month           = %s
-            """,
-            (city_id, generation_type, algorithm, month),
-        )
+        if month_from is not None:
+            cur.execute(
+                """
+                SELECT
+                    SUM(e.length * agg.trip_count)
+                        FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_weighted,
+                    SUM(e.length * agg.trip_count)                    AS total_weighted,
+                    SUM(e.length)
+                        FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_km_raw
+                FROM (
+                    SELECT edge_id, SUM(trip_count) AS trip_count
+                    FROM edge_traffic
+                    WHERE city_id        = %s
+                      AND generation_type = %s
+                      AND algorithm       = %s
+                      AND month >= %s
+                      AND month <= %s
+                    GROUP BY edge_id
+                ) agg
+                JOIN edges e ON e.id = agg.edge_id
+                """,
+                (city_id, generation_type, algorithm, month_from, month),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT
+                    SUM(e.length * et.trip_count)
+                        FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_weighted,
+                    SUM(e.length * et.trip_count)                    AS total_weighted,
+                    SUM(e.length)
+                        FILTER (WHERE e.highway LIKE '%%cycleway%%') AS infra_km_raw
+                FROM edge_traffic et
+                JOIN edges e ON e.id = et.edge_id
+                WHERE et.city_id        = %s
+                  AND et.generation_type = %s
+                  AND et.algorithm       = %s
+                  AND et.month           = %s
+                """,
+                (city_id, generation_type, algorithm, month),
+            )
         row = cur.fetchone()
 
     if not row or row[1] is None or float(row[1]) == 0:

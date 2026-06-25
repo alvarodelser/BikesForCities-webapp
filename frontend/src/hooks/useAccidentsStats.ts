@@ -91,10 +91,11 @@ const PEDESTRIAN_VEHICLE_ROWS = [
   'Bus',
   'Camión/Maq',
   'Moto',
-  'Bicicleta',
+  'Bici/EPAC',
+  'Patinete/VMU',
 ] as const;
 
-export const COLLISION_VEHICLE_KEYS = ['bike_vmu', 'pedestrian', 'moto', 'car', 'bus', 'truck'] as const;
+export const COLLISION_VEHICLE_KEYS = ['bike_vmu', 'scooter', 'pedestrian', 'moto', 'car', 'bus', 'truck'] as const;
 export type CollisionVehicleKey = typeof COLLISION_VEHICLE_KEYS[number];
 
 function buildEmptySegments(): MatrixSegment[] {
@@ -139,7 +140,8 @@ function buildPedestrianMatrixFromPairStats(pairStats: VehiclePairStat[]): Matri
     bus: 'Bus',
     truck: 'Camión/Maq',
     moto: 'Moto',
-    bike_vmu: 'Bicicleta',
+    bike_vmu: 'Bici/EPAC',
+    scooter: 'Patinete/VMU',
   };
 
   for (const stat of pairStats) {
@@ -206,7 +208,7 @@ function buildCollisionMatrix(pairStats: VehiclePairStat[]): CollisionMatrixRow[
   }));
 }
 
-export function useAccidentsStats(cityId: number | null, year?: number): AccidentsStatsResult {
+export function useAccidentsStats(cityId: number | null, yearFrom?: number, yearTo?: number): AccidentsStatsResult {
   const [totalAccidents, setTotalAccidents] = useState(0);
   const [cyclistAccidents, setCyclistAccidents] = useState(0);
   const [pedestrianAccidents, setPedestrianAccidents] = useState(0);
@@ -227,9 +229,9 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
     setError(null);
 
     Promise.all([
-      fetchAccidentsSummary(cityId, year),
-      fetchAccidents(cityId, true, year),
-      fetchVehiclePairStats(cityId, year).catch(() => [] as VehiclePairStat[]),
+      fetchAccidentsSummary(cityId, yearFrom, yearTo),
+      fetchAccidents(cityId, true, yearFrom, yearTo),
+      fetchVehiclePairStats(cityId, yearFrom, yearTo).catch(() => [] as VehiclePairStat[]),
     ])
       .then(([summary, cyclistGeojson, pairStats]) => {
         if (cancelled) return;
@@ -268,7 +270,7 @@ export function useAccidentsStats(cityId: number | null, year?: number): Acciden
       });
 
     return () => { cancelled = true; };
-  }, [cityId, year]);
+  }, [cityId, yearFrom, yearTo]);
 
   return {
     totalAccidents,

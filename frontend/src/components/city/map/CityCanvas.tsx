@@ -58,7 +58,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             container: mapContainer.current,
             style: {
                 version: 8,
-                name: 'Clean',
+                name: 'Slate',
                 sources: {
                     'carto-nolabels': {
                         type: 'raster',
@@ -82,7 +82,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 },
                 layers: [
                     { id: 'background', type: 'background', paint: { 'background-color': '#FBF6EF' } } as any,
-                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' } } as any,
+                    { id: 'carto-base-layer', type: 'raster', source: 'carto-nolabels', minzoom: 0, maxzoom: 19, layout: { visibility: 'none' } } as any,
                 ],
             },
             center: [city.geoCoords.longitude, city.geoCoords.latitude],
@@ -115,15 +115,15 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                 minzoom: 0, maxzoom: 22,
             });
 
-            // Static background layers (shared across all modes)
+            // Static background layers (shared across all modes) — exactly as original
             const baseLayers = [
-                { id: 'sea-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'sea'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
-                { id: 'coastline-layer', type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'coastline'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#a4b7ca', 'line-width': 1 } },
-                { id: 'waterways-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'waterways'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
-                { id: 'forest-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'forest'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#dde5e4' } },
-                { id: 'buildings-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'buildings'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
-                { id: 'bike-path-buildings-layer', type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'bike_path_buildings'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
-                { id: 'bike-paths-layer', type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'bike_paths'], ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#00cac3', 'line-width': 2 } },
+                { id: 'sea-layer',                type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'sea'],                ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
+                { id: 'coastline-layer',          type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'coastline'],          ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#a4b7ca', 'line-width': 1 } },
+                { id: 'waterways-layer',          type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'waterways'],          ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#a4b7ca' } },
+                { id: 'forest-layer',             type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'forest'],             ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#dde5e4' } },
+                { id: 'buildings-layer',          type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'buildings'],          ['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
+                { id: 'bike-path-buildings-layer',type: 'fill', filter: ['all', ['==', ['get', 'feature_type'], 'bike_path_buildings'],['==', ['get', 'city_id'], city.id as number]], paint: { 'fill-color': '#ead5c5' } },
+                { id: 'bike-paths-layer',         type: 'line', filter: ['all', ['==', ['get', 'feature_type'], 'bike_paths'],         ['==', ['get', 'city_id'], city.id as number]], paint: { 'line-color': '#00cac3', 'line-width': 2 } },
             ];
 
             baseLayers.forEach(def => {
@@ -194,7 +194,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
             // toggleBackground also calls moveLayer to keep them on top after mode layers are added.
             mapInstance.addLayer({
                 id: 'carto-labels-layer', type: 'raster', source: 'carto-labels',
-                minzoom: 0, maxzoom: 19, layout: { visibility: 'visible' },
+                minzoom: 0, maxzoom: 19, layout: { visibility: 'none' },
             });
 
             setLoading(false);
@@ -225,6 +225,45 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
         }
     }, [bounds]);
 
+    // Swap fill layers ↔ outline layers when entering/leaving transparency mode.
+    // Outline layers are added dynamically on enter and removed on leave so they
+    // never touch the layer stack in other modes (eliminates any load-time risk).
+    useEffect(() => {
+        if (!mapRef.current || !mapReady) return;
+        const map = mapRef.current;
+        const cityId = city.id as number;
+        const OUTLINE_COLOR = '#bfcbd6';
+        const OUTLINE_WIDTH = 0.75;
+        const outlineDefs = [
+            { id: 'tp-sea-outline',       filter: ['==', ['get', 'feature_type'], 'sea'] },
+            { id: 'tp-coastline-outline', filter: ['==', ['get', 'feature_type'], 'coastline'] },
+            { id: 'tp-waterways-outline', filter: ['==', ['get', 'feature_type'], 'waterways'] },
+            { id: 'tp-forest-outline',    filter: ['==', ['get', 'feature_type'], 'forest'] },
+            { id: 'tp-buildings-outline', filter: ['==', ['get', 'feature_type'], 'buildings'] },
+            { id: 'tp-bikebld-outline',   filter: ['==', ['get', 'feature_type'], 'bike_path_buildings'] },
+        ];
+        const fillIds = ['sea-layer', 'coastline-layer', 'waterways-layer', 'forest-layer', 'buildings-layer', 'bike-path-buildings-layer'];
+
+        if (mode === MAP_MODES.TRANSPARENCY) {
+            fillIds.forEach(id => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'none'); });
+            outlineDefs.forEach(({ id, filter }) => {
+                if (!map.getLayer(id)) {
+                    map.addLayer({
+                        id,
+                        type: 'line',
+                        source: 'martin-features',
+                        'source-layer': 'features',
+                        filter: ['all', filter, ['==', ['get', 'city_id'], cityId]],
+                        paint: { 'line-color': OUTLINE_COLOR, 'line-width': OUTLINE_WIDTH },
+                    } as any);
+                }
+            });
+        } else {
+            outlineDefs.forEach(({ id }) => { try { if (map.getLayer(id)) map.removeLayer(id); } catch { /* ignore */ } });
+            fillIds.forEach(id => { if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', 'visible'); });
+        }
+    }, [mode, mapReady, city.id]);
+
     return (
         <div className="relative w-full h-full bg-[var(--blue-dark)] flex items-center justify-center">
             {hasValidCoords ? (
@@ -233,7 +272,7 @@ export default function CityCanvas({ city, onMapInstance, layerState = 'idle', o
                     {(loading || layerState === 'loading') && (
                         <div className="absolute inset-0 flex items-center justify-center bg-white/10 backdrop-blur-[2px] z-10 transition-all duration-500">
                             <LoadingContainer 
-                                className="w-52 h-52" 
+                                className="w-52"
                                 color={mode === MAP_MODES.STATIONS ? '#AF4749' : primaryColor} 
                             />
                         </div>

@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import CityLeaderboard from '../components/compare/CityLeaderboard';
 import MobileTabs from '../components/compare/MobileTabs';
 import CityComparisonTab from '../components/compare/CityComparisonTab';
-import { Network, MapPin, Car } from 'lucide-react';
+import { Network } from 'lucide-react';
+import { Graph, Bicycle } from '@phosphor-icons/react';
 import CompareOverviewChart from '../components/compare/CompareOverviewChart';
 import CompareTripsChart from '../components/compare/CompareTripsChart';
 import type { CityData } from '../constants/cities';
@@ -10,9 +11,9 @@ import { MAP_MODES, type MapMode } from '../constants/mapModes';
 import type { CompareMode } from '../components/compare/StaticCityMap';
 
 const MODES = [
-  { key: MAP_MODES.INFRASTRUCTURE as MapMode, label: 'Infraestructura', icon: Network, accent: '#027A76' },
-  { key: MAP_MODES.STATIONS       as MapMode, label: 'Servicio Bici',   icon: MapPin,  accent: '#ffa585' },
-  { key: MAP_MODES.TRAFFIC        as MapMode, label: 'Tráfico',         icon: Car,     accent: '#3A6C7F' },
+  { key: MAP_MODES.INFRASTRUCTURE as MapMode, label: 'Infraestructura',     icon: Network,  accent: '#027A76' },
+  { key: MAP_MODES.STATIONS       as MapMode, label: 'Servicio Bici',       icon: Bicycle,  accent: '#ffa585' },
+  { key: MAP_MODES.TRAFFIC        as MapMode, label: 'Modelo de Movilidad', icon: Graph,    accent: '#3A6C7F' },
 ] as const;
 
 const ComparePage: React.FC = () => {

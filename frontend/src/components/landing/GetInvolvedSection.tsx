@@ -275,10 +275,10 @@ function OrbitCarousel({
                 height: iconD,
                 borderRadius: '50%',
                 background: isSelected ? item.color : item.bg,
-                border: `2.5px solid ${isSelected ? item.color : 'rgba(0,0,0,0.08)'}`,
+                border: `2.5px solid ${isSelected ? item.color : 'rgba(255,255,255,0.18)'}`,
                 boxShadow: isSelected
                   ? `0 0 0 8px ${item.color}22, 0 16px 40px ${item.color}55`
-                  : '0 4px 16px rgba(0,0,0,0.06)',
+                  : '0 4px 16px rgba(0,0,0,0.25)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -318,6 +318,50 @@ function OrbitCarousel({
   );
 }
 
+/* ─────────────────────── particle background ──────────────── */
+
+const BLOB_CONFIG = [
+  { top: '-10%', left: '-5%',  size: 500, opacity: 0.22, anim: 'blobDrift0', dur: '11s' },
+  { top: '40%',  left: '70%',  size: 420, opacity: 0.18, anim: 'blobDrift1', dur: '14s' },
+  { top: '65%',  left: '15%',  size: 380, opacity: 0.15, anim: 'blobDrift2', dur: '9s'  },
+];
+
+function ParticleBackground({ color }: { color: string }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
+      {/* Radial gradient overlay */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `radial-gradient(ellipse 70% 50% at 50% 115%, ${color}33 0%, transparent 65%)`,
+          transition: 'background 0.7s ease',
+        }}
+      />
+      {/* Floating blobs */}
+      {BLOB_CONFIG.map((b, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            top: b.top,
+            left: b.left,
+            width: b.size,
+            height: b.size,
+            borderRadius: '50%',
+            background: color,
+            opacity: b.opacity,
+            filter: `blur(${Math.round(b.size * 0.38)}px)`,
+            transition: 'background 0.7s ease, opacity 0.7s ease',
+            animation: `${b.anim} ${b.dur} ease-in-out infinite alternate`,
+            willChange: 'transform',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 /* ─────────────────────── main section ─────────────────────── */
 
 const GetInvolvedSection: React.FC = () => {
@@ -327,51 +371,39 @@ const GetInvolvedSection: React.FC = () => {
   return (
     <section
       id="get-involved"
-      className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)] overflow-x-hidden"
-      style={{ background: 'var(--cream)' }}
+      className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)]"
+      style={{ background: 'var(--blue-dark)', position: 'relative', overflow: 'hidden' }}
     >
-      <div className="max-w-[var(--container-max)] mx-auto">
+      <ParticleBackground color={active.color} />
+      <div className="max-w-[var(--container-max)] mx-auto" style={{ position: 'relative', zIndex: 1 }}>
         {/* Section title */}
         <h2
           className="text-5xl lg:text-6xl font-heading font-bold mb-12 tracking-tight"
-          style={{
-            background: 'linear-gradient(135deg, var(--blue-dark), var(--green-dark))',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            backgroundClip: 'text',
-          }}
+          style={{ color: '#fff' }}
         >
           Cómo participar
         </h2>
 
-        {/* Two-column layout */}
-        <div className="flex flex-col lg:flex-row gap-12 items-start">
-          {/* ── Left: FAQ ── */}
-          <div className="flex-1 w-full">
-            <p
-              className="text-lg mb-6 leading-relaxed"
-              style={{ color: 'var(--blue-dark)', opacity: 0.8 }}
-            >
-              Preguntas frecuentes
-            </p>
-            <FaqAccordion />
+        {/* Two-column layout: carousel left, description right */}
+        <div className="flex flex-col lg:flex-row gap-12 items-center">
+          {/* ── Left: orbit carousel ── */}
+          <div className="flex-1 flex flex-col items-center">
+            <OrbitCarousel selected={selected} onSelect={setSelected} />
           </div>
 
-          {/* ── Right: orbit carousel ── */}
-          <div className="flex-1 flex flex-col items-center gap-6">
-            <OrbitCarousel selected={selected} onSelect={setSelected} />
-            {/* Description card */}
+          {/* ── Right: description card ── */}
+          <div className="flex-1 w-full">
             <div
               key={selected}
               style={{
                 width: '100%',
                 borderRadius: '1.25rem',
-                background: 'rgba(255,255,255,0.65)',
-                border: `2px solid ${active.color}44`,
+                background: 'rgba(255,255,255,0.10)',
+                border: `2px solid ${active.color}66`,
                 backdropFilter: 'blur(12px)',
                 padding: '1.5rem',
                 animation: 'fadeSlideUp 0.35s ease',
-                boxShadow: `0 8px 32px ${active.color}22`,
+                boxShadow: `0 8px 32px ${active.color}33`,
               }}
             >
               <div className="flex items-center gap-3 mb-3">
@@ -396,7 +428,7 @@ const GetInvolvedSection: React.FC = () => {
                   {active.label}
                 </h3>
               </div>
-              <p className="text-sm leading-relaxed" style={{ color: 'var(--blue-dark)' }}>
+              <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.80)' }}>
                 {active.description}
               </p>
             </div>
@@ -404,15 +436,53 @@ const GetInvolvedSection: React.FC = () => {
         </div>
       </div>
 
-      {/* keyframe definition */}
       <style>{`
         @keyframes fadeSlideUp {
           from { opacity: 0; transform: translateY(12px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+        @keyframes blobDrift0 {
+          from { transform: translate(0, 0) scale(1); }
+          to   { transform: translate(22px, -28px) scale(1.07); }
+        }
+        @keyframes blobDrift1 {
+          from { transform: translate(0, 0) scale(1); }
+          to   { transform: translate(-20px, 24px) scale(0.94); }
+        }
+        @keyframes blobDrift2 {
+          from { transform: translate(0, 0) scale(1); }
+          to   { transform: translate(16px, 20px) scale(1.05); }
+        }
       `}</style>
     </section>
   );
 };
+
+/* ─────────────────────── FAQ section ─────────────────────── */
+
+export const FaqSection: React.FC = () => (
+  <section
+    id="faq"
+    className="w-full px-[var(--space-gutter)] py-[var(--space-section-y)]"
+    style={{ background: 'var(--cream)' }}
+  >
+    <div className="max-w-[var(--container-max)] mx-auto">
+      <h2
+        className="text-5xl lg:text-6xl font-heading font-bold mb-12 tracking-tight"
+        style={{
+          background: 'linear-gradient(135deg, var(--blue-dark), var(--green-dark))',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}
+      >
+        Preguntas frecuentes
+      </h2>
+      <div className="max-w-2xl">
+        <FaqAccordion />
+      </div>
+    </div>
+  </section>
+);
 
 export default GetInvolvedSection;

@@ -16,7 +16,7 @@ import { MAP_MODES } from '../../../../constants/mapModes';
 
 export interface ModeConfig {
     /** Pure-imperative MapLibre component — returns null */
-    layer: React.ComponentType<{ submode: string; year?: number }>;
+    layer: React.ComponentType<{ submode: string; [key: string]: unknown }>;
     /** Legend UI component */
     legend: React.ComponentType;
     /** Stats UI component */
@@ -32,8 +32,8 @@ export const MODES: Record<string, ModeConfig> = {
         layer:          AccidentsLayer,
         legend:         AccidentsLegend,
         stats:          AccidentsStats,
-        submodes:       ['bike', 'all'],
-        defaultSubmode: 'bike',
+        submodes:       [],
+        defaultSubmode: '',
     },
     [MAP_MODES.INFRASTRUCTURE]: {
         layer:          InfrastructureLayer,

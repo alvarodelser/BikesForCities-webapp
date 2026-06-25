@@ -320,12 +320,20 @@ def update_city_station_coverage(conn, city_id: int):
         cur.execute(
             """
             WITH center AS (
-                SELECT ST_Transform(ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), 3857) AS pt
+                SELECT
+                    center_lat,
+                    ST_Transform(ST_SetSRID(ST_MakePoint(center_lon, center_lat), 4326), 3857) AS pt
                 FROM cities WHERE id = %s
             ),
             study_area AS (
                 SELECT ST_Transform(
-                    ST_MakeEnvelope(ST_X(pt)-5000, ST_Y(pt)-5000, ST_X(pt)+5000, ST_Y(pt)+5000, 3857),
+                    ST_MakeEnvelope(
+                        ST_X(pt) - 5000.0 / cos(radians(center_lat)),
+                        ST_Y(pt) - 5000.0 / cos(radians(center_lat)),
+                        ST_X(pt) + 5000.0 / cos(radians(center_lat)),
+                        ST_Y(pt) + 5000.0 / cos(radians(center_lat)),
+                        3857
+                    ),
                     4326
                 ) AS geom
                 FROM center

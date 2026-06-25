@@ -1,31 +1,47 @@
 postgres:
   connection_string: "${DATABASE_URL}"
 
-tables:
-  public.features:
-    schema: public
-    table: features
-    srid: 4326
-    geometry_column: geometry
-    id_column: id
-    # buffer: 0 is the documented workaround for Martin issue #982:
-    # with SRID 4326 sources the buffer margin calculation produced an incorrect
-    # query bbox, causing specific tiles to return 204 even though adjacent zoom
-    # levels and neighbouring tiles have data. Setting buffer to 0 disables the
-    # margin expansion and uses the exact tile envelope for the PostGIS query.
-    buffer: 0
+  # Restrict auto-publish to public schema only — the staging DB has TIGER geocoder
+  # tables in the tiger schema which would otherwise cause a naming conflict with
+  # public.edges (tiger.edges.the_geom → renamed to edges.1, masking public.edges).
+  auto_publish:
+    tables:
+      from_schemas: [public]
+    functions:
+      from_schemas: [public]
 
-functions:
-  # edges_with_traffic LEFT JOINs edge_traffic at tile-render time so trip_count
-  # is baked into each tile feature. The client passes generation_type, algorithm
-  # and month as URL query parameters; when absent trip_count defaults to 0.
-  edges_with_traffic:
-    schema: public
-    function: edges_with_traffic
+  tables:
+    features:
+      schema: public
+      table: features
+      srid: 4326
+      geometry_column: geometry
+      id_column: id
+      # buffer: 0 is the documented workaround for Martin issue #982:
+      # with SRID 4326 sources the buffer margin calculation produced an incorrect
+      # query bbox, causing specific tiles to return 204 even though adjacent zoom
+      # levels and neighbouring tiles have data. Setting buffer to 0 disables the
+      # margin expansion and uses the exact tile envelope for the PostGIS query.
+      buffer: 0
+      # Explicit properties required: Martin v0.20.0 omits all columns when a table
+      # is explicitly configured without a properties list (unlike auto-published tables
+      # which include all columns by default).
+      properties:
+        city_id: int4
+        feature_type: text
+        component_id: int4
 
-  # accidents_tile filters accidents by city_id (required) and cyclists_only
-  # (optional). Severity is computed at tile-render time from the per-victim
-  # rank over accident_participants and exposed as a feature property.
-  accidents_tile:
-    schema: public
-    function: accidents_tile
+  functions:
+    # edges_with_traffic LEFT JOINs edge_traffic at tile-render time so trip_count
+    # is baked into each tile feature. The client passes generation_type, algorithm
+    # and month as URL query parameters; when absent trip_count defaults to 0.
+    edges_with_traffic:
+      schema: public
+      function: edges_with_traffic
+
+    # accidents_tile filters accidents by city_id (required) and cyclists_only
+    # (optional). Severity is computed at tile-render time from the per-victim
+    # rank over accident_participants and exposed as a feature property.
+    accidents_tile:
+      schema: public
+      function: accidents_tile

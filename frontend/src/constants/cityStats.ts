@@ -104,50 +104,6 @@ export const getModeStats = (selectedMode: MapMode | string, city: CityData): Mo
         }
       };
 
-    case MAP_MODES.TERRAIN:
-      return {
-        stats: [
-          { label: 'Altitud media', value: '650 m', trend: 'neutral', icon: BarChart3 },
-          { label: 'Pendiente máxima', value: '8%', trend: 'neutral', icon: TrendingUp },
-          { label: 'Nivel de dificultad', value: 'Moderado', trend: 'neutral', icon: Target },
-          { label: 'Rutas llanas', value: '65%', trend: 'up', icon: PieChart }
-        ],
-        insights: {
-          primary: 'La mayoría de rutas ciclistas siguen los contornos naturales del terreno',
-          secondary: 'Los cambios de altitud crean corredores ciclistas naturales'
-        },
-        recommendations: {
-          primary: 'Desarrollar más rutas llanas para mayor accesibilidad',
-          secondary: 'Instalar infraestructura ciclista adaptada en tramos empinados'
-        },
-        overallScore: {
-          score: 70,
-          label: 'Terreno Moderado'
-        }
-      };
-
-    case MAP_MODES.INTERSECTIONS:
-      return {
-        stats: [
-          { label: 'Total de cruces', value: '1.240', trend: 'neutral', icon: Activity },
-          { label: 'Cruces adaptados', value: '68%', trend: 'up', icon: TrendingUp },
-          { label: 'Tiempo medio de espera', value: '22 s', trend: 'down', icon: Clock },
-          { label: 'Puntos de conflicto', value: '34', trend: 'down', icon: Target }
-        ],
-        insights: {
-          primary: 'El 68% de las intersecciones cuentan con adaptaciones para ciclistas',
-          secondary: 'Los tiempos de espera en semáforos han mejorado en zonas céntricas'
-        },
-        recommendations: {
-          primary: 'Priorizar la señalización ciclista en cruces conflictivos',
-          secondary: 'Implementar semáforos con fases específicas para bicicletas'
-        },
-        overallScore: {
-          score: 72,
-          label: 'Mejora Continua'
-        }
-      };
-
     case MAP_MODES.ACCIDENTS:
       return {
         stats: [

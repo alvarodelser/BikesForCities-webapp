@@ -79,7 +79,7 @@ default_origins = [
     "http://localhost:3000",
     "https://bikesforcities.es",
     "https://www.bikesforcities.es",
-    "https://bikesforcities-7wypojwsq-alvarodelsers-projects.vercel.app"
+    "https://wiig.dia.fi.upm.es"
 ]
 
 if allowed_origins_env:
@@ -90,6 +90,7 @@ else:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"https://bikesforcities(-[a-z0-9]+)*(-alvarodelsers-projects)?\.vercel\.app",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "X-API-Key", "Accept"],

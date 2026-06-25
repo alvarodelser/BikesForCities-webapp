@@ -5,7 +5,6 @@ export interface CityData {
   slug: string;
   path: string;
   description?: string;
-  mapCoords?: { x: number; y: number }; // Legacy pixel coordinates (deprecated)
   geoCoords: { longitude: number; latitude: number }; // Real geographic coordinates
   maxBounds?: [[number, number], [number, number]]; // [sw[lng, lat], ne[lng, lat]]
   population: number;

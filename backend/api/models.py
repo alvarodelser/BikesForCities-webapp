@@ -189,6 +189,11 @@ class PaginatedEdgesResponse(PaginatedResponse):
     data: List[EdgeResponse]
 
 
+class EdgeSearchResponse(BaseResponse):
+    """Response for street name search — all matching edges."""
+    data: List[EdgeResponse]
+
+
 class PaginatedTripsResponse(PaginatedResponse):
     """Paginated trips response."""
     data: List[TripResponse]
@@ -412,6 +417,17 @@ class TrafficInfraCoverage(BaseResponse):
     data: TrafficInfraCoverageData
 
 
+class TrafficEvolutionPoint(BaseModel):
+    period: str
+    edge_count: int
+
+
+class TrafficEvolutionResponse(BaseResponse):
+    generation_type: Optional[str] = None
+    algorithm: Optional[str] = None
+    data: List[TrafficEvolutionPoint] = []
+
+
 class HistogramSeries(BaseModel):
     bin_edges: List[float]
     counts: List[int]
@@ -466,8 +482,8 @@ class CityBudgetsResponse(BaseResponse):
 class MayorRecord(BaseModel):
     name: str
     party: Optional[str] = None
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
 
 
 class MayorTermResponse(BaseModel):
@@ -481,6 +497,7 @@ class BudgetCategoryResponse(BaseModel):
     code: str
     name: str
     amount: int
+    classification: str = 'functional'
 
 
 class CityContextResponse(BaseModel):
@@ -496,6 +513,13 @@ class ElectionResult(BaseModel):
     councilors: Optional[int] = None
 
 
+class CouncilorRecord(BaseModel):
+    year: int
+    party: str
+    name: str
+
+
 class MayorsTimelineResponse(BaseResponse):
     mayors: List[MayorRecord]
     elections: List[ElectionResult]
+    councilors: List[CouncilorRecord] = []

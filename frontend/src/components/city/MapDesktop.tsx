@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { CityData } from '../../constants/cities';
 import { useMapState } from '../../hooks/useMapState';
@@ -10,34 +10,36 @@ import DualPanel from './DualPanel';
 import backgroundTexture from '../../assets/background2.svg';
 import { Users, Euro, Bike, Percent } from 'lucide-react';
 import GlassCard from '../ui/GlassCard';
-import { formatPopulation, formatDistance, formatPercentage, formatCurrency } from '../../utils/formatters';
-import { fetchInfraStats } from '../../services/api';
-import type { InfraStats } from '../../services/api';
+import { formatPopulation, formatDistance, formatPercentage, formatBudgetM } from '../../utils/formatters';
+import { fetchInfraStats, fetchCityBudgets, fetchCityContext, fetchMayorsTimeline } from '../../services/api';
+import type { InfraStats, BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../services/api';
+import TransparencyStats from './map/modes/transparency/TransparencyStats';
+import BudgetSunburst, { MOBILITY_CODES } from './plots/BudgetSunburst';
+import { buildSunburstTree, resolveBudgetType } from '../../utils/budget';
 
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
 
 const modeNames: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: 'Infraestructura',
-    [MAP_MODES.TRAFFIC]: 'Tráfico',
-    [MAP_MODES.STATIONS]: 'Servicios de Bici',
-    [MAP_MODES.TERRAIN]: 'Terreno',
-    [MAP_MODES.INTERSECTIONS]: 'Intersecciones',
+    [MAP_MODES.TRAFFIC]: 'Modelo de Movilidad',
+    [MAP_MODES.STATIONS]: 'Servicio Bici',
     [MAP_MODES.ACCIDENTS]: 'Accidentes',
+    [MAP_MODES.TRANSPARENCY]: 'Transparencia',
 };
 
 const modeColors: Record<string, string> = {
     [MAP_MODES.INFRASTRUCTURE]: '#027A76',
     [MAP_MODES.TRAFFIC]: '#3A6C7F',
     [MAP_MODES.STATIONS]: '#ffa585',
-    [MAP_MODES.TERRAIN]: 'var(--orange)',
-    [MAP_MODES.INTERSECTIONS]: 'var(--yellow)',
     [MAP_MODES.ACCIDENTS]: 'var(--red)',
+    [MAP_MODES.TRANSPARENCY]: '#3A6C7F',
 };
 
 const modeGradients: Partial<Record<string, { bg: string; wave: string }>> = {
     [MAP_MODES.INFRASTRUCTURE]: { bg: 'linear-gradient(160deg, #027A76 0%, #3A6C7F 100%)', wave: '#027A76' },
     [MAP_MODES.STATIONS]:       { bg: 'linear-gradient(160deg, #ffa585 0%, #bc556f 100%)', wave: '#ffa585' },
     [MAP_MODES.TRAFFIC]:        { bg: 'linear-gradient(160deg, #003849 0%, #4b749f 100%)', wave: '#003849' },
+    [MAP_MODES.TRANSPARENCY]:   { bg: 'linear-gradient(160deg, #475569 0%, #64748b 100%)', wave: '#475569' },
 };
 
 interface MapDesktopProps {
@@ -87,7 +89,7 @@ function CityHero({ city, selectedColor, infraStats }: { city: CityData, selecte
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
                         { icon: Users, label: 'Población', value: formatPopulation(city.population), gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
-                        { icon: Euro, label: 'Presupuesto', value: formatCurrency(city.budget), gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
+                        { icon: Euro, label: 'Presupuesto', value: formatBudgetM(city.budget), gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
                         { icon: Bike, label: 'Red Ciclista', value: infraStats?.total_km ? `${formatDistance(infraStats.total_km)} km` : '—', gradient: 'from-[var(--green)] to-[var(--green-dark)]' },
                         { icon: Percent, label: 'Cobertura', value: infraStats?.coverage != null ? `${formatPercentage(infraStats.coverage)}%` : '—', gradient: 'from-[var(--yellow)] to-[var(--orange)]' },
                     ].map(({ icon: Icon, label, value, gradient }) => (
@@ -126,23 +128,42 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     const [, setSearchParams] = useSearchParams();
     const [selectedEdgeId, setSelectedEdgeId] = useState<number | null>(null);
     const [infraStats, setInfraStats] = useState<InfraStats | null>(null);
+    const [budgetYears, setBudgetYears] = useState<BudgetYear[]>([]);
+    const [selectedYear, setSelectedYear] = useState<number>(0);
+    const [highlightCodes, setHighlightCodes] = useState<Set<string>>(() => new Set(MOBILITY_CODES));
+    const budgetType = resolveBudgetType(budgetYears.find(by => by.year === selectedYear));
+    const [mayors, setMayors] = useState<MayorTerm[]>([]);
+    const [elections, setElections] = useState<ElectionResult[]>([]);
+    const [councilors, setCouncilors] = useState<CouncilorRecord[]>([]);
 
     useEffect(() => {
         if (!city.id) return;
-        fetchInfraStats(city.id)
-            .then(setInfraStats)
-            .catch(() => setInfraStats(null));
+        Promise.all([
+            fetchInfraStats(city.id).catch(() => null),
+            fetchCityBudgets(city.id).catch(() => [] as BudgetYear[]),
+            fetchCityContext(city.id).catch(() => ({ mayors: [] as MayorTerm[], budget_year: null, budget_categories: {} })),
+            fetchMayorsTimeline(city.id).catch(() => ({ mayors: [], elections: [] as ElectionResult[], councilors: [] as CouncilorRecord[] })),
+        ]).then(([infraResult, budgetsResult, contextResult, timelineResult]) => {
+            setInfraStats(infraResult);
+            setBudgetYears(budgetsResult);
+            if (budgetsResult.length > 0) {
+                setSelectedYear(budgetsResult[0].year);
+            }
+            setMayors(contextResult.mayors ?? []);
+            setElections(timelineResult.elections ?? []);
+            setCouncilors(timelineResult.councilors ?? []);
+        });
     }, [city.id]);
 
-    const isModeAvailable = (m: MapMode | string | null): boolean => {
+    const isModeAvailable = useCallback((m: MapMode | string | null): boolean => {
         if (!m) return false;
         if (!modeNames[m]) return false;
         if (city.available_modes) return city.available_modes[m] === true;
         if (m === MAP_MODES.STATIONS) return (city.stations_count || 0) > 0;
         return false;
-    };
+    }, [city.available_modes, city.stations_count]);
 
-    // Redirect to infrastructure if the mode param is invalid for this city
+    // Redirect to infrastructure if the mode param is invalid for this city.
     useEffect(() => {
         if (!isModeAvailable(mode)) {
             setSearchParams(
@@ -155,9 +176,28 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 { replace: true }
             );
         }
-    }, [mode, city.id]);
+    }, [mode, city.id, isModeAvailable]);
 
     const selectedColor = modeColors[mode] || 'var(--blue)';
+
+    const transparencySubmodes = (city.available_modes?.transparency_submodes as string[] | undefined) ?? [];
+    const hasBudgetSubmode = transparencySubmodes.length === 0 || transparencySubmodes.includes('budget');
+
+    const sunburstOverlay = mode === MAP_MODES.TRANSPARENCY && hasBudgetSubmode && budgetYears.length > 0 && selectedYear > 0 ? (
+        <div className="absolute inset-0 pointer-events-none z-10">
+            <div className="pointer-events-auto w-full h-full">
+                <BudgetSunburst
+                    data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
+                    year={selectedYear}
+                    budgetType={budgetType}
+                    onBudgetTypeChange={() => {}}
+                    showToggle={true}
+                    showBudgetTypeToggle={false}
+                    mobilityHighlight={highlightCodes}
+                />
+            </div>
+        </div>
+    ) : null;
 
     const filtersEl = (
         <MapFilters
@@ -170,14 +210,38 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
     );
     const mapEl = (
         <div className="h-[78vh] min-h-[560px] px-[var(--space-gutter)]">
-            <CityMap city={city} selectedColor={selectedColor} onEdgeSelect={setSelectedEdgeId} />
+            <div className="relative h-full">
+                <CityMap
+                    city={city}
+                    selectedColor={selectedColor}
+                    onEdgeSelect={setSelectedEdgeId}
+                    locked={mode === MAP_MODES.TRANSPARENCY}
+                />
+                {sunburstOverlay}
+            </div>
         </div>
     );
-    const statsEl = (
-        <div className="px-[var(--space-gutter)] py-10">
-            <ModeStatsRouter city={city} />
-        </div>
-    );
+    const statsEl = mode === MAP_MODES.TRANSPARENCY
+        ? (
+            <div className="px-[var(--space-gutter)] py-10">
+                <TransparencyStats
+                    city={city}
+                    budgetYears={budgetYears}
+                    selectedYear={selectedYear}
+                    onYearChange={setSelectedYear}
+                    highlightCodes={highlightCodes}
+                    onHighlightChange={setHighlightCodes}
+                    mayors={mayors}
+                    elections={elections}
+                    councilors={councilors}
+                />
+            </div>
+        )
+        : (
+            <div className="px-[var(--space-gutter)] py-10">
+                <ModeStatsRouter city={city} />
+            </div>
+        );
 
     const gradient = modeGradients[mode];
     const backgroundStyle = gradient
@@ -194,16 +258,39 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 /* Ultrawide C1: map 50% left, scrollable stats 50% right */
                 <DualPanel leftRatio={0.5}>
                     <DualPanel.Left>
-                        <div className="sticky top-0 h-screen px-[var(--space-gutter)] pb-6">
-                            <CityMap city={city} selectedColor={selectedColor} onEdgeSelect={setSelectedEdgeId} />
+                        <div className="sticky top-0 h-screen px-[var(--space-gutter)] pt-8 pb-6">
+                            <div className="relative h-full">
+                                <CityMap
+                                    city={city}
+                                    selectedColor={selectedColor}
+                                    onEdgeSelect={setSelectedEdgeId}
+                                    locked={mode === MAP_MODES.TRANSPARENCY}
+                                />
+                                {sunburstOverlay}
+                            </div>
                         </div>
                     </DualPanel.Left>
                     <DualPanel.Right>
-                        <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] py-6">
+                        <div className="overflow-y-auto max-h-screen px-[var(--space-gutter)] pt-8 pb-6">
                             <div className="mb-8">
                                 {filtersEl}
                             </div>
-                            <ModeStatsRouter city={city} />
+                            {mode === MAP_MODES.TRANSPARENCY
+                                ? (
+                                    <TransparencyStats
+                                        city={city}
+                                        budgetYears={budgetYears}
+                                        selectedYear={selectedYear}
+                                        onYearChange={setSelectedYear}
+                                        highlightCodes={highlightCodes}
+                                        onHighlightChange={setHighlightCodes}
+                                        mayors={mayors}
+                                        elections={elections}
+                                        councilors={councilors}
+                                    />
+                                )
+                                : <ModeStatsRouter city={city} />
+                            }
                         </div>
                     </DualPanel.Right>
                 </DualPanel>

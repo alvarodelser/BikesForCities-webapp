@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
+import { HelpCircle, X } from 'lucide-react';
 import type { CollisionMatrixRow, CollisionVehicleKey, PairSev } from '../../../hooks/useAccidentsStats';
 import {
-  Bicycle, PersonSimpleWalk, Motorcycle, CarProfile, Van, Truck,
+  Bicycle, PersonSimpleWalk, Motorcycle, CarProfile, Van, Truck, Scooter,
 } from '@phosphor-icons/react';
 
 const ICON_COLOR = '#6b7280';
 
 const VEHICLE_META: Record<CollisionVehicleKey, { label: string; icon: React.ElementType; color: string }> = {
-  bike_vmu:   { label: 'Bicicleta', icon: Bicycle,          color: ICON_COLOR },
-  pedestrian: { label: 'Peatón',    icon: PersonSimpleWalk,  color: ICON_COLOR },
-  moto:       { label: 'Moto',      icon: Motorcycle,        color: ICON_COLOR },
-  car:        { label: 'Turismo',   icon: CarProfile,        color: ICON_COLOR },
-  bus:        { label: 'Autobús',   icon: Van,               color: ICON_COLOR },
-  truck:      { label: 'Camión',    icon: Truck,             color: ICON_COLOR },
+  bike_vmu:   { label: 'Bici/EPAC',    icon: Bicycle,          color: ICON_COLOR },
+  scooter:    { label: 'Patinete/VMU', icon: Scooter,          color: ICON_COLOR },
+  pedestrian: { label: 'Peatón',       icon: PersonSimpleWalk,  color: ICON_COLOR },
+  moto:       { label: 'Moto',         icon: Motorcycle,        color: ICON_COLOR },
+  car:        { label: 'Turismo',      icon: CarProfile,        color: ICON_COLOR },
+  bus:        { label: 'Autobús',      icon: Van,               color: ICON_COLOR },
+  truck:      { label: 'Camión',       icon: Truck,             color: ICON_COLOR },
 };
 
 // Pedestrian first so the most-vulnerable participant anchors row 0 (longest row)
-const DISPLAY_ORDER: CollisionVehicleKey[] = ['pedestrian', 'bike_vmu', 'moto', 'car', 'bus', 'truck'];
+const DISPLAY_ORDER: CollisionVehicleKey[] = ['pedestrian', 'bike_vmu', 'scooter', 'moto', 'car', 'bus', 'truck'];
 
 const SEV_ROWS = [
   { label: 'Fatal', color: '#7f1d1d', key: 'fatal'     as const },
@@ -129,6 +131,7 @@ interface CollisionHeatmapProps {
   data: CollisionMatrixRow[];
   title: string;
   subtitle?: string;
+  helpContent?: ReactNode;
 }
 
 const CELL = 44;
@@ -137,9 +140,10 @@ const C = CELL - 2;
 // Info panel sits in lower-left empty triangle; width = 3 cells - gap (safe to row-3 boundary)
 const PANEL_W = 3 * CELL - 4;
 
-export const CollisionHeatmap: React.FC<CollisionHeatmapProps> = ({ data, title, subtitle }) => {
+export const CollisionHeatmap: React.FC<CollisionHeatmapProps> = ({ data, title, subtitle, helpContent }) => {
   const [mode, setMode] = useState<'severity' | 'count'>('severity');
   const [hovered, setHovered] = useState<Hovered | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
 
   if (!data.length) return null;
 
@@ -194,25 +198,39 @@ export const CollisionHeatmap: React.FC<CollisionHeatmapProps> = ({ data, title,
     >
       {/* Header + mode toggle */}
       <div className="flex items-start justify-between gap-3 mb-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-bold text-gray-900 leading-tight">{title}</h3>
           {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
-        <div className="flex rounded-md border border-gray-200 text-[10px] overflow-hidden flex-shrink-0">
-          <button
-            className={`px-2.5 py-1 transition-colors ${mode === 'severity' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => setMode('severity')}
-          >
-            Gravedad
-          </button>
-          <button
-            className={`px-2.5 py-1 transition-colors ${mode === 'count' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => setMode('count')}
-          >
-            Frecuencia
-          </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <div className="flex rounded-md border border-gray-200 text-[10px] overflow-hidden">
+            <button
+              className={`px-2.5 py-1 transition-colors ${mode === 'severity' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              onClick={() => setMode('severity')}
+            >
+              Gravedad
+            </button>
+            <button
+              className={`px-2.5 py-1 transition-colors ${mode === 'count' ? 'bg-gray-900 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+              onClick={() => setMode('count')}
+            >
+              Frecuencia
+            </button>
+          </div>
+          {helpContent && (
+            <button
+              onClick={() => setShowHelp(v => !v)}
+              className="w-6 h-6 rounded-lg flex items-center justify-center bg-black/5 hover:bg-black/10 text-gray-400 hover:text-gray-600 transition-all"
+              aria-label={showHelp ? 'Cerrar ayuda' : 'Mostrar ayuda'}
+            >
+              {showHelp ? <X className="w-3.5 h-3.5" /> : <HelpCircle className="w-3.5 h-3.5" />}
+            </button>
+          )}
         </div>
       </div>
+      {showHelp && helpContent && (
+        <div className="mb-4 text-[11px] text-gray-500 leading-relaxed flex flex-col gap-1.5">{helpContent}</div>
+      )}
 
       <div className="overflow-x-auto">
         {/* position:relative so the info panel can be positioned inside */}

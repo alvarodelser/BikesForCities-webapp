@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import { useMap } from '../../MapContext';
 import { useMapState } from '../../../../../hooks/useMapState';
 import { fetchODFlows } from '../../../../../services/api';
+import { fmtInt } from '../../../../../utils/formatters';
 import { ODAccumulationLayer, ACCUM_LAYER_ID } from './ODAccumulationLayer';
 import type { SelectionDetail } from '../../../../../types/selection';
 import type * as GeoJSON from 'geojson';
@@ -129,7 +130,7 @@ function chaikinSmooth(pts: [number,number][], iterations = 2): [number,number][
 
 export default function TrafficTripsLayer() {
     const { map, city, setLayerState } = useMap();
-    const { generation, period, setGeneration } = useMapState();
+    const { generation, period, periodFrom, setGeneration } = useMapState();
 
     useEffect(() => {
         if (generation) return;
@@ -202,7 +203,7 @@ export default function TrafficTripsLayer() {
             title: `Zona ${hexId.slice(-6)}`,
             rows: [
                 { label: 'CONEXIONES', value: String(connected.length) },
-                { label: 'VIAJES',     value: total.toLocaleString('es-ES') },
+                { label: 'VIAJES',     value: fmtInt(total) },
             ],
         };
         window.dispatchEvent(new CustomEvent('map-selection', { detail }));
@@ -313,14 +314,14 @@ export default function TrafficTripsLayer() {
         if (!map || !city?.id || !generation) return;
         setLayerState?.('loading');
         try {
-            const geojson = await fetchODFlows(city.id, generation, period || undefined, 9);
+            const geojson = await fetchODFlows(city.id, generation, period || undefined, 9, periodFrom || undefined);
             buildLayers(geojson);
             setLayerState?.(geojson.features.length === 0 ? 'empty' : 'idle');
         } catch (err) {
             console.error('[TrafficTripsLayer] Failed to load OD flows:', err);
             setLayerState?.('error');
         }
-    }, [map, city?.id, generation, period, buildLayers]);
+    }, [map, city?.id, generation, period, periodFrom, buildLayers]);
 
     // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -348,7 +349,7 @@ export default function TrafficTripsLayer() {
         clearSelected();
         window.dispatchEvent(new CustomEvent('map-selection', { detail: null }));
         loadData();
-    }, [generation, period]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [generation, period, periodFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!map) return;

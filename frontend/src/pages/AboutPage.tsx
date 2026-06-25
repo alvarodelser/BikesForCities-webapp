@@ -1,8 +1,4 @@
 import React from 'react';
-import {
-  Users,
-  Bike,
-} from 'lucide-react';
 import InfoCard, { type InfoItem } from '../components/ui/InfoCard';
 import ScrollableCardList from '../components/ui/ScrollableCardList';
 
@@ -68,28 +64,19 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: team photo placeholder */}
-          <div
-            className="relative rounded-3xl overflow-hidden aspect-[4/3] flex items-center justify-center p-8 group"
-            style={{
-              background: 'linear-gradient(135deg, var(--green-light) 0%, var(--blue-light) 100%)',
-            }}
-          >
-            {/* Glass Overlay for placeholder feel */}
-            <div className="absolute inset-4 rounded-2xl border border-white/30 bg-white/10 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 transition-all duration-500 group-hover:scale-[1.02]">
-              <div className="flex -space-x-4 mb-4">
-                <div className="w-16 h-16 rounded-full bg-[var(--green)] border-4 border-[var(--cream)] flex items-center justify-center shadow-lg">
-                  <Users className="w-8 h-8 text-white" />
-                </div>
-                <div className="w-16 h-16 rounded-full bg-[var(--blue)] border-4 border-[var(--cream)] flex items-center justify-center shadow-lg">
-                  <Bike className="w-8 h-8 text-white" />
-                </div>
-              </div>
-              <h4 className="text-lg font-bold text-[var(--blue-dark)] mb-2">Nuestro Equipo</h4>
-              <p className="text-xs text-[var(--blue-dark)]/70 max-w-[200px]">
-                WIP.
-              </p>
+          {/* Right: team video presentation */}
+          <div className="flex flex-col gap-4">
+            <div className="relative rounded-3xl overflow-hidden aspect-[4/3] w-full">
+              <iframe
+                className="w-full h-full"
+                src="https://www.youtube.com/embed/90wljM8UF1U"
+                title="Presentación de BikesForCities"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+              />
             </div>
+            <p className="text-sm text-[var(--blue-dark)]/70 text-left ml-2">Presentación de la plataforma</p>
           </div>
         </section>
 

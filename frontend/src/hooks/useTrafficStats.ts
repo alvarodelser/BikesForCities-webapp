@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { fetchTrafficResolve } from '../services/api';
 
 export interface TrafficOptions {
-  period?: string;              // YYYY-MM
+  period?: string;              // YYYY-MM (end of range)
+  periodFrom?: string;          // YYYY-MM (start of range)
   generationType?: 'real' | 'station_based' | 'buildings_population';
   algorithm?: 'map_matched' | 'shortest' | 'safest';
 }
@@ -49,6 +50,7 @@ export function useTrafficStats(
       options.generationType,
       options.algorithm,
       options.period,
+      options.periodFrom,
     )
       .then(traffic => {
         if (cancelled) return;

@@ -76,7 +76,9 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
           icon={Bike}
           accent={ACCENT}
           variant={variant}
-          helpContent="Número total de bicicletas disponibles en el sistema de bicicleta pública de la ciudad, incluyendo las disponibles en estaciones y las que pueden estar en tránsito."
+          helpQueVes="El número total de bicicletas operativas que forman la flota del servicio de bici pública de la ciudad."
+          helpPorQueEsUtil="La flota refleja la extensión e inversión en el servicio. Una mayor polación ciclista necesotará de una mayor cantidad de bicicletas operativas."
+          helpComoSeRecogieron="Calculamos el número total de bicicletas en estaciones de madrugada (4:00 am.) para minimizar el número de bicicletas en tránsito. De esta manera obtenemos la flota operativa en vez de los datos publicados por el operador."
         />
         <MetricPill
           loading={loading}
@@ -86,7 +88,9 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
           icon={MapPin}
           accent={ACCENT}
           variant={variant}
-          helpContent="Número de estaciones de anclaje operativas. Las estaciones inactivas por obras, averías o retirada temporal no se contabilizan en este total."
+          helpQueVes="El número de estaciones de anclaje que se encuentran operativas en el período seleccionado."
+          helpPorQueEsUtil="Este número refleja la extensión del servicio disponible. Un mayor número de estaciones favorece la cobertura del municipio y reduce el tiempo de desplazamiento al usuario antes y después del trayecto en bicicleta"
+          helpComoSeRecogieron="Se cuentan las estaciones con al menos un evento de unlock o lock registrado en el período. Las estaciones sin actividad —por obras, avería o retirada temporal— no se incluyen. La fuente es la API citybik.es que agrega datos de uso de servicios de bicicleta por todo el mundo."
         />
       </div>
 
@@ -100,7 +104,9 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
           icon={Users}
           accent={ACCENT}
           variant={variant}
-          helpContent="Número de bicicletas disponibles por cada 1.000 habitantes. Permite comparar la intensidad del servicio entre ciudades de distintos tamaños en igualdad de condiciones."
+          helpQueVes="El número de bicicletas disponibles por cada 1 000 habitantes de la ciudad."
+          helpPorQueEsUtil="Permite comparar la disponibilidad del servicio entre ciudades de distinto tamaño. La densidad de flota es el principal predictor del nivel de servicio que experimentan los usuarios."
+          helpComoSeRecogieron="Cociente entre la flota total y la población municipal según el último padrón disponible."
         />
         <MetricPill
           loading={loading}
@@ -110,7 +116,9 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
           icon={Activity}
           accent={ACCENT}
           variant={variant}
-          helpContent="Número de viajes por bicicleta y día. Un valor alto indica un servicio con alta demanda y rotación. Se calcula dividiendo los viajes mensuales entre el número de bicicletas y los días del mes."
+          helpQueVes="El número medio de trayectos que realiza cada bicicleta de la flota en un día."
+          helpPorQueEsUtil="Un valor alto implica rotación intensiva, pudiendo indicar saturación del servicio. Un valor bajo puede reflejar baja demanda."
+          helpComoSeRecogieron="Se divide el total de viajes del período entre el producto del número de bicicletas por los días del período. Solo se cuentan los viajes con duración entre 1 y 180 minutos para excluir registros de mantenimiento o sesiones abiertas por error."
         />
         <MetricPill
           loading={loading}
@@ -120,17 +128,21 @@ const StationsStats: React.FC<StationsStatsProps> = ({ city, variant }) => {
           icon={TrendingUp}
           accent={ACCENT}
           variant={variant}
-          helpContent="Porcentaje de edificios del área de estudio que tienen al menos una estación a menos de 150 metros. Refleja el alcance geográfico real del servicio."
+          helpQueVes="El porcentaje de edificios del área de estudio que tienen al menos una estación de bici pública a menos de 150 metros."
+          helpPorQueEsUtil="Este número revela la cobertura geográfica del servicio, centrada en los edificios que cubre por su distribución en el mapa."
+          helpComoSeRecogieron="Para cada edificio de OpenStreetMaps se calcula la distancia euclidiana a la estación activa más cercana en el período. El umbral de 150 metros equivale a aproximadamente 2 minutos a pie."
         />
         <MetricPill
           loading={loading}
           value={avgStopStr}
-          label="Inoperativa"
-          sublabel="Min. sin bicis / día"
+          label="Disponibilidad"
+          sublabel="Min. sin servicio / día"
           icon={Clock}
           accent={ACCENT}
           variant={variant}
-          helpContent="Tiempo medio diario que una estación permanece inoperativa (sin bicicletas o sin anclajes libres). Un valor alto indica problemas de reposición."
+          helpQueVes="El tiempo mediano diario, en minutos, que una estación permanece sin bicicletas disponibles o sin anclajes libres."
+          helpPorQueEsUtil="El evento más crítico del servicio para la movilidad es cuando un usuario llega y no encuentra bici. Este número cuantifica ese fallo; estaciones con alta indisponibilidad son las que más necesitan redistribución urgente."
+          helpComoSeRecogieron="A partir del log de ocupación se identifican los intervalos en que dispone de menos de 2 bicicletas (asumimos un cierto margen de bicicletas inoperativas, averiadas o sin carga). Se suman esos intervalos para cada día y se obtiene la mediana sobre el período."
         />
       </div>
 
