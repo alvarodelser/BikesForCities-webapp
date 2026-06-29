@@ -9,7 +9,7 @@ def shortest_path(graph: nx.MultiDiGraph, start_node: int, end_node: int) -> lis
 def safe_path(graph: nx.MultiDiGraph, start_node: int, end_node: int) -> list[int]:
     """Safest cycling path using `route_cost` as edge weight.
 
-    route_cost = length * (1 + peligrosidad * log(length) / 144)
+    route_cost = length * (1 + peligrosidad * length / 7200)
     so edges on cycleways/bike-infra roads are cheaper than equally long
     busy roads. Graph must be built with build_safe_graph().
     """
