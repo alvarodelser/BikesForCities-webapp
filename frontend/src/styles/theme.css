@@ -46,4 +46,9 @@
     --space-section-y:   clamp(2rem, 4vw, 5rem);
     --space-gutter:      clamp(1rem, 4vw, 6rem);
     --navbar-height:     80px;
+
+    /* ========== MOTION ========== */
+    --ease-reveal: cubic-bezier(0.22, 1, 0.36, 1);
+    --dur-reveal: 480ms;
+    --stagger: 90ms;
   }  
