@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router';
 import type { CityData } from '../constants/cities';
-import { fetchCities } from '../services/api';
+import { getCities } from '../services/citiesCache';
 import { useViewport } from '../hooks/useViewport';
 import MapDesktop from '../components/city/MapDesktop';
 import MapMobile from '../components/city/MapMobile';
@@ -20,7 +20,7 @@ const CityPage: React.FC = () => {
     setError(null);
     setCity(null);
     setInitialLoading(true);
-    fetchCities().then(cities => {
+    getCities().then(cities => {
       if (!cities || cities.length === 0) {
         setError("No se han encontrado datos de las ciudades. Por favor, inténtelo de nuevo más tarde.");
         setInitialLoading(false);

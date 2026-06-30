@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { CityData } from '../../constants/cities';
-import { fetchCities } from '../../services/api';
+import { getCities, getCitiesSync } from '../../services/citiesCache';
 import { useViewport } from '../../hooks/useViewport';
 import SpainMap from './SpainMap';
 import ScrollableCityCards from '../ui/ScrollableCityCards';
@@ -131,14 +131,15 @@ function MobileLayout({ cities, onNavigate }: LayoutProps) {
 // ─── MapSelector (top-level) ──────────────────────────────────────────────────
 
 const MapSelector: React.FC = () => {
-  const [cities, setCities] = useState<CityData[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cities, setCities] = useState<CityData[]>(() => getCitiesSync() ?? []);
+  const [loading, setLoading] = useState(() => getCitiesSync() === null);
   const [error, setError] = useState<string | null>(null);
   const { isMobile } = useViewport();
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchCities()
+    if (!loading) return;
+    getCities()
       .then(data => {
         if (data && data.length > 0) {
           setCities(data);
