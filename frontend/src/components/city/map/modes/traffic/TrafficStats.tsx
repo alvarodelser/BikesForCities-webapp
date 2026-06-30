@@ -72,7 +72,7 @@ function PeligrosidadSection() {
     hover !== null && PELIG_CASES[hover].highlights.includes(rowId as never);
 
   return (
-    <div className="flex flex-row flex-wrap gap-x-3 gap-y-1 items-start mb-1.5">
+    <div className="flex flex-row items-stretch gap-x-3 mb-1.5">
       {/* Table */}
       <table className="text-[9px] border-collapse flex-shrink-0 rounded" style={{ tableLayout: 'fixed', width: '194px', outline: `1px solid ${ACCENT}20` }}>
         <colgroup>
@@ -113,10 +113,13 @@ function PeligrosidadSection() {
         </tbody>
       </table>
 
-      {/* Chart */}
+      {/* Chart — wrapper stretches to the table's height (items-stretch) */}
+      <div className="flex-shrink-0 self-stretch" style={{ width: W }}>
       <svg
-        width={W} height={H}
-        className="flex-shrink-0 overflow-visible text-[var(--blue-dark)]"
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%" height="100%"
+        preserveAspectRatio="none"
+        className="block overflow-visible text-[var(--blue-dark)]"
         onMouseLeave={() => setHover(null)}
       >
         {/* Y-axis grid lines */}
@@ -189,6 +192,7 @@ function PeligrosidadSection() {
           );
         })}
       </svg>
+      </div>
     </div>
   );
 }
