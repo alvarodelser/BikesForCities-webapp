@@ -3,16 +3,17 @@ import { RevealContext } from '../../contexts/RevealContext';
 import AnimatedB4CLogo from './AnimatedB4CLogo';
 import { getCities } from '../../services/citiesCache';
 
-type Phase = 'drawing' | 'exiting' | 'done';
+type Phase = 'drawing' | 'filling' | 'exiting' | 'done';
 
 interface Props {
   children: React.ReactNode;
 }
 
 const INTRO_KEY = 'b4c_intro_seen';
-const MIN_MS = 900;
-const MAX_MS = 3500;
-const EXIT_MS = 700;
+const MIN_MS = 1700;   // last stroke: 1040ms delay + 550ms draw = 1590ms
+const MAX_MS = 4500;
+const FILL_MS = 650;   // dark-green circle expands
+const EXIT_MS = 650;   // curtain slides up
 
 function alreadySeen(): boolean {
   try { return !!sessionStorage.getItem(INTRO_KEY); } catch { return true; }
@@ -50,14 +51,23 @@ const LandingReveal: React.FC<Props> = ({ children }) => {
     ]);
 
     gate.then(() => {
-      setPhase('exiting');
+      // Phase 1 → filling: dark green expands from center
+      setPhase('filling');
+
       setTimeout(() => {
-        setPhase('done');
+        // Phase 2 → exiting: curtain slides up; hero starts composing
+        setPhase('exiting');
         setRevealed(true);
-        markSeen();
-      }, EXIT_MS);
+
+        setTimeout(() => {
+          setPhase('done');
+          markSeen();
+        }, EXIT_MS);
+      }, FILL_MS);
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isFilled = phase === 'filling' || phase === 'exiting';
 
   return (
     <RevealContext.Provider value={{ revealed }}>
@@ -73,23 +83,37 @@ const LandingReveal: React.FC<Props> = ({ children }) => {
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: 'var(--cream)',
-            pointerEvents: phase === 'exiting' ? 'none' : undefined,
-            opacity: phase === 'exiting' ? 0 : 1,
-            transform: phase === 'exiting' ? 'translateY(-12px)' : 'translateY(0)',
+            overflow: 'hidden',
+            // Curtain slides up when exiting
+            transform: phase === 'exiting' ? 'translateY(-100%)' : 'translateY(0)',
             transition: phase === 'exiting'
-              ? `opacity ${EXIT_MS}ms cubic-bezier(0.22,1,0.36,1), transform ${EXIT_MS}ms cubic-bezier(0.22,1,0.36,1)`
+              ? `transform ${EXIT_MS}ms cubic-bezier(0.22,1,0.36,1)`
               : undefined,
           }}
         >
+          {/* Dark-green fill that expands radially from center */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'var(--blue-dark)',
+              clipPath: isFilled
+                ? 'circle(150% at 50% 50%)'
+                : 'circle(0% at 50% 50%)',
+              transition: phase === 'filling'
+                ? `clip-path ${FILL_MS}ms cubic-bezier(0.22,1,0.36,1)`
+                : undefined,
+            }}
+          />
+
+          {/* Bicycle — color flips to cream as dark fill covers it */}
           <AnimatedB4CLogo
             style={{
+              position: 'relative',
+              zIndex: 1,
               width: '110px',
-              color: 'var(--blue-dark)',
-              opacity: phase === 'exiting' ? 0 : 1,
-              transform: phase === 'exiting' ? 'translateY(-30px) scale(0.35)' : 'none',
-              transition: phase === 'exiting'
-                ? `opacity 350ms ease-in, transform 500ms cubic-bezier(0.22,1,0.36,1)`
-                : undefined,
+              color: isFilled ? 'var(--cream)' : 'var(--blue-dark)',
+              transition: 'color 250ms ease-in',
             }}
           />
         </div>
