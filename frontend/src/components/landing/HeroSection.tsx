@@ -2,9 +2,18 @@ import React from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowRight } from 'lucide-react';
 import backgroundTexture from '../../assets/background2.svg';
+import { useReveal } from '../../contexts/RevealContext';
+
+const DUR = 480;
+const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 const HeroSection: React.FC = () => {
   const navigate = useNavigate();
+  const { revealed } = useReveal();
+
+  const prefersReduced =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   return (
     <section className="w-full relative overflow-hidden bg-[var(--cream)]">
@@ -39,6 +48,11 @@ const HeroSection: React.FC = () => {
             letterSpacing: '-0.03em',
             lineHeight: 0.92,
             color: 'var(--blue-dark)',
+            clipPath: revealed ? 'inset(0 0% 0 0)' : 'inset(0 100% 0 0)',
+            opacity: revealed ? 1 : 0,
+            transition: prefersReduced
+              ? `opacity ${DUR}ms ${EASE}`
+              : `clip-path ${DUR + 200}ms ${EASE}, opacity ${DUR}ms ${EASE}`,
           }}
         >
           Bikes for Cities
@@ -51,11 +65,25 @@ const HeroSection: React.FC = () => {
             height: '1px',
             background: 'rgba(0,56,73,0.20)',
             margin: '1.5rem 0',
+            transformOrigin: 'left',
+            transform: revealed ? 'scaleX(1)' : 'scaleX(0)',
+            transition: prefersReduced
+              ? undefined
+              : `transform ${DUR + 100}ms ${EASE} 180ms`,
           }}
         />
 
         {/* ── STRIP: tagline + CTA ── */}
-        <div className="flex items-center justify-between gap-6 flex-wrap">
+        <div
+          className="flex items-center justify-between gap-6 flex-wrap"
+          style={{
+            opacity: revealed ? 1 : 0,
+            transform: revealed ? 'translateY(0)' : 'translateY(8px)',
+            transition: prefersReduced
+              ? `opacity ${DUR}ms ${EASE} 360ms`
+              : `opacity ${DUR}ms ${EASE} 360ms, transform ${DUR}ms ${EASE} 360ms`,
+          }}
+        >
           <p
             className="font-heading"
             style={{
