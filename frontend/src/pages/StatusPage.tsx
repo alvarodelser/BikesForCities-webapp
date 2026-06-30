@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Route, TrendingUp, Bike, MessageSquare,
 } from 'lucide-react';
+import Skeleton from '../components/ui/Skeleton';
 import { fetchSystemStatus, type SystemStatus, type TimePeriodRow } from '../services/api';
 
 import { MAP_MODES } from '../constants/mapModes';
@@ -440,8 +441,23 @@ const StatusPage: React.FC = () => {
   );
 
   if (!status) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--cream)' }}>
-      <p className="text-sm" style={{ color: 'color-mix(in srgb,var(--black) 50%,transparent)' }}>Cargando…</p>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--cream)' }}>
+      <div className="max-w-6xl mx-auto px-6 pt-32 pb-24 space-y-12">
+        <div className="space-y-3">
+          <Skeleton width="80px" height="24px" rounded="rounded-full" />
+          <Skeleton width="320px" height="48px" />
+          <Skeleton width="200px" height="16px" />
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 py-3 border-b border-black/5">
+              <Skeleton width="120px" height="14px" />
+              <Skeleton width="80px" height="14px" />
+              <Skeleton width="60px" height="20px" rounded="rounded-full" className="ml-auto" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 
