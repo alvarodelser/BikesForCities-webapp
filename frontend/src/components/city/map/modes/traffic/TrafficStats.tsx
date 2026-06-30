@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
@@ -52,13 +52,26 @@ const PELIG_ROWS = [
 ] as const;
 
 function PeligrosidadSection() {
-  const [hover, setHover] = useState<number | null>(null);
-
   const W = 192, H = 170;
   const ml = 28, mr = 68, mt = 6, mb = 18;
   const pw = W - ml - mr;  // 96
-  const ph = H - mt - mb;  // 146
   const X_MIN = 10, X_MAX = 800, Y_MAX = 4200;
+
+  const [hover, setHover] = useState<number | null>(null);
+  // Chart height tracks the table so they line up when side by side; when the
+  // row wraps (mobile/narrow) the chart simply drops below at this same height.
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [chartH, setChartH] = useState(H);
+  useLayoutEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    const update = () => setChartH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const ph = chartH - mt - mb;
 
   const cost = (l: number, p: number) => l * (1 + (p * l) / 7200);
   const sx = (l: number) => ml + ((l - X_MIN) / (X_MAX - X_MIN)) * pw;
@@ -72,9 +85,9 @@ function PeligrosidadSection() {
     hover !== null && PELIG_CASES[hover].highlights.includes(rowId as never);
 
   return (
-    <div className="flex flex-row items-stretch gap-x-3 mb-1.5">
+    <div className="flex flex-row flex-wrap items-start gap-x-3 gap-y-2 mb-1.5">
       {/* Table */}
-      <table className="text-[9px] border-collapse flex-shrink-0 rounded" style={{ tableLayout: 'fixed', width: '194px', outline: `1px solid ${ACCENT}20` }}>
+      <table ref={tableRef} className="text-[9px] border-collapse flex-shrink-0 rounded" style={{ tableLayout: 'fixed', width: '194px', outline: `1px solid ${ACCENT}20` }}>
         <colgroup>
           <col style={{ width: '50px' }} />
           <col />
@@ -113,13 +126,10 @@ function PeligrosidadSection() {
         </tbody>
       </table>
 
-      {/* Chart — wrapper stretches to the table's height (items-stretch) */}
-      <div className="flex-shrink-0 self-stretch" style={{ width: W }}>
+      {/* Chart — height = chartH (measured table height) so they align; on wrap it drops below */}
       <svg
-        viewBox={`0 0 ${W} ${H}`}
-        width="100%" height="100%"
-        preserveAspectRatio="none"
-        className="block overflow-visible text-[var(--blue-dark)]"
+        width={W} height={chartH}
+        className="flex-shrink-0 overflow-visible text-[var(--blue-dark)]"
         onMouseLeave={() => setHover(null)}
       >
         {/* Y-axis grid lines */}
@@ -144,7 +154,7 @@ function PeligrosidadSection() {
             <text x={sx(v)} y={sy(0) + 9} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>{v}</text>
           </g>
         ))}
-        <text x={ml + pw / 2} y={H - 2} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>m</text>
+        <text x={ml + pw / 2} y={chartH - 2} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>m</text>
         {/* Lines */}
         {PELIG_CASES.map((c, i) => {
           const active = hover === i;
@@ -192,7 +202,6 @@ function PeligrosidadSection() {
           );
         })}
       </svg>
-      </div>
     </div>
   );
 }
