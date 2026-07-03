@@ -2,12 +2,17 @@ import { describe, it, expect } from 'vitest';
 import {
   PATH_TOP_Y,
   PATH_BOTTOM_Y,
+  GRADIENT_Y0,
+  GRADIENT_Y1,
+  PALETTE,
   samplePath,
   curtainSteps,
   pointAtY,
   yForScore,
   sampleSpread,
   mainPathD,
+  colorAtY,
+  resolveLabelPositions,
 } from './rideRibbon';
 
 describe('samplePath', () => {
@@ -119,5 +124,58 @@ describe('curtainSteps', () => {
 describe('mainPathD', () => {
   it('starts at the top-right entry point', () => {
     expect(mainPathD()).toMatch(/^M 400 90 /);
+  });
+});
+
+function hex(rgb: string): [number, number, number] {
+  const m = rgb.match(/\d+/g)!.map(Number);
+  return [m[0], m[1], m[2]];
+}
+
+describe('colorAtY', () => {
+  it('matches the palette ends at the gradient extremes', () => {
+    const first = PALETTE[0][1];
+    const last = PALETTE[PALETTE.length - 1][1];
+    expect(colorAtY(GRADIENT_Y0)).toBe(
+      `rgb(${parseInt(first.slice(1, 3), 16)}, ${parseInt(first.slice(3, 5), 16)}, ${parseInt(first.slice(5, 7), 16)})`,
+    );
+    expect(colorAtY(GRADIENT_Y1)).toBe(
+      `rgb(${parseInt(last.slice(1, 3), 16)}, ${parseInt(last.slice(3, 5), 16)}, ${parseInt(last.slice(5, 7), 16)})`,
+    );
+  });
+
+  it('clamps beyond the gradient range to the end colors', () => {
+    expect(colorAtY(-500)).toBe(colorAtY(GRADIENT_Y0));
+    expect(colorAtY(5000)).toBe(colorAtY(GRADIENT_Y1));
+  });
+
+  it('interpolates smoothly (no repeated identical colors across a wide sweep)', () => {
+    const samples = Array.from({ length: 20 }, (_, i) =>
+      hex(colorAtY(GRADIENT_Y0 + (i * (GRADIENT_Y1 - GRADIENT_Y0)) / 19)),
+    );
+    const distinct = new Set(samples.map(c => c.join(','))).size;
+    expect(distinct).toBeGreaterThan(15);
+  });
+});
+
+describe('resolveLabelPositions', () => {
+  it('keeps well-spaced natural positions unchanged', () => {
+    const natural = [100, 300, 500];
+    expect(resolveLabelPositions(natural, 30, 0, 900)).toEqual(natural);
+  });
+
+  it('pushes down clustered labels to respect the minimum gap', () => {
+    const resolved = resolveLabelPositions([100, 110, 115], 30, 0, 900);
+    for (let i = 1; i < resolved.length; i++) {
+      expect(resolved[i] - resolved[i - 1]).toBeGreaterThanOrEqual(30 - 1e-9);
+    }
+  });
+
+  it('clamps within bounds and keeps output ordered when packed at the max', () => {
+    const resolved = resolveLabelPositions([780, 790, 800, 810], 30, 0, 800);
+    expect(resolved[resolved.length - 1]).toBeLessThanOrEqual(800);
+    for (let i = 1; i < resolved.length; i++) {
+      expect(resolved[i]).toBeGreaterThan(resolved[i - 1]);
+    }
   });
 });

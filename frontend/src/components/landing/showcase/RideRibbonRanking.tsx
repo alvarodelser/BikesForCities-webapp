@@ -2,11 +2,15 @@ import React, { useMemo } from 'react';
 import type { CityData } from '../../../constants/cities';
 import { formatPercentage } from '../../../utils/formatters';
 import {
+  GRADIENT_Y0,
+  GRADIENT_Y1,
   PALETTE,
+  colorAtY,
   curtainSteps,
   mainPathD,
   pointAtY,
   polyD,
+  resolveLabelPositions,
   samplePath,
   yForScore,
 } from './rideRibbon';
@@ -14,8 +18,11 @@ import {
 const VIEW_W = 720;
 const VIEW_H = 900;
 const LABEL_X = 575; // left edge of the label column
+const HEADER_X = 520; // shifted left of LABEL_X so the header text fits the viewBox
+const HEADER_Y = 78;
 const LABEL_TOP_Y = 120;
 const LABEL_BOTTOM_Y = 780;
+const ROW_MIN_GAP = 32; // vertical room one name + score line needs
 const RIPPLE_S = 3.2;
 const STAGGER_MS = 24;
 
@@ -41,19 +48,23 @@ const RideRibbonRanking: React.FC<Props> = ({ cities }) => {
     const scores = withCoverage.map(c => c.coverage as number);
     const min = Math.min(...scores);
     const max = Math.max(...scores);
+    // Sorted best-first, which also means ascending y (best coverage sits
+    // highest on the path) — the order resolveLabelPositions expects.
     const sorted = [...withCoverage].sort(
       (a, b) => (b.coverage as number) - (a.coverage as number),
     );
-    const rowGap =
-      sorted.length > 1 ? (LABEL_BOTTOM_Y - LABEL_TOP_Y) / (sorted.length - 1) : 0;
-    return sorted.map((city, i) => {
-      const target = pointAtY(pts, yForScore(city.coverage as number, min, max));
-      return {
-        city,
-        target,
-        labelY: sorted.length > 1 ? LABEL_TOP_Y + i * rowGap : (LABEL_TOP_Y + LABEL_BOTTOM_Y) / 2,
-      };
-    });
+    const targets = sorted.map(city =>
+      pointAtY(pts, yForScore(city.coverage as number, min, max)),
+    );
+    // Labels sit at their point's own height whenever rows don't collide;
+    // only clustered scores get nudged apart.
+    const labelYs = resolveLabelPositions(
+      targets.map(t => t.y),
+      ROW_MIN_GAP,
+      LABEL_TOP_Y,
+      LABEL_BOTTOM_Y,
+    );
+    return sorted.map((city, i) => ({ city, target: targets[i], labelY: labelYs[i] }));
   }, [cities, pts]);
 
   return (
@@ -65,8 +76,16 @@ const RideRibbonRanking: React.FC<Props> = ({ cities }) => {
     >
       <defs>
         {/* Color encodes ranking altitude: fixed in canvas space so curtain
-            strokes shift through the palette as they fall. */}
-        <linearGradient id="rr-altitude" gradientUnits="userSpaceOnUse" x1="0" y1="80" x2="0" y2="820">
+            strokes shift through the palette as they fall. colorAtY() in
+            rideRibbon.ts must track y1/y2 here to color scores to match. */}
+        <linearGradient
+          id="rr-altitude"
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          y1={GRADIENT_Y0}
+          x2="0"
+          y2={GRADIENT_Y1}
+        >
           {PALETTE.map(([offset, color]) => (
             <stop key={offset} offset={offset} stopColor={color} />
           ))}
@@ -107,6 +126,8 @@ const RideRibbonRanking: React.FC<Props> = ({ cities }) => {
         }
       `}</style>
 
+      <rect width={VIEW_W} height={VIEW_H} fill="var(--cream)" />
+
       {/* Curtain: occlusion-culled parallels; one group per parallel so the
           ripple can sweep downward. */}
       <g clipPath="url(#rr-drum)" fill="none" stroke="url(#rr-altitude)" strokeLinecap="round">
@@ -146,7 +167,25 @@ const RideRibbonRanking: React.FC<Props> = ({ cities }) => {
         strokeLinejoin="round"
       />
 
-      {/* Ranking overlay: marker on the path, leader line, label row. */}
+      {/* Column header, shared across the ranking overlay below. */}
+      {ranked.length > 0 && (
+        <text
+          x={HEADER_X}
+          y={HEADER_Y}
+          fontSize="10"
+          letterSpacing="0.04em"
+          fontFamily="EB Garamond, Georgia, serif"
+          fontWeight="700"
+          fill="var(--blue)"
+          opacity="0.6"
+        >
+          COBERTURA DE INFRAESTRUCTURA
+        </text>
+      )}
+
+      {/* Ranking overlay: marker on the path, leader line, name + score
+          (color-matched to the path at that height). Each row sits at its
+          point's own height unless that would collide with a neighbor. */}
       {ranked.map(({ city, target, labelY }) => (
         <g key={city.slug}>
           <line
@@ -168,16 +207,12 @@ const RideRibbonRanking: React.FC<Props> = ({ cities }) => {
             stroke="var(--blue-dark)"
             strokeWidth="1.6"
           />
-          <text
-            x={LABEL_X}
-            y={labelY + 4.5}
-            fontSize="15"
-            fontFamily="EB Garamond, Georgia, serif"
-            fill="var(--blue-dark)"
-          >
-            {city.name}
-            <tspan dx="6" fontSize="12" opacity="0.6">
-              {formatPercentage(city.coverage as number)}%
+          <text x={LABEL_X} y={labelY + 5} fontFamily="EB Garamond, Georgia, serif">
+            <tspan fontSize="14" fill="var(--blue-dark)" opacity="0.75">
+              {city.name}
+            </tspan>
+            <tspan dx="8" fontSize="19" fontWeight="700" fill={colorAtY(target.y)}>
+              {formatPercentage(city.coverage as number)}
             </tspan>
           </text>
         </g>

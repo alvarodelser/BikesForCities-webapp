@@ -29,22 +29,7 @@ const RankingsPanel: React.FC = () => {
       });
   }, []);
 
-  const graphic = (
-    <div style={{ width: '100%' }}>
-      <p style={{
-        fontSize: '0.55rem',
-        letterSpacing: '0.06em',
-        color: 'var(--blue)',
-        opacity: 0.55,
-        marginBottom: 12,
-        fontWeight: 600,
-        textTransform: 'uppercase',
-      }}>
-        Cobertura de infraestructura · %
-      </p>
-      <RideRibbonRanking cities={cities} />
-    </div>
-  );
+  const graphic = <RideRibbonRanking cities={cities} />;
 
   return (
     <ShowcasePanel

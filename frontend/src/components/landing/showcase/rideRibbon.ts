@@ -154,3 +154,63 @@ export function sampleSpread<T>(arr: T[], k: number): T[] {
   }
   return picked;
 }
+
+// Vertical extent the <linearGradient id="rr-altitude"> is painted over
+// (matches its y1/y2 in RideRibbonRanking); colorAtY must track it so a
+// score number reads the same hue the path shows at that height.
+export const GRADIENT_Y0 = 80;
+export const GRADIENT_Y1 = 820;
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** The altitude gradient's color at a given canvas y (clamped to its ends). */
+export function colorAtY(y: number): string {
+  const t = Math.min(1, Math.max(0, (y - GRADIENT_Y0) / (GRADIENT_Y1 - GRADIENT_Y0)));
+  let lo = PALETTE[0];
+  let hi = PALETTE[PALETTE.length - 1];
+  for (let i = 0; i < PALETTE.length - 1; i++) {
+    if (t >= PALETTE[i][0] && t <= PALETTE[i + 1][0]) {
+      lo = PALETTE[i];
+      hi = PALETTE[i + 1];
+      break;
+    }
+  }
+  const span = hi[0] - lo[0] || 1;
+  const localT = (t - lo[0]) / span;
+  const [r0, g0, b0] = hexToRgb(lo[1]);
+  const [r1, g1, b1] = hexToRgb(hi[1]);
+  const r = Math.round(r0 + (r1 - r0) * localT);
+  const g = Math.round(g0 + (g1 - g0) * localT);
+  const b = Math.round(b0 + (b1 - b0) * localT);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+/**
+ * Declutters a list of naturally-ordered y positions (ascending) so
+ * consecutive labels keep at least minGap between them, moving each label
+ * as little as possible from its natural position. Two-pass greedy: push
+ * down on overlap, then push back up from the bottom if that ran past
+ * maxY.
+ */
+export function resolveLabelPositions(
+  naturalYs: number[],
+  minGap: number,
+  minY: number,
+  maxY: number,
+): number[] {
+  if (naturalYs.length === 0) return [];
+  const ys = naturalYs.map(y => Math.min(maxY, Math.max(minY, y)));
+  for (let i = 1; i < ys.length; i++) {
+    if (ys[i] - ys[i - 1] < minGap) ys[i] = ys[i - 1] + minGap;
+  }
+  if (ys[ys.length - 1] > maxY) {
+    ys[ys.length - 1] = maxY;
+    for (let i = ys.length - 2; i >= 0; i--) {
+      if (ys[i + 1] - ys[i] < minGap) ys[i] = ys[i + 1] - minGap;
+    }
+  }
+  return ys;
+}
