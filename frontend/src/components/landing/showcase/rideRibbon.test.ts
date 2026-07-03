@@ -62,6 +62,16 @@ describe('yForScore', () => {
   it('places a degenerate range at the path midpoint', () => {
     expect(yForScore(42, 42, 42)).toBeCloseTo((PATH_TOP_Y + PATH_BOTTOM_Y) / 2);
   });
+
+  it('insets the extremes by margin instead of landing on the path tips', () => {
+    expect(yForScore(10, 10, 90, 40)).toBeCloseTo(PATH_BOTTOM_Y - 40);
+    expect(yForScore(90, 10, 90, 40)).toBeCloseTo(PATH_TOP_Y + 40);
+    expect(yForScore(50, 10, 90, 40)).toBeCloseTo((PATH_TOP_Y + PATH_BOTTOM_Y) / 2);
+  });
+
+  it('still centers a degenerate range within the margin-inset range', () => {
+    expect(yForScore(42, 42, 42, 40)).toBeCloseTo((PATH_TOP_Y + PATH_BOTTOM_Y) / 2);
+  });
 });
 
 describe('sampleSpread', () => {

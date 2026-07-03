@@ -163,11 +163,17 @@ export function pathHitAtY(pts: Pt[], y: number): PathHit {
   return { point: pts[idx], angleDeg };
 }
 
-/** Linear score → path y: min score at the bottom, max score at the top. */
-export function yForScore(score: number, min: number, max: number): number {
-  if (max <= min) return (PATH_TOP_Y + PATH_BOTTOM_Y) / 2;
+/**
+ * Linear score → path y: min score at the bottom, max score at the top.
+ * margin insets both ends so the extreme scores don't land exactly on the
+ * path's tips (e.g. under the rounded end caps).
+ */
+export function yForScore(score: number, min: number, max: number, margin = 0): number {
+  const top = PATH_TOP_Y + margin;
+  const bottom = PATH_BOTTOM_Y - margin;
+  if (max <= min) return (top + bottom) / 2;
   const t = (score - min) / (max - min);
-  return PATH_BOTTOM_Y - t * (PATH_BOTTOM_Y - PATH_TOP_Y);
+  return bottom - t * (bottom - top);
 }
 
 /** k items spread evenly across arr, always keeping the first and last. */
