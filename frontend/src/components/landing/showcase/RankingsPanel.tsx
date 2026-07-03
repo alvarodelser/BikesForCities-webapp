@@ -3,18 +3,17 @@ import { useNavigate } from 'react-router';
 import type { CityData } from '../../../constants/cities';
 import { fetchCities } from '../../../services/api';
 import RideRibbonRanking from './RideRibbonRanking';
-import { sampleSpread } from './rideRibbon';
+import { sampleRandomWithExtremes } from './rideRibbon';
 import ShowcasePanel from './ShowcasePanel';
 
 const MAX_CITIES = 10;
 
-/** Sort by coverage and pick MAX_CITIES spread across the range, keeping the
-    best and the worst so the ribbon spans the full ranking. */
+/** Pick MAX_CITIES at random, always keeping the best- and worst-covered
+    city so the ribbon still spans the true min/max range. Called once per
+    mount, so the sample varies across page visits. */
 function sampleByCoverage(cities: CityData[]): CityData[] {
-  const sorted = cities
-    .filter(c => c.coverage != null)
-    .sort((a, b) => (b.coverage ?? 0) - (a.coverage ?? 0));
-  return sampleSpread(sorted, MAX_CITIES);
+  const withCoverage = cities.filter(c => c.coverage != null);
+  return sampleRandomWithExtremes(withCoverage, MAX_CITIES, c => c.coverage as number);
 }
 
 const RankingsPanel: React.FC = () => {

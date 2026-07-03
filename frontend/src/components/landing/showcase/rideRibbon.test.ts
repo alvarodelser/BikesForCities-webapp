@@ -10,10 +10,14 @@ import {
   pointAtY,
   yForScore,
   sampleSpread,
+  sampleRandomWithExtremes,
   mainPathD,
   colorAtY,
+  darkenColor,
   resolveLabelPositions,
+  pathHitAtY,
 } from './rideRibbon';
+import type { Pt } from './rideRibbon';
 
 describe('samplePath', () => {
   const pts = samplePath();
@@ -75,6 +79,36 @@ describe('sampleSpread', () => {
 
   it('returns everything when k >= length', () => {
     expect(sampleSpread([1, 2, 3], 10)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('sampleRandomWithExtremes', () => {
+  const items = Array.from({ length: 30 }, (_, i) => ({ score: i }));
+  const scoreOf = (x: { score: number }) => x.score;
+
+  it('returns everything when items.length <= k', () => {
+    const small = items.slice(0, 5);
+    expect(sampleRandomWithExtremes(small, 10, scoreOf)).toHaveLength(5);
+  });
+
+  it('always includes the true max and min score', () => {
+    for (let i = 0; i < 20; i++) {
+      const picked = sampleRandomWithExtremes(items, 10, scoreOf);
+      const scores = picked.map(scoreOf);
+      expect(Math.max(...scores)).toBe(29);
+      expect(Math.min(...scores)).toBe(0);
+      expect(picked).toHaveLength(10);
+      expect(new Set(scores).size).toBe(10); // no duplicates
+    }
+  });
+
+  it('varies the middle selection across calls', () => {
+    const runs = Array.from({ length: 15 }, () =>
+      sampleRandomWithExtremes(items, 10, scoreOf)
+        .map(scoreOf)
+        .join(','),
+    );
+    expect(new Set(runs).size).toBeGreaterThan(1);
   });
 });
 
@@ -155,6 +189,52 @@ describe('colorAtY', () => {
     );
     const distinct = new Set(samples.map(c => c.join(','))).size;
     expect(distinct).toBeGreaterThan(15);
+  });
+});
+
+describe('pathHitAtY', () => {
+  it('faces uphill (toward the start of pts) on a straight descending line', () => {
+    // pts[0] is the "best" end; a straight line down-right means uphill
+    // (back toward pts[0]) points up-left.
+    const pts: Pt[] = Array.from({ length: 11 }, (_, i) => ({ x: i * 10, y: i * 10 }));
+    const { angleDeg } = pathHitAtY(pts, 50); // idx 5, mid-line
+    expect(angleDeg).toBeCloseTo(-135, 0); // up-left
+  });
+
+  it('flips sign correctly when the path runs right-to-left locally', () => {
+    // A "V" shape: first half runs left-to-right, second half right-to-left,
+    // while y still increases monotonically throughout (as the real ribbon
+    // does) — this is the "path reverses in x" case.
+    const pts: Pt[] = [
+      ...Array.from({ length: 6 }, (_, i) => ({ x: i * 10, y: i * 10 })), // 0..50,  y 0..50
+      ...Array.from({ length: 5 }, (_, i) => ({ x: 50 - (i + 1) * 10, y: 50 + (i + 1) * 10 })), // x back down, y climbs on
+    ];
+    const beforeTurn = pathHitAtY(pts, 20); // still on the left-to-right leg
+    const afterTurn = pathHitAtY(pts, 80); // on the right-to-left leg
+    // Uphill on the first leg points up-left (dx<0); uphill on the second
+    // leg (after the reversal) points up-right (dx>0) — opposite x signs.
+    expect(Math.cos((beforeTurn.angleDeg * Math.PI) / 180)).toBeLessThan(0);
+    expect(Math.cos((afterTurn.angleDeg * Math.PI) / 180)).toBeGreaterThan(0);
+  });
+
+  it('agrees with pointAtY on the resolved point', () => {
+    const pts = samplePath();
+    const hit = pathHitAtY(pts, 400);
+    expect(hit.point).toEqual(pointAtY(pts, 400));
+  });
+});
+
+describe('darkenColor', () => {
+  it('reduces each channel by the given fraction', () => {
+    expect(darkenColor('rgb(200, 100, 50)', 0.5)).toBe('rgb(100, 50, 25)');
+  });
+
+  it('leaves the color unchanged at amount 0', () => {
+    expect(darkenColor('rgb(200, 100, 50)', 0)).toBe('rgb(200, 100, 50)');
+  });
+
+  it('clamps at black and never goes negative', () => {
+    expect(darkenColor('rgb(10, 10, 10)', 1)).toBe('rgb(0, 0, 0)');
   });
 });
 

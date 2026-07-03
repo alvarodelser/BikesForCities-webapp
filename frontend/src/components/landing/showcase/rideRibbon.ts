@@ -124,18 +124,43 @@ export function mainPathD(): string {
   );
 }
 
-/** Nearest point on the sampled path for a given y (the path is monotonic in y). */
-export function pointAtY(pts: Pt[], y: number): Pt {
-  let best = pts[0];
+function nearestIndexAtY(pts: Pt[], y: number): number {
+  let idx = 0;
   let bestDist = Infinity;
-  for (const pt of pts) {
+  pts.forEach((pt, i) => {
     const d = Math.abs(pt.y - y);
     if (d < bestDist) {
       bestDist = d;
-      best = pt;
+      idx = i;
     }
-  }
-  return best;
+  });
+  return idx;
+}
+
+/** Nearest point on the sampled path for a given y (the path is monotonic in y). */
+export function pointAtY(pts: Pt[], y: number): Pt {
+  return pts[nearestIndexAtY(pts, y)];
+}
+
+export interface PathHit {
+  point: Pt;
+  /** Tangent angle in degrees, facing "forward" toward the start of pts
+      (the ribbon's best/top end) — i.e. the uphill direction. Computed
+      from the true local tangent, so it stays correct even where the path
+      momentarily reverses left-right (it isn't inferred from x order). */
+  angleDeg: number;
+}
+
+/** Like pointAtY, but also returns the path's local uphill-facing tangent. */
+export function pathHitAtY(pts: Pt[], y: number): PathHit {
+  const idx = nearestIndexAtY(pts, y);
+  const prev = pts[Math.max(0, idx - 1)];
+  const next = pts[Math.min(pts.length - 1, idx + 1)];
+  // toward the start of the array = toward better scores = "uphill"
+  const dx = prev.x - next.x;
+  const dy = prev.y - next.y;
+  const angleDeg = (Math.atan2(dy, dx) * 180) / Math.PI;
+  return { point: pts[idx], angleDeg };
 }
 
 /** Linear score → path y: min score at the bottom, max score at the top. */
@@ -153,6 +178,30 @@ export function sampleSpread<T>(arr: T[], k: number): T[] {
     picked.push(arr[Math.round((i * (arr.length - 1)) / (k - 1))]);
   }
   return picked;
+}
+
+/**
+ * k items picked at random from items, always keeping the highest- and
+ * lowest-scoring ones so the ribbon keeps spanning the true min/max range.
+ * Non-deterministic by design — call once per mount so the sample varies
+ * across visits without reshuffling on every re-render.
+ */
+export function sampleRandomWithExtremes<T>(
+  items: T[],
+  k: number,
+  scoreOf: (item: T) => number,
+): T[] {
+  if (items.length <= k) return [...items];
+  const sorted = [...items].sort((a, b) => scoreOf(b) - scoreOf(a));
+  const max = sorted[0];
+  const min = sorted[sorted.length - 1];
+  const middle = sorted.slice(1, -1);
+  for (let i = middle.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [middle[i], middle[j]] = [middle[j], middle[i]];
+  }
+  const picked = middle.slice(0, Math.max(0, k - 2));
+  return [max, ...picked, min].sort((a, b) => scoreOf(b) - scoreOf(a));
 }
 
 // Vertical extent the <linearGradient id="rr-altitude"> is painted over
@@ -186,6 +235,13 @@ export function colorAtY(y: number): string {
   const g = Math.round(g0 + (g1 - g0) * localT);
   const b = Math.round(b0 + (b1 - b0) * localT);
   return `rgb(${r}, ${g}, ${b})`;
+}
+
+/** Darkens an "rgb(r, g, b)" string by a 0–1 fraction, clamped at black. */
+export function darkenColor(rgb: string, amount: number): string {
+  const m = rgb.match(/\d+/g)!.map(Number);
+  const d = (c: number) => Math.max(0, Math.round(c * (1 - amount)));
+  return `rgb(${d(m[0])}, ${d(m[1])}, ${d(m[2])})`;
 }
 
 /**
