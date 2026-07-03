@@ -1,0 +1,32 @@
+<!-- ═══ 01 · HOOK ═══ -->
+<section data-label="1885" data-screen-label="01 Origin" data-speaker-notes="Open here. The bicycle rose to own the street, then the automobile took it — and now it is surging back. Click 'Reveal the automobile' to plot the car curve and the two turning points (1: the automobile surge, 2: today's resurgence). Photo: Fundación Miguel Delibes." style="padding:0;background:var(--ink);color:var(--cream);font-family:'Spline Sans',sans-serif;display:block;overflow:hidden;position:relative;">
+  <img src="uploads/Delibes-en-bici.jpg" alt="Miguel Delibes with his bicycle" data-anim="kb" style="position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:50% 10%;filter:sepia(.3) contrast(1.1) brightness(.8) saturate(.65);display:block;">
+  <div style="position:absolute;left:0;top:0;width:100%;height:100%;background:{{ toneBg }};mix-blend-mode:{{ toneBlend }};pointer-events:none;"></div>
+  <div style="position:absolute;left:0;top:0;width:100%;height:100%;background:linear-gradient(180deg, rgba(0,20,28,.5) 0%, rgba(0,20,28,.12) 15%, rgba(28,20,14,.04) 38%, rgba(28,20,14,.22) 70%, rgba(28,20,14,.5) 90%, rgba(28,20,14,.68) 100%);pointer-events:none;"></div>
+  <div style="position:absolute;inset:0;background-image:var(--grain);background-size:150px;opacity:{{ grainOpacity }};mix-blend-mode:overlay;pointer-events:none;"></div>
+
+  <div style="position:absolute;left:var(--pad-x);top:60px;right:var(--pad-x);z-index:5;display:flex;justify-content:space-between;align-items:flex-start;">
+    <span data-anim="slide" style="font-family:'Space Mono',monospace;font-size:var(--type-mono);letter-spacing:.24em;text-transform:uppercase;color:var(--mint);">01 — The origin</span>
+    <div data-anim="slide" style="display:flex;flex-direction:column;align-items:flex-end;gap:7px;">
+      <span style="font-family:'Space Mono',monospace;font-size:var(--type-mono);letter-spacing:.2em;text-transform:uppercase;color:rgba(251,246,239,.75);">Bikes for Cities</span>
+      <span style="font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.03em;color:rgba(251,246,239,.5);">Photo — Miguel Delibes junto a su bicicleta · Fundación Miguel Delibes</span>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:var(--pad-x);top:150px;z-index:5;max-width:58%;">
+    <h2 data-anim="wipe" style="font-family:'Archivo',sans-serif;font-weight:900;font-size:96px;line-height:.94;letter-spacing:-.03em;margin:0;color:var(--cream);text-shadow:0 10px 46px rgba(0,20,28,.55);">Why did our grandparents<br>use the bicycle<br>more than we do today</h2>
+  </div>
+
+  <div data-anim="rise" style="position:absolute;left:56px;right:56px;bottom:52px;height:46%;z-index:6;overflow:visible;animation-delay:.3s;">
+    <div style="position:absolute;left:40px;top:24px;right:40px;z-index:3;display:flex;justify-content:space-between;align-items:flex-start;gap:20px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <span style="font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.16em;text-transform:uppercase;padding:5px 10px;border-radius:5px;background:rgba(2,122,118,.92);color:var(--cream);">Fig. 01</span>
+        <span style="font-family:'Space Mono',monospace;font-size:14px;letter-spacing:.03em;color:rgba(251,246,239,.88);">Share of urban traffic — bicycle vs. automobile, 1885–today</span>
+      </div>
+      <button onClick="{{ advance }}" style="font-family:'Space Mono',monospace;font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:10px 18px;border-radius:999px;cursor:pointer;white-space:nowrap;background:rgba(251,246,239,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border:1px solid rgba(251,246,239,.36);color:var(--cream);" style-hover="background:rgba(251,246,239,.28)">{{ btnLabel }}</button>
+    </div>
+    {{ chart }}
+    <div style="position:absolute;left:40px;bottom:12px;z-index:3;font-family:'Space Mono',monospace;font-size:12px;letter-spacing:.04em;color:rgba(251,246,239,.62);">Source — approximate historical trends after de la Bruhèze &amp; Veraart (1999) and national mode-share series</div>
+  </div>
+</section>
+
