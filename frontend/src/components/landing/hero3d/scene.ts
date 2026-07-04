@@ -76,6 +76,16 @@ export function createStage(
     resize,
     render: () => composer.render(),
     dispose: () => {
+      scene.traverse((obj) => {
+        if (obj instanceof THREE.Mesh) {
+          obj.geometry.dispose();
+          const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+          for (const m of mats) {
+            if ('map' in m && m.map) (m.map as THREE.Texture).dispose();
+            m.dispose();
+          }
+        }
+      });
       composer.dispose();
       renderer.dispose();
     },
