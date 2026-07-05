@@ -3,9 +3,9 @@ import { ArrowUp, ArrowDown, Network } from 'lucide-react';
 import { Graph, Bicycle } from '@phosphor-icons/react';
 import type { CityData } from '../../constants/cities';
 import { MAP_MODES, type MapMode } from '../../constants/mapModes';
-import { formatPopulation, formatDistance, formatPercentage, formatServiceName } from '../../utils/formatters';
-import { fetchCities } from '../../services/api';
-import LoadingContainer from '../ui/LoadingContainer';
+import { formatPopulation, formatDistance, formatPercentage, formatServiceName, formatBudgetM } from '../../utils/formatters';
+import { getCities } from '../../services/citiesCache';
+import Skeleton from '../ui/Skeleton';
 import ErrorContainer from '../ui/ErrorContainer';
 
 interface CityLeaderboardProps {
@@ -47,7 +47,7 @@ const MODE_METRICS: Record<string, MetricConfig[]> = {
 
 const COMMON_METRICS: MetricConfig[] = [
   { key: 'population', label: 'Población', format: v => v ? formatPopulation(v) : '-' },
-  { key: 'budget', label: 'Presupuesto', format: v => v ? `${formatPopulation(v)} €` : '-' },
+  { key: 'budget', label: 'Presupuesto', format: v => v ? formatBudgetM(v) : '-' },
 ];
 
 const MAYOR_METRIC: MetricConfig = {
@@ -90,7 +90,7 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
   }, []);
 
   useEffect(() => {
-    fetchCities()
+    getCities()
       .then((data) => {
         const enriched = data.map(city => ({
           ...city,
@@ -140,7 +140,40 @@ const CityLeaderboard: React.FC<CityLeaderboardProps> = ({ selectedCityPaths, on
 
   const sortedCities = useMemo(() => sortCities(filteredCities, sortKey, sortDir), [filteredCities, sortKey, sortDir]);
 
-  if (loading) return <div className="flex justify-center py-16"><LoadingContainer /></div>;
+  if (loading) return (
+    <div className="w-full flex flex-col gap-12">
+      <div className="max-w-4xl mx-auto w-full px-4">
+        <div className="flex items-end justify-center gap-2 md:gap-4 mt-8 h-80">
+          <Skeleton className="w-1/3 max-w-[240px] rounded-2xl" height="60%" variant="dark" />
+          <Skeleton className="w-1/3 max-w-[280px] rounded-2xl" height="80%" variant="dark" />
+          <Skeleton className="w-1/3 max-w-[240px] rounded-2xl" height="55%" variant="dark" />
+        </div>
+        <div className="h-1 w-full rounded-full bg-white/10 mt-2" />
+      </div>
+      <div className="w-full overflow-x-hidden bg-black/10 rounded-2xl border border-white/5 p-0.5 md:p-1">
+        <div className="w-full">
+          <div className="flex items-center gap-4 px-6 py-4 border-b border-white/10">
+            <Skeleton width="40px" height="10px" variant="dark" />
+            <Skeleton width="80px" height="10px" variant="dark" className="ml-4" />
+            <div className="ml-auto flex gap-6">
+              <Skeleton width="60px" height="10px" variant="dark" />
+              <Skeleton width="60px" height="10px" variant="dark" />
+            </div>
+          </div>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-6 py-4 border-b border-white/5 last:border-0">
+              <Skeleton width="20px" height="20px" rounded="rounded-full" variant="dark" className="flex-shrink-0" />
+              <Skeleton width="100px" height="14px" variant="dark" />
+              <div className="ml-auto flex gap-6">
+                <Skeleton width="48px" height="14px" variant="dark" />
+                <Skeleton width="48px" height="14px" variant="dark" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
   if (error) return <ErrorContainer title="Error de carga" message={error} />;
 
   const topCities = sortedCities.slice(0, 3);

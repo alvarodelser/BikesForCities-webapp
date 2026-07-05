@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, type ComponentType, type ReactNode } from 'react';
 import { HelpCircle, X, ChevronUp, ChevronDown } from 'lucide-react';
+import Skeleton from '../../ui/Skeleton';
 
 // Strip any non-% unit suffix — returns just the number (and % if applicable).
 function leftDisplay(raw: string): string {
@@ -99,9 +100,7 @@ const MetricPill: React.FC<MetricPillProps> = ({
 
         {/* ── Front face ── */}
         <div
-          className={`absolute inset-0 rounded-xl border backdrop-blur-sm px-4 py-3 flex flex-col justify-between transition-all ${
-            loading ? 'animate-pulse' : ''
-          } ${isDark
+          className={`absolute inset-0 rounded-xl border backdrop-blur-sm px-4 py-3 flex flex-col justify-between transition-all ${isDark
             ? 'hover:brightness-95'
             : 'border-white/35 bg-white/30 hover:bg-white/35 hover:border-white/45'
           }`}
@@ -137,15 +136,24 @@ const MetricPill: React.FC<MetricPillProps> = ({
             )}
           </div>
 
-          {/* Row 2: value left (number only) · sublabel/unit right */}
+          {/* Row 2: value · sublabel — skeleton when loading */}
           <div className="flex items-end justify-between gap-3">
-            <p className={`text-[32px] font-black leading-none tracking-tight flex-shrink-0 ${textPrimary}`}>
-              {leftDisplay(value)}
-            </p>
-            {sublabel && (
-              <p className={`text-[10px] font-medium leading-tight text-right min-w-0 ${textMuted}`}>
-                {sublabel}
-              </p>
+            {loading ? (
+              <div className="flex flex-col gap-1.5 flex-1">
+                <Skeleton height="32px" width="55%" variant={isDark ? 'dark' : 'light'} />
+                <Skeleton height="10px" width="35%" variant={isDark ? 'dark' : 'light'} />
+              </div>
+            ) : (
+              <>
+                <p className={`text-[32px] font-black leading-none tracking-tight flex-shrink-0 ${textPrimary}`}>
+                  {leftDisplay(value)}
+                </p>
+                {sublabel && (
+                  <p className={`text-[10px] font-medium leading-tight text-right min-w-0 ${textMuted}`}>
+                    {sublabel}
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 """
 Integration test: verify peligrosidad_score and route_cost SQL functions
-(migration 010) match the calibration spec.
+(migrations 010 + 024) match the calibration spec.
 
 Run on the server where the DB is reachable:
     python integration_tests/test_peligrosidad.py
@@ -55,12 +55,12 @@ PELIGROSIDAD_CASES = [
 ]
 
 ROUTE_COST_CASES = [
-    # (length_m, peligrosidad, expected)
-    (100.0,  0, 100.0),
-    (100.0, 36, 150.0),    # primary 4-lane 50kmh
-    (500.0, 36, 837.5),    # logarithmic scaling — must land within ±2% of 850
-    (1.0,   36,   1.0),    # log10(1) = 0 → no penalty
-    (10.0,   0,  10.0),
+    # (length_m, peligrosidad, expected) — formula: l * (1 + p * l / 7200)
+    (100.0,  0,  100.0),   # safe road costs exactly its length
+    (100.0, 36,  150.0),   # primary 4-lane 50kmh — calibration anchor (kept)
+    (200.0, 36,  400.0),   # tipping point — "won't ride a highway past here", feels 2x
+    (500.0, 36, 1750.0),   # quadratic blow-up on long dangerous run
+    (10.0,   0,   10.0),
 ]
 
 

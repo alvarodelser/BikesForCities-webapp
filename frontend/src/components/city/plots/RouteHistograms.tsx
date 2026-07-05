@@ -13,16 +13,17 @@ function toBins(
   bin_edges: number[],
   counts: number[],
   toFixed = 1,
-): { label: string; value: number }[] {
+): { label: string; shortLabel: string; value: number }[] {
   return counts.map((count, i) => ({
     label: `${bin_edges[i].toFixed(toFixed)}–${bin_edges[i + 1].toFixed(toFixed)}`,
+    shortLabel: ((bin_edges[i] + bin_edges[i + 1]) / 2).toFixed(toFixed),
     value: count,
   }));
 }
 
 export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId, accent = '#3A6C7F' }) => {
-  const [lengthBins, setLengthBins] = useState<{ label: string; value: number }[]>([]);
-  const [infraBins, setInfraBins] = useState<{ label: string; value: number }[]>([]);
+  const [lengthBins, setLengthBins] = useState<{ label: string; shortLabel: string; value: number }[]>([]);
+  const [infraBins, setInfraBins] = useState<{ label: string; shortLabel: string; value: number }[]>([]);
   const [infraMean, setInfraMean] = useState<number | undefined>(undefined);
   const [loading, setLoading] = useState(true);
 
@@ -60,7 +61,7 @@ export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId, accent
 
   if (loading && lengthBins.length === 0 && infraBins.length === 0) {
     return (
-      <div className="grid grid-cols-2 gap-4 w-full">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
         {[0, 1].map(i => (
           <div
             key={i}
@@ -73,7 +74,7 @@ export const RouteHistograms: React.FC<RouteHistogramsProps> = ({ cityId, accent
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4 w-full">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
       <BarHistogram
         data={lengthBins}
         accent={accent}

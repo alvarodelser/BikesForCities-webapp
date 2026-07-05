@@ -131,7 +131,7 @@ def extract_edges(graph: nx.MultiDiGraph, city_id: int) -> List[Tuple[Any, ...]]
 def build_safe_graph(conn, city_id: int) -> nx.MultiDiGraph:
     """Reconstruct a NetworkX graph weighted by route_cost for safe-path computation.
 
-    route_cost(length, peligrosidad_score(...)) is computed in SQL (migration 010)
+    route_cost(length, peligrosidad_score(...)) is computed in SQL (migration 024 (supersedes 010))
     and stored as the `route_cost` edge attribute. nx.shortest_path with
     weight='route_cost' then finds the safest rather than shortest route.
     """

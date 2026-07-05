@@ -208,7 +208,7 @@ const AccidentsStats: React.FC<AccidentsStatsProps> = ({ city, variant }) => {
       </div>
 
       {/* ── Weather + Collision matrix side by side ─────────────────────── */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <BarHistogram
           data={epacWeatherBars.map(d => ({
             ...d,

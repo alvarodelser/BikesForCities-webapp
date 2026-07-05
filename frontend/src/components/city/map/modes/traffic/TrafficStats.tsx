@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Navigation, Users, TrendingUp, Activity, Network, Route, HelpCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
 import type { CityData } from '../../../../../constants/cities';
 import type { TrafficOptions } from '../../../../../hooks/useTrafficStats';
@@ -52,15 +52,28 @@ const PELIG_ROWS = [
 ] as const;
 
 function PeligrosidadSection() {
-  const [hover, setHover] = useState<number | null>(null);
-
   const W = 192, H = 170;
   const ml = 28, mr = 68, mt = 6, mb = 18;
   const pw = W - ml - mr;  // 96
-  const ph = H - mt - mb;  // 146
-  const X_MIN = 10, X_MAX = 800, Y_MAX = 1500;
+  const X_MIN = 10, X_MAX = 800, Y_MAX = 4200;
 
-  const cost = (l: number, p: number) => l * (1 + (p * Math.log10(l)) / 144);
+  const [hover, setHover] = useState<number | null>(null);
+  // Chart height tracks the table so they line up when side by side; when the
+  // row wraps (mobile/narrow) the chart simply drops below at this same height.
+  const tableRef = useRef<HTMLTableElement>(null);
+  const [chartH, setChartH] = useState(H);
+  useLayoutEffect(() => {
+    const el = tableRef.current;
+    if (!el) return;
+    const update = () => setChartH(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const ph = chartH - mt - mb;
+
+  const cost = (l: number, p: number) => l * (1 + (p * l) / 7200);
   const sx = (l: number) => ml + ((l - X_MIN) / (X_MAX - X_MIN)) * pw;
   const sy = (c: number) => mt + ph - (c / Y_MAX) * ph;
 
@@ -72,9 +85,9 @@ function PeligrosidadSection() {
     hover !== null && PELIG_CASES[hover].highlights.includes(rowId as never);
 
   return (
-    <div className="flex flex-row flex-wrap gap-x-3 gap-y-1 items-start mb-1.5">
+    <div className="flex flex-row flex-wrap items-start gap-x-3 gap-y-2 mb-1.5">
       {/* Table */}
-      <table className="text-[9px] border-collapse flex-shrink-0 rounded" style={{ tableLayout: 'fixed', width: '194px', outline: `1px solid ${ACCENT}20` }}>
+      <table ref={tableRef} className="text-[9px] border-collapse flex-shrink-0 rounded" style={{ tableLayout: 'fixed', width: '194px', outline: `1px solid ${ACCENT}20` }}>
         <colgroup>
           <col style={{ width: '50px' }} />
           <col />
@@ -113,14 +126,14 @@ function PeligrosidadSection() {
         </tbody>
       </table>
 
-      {/* Chart */}
+      {/* Chart — height = chartH (measured table height) so they align; on wrap it drops below */}
       <svg
-        width={W} height={H}
+        width={W} height={chartH}
         className="flex-shrink-0 overflow-visible text-[var(--blue-dark)]"
         onMouseLeave={() => setHover(null)}
       >
         {/* Y-axis grid lines */}
-        {[400, 800, 1200].map(v => (
+        {[1000, 2000, 3000, 4000].map(v => (
           <line key={v} x1={ml} x2={ml + pw} y1={sy(v)} y2={sy(v)}
             stroke="currentColor" strokeOpacity={0.06} strokeWidth={0.5} />
         ))}
@@ -128,7 +141,7 @@ function PeligrosidadSection() {
         <line x1={ml} x2={ml + pw} y1={sy(0)} y2={sy(0)} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.75} />
         <line x1={ml} x2={ml} y1={mt} y2={mt + ph} stroke="currentColor" strokeOpacity={0.15} strokeWidth={0.75} />
         {/* Y-axis tick labels (cost) */}
-        {[0, 400, 800, 1200].map(v => (
+        {[0, 1000, 2000, 3000, 4000].map(v => (
           <g key={v}>
             <line x1={ml - 2} x2={ml} y1={sy(v)} y2={sy(v)} stroke="currentColor" strokeOpacity={0.2} strokeWidth={0.5} />
             <text x={ml - 4} y={sy(v) + 2.5} textAnchor="end" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>{v}</text>
@@ -141,7 +154,7 @@ function PeligrosidadSection() {
             <text x={sx(v)} y={sy(0) + 9} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>{v}</text>
           </g>
         ))}
-        <text x={ml + pw / 2} y={H - 2} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>m</text>
+        <text x={ml + pw / 2} y={chartH - 2} textAnchor="middle" fontSize={5.5} fill="currentColor" fillOpacity={0.35}>m</text>
         {/* Lines */}
         {PELIG_CASES.map((c, i) => {
           const active = hover === i;
@@ -475,9 +488,9 @@ const TrafficStats: React.FC<TrafficStatsProps> = ({ city, variant }) => {
               shortest: <>Dijkstra sobre el grafo dirigido de la red OSM (respeta sentidos únicos), con peso <Katex math="w = \ell\text{ (m)}" />. Los pares origen-destino idénticos se calculan una sola vez y el resultado se comparte entre todos los viajes que los usan. El cálculo se paraleliza en hasta 8 procesos.</>,
               safest: (
                 <>
-                  <p className="mb-1.5">Dijkstra con peso <Katex math="\text{route\_cost} = \ell \cdot \!\left(1 + p \cdot \dfrac{\log_{10}\ell}{144}\right)" /> donde <Katex math="p" /> es la peligrosidad del tramo. Pasa el cursor sobre las líneas para ver los componentes activos.</p>
+                  <p className="mb-1.5">Dijkstra con peso <Katex math="\text{route\_cost} = \ell \cdot \!\left(1 + p \cdot \dfrac{\ell}{7200}\right)" /> donde <Katex math="p" /> es la peligrosidad del tramo. Pasa el cursor sobre las líneas para ver los componentes activos.</p>
                   <PeligrosidadSection />
-                  <p className="text-[9px] text-[var(--blue-dark)]/40 mt-0.5">Calibración: 100 m bici → coste 100; 800 m bici → coste 800 (lineal); 800 m primaria 4c → coste ~1381 (superlineal).</p>
+                  <p className="text-[9px] text-[var(--blue-dark)]/40 mt-0.5">Calibración: 100 m bici → coste 100 (lineal); 100 m primaria 4c → 150; 200 m primaria 4c → 400; 500 m → 1750 (cuadrático en la longitud).</p>
                 </>
               ),
             }}

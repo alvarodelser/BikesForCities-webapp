@@ -1,6 +1,7 @@
 import React from 'react';
 import InfoCard, { type InfoItem } from '../components/ui/InfoCard';
 import ScrollableCardList from '../components/ui/ScrollableCardList';
+import Reveal from '../components/ui/Reveal';
 
 // ─── Data Mapping ────────────────────────────────────────────────────────────
 
@@ -26,6 +27,7 @@ const AboutPage: React.FC = () => {
       <div className="max-w-[var(--container-max)] mx-auto px-[var(--space-gutter)] pt-32 pb-[var(--space-section-y)] md:py-[var(--space-section-y)] space-y-24">
 
         {/* ── Hero: text + team photo ─────────────────────────────────────── */}
+        <Reveal delay={0}>
         <section className="grid md:grid-cols-2 gap-12 items-center">
           {/* Left: description */}
           <div>
@@ -79,8 +81,10 @@ const AboutPage: React.FC = () => {
             <p className="text-sm text-[var(--blue-dark)]/70 text-left ml-2">Presentación de la plataforma</p>
           </div>
         </section>
+        </Reveal>
 
         {/* ── Data Sources carousel ───────────────────────────────────────── */}
+        <Reveal delay={90}>
         <section>
           <div className="mb-10">
             <span
@@ -106,8 +110,10 @@ const AboutPage: React.FC = () => {
             ))}
           </ScrollableCardList>
         </section>
+        </Reveal>
 
         {/* ── Official Documents carousel ──────────────────────────────────── */}
+        <Reveal delay={90}>
         <section>
           <div className="mb-10">
             <span
@@ -133,8 +139,10 @@ const AboutPage: React.FC = () => {
             ))}
           </ScrollableCardList>
         </section>
+        </Reveal>
 
         {/* ── Research carousel ───────────────────────────────────────────── */}
+        <Reveal delay={90}>
         <section id="library">
           <div className="mb-10">
             <span
@@ -160,8 +168,10 @@ const AboutPage: React.FC = () => {
             ))}
           </ScrollableCardList>
         </section>
+        </Reveal>
 
         {/* ── Books carousel ──────────────────────────────────────────────── */}
+        <Reveal delay={90}>
         <section className="pb-12">
           <div className="mb-10">
             <span
@@ -187,6 +197,7 @@ const AboutPage: React.FC = () => {
             ))}
           </ScrollableCardList>
         </section>
+        </Reveal>
 
       </div>
     </div>

@@ -189,10 +189,6 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
                 <BudgetSunburst
                     data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
                     year={selectedYear}
-                    budgetType={budgetType}
-                    onBudgetTypeChange={() => {}}
-                    showToggle={true}
-                    showBudgetTypeToggle={false}
                     mobilityHighlight={highlightCodes}
                 />
             </div>
@@ -209,7 +205,7 @@ const MapDesktop: React.FC<MapDesktopProps> = ({ city }) => {
         />
     );
     const mapEl = (
-        <div className="h-[78vh] min-h-[560px] px-[var(--space-gutter)]">
+        <div className="h-[100vh] min-h-[730px] px-[var(--space-gutter)]">
             <div className="relative h-full">
                 <CityMap
                     city={city}

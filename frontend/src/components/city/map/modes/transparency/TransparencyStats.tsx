@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
+import { formatBudgetM } from '../../../../../utils/formatters';
 import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
 import { ElectoralSemicircle } from '../../../plots/ElectoralSemicircle';
 import CategoryEvolutionChart from '../../../plots/CategoryEvolutionChart';
 import { CategoryHighlightControl } from './CategoryHighlightControl';
-import { buildCategoryOptions, latestYearWithBoth } from '../../../../../utils/budget';
+import { buildCategoryOptions, latestYearWithBoth, resolveBudgetType } from '../../../../../utils/budget';
 import MetricPill from '../../../pills/MetricPill';
 import type { BudgetYear, MayorTerm, ElectionResult, CouncilorRecord } from '../../../../../services/api';
 import type { CityData } from '../../../../../constants/cities';
@@ -26,10 +27,6 @@ interface TransparencyStatsProps {
 
 const ACCENT = '#3A6C7F';
 
-// Budget figures scaled to millions so they fit the MetricPill big-number slot;
-// the "M€" unit is carried by the sublabel.
-const fmtBudgetMetric = (v: number | null | undefined): string =>
-  v == null ? '—' : `${Math.round(v / 1e6)} M€`;
 
 export default function TransparencyStats({
   city,
@@ -82,6 +79,23 @@ export default function TransparencyStats({
     [budgetYears],
   );
 
+  // Percentage of total expenses in the selected year covered by highlighted categories.
+  const highlightPct = useMemo(() => {
+    if (!yearData || highlightCodes.size === 0) return null;
+    const { lines } = yearData;
+    const preferType = resolveBudgetType(yearData);
+    const typeLines = lines.filter(l => l.budget_type === preferType);
+    if (typeLines.length === 0) return null;
+    const minLen = Math.min(...typeLines.map(l => l.category_code.length));
+    const totalExpenses = typeLines
+      .filter(l => l.category_code.length === minLen)
+      .reduce((sum, l) => sum + l.amount, 0);
+    if (totalExpenses === 0) return null;
+    const selectedExpenses = typeLines
+      .filter(l => highlightCodes.has(l.category_code))
+      .reduce((sum, l) => sum + l.amount, 0);
+    return (selectedExpenses / totalExpenses) * 100;
+  }, [yearData, highlightCodes]);
 
   const democraticMayors = useMemo(() => {
     const today = new Date();
@@ -133,9 +147,9 @@ export default function TransparencyStats({
           {/* ── Summary metric cards ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricPill
-              value={fmtBudgetMetric(yearData?.total_income)}
+              value={formatBudgetM(yearData?.total_income)}
               label="Ingresos totales"
-              sublabel="Millones de €"
+              sublabel={`Millones de € · ${selectedYear}`}
               accent={ACCENT}
               variant={variant}
               helpQueVes="El total de ingresos del municipio en el año seleccionado."
@@ -143,14 +157,24 @@ export default function TransparencyStats({
               helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial obtenido del CONPREL, Ministerio de Hacienda. La cifra de ejecutado refleja los ingresos realmente percibidos según la contabilidad municipal."
             />
             <MetricPill
-              value={fmtBudgetMetric(yearData?.total_expenses)}
+              value={formatBudgetM(yearData?.total_expenses)}
               label="Gastos totales"
-              sublabel="Millones de €"
+              sublabel={`Millones de € · ${selectedYear}`}
               accent={ACCENT}
               variant={variant}
               helpQueVes="El total de gastos del municipio en el año seleccionado."
               helpPorQueEsUtil="El gasto refleja las prioridades políticas y operativas del ayuntamiento."
               helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial. Las cifras ejecutada y planficada procede de la contabilidad municipal y representa el gasto efectivamente realizado."
+            />
+            <MetricPill
+              value={highlightPct == null ? '—' : `${highlightPct.toFixed(1)}%`}
+              label="Inversión en áreas"
+              sublabel={highlightCodes.size === 0 ? 'Selecciona áreas arriba' : `del gasto total · ${selectedYear}`}
+              accent={ACCENT}
+              variant={variant}
+              helpQueVes="El porcentaje del gasto funcional total del año que corresponde a las áreas destacadas en el panel de selección."
+              helpPorQueEsUtil="Permite ver de un vistazo qué peso tienen las áreas seleccionadas en el presupuesto municipal y comparar prioridades de inversión entre ciudades."
+              helpComoSeRecogieron="Se calcula dividiendo la suma de los importes ejecutados (o planificados si no hay ejecutados) de las categorías seleccionadas entre el total del gasto funcional del año."
             />
           </div>
 

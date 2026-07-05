@@ -197,7 +197,7 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
                   )}
                   <span
                     className={`text-[10px] text-center leading-tight transition-colors font-medium ${labelColor}`}
-                    style={{ wordBreak: 'break-word' }}
+                    style={{ whiteSpace: 'nowrap' }}
                   >
                     {d.shortLabel ?? d.label}
                   </span>
@@ -208,7 +208,7 @@ export const BarHistogram: React.FC<BarHistogramProps> = ({
                           ? (variant === 'darkTint' ? 'text-[var(--blue-dark)]/60' : 'text-gray-500')
                           : (variant === 'darkTint' ? 'text-[var(--blue-dark)]/40' : 'text-gray-300')
                       }`}
-                      style={{ wordBreak: 'break-word' }}
+                      style={{ whiteSpace: 'nowrap' }}
                     >
                       {d.subLabel}
                     </span>

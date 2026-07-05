@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
 import CityCard from './CityCard';
 import type { CityData } from '../../constants/cities';
+import { initialMomentumVelocity, MOMENTUM_DECAY, MOMENTUM_THRESHOLD } from './momentum';
 
 
 const ScrollableCityCards: React.FC<{
@@ -12,7 +13,12 @@ const ScrollableCityCards: React.FC<{
 }> = ({ cities, selectedCity, onCitySelect, onCityNavigate }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollOffset, setScrollOffset] = useState(0);
+  // isDragging suppresses the external-selection sync effect during any
+  // interaction (touch or wheel). isTouchDragging additionally disables the
+  // cards' CSS transition for 1:1 finger tracking — wheel scrolling keeps the
+  // transition on so the motion eases instead of snapping ("blinking").
   const [isDragging, setIsDragging] = useState(false);
+  const [isTouchDragging, setIsTouchDragging] = useState(false);
   const lastTouchX = useRef<number | null>(null);
 
   const velocity = useRef(0);
@@ -152,6 +158,7 @@ const ScrollableCityCards: React.FC<{
               rafRef.current = null;
             }
             setIsDragging(true);
+            setIsTouchDragging(true);
             lastTouchX.current = e.targetTouches[0].clientX;
             lastTime.current = Date.now();
             velocity.current = 0;
@@ -174,15 +181,16 @@ const ScrollableCityCards: React.FC<{
           }}
           onTouchEnd={() => {
             setIsDragging(false);
+            setIsTouchDragging(false);
             lastTouchX.current = null;
 
             if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
 
-            if (Math.abs(velocity.current) > 0.1) {
-              let v = Math.max(-2.5, Math.min(2.5, -velocity.current * 3));
+            if (Math.abs(velocity.current) > MOMENTUM_THRESHOLD) {
+              let v = initialMomentumVelocity(velocity.current);
 
               const loop = () => {
-                v *= 0.88;
+                v *= MOMENTUM_DECAY;
                 if (Math.abs(v) >= 0.05) {
                   setScrollOffset(prev => prev + v);
                   rafRef.current = requestAnimationFrame(loop);
@@ -207,7 +215,7 @@ const ScrollableCityCards: React.FC<{
                 key={city.name}
                 city={city}
                 position={position}
-                isDragging={isDragging}
+                isDragging={isTouchDragging}
                 onClick={() => selectCity(city.name)}
                 onCityNavigate={onCityNavigate}
               />

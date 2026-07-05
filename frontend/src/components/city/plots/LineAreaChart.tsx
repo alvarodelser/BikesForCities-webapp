@@ -69,7 +69,24 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
     const gridColor = isDarkTint ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.05)';
 
     const height = 260;
-    const margin = { top: 20, right: endLabels ? 116 : (series.some(s => s.axis === 'secondary') ? 50 : 20), bottom: 30, left: 50 };
+
+    const yMaxLeft = d3.max(data, d => d3.max(series.filter(s => s.axis !== 'secondary'), s => d[s.key] as number)) ?? 0;
+    const yMaxRight = d3.max(data, d => d3.max(series.filter(s => s.axis === 'secondary'), s => d[s.key] as number)) ?? 0;
+
+    const yFmt = (maxVal: number) => (v: d3.NumberValue): string => {
+      const n = +v;
+      if (maxVal >= 1_000_000) {
+        const m = n / 1_000_000;
+        return m === 0 ? '0' : `${Number.isInteger(m) ? m : m.toFixed(1)}M`;
+      }
+      return fmtInt(n);
+    };
+
+    // Estimate label width: "1.5M" ≈ 4 chars, raw int up to 7 chars; ~6.5px/char at 10px font
+    const leftLabelChars = yMaxLeft >= 1_000_000 ? 5 : String(Math.round(yMaxLeft)).length + 1;
+    const leftMargin = Math.max(44, leftLabelChars * 7 + 10);
+
+    const margin = { top: 20, right: endLabels ? 116 : (series.some(s => s.axis === 'secondary') ? 50 : 20), bottom: 30, left: leftMargin };
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -80,14 +97,14 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
       .range([margin.left, width - margin.right]);
 
     const yLeft = d3.scaleLinear()
-      .domain([0, d3.max(data, d => d3.max(series.filter(s => s.axis !== 'secondary'), s => d[s.key])) as number])
+      .domain([0, yMaxLeft])
       .nice()
       .range([height - margin.bottom, margin.top]);
 
     const hasSecondary = series.some(s => s.axis === 'secondary');
     const yRight = hasSecondary
       ? d3.scaleLinear()
-          .domain([0, d3.max(data, d => d3.max(series.filter(s => s.axis === 'secondary'), s => d[s.key])) as number])
+          .domain([0, yMaxRight])
           .nice()
           .range([height - margin.bottom, margin.top])
       : null;
@@ -133,7 +150,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
 
     svg.append('g')
       .attr('transform', `translate(${margin.left},0)`)
-      .call(d3.axisLeft(yLeft).ticks(5))
+      .call(d3.axisLeft(yLeft).ticks(5).tickFormat(yFmt(yMaxLeft)))
       .call(g => g.select('.domain').remove())
       .selectAll('text')
       .attr('font-size', '10px')
@@ -143,7 +160,7 @@ export const LineAreaChart: React.FC<LineAreaChartProps> = ({
     if (yRight) {
       svg.append('g')
         .attr('transform', `translate(${width - margin.right},0)`)
-        .call(d3.axisRight(yRight).ticks(5))
+        .call(d3.axisRight(yRight).ticks(5).tickFormat(yFmt(yMaxRight)))
         .call(g => g.select('.domain').remove())
         .selectAll('text')
         .attr('font-size', '10px')
