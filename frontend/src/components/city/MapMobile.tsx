@@ -186,10 +186,6 @@ export const MapMobile: React.FC<MapMobileProps> = ({ city }) => {
             <BudgetSunburst
               data={buildSunburstTree(budgetYears, selectedYear, budgetType)}
               year={selectedYear}
-              budgetType={budgetType}
-              onBudgetTypeChange={() => {}}
-              showToggle={true}
-              showBudgetTypeToggle={false}
               mobilityHighlight={highlightCodes}
             />
           </div>

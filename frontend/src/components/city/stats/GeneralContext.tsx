@@ -25,8 +25,6 @@ const GeneralContext: React.FC<GeneralContextProps> = ({ cityId }) => {
   const { terms, loading: mayorsLoading } = useMayorHistory(cityId);
   const {
     budgetYear,
-    budgetType,
-    setBudgetType,
     buildBudgetTree,
     loading: budgetsLoading,
   } = useCityBudgets(cityId);
@@ -64,8 +62,6 @@ const GeneralContext: React.FC<GeneralContextProps> = ({ cityId }) => {
           <BudgetSunburst
             data={budgetTree}
             year={budgetYear ?? new Date().getFullYear()}
-            budgetType={budgetType}
-            onBudgetTypeChange={setBudgetType}
             mobilityHighlight={MOBILITY_CODES}
           />
         )}

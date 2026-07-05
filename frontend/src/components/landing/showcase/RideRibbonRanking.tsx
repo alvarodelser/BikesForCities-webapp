@@ -7,7 +7,6 @@ import {
   PALETTE,
   colorAtY,
   curtainSteps,
-  darkenColor,
   mainPathD,
   pointAtY,
   polyD,
@@ -194,14 +193,7 @@ const RideRibbonRanking: React.FC<Props> = ({ cities }) => {
             strokeDasharray="1 4"
             strokeLinecap="round"
           />
-          <circle
-            cx={target.x}
-            cy={target.y}
-            r={MARKER_R}
-            fill={darkenColor(colorAtY(target.y), 0.32)}
-            stroke="var(--cream)"
-            strokeWidth="1.4"
-          />
+          <circle cx={target.x} cy={target.y} r={MARKER_R} fill="var(--cream)" />
           <text x={RIGHT_EDGE} y={labelY + 5} textAnchor="end" fontFamily="EB Garamond, Georgia, serif">
             <tspan fontSize="14" fill="var(--blue-dark)" opacity="0.75">
               {city.name}

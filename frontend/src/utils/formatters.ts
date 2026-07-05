@@ -74,10 +74,10 @@ export const formatCurrency = (num: number | null | undefined, suffix: string = 
   return formatPopulation(num) + suffix;
 };
 
-/** Budget rounded to nearest million. 2500000 → "3 M€" */
+/** Budget rounded to nearest million, with space thousands separator. 2500000 → "3 M€", 1500000000 → "1 500 M€" */
 export const formatBudgetM = (num: number | null | undefined): string => {
   if (num == null) return '—';
-  return `${Math.round(num / 1_000_000)} M€`;
+  return `${formatWithSpaces(Math.round(num / 1_000_000))} M€`;
 };
 
 const normalizeWord = (s: string): string =>

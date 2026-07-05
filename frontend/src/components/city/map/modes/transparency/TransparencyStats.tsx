@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { formatBudgetM } from '../../../../../utils/formatters';
 import PeriodRangeTimeline, { fillSequential } from '../PeriodRangeTimeline';
 import { BudgetDeltaChart } from '../../../plots/BudgetDeltaChart';
 import { MayorsGanttChart } from '../../../plots/MayorsGanttChart';
@@ -26,10 +27,6 @@ interface TransparencyStatsProps {
 
 const ACCENT = '#3A6C7F';
 
-// Budget figures scaled to millions so they fit the MetricPill big-number slot;
-// the "M€" unit is carried by the sublabel.
-const fmtBudgetMetric = (v: number | null | undefined): string =>
-  v == null ? '—' : `${Math.round(v / 1e6)} M€`;
 
 export default function TransparencyStats({
   city,
@@ -150,7 +147,7 @@ export default function TransparencyStats({
           {/* ── Summary metric cards ─────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <MetricPill
-              value={fmtBudgetMetric(yearData?.total_income)}
+              value={formatBudgetM(yearData?.total_income)}
               label="Ingresos totales"
               sublabel={`Millones de € · ${selectedYear}`}
               accent={ACCENT}
@@ -160,7 +157,7 @@ export default function TransparencyStats({
               helpComoSeRecogieron="Se obtienen del presupuesto municipal oficial obtenido del CONPREL, Ministerio de Hacienda. La cifra de ejecutado refleja los ingresos realmente percibidos según la contabilidad municipal."
             />
             <MetricPill
-              value={fmtBudgetMetric(yearData?.total_expenses)}
+              value={formatBudgetM(yearData?.total_expenses)}
               label="Gastos totales"
               sublabel={`Millones de € · ${selectedYear}`}
               accent={ACCENT}

@@ -13,13 +13,7 @@ export interface BudgetNode {
 interface BudgetSunburstProps {
   data: BudgetNode;
   year: number;
-  budgetType: 'planned' | 'executed';
-  onBudgetTypeChange: (t: 'planned' | 'executed') => void;
-  title?: string;
-  subtitle?: string;
   variant?: 'overlay' | 'panel';
-  showToggle?: boolean;
-  showBudgetTypeToggle?: boolean;
   mobilityHighlight?: Set<string>;
 }
 
@@ -40,6 +34,7 @@ const MOBILITY_LEGEND: Record<string, string> = {
   '153': 'Vías públicas',
   '442': 'Infraest. transporte',
 };
+
 
 export const SUNBURST_COLORS = [
   '#027A76', // dark teal
@@ -171,8 +166,7 @@ interface HoverState {
 }
 
 export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
-  data, budgetType, onBudgetTypeChange,
-  variant = 'overlay', showToggle = true, showBudgetTypeToggle = true, mobilityHighlight,
+  data, variant = 'overlay', mobilityHighlight,
 }) => {
   const isPanel = variant === 'panel';
   const containerRef = useRef<HTMLDivElement>(null);
@@ -577,64 +571,10 @@ export const BudgetSunburst: React.FC<BudgetSunburstProps> = ({
   }
 
   return (
-    <div className={`flex flex-col h-full ${isPanel ? 'rounded-2xl border bg-white/80 backdrop-blur-sm p-5' : ''}`}
+    <div className={`h-full ${isPanel ? 'flex flex-col rounded-2xl border bg-white/80 backdrop-blur-sm p-5' : 'relative'}`}
       style={isPanel ? { borderColor: 'rgba(0,0,0,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' } : undefined}
     >
-      {showToggle && (
-        <div className="flex items-center justify-between gap-2 mb-2 px-1 flex-wrap">
-          {/* Functional category filter */}
-          <div className={`flex items-center gap-1 p-1 rounded-xl flex-wrap ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
-            <button
-              onClick={focusCode ? handleBack : undefined}
-              className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                !focusCode
-                  ? isPanel ? 'bg-white text-gray-800 shadow-sm' : 'bg-white/20 text-white shadow-sm'
-                  : isPanel ? 'text-gray-400 hover:text-gray-600' : 'text-white/50 hover:text-white/80'
-              }`}
-            >
-              TODOS
-            </button>
-            {topChildren.map(child => {
-              const color = colorMap.get(child.data.code) ?? '#9ca3af';
-              const isActive = focusCode === child.data.code;
-              const label = child.data.name.length > 13 ? child.data.name.slice(0, 12) + '…' : child.data.name;
-              return (
-                <button
-                  key={child.data.code}
-                  title={child.data.name}
-                  onClick={() => isActive ? handleBack() : handleClick(child)}
-                  className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
-                  style={{
-                    background: isActive ? color : 'transparent',
-                    color: isActive ? 'white' : isPanel ? '#6b7280' : 'rgba(255,255,255,0.7)',
-                  }}
-                >
-                  <span style={{ width: 6, height: 6, borderRadius: 2, background: color, display: 'inline-block', flexShrink: 0 }} />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Planned / executed */}
-          {showBudgetTypeToggle && (
-            <div className={`flex items-center gap-1 p-1 rounded-xl flex-shrink-0 ${isPanel ? 'bg-gray-100 border border-gray-200' : 'bg-black/30 backdrop-blur-sm border border-white/10'}`}>
-              {(['planned', 'executed'] as const).map(t => (
-                <button key={t} onClick={() => onBudgetTypeChange(t)}
-                  className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                    budgetType === t
-                      ? isPanel ? 'bg-white text-gray-800 shadow-sm' : 'bg-white/20 text-white shadow-sm'
-                      : isPanel ? 'text-gray-400 hover:text-gray-600' : 'text-white/50 hover:text-white/80'
-                  }`}>
-                  {t === 'planned' ? 'PLANIFICADO' : 'EJECUTADO'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <div ref={containerRef} className="flex-1 min-h-0 relative overflow-hidden" style={{ isolation: 'isolate' }}>
+      <div ref={containerRef} className={`relative overflow-hidden ${isPanel ? 'flex-1 min-h-0' : 'h-full'}`} style={{ isolation: 'isolate' }}>
         {width > 0 && RADIUS > 0 && (
           <svg width={width} height={HEIGHT} style={{ display: 'block', overflow: 'hidden' }}>
             <g transform={`translate(${width / 2}, ${HEIGHT / 2})`}>

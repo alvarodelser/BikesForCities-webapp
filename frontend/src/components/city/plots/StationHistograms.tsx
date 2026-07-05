@@ -33,7 +33,9 @@ function buildBins(values: number[], numBins = 6): { label: string; value: numbe
     const lo = i * step;
     const hi = lo + step;
     const fmt = (n: number) => n >= 1000 ? `${n / 1000}k` : String(n);
-    return { label: `${fmt(lo)}–${fmt(hi)}`, value: count };
+    const mid = lo + step / 2;
+    const fmtMid = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(n % 1000 === 500 ? 1 : 0)}k` : String(Math.round(n));
+    return { label: `${fmt(lo)}–${fmt(hi)}`, shortLabel: fmtMid(mid), value: count };
   }).filter(b => b.value > 0);
 }
 
@@ -80,7 +82,7 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {[0, 1].map(i => (
           <div
             key={i}
@@ -99,7 +101,7 @@ export const StationHistograms: React.FC<StationHistogramsProps> = ({ cityId }) 
   }
 
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <BarHistogram
         data={tripsData}
         accent="#ffa585"

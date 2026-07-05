@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { X, MousePointerClick, ToggleLeft } from 'lucide-react';
 import { useMap } from './MapContext';
 import { useMapState } from '../../../hooks/useMapState';
+import { useViewport } from '../../../hooks/useViewport';
 import { MAP_MODES } from '../../../constants/mapModes';
 
 interface Section {
@@ -145,6 +146,7 @@ function SectionLabel({ text }: { text: string }) {
 export default function MapHelpPanel() {
   const { helpOpen, helpAnchor, closeMapHelp } = useMap();
   const { mode, submode } = useMapState();
+  const { isMobile } = useViewport();
   const [pulsingAnchor, setPulsingAnchor] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -165,6 +167,90 @@ export default function MapHelpPanel() {
   }, [helpOpen, helpAnchor, entry]);
 
   if (!helpOpen || !entry) return null;
+
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-[9998] bg-black/60"
+          onClick={closeMapHelp}
+          aria-hidden="true"
+        />
+        {/* Full-screen panel — white covers entire viewport, content starts below pills */}
+        <div
+          className="fixed inset-0 z-[9999] flex flex-col overflow-hidden"
+          style={{
+            background: 'rgba(255,255,255,0.97)',
+            backdropFilter: 'blur(20px)',
+            WebkitBackdropFilter: 'blur(20px)',
+          }}
+        >
+          {/* Spacer: clears navbar + mode pills */}
+          <div className="flex-shrink-0" style={{ height: 'calc(var(--navbar-height, 80px) + 3.25rem)' }} />
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2 px-4 pt-2 pb-2 flex-shrink-0 border-b border-black/10">
+            <p className="text-sm font-bold text-black/85 leading-snug">{entry.title}</p>
+            <button
+              onClick={closeMapHelp}
+              className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 bg-black/5 hover:bg-black/10 text-black/40 hover:text-black/75 transition-all"
+              aria-label="Cerrar ayuda"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          {/* Scrollable sections */}
+          <div
+            ref={scrollRef}
+            className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-4 pt-3"
+            style={{ scrollbarWidth: 'none' }}
+          >
+            {entry.sections.map((section, i) => (
+              <div
+                key={i}
+                data-section-id={section.id}
+                className={`flex flex-col gap-2 rounded-xl p-2 -m-2 transition-colors ${
+                  pulsingAnchor === section.id ? 'help-anchor-pulse' : ''
+                }`}
+              >
+                {section.heading && (() => {
+                  const [title, hint] = section.heading!.split(' — ');
+                  const isToggle = hint && !hint.includes('clic');
+                  return (
+                    <div className="border-t border-black/10 pt-2 mt-1 flex flex-col gap-0.5">
+                      <p className="text-xs font-bold text-black/80">{title}</p>
+                      {hint && (
+                        <div className="flex items-center gap-1">
+                          {isToggle
+                            ? <ToggleLeft className="w-3 h-3 text-black/30 flex-shrink-0" />
+                            : <MousePointerClick className="w-3 h-3 text-black/30 flex-shrink-0" />}
+                          <span className="text-[10px] text-black/35 font-medium">{hint}</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <SectionLabel text="QUÉ VES" />
+                    <p className="text-[12px] leading-relaxed text-black/65">{section.queVes}</p>
+                  </div>
+                  <div>
+                    <SectionLabel text="POR QUÉ IMPORTA" />
+                    <p className="text-[12px] leading-relaxed text-black/65">{section.porQueImporta}</p>
+                  </div>
+                  <div>
+                    <SectionLabel text="METODOLOGÍA" />
+                    <p className="text-[12px] leading-relaxed text-black/65">{section.metodologia}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <div

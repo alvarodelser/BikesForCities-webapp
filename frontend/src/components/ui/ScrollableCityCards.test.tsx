@@ -95,6 +95,35 @@ describe('ScrollableCityCards momentum', () => {
     expect(rafQueue.length).toBeGreaterThan(0);
   });
 
+  it('keeps smooth card transitions while wheel-scrolling (no blink)', () => {
+    const { container } = render(
+      <ScrollableCityCards
+        cities={mockCities}
+        selectedCity="Madrid"
+        onCitySelect={vi.fn()}
+        onCityNavigate={vi.fn()}
+      />
+    );
+    const wheelTarget = container.querySelector('[data-testid="cards-container"]') as HTMLElement;
+    if (!wheelTarget) return;
+
+    act(() => {
+      wheelTarget.dispatchEvent(new WheelEvent('wheel', {
+        bubbles: true,
+        cancelable: true,
+        deltaY: 100,
+      }));
+    });
+
+    // Carousel cards must keep their CSS transition during wheel scrolling so the
+    // motion eases instead of snapping (instant transforms read as a "blink").
+    const cards = Array.from(
+      container.querySelectorAll<HTMLElement>('[class*="perspective-1000"]')
+    );
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.every(c => c.className.includes('transition-all'))).toBe(true);
+  });
+
   it('rAF loop terminates — queue empties within 30 frames', () => {
     const { container } = render(
       <ScrollableCityCards

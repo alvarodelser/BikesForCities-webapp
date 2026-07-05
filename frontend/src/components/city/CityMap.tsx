@@ -162,8 +162,8 @@ const CityMap: React.FC<CityMapProps> = ({ city, selectedColor = 'var(--blue)', 
                         '--mode-accent': colorScheme.accent,
                     } as React.CSSProperties}
                 >
-                    {/* Separated header — hidden on mobile */}
-                    {!isMobile && (
+                    {/* Separated header — hidden on mobile and in locked (transparency) mode */}
+                    {!isMobile && !locked && (
                         <div className="z-20 pb-4 shrink-0">
                             <div
                                 className="mx-auto rounded-2xl px-6 flex items-center justify-between"

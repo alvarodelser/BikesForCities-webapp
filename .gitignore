@@ -307,6 +307,9 @@ docker-compose.override.yml
 # Deprecated code
 deprecated_code/
 
+# Presentation deck (large vendored/generated artifacts; kept out of git)
+presentation/
+
 # Documentation files (if not in docs/)
 metrics_dashboard.html
 anteproyecto.md

@@ -38,7 +38,7 @@ const HeroSection: React.FC = () => {
         }}
       />
 
-      <div className="relative z-10 w-full max-w-[var(--container-max)] mx-auto px-[var(--space-gutter)] py-14 md:py-20">
+      <div className="relative z-10 w-full max-w-[var(--container-max)] mx-auto px-[var(--space-gutter)] pb-14 pt-[calc(var(--navbar-height,80px)+3rem)] md:py-20">
 
         {/* ── HEADLINE ── */}
         <h1

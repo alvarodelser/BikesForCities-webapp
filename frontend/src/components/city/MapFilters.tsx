@@ -187,7 +187,7 @@ const MapFilters: React.FC<MapFiltersProps> = ({ city, selectedMode, onModeChang
   // ── Mobile: horizontal pill strip ──
   if (isMobile) {
     return (
-      <div className="flex gap-2 overflow-x-auto px-[var(--space-gutter)] py-2 bg-black/[0.03] border-b border-black/10">
+      <div className="flex flex-wrap gap-2 px-[var(--space-gutter)] py-2 bg-black/[0.03] border-b border-black/10">
         {MODE_META
           .filter(m => isModeAvailable(m.id))
           .map(m => {

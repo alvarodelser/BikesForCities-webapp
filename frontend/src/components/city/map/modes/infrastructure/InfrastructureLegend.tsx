@@ -66,9 +66,12 @@ function buildColorExpression(): any {
 
 // Mini multi-color square shown on the Edificios row when coverage is active
 const CoverageColorSquare = ({ active }: { active: boolean }) => (
-    <div className="w-3 h-3 rounded-sm shadow-sm overflow-hidden flex" style={{ opacity: active ? 1 : 0.3 }}>
+    <div
+        className="grid grid-cols-2 gap-[1.5px] rounded-sm shadow-sm flex-shrink-0"
+        style={{ width: '12px', height: '12px', opacity: active ? 1 : 0.3 }}
+    >
         {COMPONENT_COLORS.slice(0, 4).map((c, i) => (
-            <div key={i} className="flex-1 h-full" style={{ backgroundColor: c }} />
+            <div key={i} className="rounded-[1px]" style={{ backgroundColor: c }} />
         ))}
     </div>
 );
@@ -154,33 +157,33 @@ export default function InfrastructureLegend() {
                     </div>
 
                     {/* Sub-toggle */}
-                    <div className="flex items-center gap-1 flex-1">
-                      <div
-                          className={`flex items-center justify-between flex-1 px-1.5 py-0.5 rounded-xl transition-all duration-300 ${
-                              coverageDisabled
-                                  ? 'opacity-40 cursor-default'
-                                  : 'cursor-pointer hover:bg-black/5'
-                          }`}
-                          onClick={() => !coverageDisabled && setShowCoverage(v => !v)}
-                      >
-                          <span className={`text-[var(--text-xs)] font-medium transition-colors ${showCoverage ? 'text-black/70' : 'text-black/40'}`}>
-                              Cobertura conectada
-                          </span>
-                          <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-300 flex-shrink-0 ml-2 ${
-                              showCoverage ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-gray-300'
-                          }`}>
-                              <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-all duration-300 ${
-                                  showCoverage ? 'left-4' : 'left-0.5'
-                              }`} />
-                          </div>
-                      </div>
-                      <button
-                          onClick={() => openMapHelp('gcc-section')}
-                          className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-black/25 hover:text-black/55 hover:bg-black/5 transition-all"
-                          aria-label="Información sobre cobertura conectada"
-                      >
-                          <HelpCircle className="w-3 h-3" />
-                      </button>
+                    <div
+                        className={`flex items-center justify-between flex-1 px-1.5 py-0.5 rounded-xl transition-all duration-300 ${
+                            coverageDisabled
+                                ? 'opacity-40 cursor-default'
+                                : 'cursor-pointer hover:bg-black/5'
+                        }`}
+                        onClick={() => !coverageDisabled && setShowCoverage(v => !v)}
+                    >
+                        <div className="flex items-center gap-1">
+                            <span className={`text-xs font-semibold text-black/60 transition-colors ${!showCoverage && 'opacity-40'}`}>
+                                Cobertura conectada
+                            </span>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); openMapHelp('gcc-section'); }}
+                                className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 text-black/25 hover:text-black/55 hover:bg-black/5 transition-all"
+                                aria-label="Información sobre cobertura conectada"
+                            >
+                                <HelpCircle className="w-3 h-3" />
+                            </button>
+                        </div>
+                        <div className={`w-7 h-3.5 rounded-full relative transition-colors duration-300 flex-shrink-0 ${
+                            showCoverage ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.4)]' : 'bg-gray-300'
+                        }`}>
+                            <div className={`absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full shadow-sm transition-all duration-300 ${
+                                showCoverage ? 'left-4' : 'left-0.5'
+                            }`} />
+                        </div>
                     </div>
                 </div>
             </div>
