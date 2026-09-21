@@ -1,8 +1,9 @@
 @theme {
     /* ========== FONT FAMILIES ========== */
-    --heading: "EB Garamond", serif;
-    --body: "EB Garamond", serif;
-    --ui: "EB Garamond", serif;
+    /* Namespace must be --font-* for Tailwind v4 to emit font-heading / font-body / font-ui. */
+    --font-heading: "EB Garamond", serif;
+    --font-body: "EB Garamond", serif;
+    --font-ui: "EB Garamond", serif;
   
     /* ========== TEXT SIZES ========== */
     --text-xs: 0.75rem;      /* 12px */
@@ -12,7 +13,7 @@
     --text-xl: 1.25rem;      /* 20px */
     
     /* ========== BORDER RADIUS ========== */
-    --rounded-sm: 0.125rem;  /* 2px */
+    --radius-sm: 0.125rem;   /* 2px */
     
     /* ========== COLORS ========== */
     /* Greens */
@@ -27,6 +28,7 @@
   
     /* Accents */
     --yellow: #F4A24C;
+    --yellow-dark: #8F4D0E;
     --orange: #FF7F50;
     --red: #AF4749;
   

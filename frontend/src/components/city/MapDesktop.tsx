@@ -74,7 +74,7 @@ function CityHero({ city, selectedColor, infraStats }: { city: CityData, selecte
                 </p>
                 <h1
                     className="text-5xl md:text-6xl font-bold text-[var(--blue-dark)] mb-2 leading-tight"
-                    style={{ fontFamily: 'var(--heading)' }}
+                    style={{ fontFamily: 'var(--font-heading)' }}
                 >
                     {city.name}
                 </h1>

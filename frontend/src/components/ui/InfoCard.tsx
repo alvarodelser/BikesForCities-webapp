@@ -28,11 +28,11 @@ const VARIANT_CONFIG = {
     icon: Database,
     tint: 'rgba(244, 162, 76, 0.12)',
     iconBase: 'bg-[var(--yellow)]/20 border-[var(--yellow)]/30',
-    iconText: 'text-[var(--yellow)]',
-    tagBg: 'text-[var(--orange)] bg-[var(--yellow)]/20',
-    subtitleColor: 'text-[var(--orange)]',
-    linkColor: 'text-[var(--orange)]',
-    linkHoverColor: 'hover:text-[var(--yellow)]',
+    iconText: 'text-[var(--yellow-dark)]',
+    tagBg: 'text-[var(--yellow-dark)] bg-[var(--yellow)]/20',
+    subtitleColor: 'text-[var(--yellow-dark)]',
+    linkColor: 'text-[var(--yellow-dark)]',
+    linkHoverColor: 'hover:text-[var(--orange)]',
   },
   blue: {
     icon: FileText,
@@ -80,8 +80,17 @@ const InfoCard: React.FC<InfoCardProps> = ({ item }) => {
         tint={cfg.tint}
         blurStrength="md"
         shadow="sm"
-        className={`w-full transition-all duration-300 flex flex-col relative group cursor-pointer ${isExpanded ? 'min-h-[220px] h-auto z-40' : 'h-[220px]'}`}
+        className={`w-full transition-all duration-300 flex flex-col relative group cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--blue-dark)] ${isExpanded ? 'min-h-[220px] h-auto z-40' : 'h-[220px]'}`}
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setIsExpanded((v) => !v);
+          }
+        }}
       >
         {/* Header Row: Big Icon + Title/Subtitle + Tag in flow */}
         <div className="flex justify-between items-start gap-3 mb-4">

@@ -48,7 +48,7 @@ export default function CityComparisonTab({ selectedCities, mode }: CityComparis
                             <Info size={32} />
                         </div>
                         <div className="flex flex-col gap-2">
-                            <h2 className="text-2xl font-bold text-white tracking-tight" style={{ fontFamily: 'var(--heading)' }}>
+                            <h2 className="text-2xl font-bold text-white tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>
                                 No se ha seleccionado ninguna ciudad
                             </h2>
                             <p className="text-sm text-white/50 leading-relaxed max-w-md mx-auto">

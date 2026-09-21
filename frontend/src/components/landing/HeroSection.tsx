@@ -104,7 +104,7 @@ const HeroSection: React.FC = () => {
               borderRadius: '999px',
               padding: '0.8rem 1.9rem',
               fontSize: '1rem',
-              fontFamily: 'var(--heading)',
+              fontFamily: 'var(--font-heading)',
               fontWeight: 600,
               letterSpacing: '0.01em',
               boxShadow: '0 4px 20px rgba(0,56,73,0.2)',

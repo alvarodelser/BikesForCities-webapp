@@ -71,7 +71,7 @@ const ComparePage: React.FC = () => {
           </p>
           <h1
             className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight"
-            style={{ fontFamily: 'var(--heading)' }}
+            style={{ fontFamily: 'var(--font-heading)' }}
           >
             Compara nuestras ciudades
           </h1>
@@ -143,7 +143,7 @@ const ComparePage: React.FC = () => {
         <MobileTabs.Tab id="overview" label="Visión general">
           <section className="py-16 px-6" style={{ backgroundColor: 'rgba(0,56,73,0.6)' }}>
             <div className="max-w-[var(--container-max)] 3xl:max-w-none mx-auto">
-              <h2 className="text-2xl font-bold text-white mb-8" style={{ fontFamily: 'var(--heading)' }}>
+              <h2 className="text-2xl font-bold text-white mb-8" style={{ fontFamily: 'var(--font-heading)' }}>
                 Visión general
               </h2>
               <div className="flex flex-col gap-6">

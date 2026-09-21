@@ -148,7 +148,7 @@ const CityPin: React.FC<CityPinProps> = ({
           relative cursor-pointer transition-all duration-500 ease-out
           ${isExpanded 
             ? `${config.expanded} ${config.padding} flex items-center gap-3 min-w-max` 
-            : `${config.diamond} rotate--45 flex items-center justify-center`
+            : `${config.diamond} flex items-center justify-center`
           }
           ${styles.base}
           ${isExpanded ? styles.expanded : styles.hover}

@@ -471,7 +471,7 @@ const StatusPage: React.FC = () => {
   const totalRoutes = status.cities.reduce((s, c) => s + c.routes, 0);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--body)' }}>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--font-body)' }}>
       <div className="max-w-6xl mx-auto px-6 pt-32 pb-24 md:py-24 space-y-20">
 
         {/* Header */}

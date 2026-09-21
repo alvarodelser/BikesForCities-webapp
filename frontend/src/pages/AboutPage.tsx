@@ -22,7 +22,7 @@ const AboutPage: React.FC = () => {
   return (
     <div
       className="min-h-screen"
-      style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--body)' }}
+      style={{ backgroundColor: 'var(--cream)', fontFamily: 'var(--font-body)' }}
     >
       <div className="max-w-[var(--container-max)] mx-auto px-[var(--space-gutter)] pt-32 pb-[var(--space-section-y)] md:py-[var(--space-section-y)] space-y-24">
 
